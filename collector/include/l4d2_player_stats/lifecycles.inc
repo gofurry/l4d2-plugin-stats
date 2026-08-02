@@ -231,6 +231,8 @@ public void LPS_Event_RoundEnd(Event event, const char[] name, bool dontBroadcas
 
 public void LPS_Event_MapTransition(Event event, const char[] name, bool dontBroadcast)
 {
+	LPS_OnSessionsMapTransition();
+
 	if (!g_LPSRunActive)
 	{
 		return;

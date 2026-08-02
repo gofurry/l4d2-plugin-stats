@@ -193,6 +193,13 @@ void LPS_OnSessionsMapEnd()
 	g_LPSSessionMapEnding = true;
 }
 
+void LPS_OnSessionsMapTransition()
+{
+	// listen servers can disconnect the host before SourceMod emits OnMapEnd.
+	// The gameplay event is therefore the earliest reliable transfer boundary.
+	g_LPSSessionMapEnding = true;
+}
+
 public void LPS_Event_PlayerTeam(Event event, const char[] name, bool dontBroadcast)
 {
 	int client = GetClientOfUserId(event.GetInt("userid"));
