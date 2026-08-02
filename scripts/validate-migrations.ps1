@@ -13,6 +13,7 @@ $requiredTables = @(
     "lps_rounds",
     "lps_player_segments",
     "lps_pve_segment_stats",
+    "lps_pve_segment_equipment_stats",
     "lps_versus_survivor_stats",
     "lps_versus_infected_stats"
 )
@@ -22,7 +23,42 @@ $requiredIndexes = @(
     "lps_idx_runs_server_started",
     "lps_idx_rounds_run_sequence",
     "lps_idx_segments_round_steam",
-    "lps_idx_segments_steam_started"
+    "lps_idx_segments_steam_started",
+    "lps_idx_pve_equipment_id"
+)
+$requiredPvEColumns = @(
+    "smoker_kills",
+    "charger_kills",
+    "damage_to_smoker",
+    "damage_to_charger",
+    "smoker_controls_received",
+    "charger_controls_received",
+    "smoker_controlled_seconds",
+    "charger_controlled_seconds",
+    "smoker_saves",
+    "charger_saves",
+    "melee_tongue_self_cuts",
+    "tank_rocks_destroyed",
+    "witch_oneshots",
+    "witch_solo_kills",
+    "tank_encounters",
+    "tank_kill_participations",
+    "witch_encounters",
+    "witch_kill_participations",
+    "incendiary_packs_deployed",
+    "explosive_packs_deployed"
+)
+$requiredEquipmentColumns = @(
+    "equipment_id",
+    "actions",
+    "common_kills",
+    "special_kills",
+    "tank_kills",
+    "witch_kills",
+    "headshot_kills",
+    "damage_to_special",
+    "damage_to_tank",
+    "damage_to_witch"
 )
 
 foreach ($driver in $drivers) {
@@ -60,6 +96,18 @@ foreach ($driver in $drivers) {
     foreach ($index in $requiredIndexes) {
         if ($sql -notmatch "(?i)\b$index\b") {
             throw "$driver migration is missing index $index."
+        }
+    }
+
+    foreach ($column in $requiredPvEColumns) {
+        if ($sql -notmatch "(?i)\b$column\b") {
+            throw "$driver migration is missing PvE column $column."
+        }
+    }
+
+    foreach ($column in $requiredEquipmentColumns) {
+        if ($sql -notmatch "(?i)\b$column\b") {
+            throw "$driver migration is missing equipment column $column."
         }
     }
 

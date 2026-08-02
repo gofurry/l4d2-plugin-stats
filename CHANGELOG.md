@@ -4,6 +4,13 @@ All notable changes to this project will be documented in this file.
 
 ## Unreleased
 
+- Add fixed-ID per-equipment PvE snapshots for official firearms, official melee weapons, and official throwables.
+- Aggregate every unknown/custom firearm into one bounded `Other Firearm` row while ignoring custom melee and throwables.
+- Add per-class special infected kills and effective damage.
+- Add Smoker/Hunter/Jockey/Charger control counts, durations, and attributable teammate saves.
+- Add self tongue cuts with official melee, destroyed Tank rocks, Witch one-shots and solo kills.
+- Add Tank/Witch encounters and kill participation plus incendiary/explosive ammo-pack deployments.
+- Keep firearm shots, hits, accuracy, ammunition, reloads, common-infected damage, melee hit metrics, decapitations, and laser sights out of scope.
 - Add successful medkit self/other use counts and actual permanent health restored.
 - Add pills, adrenaline, and actual temporary health received statistics.
 - Add per-Segment chapter participation, alive/dead completion, and campaign completion results.

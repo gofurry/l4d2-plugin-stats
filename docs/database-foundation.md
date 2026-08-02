@@ -56,6 +56,7 @@ sm_lps_retry_maximum "60"
 sm_lps_log_suppression_window "300"
 sm_lps_closed_session_queue_limit "256"
 sm_lps_closed_lifecycle_queue_limit "512"
+sm_lps_closed_equipment_queue_limit "4096"
 ```
 
 `server_name` 留空时使用游戏服务器的 `hostname`。

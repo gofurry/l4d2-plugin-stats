@@ -2,9 +2,9 @@
 
 ## Current Position
 
-项目已经完成数据库地基、真人身份/Session、Run/Round/Segment 生命周期和 v0.4.0 PvE 核心战斗统计的本地验收。v0.5.0 的治疗、临时生命和章节/战役成绩已经完成实现，正在进行本地玩法数据验收。SQLite 已在真实 L4D2/SourceMod 环境中进入 `ready`；完整多人对抗、MySQL 和 PostgreSQL 实机兼容验证保留到 v0.7.0。
+项目已经完成数据库地基、真人身份/Session、Run/Round/Segment 生命周期、v0.4.0 PvE 核心战斗统计和 v0.5.0 治疗/章节成绩的本地验收。v0.5.1 正在加入设备、特感职业、控制/解救、Boss 参与和技巧统计。SQLite 已在真实 L4D2/SourceMod 环境中进入 `ready`；完整多人对抗、MySQL 和 PostgreSQL 实机兼容验证保留到 v0.7.0。
 
-当前已采集 PvE 击杀、有效伤害、承伤、友伤、基础救援、治疗、临时生命和章节/战役成绩。更多 PvE 扩展字段将在 v0.5.x 讨论并冻结契约后再排期；Versus 仍使用后续独立统计模型。SourcePawn 采集器、数据库结构和未来 Go 服务的公共边界仍处于 pre-v1 阶段，可以按验证结果调整。
+当前已采集 PvE 击杀、有效伤害、承伤、友伤、基础救援、治疗、临时生命和章节/战役成绩；v0.5.1 的扩展口径已经冻结并进入验收。Versus 仍使用后续独立统计模型。SourcePawn 采集器、数据库结构和未来 Go 服务的公共边界仍处于 pre-v1 阶段，可以按验证结果调整。
 
 ## Roadmap Strategy
 
@@ -151,7 +151,7 @@
 
 ### v0.5.0 - Healing and Chapter Results
 
-**Status:** Implementation complete; local gameplay validation pending
+**Status:** Completed (local validation scope)
 
 **Scope:** User-facing / Correctness / Documentation
 
@@ -163,7 +163,7 @@
 - [x] 统计止痛药、肾上腺素和实际临时生命
 - [x] 记录章节参与、完成时存活状态和战役完成
 - [x] 添加事件字段和特殊边界测试文档
-- [ ] 在真实本地 PvE 对局中核对治疗、临时生命和章节/战役数值
+- [x] 在真实本地 PvE 对局中核对治疗、临时生命和章节/战役数值
 
 #### Acceptance Criteria
 
@@ -173,36 +173,41 @@
 
 ---
 
-### v0.5.x - PvE Statistics Expansion
+### v0.5.1 - PvE Statistics Expansion
 
-**Status:** Deferred (scope discussion pending)
+**Status:** Implementation complete; local gameplay validation pending
 
 **Scope:** User-facing / Architecture / Testing
 
-**Goal:** 在不提前锁定字段的前提下，讨论并筛选下一批有可靠事件来源和明确展示价值的 PvE 数据扩展。
+**Goal:** 在固定内存与数据库边界内补齐可可靠归属的 PvE 设备、控制、参与和技巧统计。
 
 #### Focus
 
-- PvE 扩展指标的使用场景和展示价值
-- 事件来源、可归属性和作弊/三方图干扰风险
-- 是否需要提高 `stats_version` 或增加数据库迁移
+- 固定 ID 的官方设备明细与 `Other Firearm`
+- 特感职业、控制/解救和 Boss 参与
+- 可验证技巧与补给部署
 
 #### Tasks
 
-- [ ] 讨论候选指标及精确定义
-- [ ] 核对 SourceMod/L4D2 事件和可测试边界
-- [ ] 确认数据库兼容方案与聚合方式
-- [ ] 契约确认后再拆分为正式 patch 版本排期
+- [x] 按六种普通特感拆分击杀和有效伤害
+- [x] 记录官方枪械、官方近战和官方投掷物的固定设备行
+- [x] 将未知/第三方枪械统一归入单一 `Other Firearm`，忽略自定义近战和投掷物
+- [x] 记录四种控制次数、持续秒数和可归属的真人队友解救
+- [x] 记录本人近战断舌、Tank 石头空爆、Witch 一击与单人击杀
+- [x] 记录 Tank/Witch 遭遇、击杀参与和两种弹药升级包部署
+- [x] 扩展三数据库初始结构、SQLite 集成测试和只读检查工具
+- [ ] 在真实本地 PvE 对局中完成 v0.5.1 测试清单
 
 #### Acceptance Criteria
 
-- 每个进入排期的字段都有明确所有者、统计时机和排除规则
-- 不把无法可靠归属的推测数据写入永久明细
-- 在讨论完成前不改变 schema、`stats_version` 或发布计划
+- 每个字段都有明确所有者、统计时机和排除规则
+- 枪械射击/命中/弹药/换弹、普通感染者伤害、近战命中/斩首和激光瞄准器不进入数据库
+- 设备类别和总计可从精确设备行无损聚合
+- 常见 5×5～10×10 与大型 20×20 部署下不产生逐事件 SQL 或动态设备行
 
 #### Notes
 
-本节仅是讨论入口，不代表已经承诺具体 v0.5.x 发布内容。
+插件尚未发布，v0.5.1 直接重写 `0001_initial.sql`。验收前需清空或备份旧数据库；首次公开发布后不得再修改已经应用的迁移。
 
 ---
 

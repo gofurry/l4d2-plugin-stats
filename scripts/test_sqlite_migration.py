@@ -7,6 +7,53 @@ from pathlib import Path
 PROJECT_ROOT = Path(__file__).resolve().parent.parent
 MIGRATION = PROJECT_ROOT / "database" / "migrations" / "sqlite" / "0001_initial.sql"
 
+PVE_STAT_COLUMNS = [
+    "stats_version", "last_saved_at", "common_kills", "special_kills",
+    "tank_kills", "witch_kills", "damage_to_special", "damage_to_tank",
+    "damage_to_witch", "damage_taken_infected", "friendly_fire_to_humans",
+    "friendly_fire_to_bots", "friendly_fire_taken", "incapacitations",
+    "deaths", "incap_revives", "ledge_rescues", "defib_revives",
+    "rescues_received", "medkits_used_self", "medkits_used_on_others",
+    "medkit_healing_self", "medkit_healing_others", "pills_used",
+    "adrenaline_used", "temporary_health_received", "chapter_participations",
+    "chapter_completions_alive", "chapter_completions_dead",
+    "campaign_completions", "smoker_kills", "boomer_kills", "hunter_kills",
+    "spitter_kills", "jockey_kills", "charger_kills", "damage_to_smoker",
+    "damage_to_boomer", "damage_to_hunter", "damage_to_spitter",
+    "damage_to_jockey", "damage_to_charger", "smoker_controls_received",
+    "hunter_controls_received", "jockey_controls_received",
+    "charger_controls_received", "smoker_controlled_seconds",
+    "hunter_controlled_seconds", "jockey_controlled_seconds",
+    "charger_controlled_seconds", "smoker_saves", "hunter_saves",
+    "jockey_saves", "charger_saves", "melee_tongue_self_cuts",
+    "tank_rocks_destroyed", "witch_oneshots", "witch_solo_kills",
+    "tank_encounters", "tank_kill_participations", "witch_encounters",
+    "witch_kill_participations", "incendiary_packs_deployed",
+    "explosive_packs_deployed", "revision",
+]
+
+EQUIPMENT_STAT_COLUMNS = [
+    "equipment_id", "stats_version", "last_saved_at", "actions",
+    "common_kills", "special_kills", "tank_kills", "witch_kills",
+    "headshot_kills", "damage_to_special", "damage_to_tank",
+    "damage_to_witch", "revision",
+]
+
+
+def build_snapshot_upsert(table: str, key_columns: list[str], columns: list[str]) -> str:
+    all_columns = ["segment_id", *columns]
+    updates = ", ".join(
+        f"{column} = excluded.{column}"
+        for column in columns
+        if column not in key_columns
+    )
+    conflict = ", ".join(["segment_id", *key_columns])
+    return (
+        f"INSERT INTO {table} ({', '.join(all_columns)}) "
+        f"VALUES ({', '.join(['?'] * len(all_columns))}) "
+        f"ON CONFLICT({conflict}) DO UPDATE SET {updates}"
+    )
+
 
 def main() -> None:
     sql = MIGRATION.read_text(encoding="utf-8")
@@ -202,57 +249,15 @@ def main() -> None:
             ),
         )
 
-        pve_stats_insert = (
-            "INSERT INTO lps_pve_segment_stats "
-            "(segment_id, stats_version, last_saved_at, common_kills, special_kills, "
-            "tank_kills, witch_kills, damage_to_special, damage_to_tank, "
-            "damage_to_witch, damage_taken_infected, friendly_fire_to_humans, "
-            "friendly_fire_to_bots, friendly_fire_taken, incapacitations, deaths, "
-            "incap_revives, ledge_rescues, defib_revives, rescues_received, "
-            "medkits_used_self, medkits_used_on_others, medkit_healing_self, "
-            "medkit_healing_others, pills_used, adrenaline_used, "
-            "temporary_health_received, chapter_participations, "
-            "chapter_completions_alive, chapter_completions_dead, "
-            "campaign_completions, revision) "
-            "VALUES (" + ", ".join(["?"] * 32) + ") "
-            "ON CONFLICT(segment_id) DO UPDATE SET "
-            "stats_version = excluded.stats_version, "
-            "last_saved_at = excluded.last_saved_at, "
-            "common_kills = excluded.common_kills, "
-            "special_kills = excluded.special_kills, "
-            "tank_kills = excluded.tank_kills, "
-            "witch_kills = excluded.witch_kills, "
-            "damage_to_special = excluded.damage_to_special, "
-            "damage_to_tank = excluded.damage_to_tank, "
-            "damage_to_witch = excluded.damage_to_witch, "
-            "damage_taken_infected = excluded.damage_taken_infected, "
-            "friendly_fire_to_humans = excluded.friendly_fire_to_humans, "
-            "friendly_fire_to_bots = excluded.friendly_fire_to_bots, "
-            "friendly_fire_taken = excluded.friendly_fire_taken, "
-            "incapacitations = excluded.incapacitations, "
-            "deaths = excluded.deaths, "
-            "incap_revives = excluded.incap_revives, "
-            "ledge_rescues = excluded.ledge_rescues, "
-            "defib_revives = excluded.defib_revives, "
-            "rescues_received = excluded.rescues_received, "
-            "medkits_used_self = excluded.medkits_used_self, "
-            "medkits_used_on_others = excluded.medkits_used_on_others, "
-            "medkit_healing_self = excluded.medkit_healing_self, "
-            "medkit_healing_others = excluded.medkit_healing_others, "
-            "pills_used = excluded.pills_used, "
-            "adrenaline_used = excluded.adrenaline_used, "
-            "temporary_health_received = excluded.temporary_health_received, "
-            "chapter_participations = excluded.chapter_participations, "
-            "chapter_completions_alive = excluded.chapter_completions_alive, "
-            "chapter_completions_dead = excluded.chapter_completions_dead, "
-            "campaign_completions = excluded.campaign_completions, "
-            "revision = excluded.revision"
+        pve_stats_insert = build_snapshot_upsert(
+            "lps_pve_segment_stats", [], PVE_STAT_COLUMNS
         )
         database.execute(
             pve_stats_insert,
             (
                 segment_id, 1, 20, 5, 1, 0, 0, 80, 0, 0, 12, 0, 3, 0,
-                0, 0, 0, 0, 0, 0, 1, 0, 42, 0, 1, 0, 50, 0, 0, 0, 0, 1,
+                0, 0, 0, 0, 0, 0, 1, 0, 42, 0, 1, 0, 50, 0, 0, 0, 0,
+                *([0] * 34), 1,
             ),
         )
         # Absolute snapshots replace the stored values; they must never be
@@ -261,8 +266,31 @@ def main() -> None:
             pve_stats_insert,
             (
                 segment_id, 1, 45, 12, 3, 1, 1, 250, 400, 90, 35, 7, 8, 4,
-                2, 1, 1, 1, 1, 3, 2, 1, 80, 55, 2, 1, 125, 1, 1, 0, 0, 2,
+                2, 1, 1, 1, 1, 3, 2, 1, 80, 55, 2, 1, 125, 1, 1, 0, 0,
+                1, 0, 1, 0, 1, 0, 100, 20, 50, 10, 30, 40,
+                1, 2, 3, 4, 5, 6, 7, 8, 2, 1, 0, 1,
+                1, 2, 1, 1, 1, 1, 1, 1, 1, 2, 2,
             ),
+        )
+
+        equipment_stats_insert = build_snapshot_upsert(
+            "lps_pve_segment_equipment_stats",
+            ["equipment_id"],
+            EQUIPMENT_STAT_COLUMNS,
+        )
+        # Equipment 12 is the official M16; equipment 1 is the single fixed
+        # Other Firearm bucket used by every unknown/custom firearm.
+        database.execute(
+            equipment_stats_insert,
+            (segment_id, 12, 1, 20, 0, 3, 1, 0, 0, 2, 80, 0, 0, 1),
+        )
+        database.execute(
+            equipment_stats_insert,
+            (segment_id, 12, 1, 45, 0, 7, 2, 1, 0, 4, 180, 400, 0, 2),
+        )
+        database.execute(
+            equipment_stats_insert,
+            (segment_id, 1, 1, 45, 0, 2, 1, 0, 0, 1, 70, 0, 0, 1),
         )
 
         # Simulate a process that disappeared while a Versus lifecycle was active.
@@ -342,8 +370,8 @@ def main() -> None:
             )
         }
 
-        assert len(tables) == 11, tables
-        assert len(indexes) == 6, indexes
+        assert len(tables) == 12, tables
+        assert len(indexes) == 7, indexes
         status = database.execute(
             "SELECT status FROM lps_server_boots WHERE boot_id = 'test-01:1:a'"
         ).fetchone()
@@ -384,22 +412,27 @@ def main() -> None:
         ).fetchone()
         assert segment == ("survivor", 31, "closed", 2), segment
         pve_stats = database.execute(
-            "SELECT stats_version, common_kills, special_kills, tank_kills, "
-            "witch_kills, damage_to_special, damage_to_tank, damage_to_witch, "
-            "damage_taken_infected, friendly_fire_to_humans, "
-            "friendly_fire_to_bots, friendly_fire_taken, incapacitations, deaths, "
-            "incap_revives, ledge_rescues, defib_revives, rescues_received, "
-            "medkits_used_self, medkits_used_on_others, medkit_healing_self, "
-            "medkit_healing_others, pills_used, adrenaline_used, "
-            "temporary_health_received, chapter_participations, "
-            "chapter_completions_alive, chapter_completions_dead, "
-            "campaign_completions, revision "
+            f"SELECT {', '.join(PVE_STAT_COLUMNS)} "
             "FROM lps_pve_segment_stats WHERE segment_id = ?", (segment_id,)
         ).fetchone()
         assert pve_stats == (
-            1, 12, 3, 1, 1, 250, 400, 90, 35, 7, 8, 4, 2, 1, 1, 1, 1, 3,
-            2, 1, 80, 55, 2, 1, 125, 1, 1, 0, 0, 2,
+            1, 45, 12, 3, 1, 1, 250, 400, 90, 35, 7, 8, 4,
+            2, 1, 1, 1, 1, 3, 2, 1, 80, 55, 2, 1, 125, 1, 1, 0, 0,
+            1, 0, 1, 0, 1, 0, 100, 20, 50, 10, 30, 40,
+            1, 2, 3, 4, 5, 6, 7, 8, 2, 1, 0, 1,
+            1, 2, 1, 1, 1, 1, 1, 1, 1, 2, 2,
         ), pve_stats
+
+        equipment_stats = database.execute(
+            f"SELECT {', '.join(EQUIPMENT_STAT_COLUMNS)} "
+            "FROM lps_pve_segment_equipment_stats WHERE segment_id = ? "
+            "ORDER BY equipment_id",
+            (segment_id,),
+        ).fetchall()
+        assert equipment_stats == [
+            (1, 1, 45, 0, 2, 1, 0, 0, 1, 70, 0, 0, 1),
+            (12, 1, 45, 0, 7, 2, 1, 0, 4, 180, 400, 0, 2),
+        ], equipment_stats
 
         stale_session = database.execute(
             "SELECT ended_at, status FROM lps_sessions WHERE session_id = ?",

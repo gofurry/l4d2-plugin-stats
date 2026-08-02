@@ -2,7 +2,7 @@
 
 一个面向《求生之路 2》服务器的玩家身份、会话和玩法统计系统。
 
-项目采用 monorepo。当前实现为 v0.5.0 PvE 统计采集器：在真人身份、Session、Run、Round 和 Segment 生命周期之上，已接入 `coop` 与 `realism` 的战斗、救援、治疗、临时生命和章节/战役成绩。插件稳定后再开发 Go 后端及其内嵌前端。
+项目采用 monorepo。当前实现为 v0.5.1 PvE 统计采集器：在真人身份、Session、Run、Round 和 Segment 生命周期之上，已接入 `coop` 与 `realism` 的战斗、救援、治疗、章节成绩、设备明细、控制/解救和技巧统计。插件稳定后再开发 Go 后端及其内嵌前端。
 
 ## 当前状态
 
@@ -31,9 +31,13 @@
 - 拆分医疗包自疗、治疗队友次数及实际恢复的真实生命；
 - 统计止痛药、肾上腺素使用次数和实际获得的临时生命；
 - 统计章节参与、完成时存活/死亡状态及战役完成；
+- 拆分六种普通特感的击杀、伤害、受控次数/时长和队友解救；
+- 以固定 ID 记录官方枪械与近战明细，未知/第三方枪械只进入 `Other Firearm`；
+- 记录三种官方投掷物、Boss 参与、本人近战断舌、Tank 石头空爆和 Witch 技巧；
+- 记录燃烧与高爆弹药升级包部署，不记录激光瞄准器；
 - PvE 统计使用绝对快照与有界关闭队列，不为 Bot 建立个人统计。
 
-v0.5.0 **尚不采集 Versus 玩法统计**；更多 PvE 字段将在 v0.5.x 契约讨论完成后再排期。
+v0.5.1 **尚不采集 Versus 玩法统计**；设备类别和总计将在未来 Go 查询侧从精确设备行聚合。
 
 已经确认的基础边界：
 
@@ -80,7 +84,7 @@ VS Code 可以直接执行 `L4D2 Stats: Build` 或 `L4D2 Stats: Build and Deploy
 
 数据库、ConVar 和 SQLite 首次验证步骤见[数据库地基部署](docs/database-foundation.md)。数据库密码只应存在于服务器自己的 `addons/sourcemod/configs/databases.cfg`，不得提交到仓库。
 
-v0.3 的生命周期验收见 [Run / Round / Segment 测试清单](docs/v0.3-test-checklist.md)，v0.4 的战斗统计验收见 [PvE 核心统计测试清单](docs/v0.4-test-checklist.md)，v0.5 的治疗与章节统计验收见 [PvE 治疗与章节测试清单](docs/v0.5-test-checklist.md)。
+v0.3 的生命周期验收见 [Run / Round / Segment 测试清单](docs/v0.3-test-checklist.md)，v0.4 的战斗统计验收见 [PvE 核心统计测试清单](docs/v0.4-test-checklist.md)，v0.5 的治疗与章节统计验收见 [PvE 治疗与章节测试清单](docs/v0.5-test-checklist.md)，v0.5.1 的扩展统计验收见 [PvE 扩展统计测试清单](docs/v0.5.1-test-checklist.md)。
 
 管理员命令：
 
