@@ -152,6 +152,7 @@ void LPS_StartClientSegment(int client, const char[] side)
 	g_LPSClientSegmentPersistedRevision[client] = 0;
 	g_LPSClientSegmentDirty[client] = true;
 	g_LPSClientSegmentActive[client] = true;
+	LPS_OnClientSegmentStartedForStats(client);
 
 	LPS_RequestFlush();
 }
@@ -184,6 +185,7 @@ void LPS_EndClientSegment(int client, const char[] status)
 	}
 
 	LPS_UpdateClientSegmentClock(client);
+	LPS_OnClientSegmentEndingForStats(client);
 	LPSSegmentSnapshot snapshot;
 	LPS_FillClientSegmentSnapshot(client, snapshot, true, status);
 	LPS_QueueClosedSegment(snapshot);
@@ -396,6 +398,7 @@ void LPS_ResetClientSegmentState(int client)
 	g_LPSClientSegmentActiveSeconds[client] = 0;
 	g_LPSClientSegmentCurrentRevision[client] = 0;
 	g_LPSClientSegmentPersistedRevision[client] = 0;
+	LPS_ResetClientPvEStatsState(client);
 }
 
 int LPS_GetActiveSegmentCount()

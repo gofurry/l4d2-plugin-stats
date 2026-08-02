@@ -82,6 +82,13 @@ public Action LPS_Command_Status(int client, int args)
 		LPS_GetPendingClosedLifecycleCount(),
 		g_LPSClosedLifecycleQueueLimit.IntValue
 	);
+	ReplyToCommand(
+		client,
+		"[LPS] active_pve_stats=%d pending_closed_pve_stats=%d/%d",
+		LPS_GetActivePvEStatsCount(),
+		LPS_GetPendingClosedPvEStatsCount(),
+		g_LPSClosedLifecycleQueueLimit.IntValue
+	);
 
 	if (g_LPSLastDatabaseError[0] != '\0')
 	{

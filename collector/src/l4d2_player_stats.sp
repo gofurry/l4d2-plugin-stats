@@ -1,4 +1,5 @@
 #include <sourcemod>
+#include <sdkhooks>
 #include <sdktools>
 
 #pragma semicolon 1
@@ -12,6 +13,7 @@
 #include <l4d2_player_stats/lifecycles>
 #include <l4d2_player_stats/segments>
 #include <l4d2_player_stats/sessions>
+#include <l4d2_player_stats/pve_stats>
 #include <l4d2_player_stats/migrations>
 #include <l4d2_player_stats/database>
 #include <l4d2_player_stats/commands>
@@ -44,6 +46,7 @@ public void OnPluginStart()
 	LPS_InitializeLifecycles();
 	LPS_InitializeSegments();
 	LPS_InitializeSessions();
+	LPS_InitializePvEStats();
 	LPS_RegisterAdminCommands();
 	AutoExecConfig(true, "l4d2_player_stats");
 
@@ -58,6 +61,7 @@ public void OnConfigsExecuted()
 public void OnPluginEnd()
 {
 	LPS_ShutdownLifecycles();
+	LPS_ShutdownPvEStats();
 	LPS_ShutdownSessions();
 	LPS_ShutdownRuntime();
 }

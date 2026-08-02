@@ -556,7 +556,8 @@ void LPS_RequestFlush()
 
 	char lifecycleError[LPS_MAX_DATABASE_ERROR];
 	if (!LPS_AddLifecycleFlushQueries(transaction, queryCount, lifecycleError, sizeof(lifecycleError))
-		|| !LPS_AddSegmentFlushQueries(transaction, queryCount, lifecycleError, sizeof(lifecycleError)))
+		|| !LPS_AddSegmentFlushQueries(transaction, queryCount, lifecycleError, sizeof(lifecycleError))
+		|| !LPS_AddPvEStatsFlushQueries(transaction, queryCount, lifecycleError, sizeof(lifecycleError)))
 	{
 		delete transaction;
 		g_LPSHeartbeatInFlight = false;
@@ -592,6 +593,7 @@ public void LPS_OnFlushSucceeded(
 	LPS_OnSessionFlushSucceeded();
 	LPS_OnLifecycleFlushSucceeded();
 	LPS_OnSegmentFlushSucceeded();
+	LPS_OnPvEStatsFlushSucceeded();
 
 	if (g_LPSHeartbeatQueued)
 	{

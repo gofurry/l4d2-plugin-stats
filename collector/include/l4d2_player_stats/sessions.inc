@@ -94,6 +94,7 @@ void LPS_InitializeSessions()
 
 public void OnClientConnected(int client)
 {
+	LPS_ResetStatsDamageEntity(client);
 	LPS_ResetClientSegmentState(client);
 	LPS_ResetClientSessionState(client, true);
 }
@@ -114,6 +115,8 @@ public void OnClientAuthorized(int client, const char[] auth)
 
 public void OnClientPutInServer(int client)
 {
+	LPS_HookStatsClient(client);
+
 	if (IsFakeClient(client))
 	{
 		return;
@@ -157,6 +160,7 @@ public void OnClientDisconnect(int client)
 
 	LPS_ResetClientSegmentState(client);
 	LPS_ResetClientSessionState(client, true);
+	LPS_ResetStatsDamageEntity(client);
 }
 
 public Action LPS_Timer_SessionClock(Handle timer)

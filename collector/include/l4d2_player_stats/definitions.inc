@@ -3,9 +3,10 @@
 #endif
 #define _l4d2_player_stats_definitions_included
 
-#define LPS_VERSION "0.3.0"
+#define LPS_VERSION "0.4.0"
 #define LPS_SCHEMA_VERSION 1
 #define LPS_MIGRATION_NAME "initial_schema"
+#define LPS_STATS_VERSION 1
 
 #define LPS_MAX_DATABASE_CONFIG 64
 #define LPS_MAX_SERVER_KEY 65
@@ -30,6 +31,7 @@
 #define LPS_MAX_LIFECYCLE_STATUS 16
 #define LPS_MAX_SIDE_NAME 16
 #define LPS_SESSION_TRANSFER_TIMEOUT 120
+#define LPS_MAX_ENTITY_INDEX 2048
 
 #define LPS_TEAM_SPECTATOR 1
 #define LPS_TEAM_SURVIVOR 2
@@ -68,4 +70,25 @@ enum LPSContinuationKind
 	LPSContinuation_MapTransition,
 	LPSContinuation_Retry,
 	LPSContinuation_VersusHalf
+};
+
+enum LPSPvEStat
+{
+	LPSPvEStat_CommonKills = 0,
+	LPSPvEStat_SpecialKills,
+	LPSPvEStat_TankKills,
+	LPSPvEStat_WitchKills,
+	LPSPvEStat_DamageToSpecial,
+	LPSPvEStat_DamageToTank,
+	LPSPvEStat_DamageToWitch,
+	LPSPvEStat_DamageTakenInfected,
+	LPSPvEStat_FriendlyFireToHumans,
+	LPSPvEStat_FriendlyFireToBots,
+	LPSPvEStat_FriendlyFireTaken,
+	LPSPvEStat_Incapacitations,
+	LPSPvEStat_Deaths,
+	LPSPvEStat_IncapRevives,
+	LPSPvEStat_LedgeRescues,
+	LPSPvEStat_DefibRevives,
+	LPSPvEStat_RescuesReceived
 };
