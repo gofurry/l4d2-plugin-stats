@@ -2,9 +2,9 @@
 
 ## Current Position
 
-项目已经完成数据库地基、真人身份/Session 以及 Run、Round 和 Segment 生命周期。PvE 通关、团灭重试、异常换图、本地对抗首半场和正常跨图 Session 续接均已通过真实 SQLite 数据验收。v0.4.0 的 PvE 核心统计已经完成实现，正在进行本地玩法数据验收。SQLite 已在真实 L4D2/SourceMod 环境中进入 `ready`；完整多人对抗、MySQL 和 PostgreSQL 实机兼容验证保留到 v0.7.0。
+项目已经完成数据库地基、真人身份/Session、Run/Round/Segment 生命周期和 v0.4.0 PvE 核心战斗统计的本地验收。v0.5.0 的治疗、临时生命和章节/战役成绩已经完成实现，正在进行本地玩法数据验收。SQLite 已在真实 L4D2/SourceMod 环境中进入 `ready`；完整多人对抗、MySQL 和 PostgreSQL 实机兼容验证保留到 v0.7.0。
 
-当前已采集 PvE 击杀、有效伤害、承伤、友伤和基础救援；治疗、临时生命、章节成绩与 Versus 玩法统计仍在后续阶段。SourcePawn 采集器、数据库结构和未来 Go 服务的公共边界仍处于 pre-v1 阶段，可以按验证结果调整。
+当前已采集 PvE 击杀、有效伤害、承伤、友伤、基础救援、治疗、临时生命和章节/战役成绩。更多 PvE 扩展字段将在 v0.5.x 讨论并冻结契约后再排期；Versus 仍使用后续独立统计模型。SourcePawn 采集器、数据库结构和未来 Go 服务的公共边界仍处于 pre-v1 阶段，可以按验证结果调整。
 
 ## Roadmap Strategy
 
@@ -120,7 +120,7 @@
 
 ### v0.4.0 - PvE Core Statistics
 
-**Status:** Implementation complete; local gameplay validation pending
+**Status:** Completed (local validation scope)
 
 **Scope:** User-facing / Correctness / Testing
 
@@ -139,7 +139,7 @@
 - [x] 采集感染者承伤与三类友伤
 - [x] 采集倒地、死亡、倒地救援、挂边救援和电击器复活
 - [x] 在代码与 SQLite 集成测试中验证数据只写入 PvE Segment 统计表
-- [ ] 在真实本地 `coop` / `realism` 对局中核对首批统计数值
+- [x] 在真实本地 `coop` 对局中核对首批统计数值，并确认 `realism` 复用相同 PvE 采集路径
 
 #### Acceptance Criteria
 
@@ -151,7 +151,7 @@
 
 ### v0.5.0 - Healing and Chapter Results
 
-**Status:** Planned
+**Status:** Implementation complete; local gameplay validation pending
 
 **Scope:** User-facing / Correctness / Documentation
 
@@ -159,16 +159,50 @@
 
 #### Tasks
 
-- [ ] 拆分医疗包自疗、他疗及实际真实生命恢复
-- [ ] 统计止痛药、肾上腺素和实际临时生命
-- [ ] 记录章节参与、完成时存活状态和战役完成
-- [ ] 添加事件字段和特殊边界测试文档
+- [x] 拆分医疗包自疗、他疗及实际真实生命恢复
+- [x] 统计止痛药、肾上腺素和实际临时生命
+- [x] 记录章节参与、完成时存活状态和战役完成
+- [x] 添加事件字段和特殊边界测试文档
+- [ ] 在真实本地 PvE 对局中核对治疗、临时生命和章节/战役数值
 
 #### Acceptance Criteria
 
 - 医疗包真实生命与临时生命不混为同一指标
 - 中途加入者不会获得加入前的章节数据
 - 闲置、观战和 Bot 不获得个人章节完成记录
+
+---
+
+### v0.5.x - PvE Statistics Expansion
+
+**Status:** Deferred (scope discussion pending)
+
+**Scope:** User-facing / Architecture / Testing
+
+**Goal:** 在不提前锁定字段的前提下，讨论并筛选下一批有可靠事件来源和明确展示价值的 PvE 数据扩展。
+
+#### Focus
+
+- PvE 扩展指标的使用场景和展示价值
+- 事件来源、可归属性和作弊/三方图干扰风险
+- 是否需要提高 `stats_version` 或增加数据库迁移
+
+#### Tasks
+
+- [ ] 讨论候选指标及精确定义
+- [ ] 核对 SourceMod/L4D2 事件和可测试边界
+- [ ] 确认数据库兼容方案与聚合方式
+- [ ] 契约确认后再拆分为正式 patch 版本排期
+
+#### Acceptance Criteria
+
+- 每个进入排期的字段都有明确所有者、统计时机和排除规则
+- 不把无法可靠归属的推测数据写入永久明细
+- 在讨论完成前不改变 schema、`stats_version` 或发布计划
+
+#### Notes
+
+本节仅是讨论入口，不代表已经承诺具体 v0.5.x 发布内容。
 
 ---
 

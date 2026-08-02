@@ -4,6 +4,11 @@ All notable changes to this project will be documented in this file.
 
 ## Unreleased
 
+- Add successful medkit self/other use counts and actual permanent health restored.
+- Add pills, adrenaline, and actual temporary health received statistics.
+- Add per-Segment chapter participation, alive/dead completion, and campaign completion results.
+- Capture temporary-health gain from a pre-command health snapshot without assuming default item ConVars.
+- Extend SQLite validation and inspection output for all v0.5 PvE fields.
 - Add `coop` and `realism` common, special, Tank, and Witch last-hit kill statistics.
 - Record effective health loss dealt to special infected, Tanks, and Witches without overkill inflation.
 - Record infected damage taken and split human-target, bot-target, and received friendly fire.
