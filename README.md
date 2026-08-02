@@ -2,7 +2,7 @@
 
 一个面向《求生之路 2》服务器的玩家身份、会话和玩法统计系统。
 
-项目采用 monorepo。当前实现为 v0.3.0 生命周期采集器：真人身份和 Session 之外，已接入 Run、Round 和 Segment。击杀、伤害、治疗和救援等玩法统计仍按路线图后续接入。插件稳定后再开发 Go 后端及其内嵌前端。
+项目采用 monorepo。当前实现为 v0.4.0 PvE 核心统计采集器：在真人身份、Session、Run、Round 和 Segment 生命周期之上，已接入 `coop` 与 `realism` 的击杀、有效伤害、承伤、友伤和基础救援统计。插件稳定后再开发 Go 后端及其内嵌前端。
 
 ## 当前状态
 
@@ -24,8 +24,13 @@
 - 处理正常过图、团灭重试、手动换图、结局和模式切换；
 - 按真人幸存者/感染者身份创建 Segment，观战和闲置会结束当前 Segment；
 - Run、Round 和 Segment 使用绝对快照、单一异步事务和有界 closed 队列持久化。
+- 按 PvE Segment 统计普通感染者、六种普通特感、Tank 和 Witch 的最后击杀；
+- 统计对特感、Tank 和 Witch 造成的实际生命损失，不记录溢出伤害；
+- 统计感染者造成的承伤，并拆分对真人、对 Bot 和真人承受的友伤；
+- 统计倒地、死亡、倒地救援、挂边救援、电击器复活和被救援次数；
+- PvE 统计使用绝对快照与有界关闭队列，不为 Bot 建立个人统计。
 
-v0.3.0 **尚不采集击杀、伤害、治疗或救援数据**。
+v0.4.0 **尚不采集治疗量、临时生命、章节成绩或 Versus 玩法统计**。
 
 已经确认的基础边界：
 
@@ -72,7 +77,7 @@ VS Code 可以直接执行 `L4D2 Stats: Build` 或 `L4D2 Stats: Build and Deploy
 
 数据库、ConVar 和 SQLite 首次验证步骤见[数据库地基部署](docs/database-foundation.md)。数据库密码只应存在于服务器自己的 `addons/sourcemod/configs/databases.cfg`，不得提交到仓库。
 
-v0.3 的单人本地验收见 [Run / Round / Segment 测试清单](docs/v0.3-test-checklist.md)。
+v0.3 的生命周期验收见 [Run / Round / Segment 测试清单](docs/v0.3-test-checklist.md)，v0.4 的 PvE 统计验收见 [PvE 核心统计测试清单](docs/v0.4-test-checklist.md)。
 
 管理员命令：
 

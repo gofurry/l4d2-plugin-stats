@@ -2,9 +2,9 @@
 
 ## Current Position
 
-项目已经完成数据库地基和真人身份/Session；v0.3.0 的 Run、Round 和 Segment 生命周期已完成实现，PvE 通关、团灭重试、异常换图和本地对抗首半场已经通过真实 SQLite 数据验收。当前只需复测修复后的跨图 Session 续接，即可进入 v0.4.0。SQLite 已在真实 L4D2/SourceMod 环境中进入 `ready`；完整多人对抗、MySQL 和 PostgreSQL 实机兼容验证保留到 v0.7.0。
+项目已经完成数据库地基、真人身份/Session 以及 Run、Round 和 Segment 生命周期。PvE 通关、团灭重试、异常换图、本地对抗首半场和正常跨图 Session 续接均已通过真实 SQLite 数据验收。v0.4.0 的 PvE 核心统计已经完成实现，正在进行本地玩法数据验收。SQLite 已在真实 L4D2/SourceMod 环境中进入 `ready`；完整多人对抗、MySQL 和 PostgreSQL 实机兼容验证保留到 v0.7.0。
 
-当前尚未采集击杀、伤害、治疗、救援或章节成绩。SourcePawn 采集器、数据库结构和未来 Go 服务的公共边界仍处于 pre-v1 阶段，可以按验证结果调整。
+当前已采集 PvE 击杀、有效伤害、承伤、友伤和基础救援；治疗、临时生命、章节成绩与 Versus 玩法统计仍在后续阶段。SourcePawn 采集器、数据库结构和未来 Go 服务的公共边界仍处于 pre-v1 阶段，可以按验证结果调整。
 
 ## Roadmap Strategy
 
@@ -87,7 +87,7 @@
 
 ### v0.3.0 - Run, Round, and Segment Lifecycle
 
-**Status:** Implementation complete; final map-transfer regression pending
+**Status:** Completed (local validation scope)
 
 **Scope:** Architecture / Correctness / Testing
 
@@ -107,7 +107,7 @@
 - [x] 处理阵营切换、观战、闲置和重新接管 Segment
 - [x] 为生命周期状态机增加固定事件回放测试清单
 - [x] 完成 PvE 通关、团灭重试、手动换图和本地对抗首半场验收
-- [ ] 复测修复后的跨图 Session，确认一次连续连接只保留一个 `session_id`
+- [x] 复测修复后的跨图 Session，确认一次连续连接只保留一个 `session_id`
 
 #### Acceptance Criteria
 
@@ -120,7 +120,7 @@
 
 ### v0.4.0 - PvE Core Statistics
 
-**Status:** Planned
+**Status:** Implementation complete; local gameplay validation pending
 
 **Scope:** User-facing / Correctness / Testing
 
@@ -134,11 +134,12 @@
 
 #### Tasks
 
-- [ ] 采集普通感染者、特感、Tank 和 Witch 最后击杀
-- [ ] 采集对特感、Tank 和 Witch 的实际生命损失
-- [ ] 采集感染者承伤与三类友伤
-- [ ] 采集倒地、死亡、倒地救援、挂边救援和电击器复活
-- [ ] 验证所有数据只进入 PvE Segment 统计表
+- [x] 采集普通感染者、特感、Tank 和 Witch 最后击杀
+- [x] 采集对特感、Tank 和 Witch 的实际生命损失
+- [x] 采集感染者承伤与三类友伤
+- [x] 采集倒地、死亡、倒地救援、挂边救援和电击器复活
+- [x] 在代码与 SQLite 集成测试中验证数据只写入 PvE Segment 统计表
+- [ ] 在真实本地 `coop` / `realism` 对局中核对首批统计数值
 
 #### Acceptance Criteria
 

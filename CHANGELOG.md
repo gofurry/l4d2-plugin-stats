@@ -4,6 +4,13 @@ All notable changes to this project will be documented in this file.
 
 ## Unreleased
 
+- Add `coop` and `realism` common, special, Tank, and Witch last-hit kill statistics.
+- Record effective health loss dealt to special infected, Tanks, and Witches without overkill inflation.
+- Record infected damage taken and split human-target, bot-target, and received friendly fire.
+- Add incapacitation, death, incap revive, ledge rescue, defibrillator revive, and rescue-received statistics.
+- Persist PvE Segment statistics as absolute snapshots in the shared asynchronous flush transaction.
+- Extend SQLite integration and inspection tools with PvE statistics checks.
+
 ## 0.3.0
 
 - Add PvE campaign Run continuity, chapter attempts, failure retries, transitions, and finale completion.
