@@ -4,6 +4,8 @@ All notable changes to this project will be documented in this file.
 
 ## Unreleased
 
+- Count Vomit Jar actions from `vomitjar_projectile` ownership when `weapon_fire` does not expose the throw.
+- Keep Vomit Jar projectile accounting separate from the Molotov/Pipe Bomb event path to prevent duplicate actions.
 - Add allowlisted, success-only objective interaction counts with one attribution per entity and Round.
 - Add ammo-pile refill counts, incapacitated seconds, and ledge-hanging seconds.
 - Add successful medkit restores of black-and-white teammates.

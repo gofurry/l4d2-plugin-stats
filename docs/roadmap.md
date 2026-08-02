@@ -2,9 +2,9 @@
 
 ## Current Position
 
-项目已经完成数据库地基、真人身份/Session、Run/Round/Segment 生命周期、v0.4.0 PvE 核心战斗统计和 v0.5.0 治疗/章节成绩的本地验收。v0.5.1 的设备、特感职业、控制/解救、Boss 参与和技巧统计已实现；v0.5.2 正在验收目标互动、弹药堆补给、失能时长和黑白转彩色。SQLite 已在真实 L4D2/SourceMod 环境中进入 `ready`；完整多人对抗、MySQL 和 PostgreSQL 实机兼容验证保留到 v0.7.0。
+项目已经完成数据库地基、真人身份/Session、Run/Round/Segment 生命周期，以及 v0.4.0～v0.5.2 PvE 统计的本地验收。v0.5.3 正在修复胆汁罐投掷事件缺失；SQLite 已在真实 L4D2/SourceMod 环境中进入 `ready`。完整多人对抗、MySQL 和 PostgreSQL 实机兼容验证保留到 v0.7.0。
 
-当前已采集 PvE 击杀、有效伤害、承伤、友伤、救援、治疗、临时生命、章节/战役成绩、设备、控制、技巧、目标互动和失能时长。v0.5.x 仍有少量真实游戏分支需要人工验收。Versus 仍使用后续独立统计模型。SourcePawn 采集器、数据库结构和未来 Go 服务的公共边界仍处于 pre-v1 阶段，可以按验证结果调整。
+当前已采集 PvE 击杀、有效伤害、承伤、友伤、救援、治疗、临时生命、章节/战役成绩、设备、控制、技巧、目标互动和失能时长。v0.5.x 只剩胆汁罐回归测试；Versus 仍使用后续独立统计模型。SourcePawn 采集器、数据库结构和未来 Go 服务的公共边界仍处于 pre-v1 阶段，可以按验证结果调整。
 
 ## Roadmap Strategy
 
@@ -175,7 +175,7 @@
 
 ### v0.5.1 - PvE Statistics Expansion
 
-**Status:** Implementation complete; local gameplay validation pending
+**Status:** Completed (local validation scope)
 
 **Scope:** User-facing / Architecture / Testing
 
@@ -196,7 +196,7 @@
 - [x] 记录本人近战断舌、Tank 石头空爆、Witch 一击与单人击杀
 - [x] 记录 Tank/Witch 遭遇、击杀参与和两种弹药升级包部署
 - [x] 扩展三数据库初始结构、SQLite 集成测试和只读检查工具
-- [ ] 在真实本地 PvE 对局中完成 v0.5.1 测试清单
+- [x] 在真实本地 PvE 对局中完成 v0.5.1 测试清单
 
 #### Acceptance Criteria
 
@@ -213,7 +213,7 @@
 
 ### v0.5.2 - PvE Interactions and State Durations
 
-**Status:** Implementation complete; local gameplay validation pending
+**Status:** Completed (local validation scope)
 
 **Scope:** User-facing / Correctness / Performance / Testing
 
@@ -227,7 +227,7 @@
 - [x] 验证医疗包成功将开始时为黑白状态的队友恢复为彩色
 - [x] 将五项数据加入三数据库初始结构、绝对快照、SQLite 测试和检查工具
 - [x] 明确排除 `player_use`、`finale_start`、普通开门和搬运目标
-- [ ] 在真实本地 PvE 对局中完成 v0.5.2 测试清单
+- [x] 在真实本地 PvE 对局中完成 v0.5.2 测试清单
 
 #### Acceptance Criteria
 
@@ -240,6 +240,29 @@
 #### Notes
 
 插件仍未发布，v0.5.2 继续重写 `0001_initial.sql`。验收前必须清空或备份旧数据库并由插件重建。
+
+---
+
+### v0.5.3 - Vomit Jar Action Reliability
+
+**Status:** Implementation complete; local regression validation pending
+
+**Scope:** Correctness / Testing
+
+**Goal:** 在 `weapon_fire` 未提供可靠胆汁罐字段时仍准确记录成功投掷。
+
+#### Tasks
+
+- [x] 从 `vomitjar_projectile` 的真人投掷者记录一次 `Vomit Jar actions`
+- [x] 胆汁罐不再进入原有 `weapon_fire` 动作路径，避免重复计数
+- [x] 保持数据库结构和既有 v0.5.2 数据兼容
+- [ ] 在真实本地 PvE 对局投掷胆汁罐并确认只增加一次
+
+#### Acceptance Criteria
+
+- 每个真人幸存者成功投掷的胆汁罐只增加一次 `equipment_id=40 actions`
+- Bot、无归属投射物和非 PvE Segment 不产生个人动作统计
+- Molotov 与 Pipe Bomb 的既有动作统计不受影响
 
 ---
 

@@ -151,7 +151,10 @@ public void LPS_Event_WeaponFireStats(Event event, const char[] name, bool dontB
 	);
 	// “actions” is reserved for consumable throws. Gunshots, melee swings,
 	// ammunition consumption and reloads are intentionally outside v0.5.1.
-	if (LPS_IsThrowableEquipment(equipment))
+	// L4D2 does not reliably expose Vomit Jar throws through weapon_fire.
+	// Vomit Jars are counted from their owned projectile instead, so keep the
+	// two paths mutually exclusive and avoid duplicate actions.
+	if (LPS_IsThrowableEquipment(equipment) && equipment != LPSEquipment_VomitJar)
 	{
 		LPS_AddEquipmentStat(client, equipment, LPSEquipmentStat_Actions, 1);
 	}
@@ -316,6 +319,7 @@ void LPS_OnEquipmentEntityCreated(int entity, const char[] classname)
 	else if (StrEqual(classname, "vomitjar_projectile", true))
 	{
 		g_LPSEntityEquipment[entity] = LPSEquipment_VomitJar;
+		RequestFrame(LPS_Frame_RecordVomitJarThrow, EntIndexToEntRef(entity));
 	}
 	else if (StrEqual(classname, "grenade_launcher_projectile", true))
 	{
@@ -329,6 +333,32 @@ void LPS_OnEquipmentEntityCreated(int entity, const char[] classname)
 		|| StrEqual(classname, "prop_mounted_machine_gun", true))
 	{
 		g_LPSEntityEquipment[entity] = LPSEquipment_MountedGun;
+	}
+}
+
+public void LPS_Frame_RecordVomitJarThrow(any entityReference)
+{
+	int entity = EntRefToEntIndex(entityReference);
+	if (!LPS_CanRecordPvEEvents()
+		|| entity < 1
+		|| entity > LPS_MAX_ENTITY_INDEX
+		|| !IsValidEntity(entity)
+		|| g_LPSEntityEquipment[entity] != LPSEquipment_VomitJar)
+	{
+		return;
+	}
+
+	// Projectile ownership is populated after entity creation. Waiting one
+	// frame avoids reading the entity before m_hThrower/m_hOwnerEntity is ready.
+	int thrower = LPS_GetEntityPlayerOwner(entity);
+	if (LPS_IsHumanSurvivorClient(thrower))
+	{
+		LPS_AddEquipmentStat(
+			thrower,
+			LPSEquipment_VomitJar,
+			LPSEquipmentStat_Actions,
+			1
+		);
 	}
 }
 
