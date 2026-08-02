@@ -65,6 +65,22 @@ public Action LPS_Command_Status(int client, int args)
 		LPS_GetPendingClosedSessionCount(),
 		g_LPSClosedSessionQueueLimit.IntValue
 	);
+	ReplyToCommand(
+		client,
+		"[LPS] run=%s round=%s map_seq=%d attempt=%d half=%d active_segments=%d",
+		g_LPSRunActive ? g_LPSRunId : "none",
+		g_LPSRoundActive ? g_LPSRoundId : "none",
+		g_LPSRoundActive ? g_LPSRoundMapSeq : 0,
+		g_LPSRoundActive ? g_LPSRoundAttemptNo : 0,
+		g_LPSRoundActive ? g_LPSRoundHalfNo : 0,
+		LPS_GetActiveSegmentCount()
+	);
+	ReplyToCommand(
+		client,
+		"[LPS] pending_closed_lifecycles=%d/%d",
+		LPS_GetPendingClosedLifecycleCount(),
+		g_LPSClosedLifecycleQueueLimit.IntValue
+	);
 
 	if (g_LPSLastDatabaseError[0] != '\0')
 	{
@@ -95,15 +111,19 @@ public Action LPS_Command_Reconnect(int client, int args)
 
 	if (!StrEqual(previousServerKey, configuredServerKey, true))
 	{
+		LPS_EndRun("abandoned");
 		LPS_EndAllActiveSessions("server_key_changed");
 		strcopy(g_LPSServerKey, sizeof(g_LPSServerKey), configuredServerKey);
 		LPS_GenerateBootId();
+		LPS_OnCollectorConfigured();
 		LPS_StartEligibleSessions();
 	}
 	else if (g_LPSBootId[0] == '\0')
 	{
 		strcopy(g_LPSServerKey, sizeof(g_LPSServerKey), configuredServerKey);
 		LPS_GenerateBootId();
+		LPS_OnCollectorConfigured();
+		LPS_StartEligibleSessions();
 	}
 
 	LogAction(client, -1, "[LPS] Administrator requested a database reconnect.");

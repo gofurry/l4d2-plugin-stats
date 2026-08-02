@@ -12,6 +12,7 @@ ConVar g_LPSFlushJitter;
 ConVar g_LPSRetryMaximum;
 ConVar g_LPSLogSuppressionWindow;
 ConVar g_LPSClosedSessionQueueLimit;
+ConVar g_LPSClosedLifecycleQueueLimit;
 
 void LPS_CreateConfig()
 {
@@ -97,6 +98,17 @@ void LPS_CreateConfig()
 		16.0,
 		true,
 		4096.0
+	);
+
+	g_LPSClosedLifecycleQueueLimit = CreateConVar(
+		"sm_lps_closed_lifecycle_queue_limit",
+		"512",
+		"Maximum total closed Run, Round, and Segment snapshots retained while the database is unavailable.",
+		FCVAR_NONE,
+		true,
+		32.0,
+		true,
+		8192.0
 	);
 }
 

@@ -1,4 +1,5 @@
 #include <sourcemod>
+#include <sdktools>
 
 #pragma semicolon 1
 #pragma newdecls required
@@ -8,6 +9,8 @@
 #include <l4d2_player_stats/runtime>
 #include <l4d2_player_stats/logging>
 #include <l4d2_player_stats/modes>
+#include <l4d2_player_stats/lifecycles>
+#include <l4d2_player_stats/segments>
 #include <l4d2_player_stats/sessions>
 #include <l4d2_player_stats/migrations>
 #include <l4d2_player_stats/database>
@@ -38,6 +41,8 @@ public void OnPluginStart()
 	LPS_CreateConfig();
 	LPS_ResetRuntime();
 	LPS_InitializeModes();
+	LPS_InitializeLifecycles();
+	LPS_InitializeSegments();
 	LPS_InitializeSessions();
 	LPS_RegisterAdminCommands();
 	AutoExecConfig(true, "l4d2_player_stats");
@@ -52,6 +57,7 @@ public void OnConfigsExecuted()
 
 public void OnPluginEnd()
 {
+	LPS_ShutdownLifecycles();
 	LPS_ShutdownSessions();
 	LPS_ShutdownRuntime();
 }

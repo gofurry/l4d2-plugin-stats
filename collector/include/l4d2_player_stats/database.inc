@@ -11,7 +11,8 @@ void LPS_ApplyConfiguration()
 		return;
 	}
 
-	if (!LPS_GetValidatedServerKey(g_LPSServerKey, sizeof(g_LPSServerKey)))
+	char configuredServerKey[LPS_MAX_SERVER_KEY];
+	if (!LPS_GetValidatedServerKey(configuredServerKey, sizeof(configuredServerKey)))
 	{
 		g_LPSDatabaseState = LPSDatabaseState_ConfigError;
 		LogError(
@@ -20,7 +21,22 @@ void LPS_ApplyConfiguration()
 		return;
 	}
 
+	if (g_LPSBootId[0] != '\0' && StrEqual(g_LPSServerKey, configuredServerKey, true))
+	{
+		LPS_OnCollectorConfigured();
+		LPS_StartEligibleSessions();
+		return;
+	}
+
+	if (g_LPSBootId[0] != '\0')
+	{
+		LPS_EndRun("abandoned");
+		LPS_EndAllActiveSessions("server_key_changed");
+	}
+
+	strcopy(g_LPSServerKey, sizeof(g_LPSServerKey), configuredServerKey);
 	LPS_GenerateBootId();
+	LPS_OnCollectorConfigured();
 	LPS_StartEligibleSessions();
 	LPS_StartConnection(true);
 }
@@ -443,6 +459,7 @@ public void LPS_OnServerBootRegistered(
 	g_LPSLastSuccessfulWriteAt = GetTime();
 	LPS_ReportDatabaseRecovery();
 	LPS_ScheduleNextFlush();
+	LPS_OnLifecycleDatabaseReady();
 	LPS_OnSessionDatabaseReady();
 
 	if (g_LPSHeartbeatQueued)
@@ -537,6 +554,17 @@ void LPS_RequestFlush()
 		return;
 	}
 
+	char lifecycleError[LPS_MAX_DATABASE_ERROR];
+	if (!LPS_AddLifecycleFlushQueries(transaction, queryCount, lifecycleError, sizeof(lifecycleError))
+		|| !LPS_AddSegmentFlushQueries(transaction, queryCount, lifecycleError, sizeof(lifecycleError)))
+	{
+		delete transaction;
+		g_LPSHeartbeatInFlight = false;
+		g_LPSHeartbeatQueued = true;
+		LPS_ReportDatabaseError("flush query build failed", lifecycleError);
+		return;
+	}
+
 	g_LPSDatabase.Execute(
 		transaction,
 		LPS_OnFlushSucceeded,
@@ -562,6 +590,8 @@ public void LPS_OnFlushSucceeded(
 	g_LPSHeartbeatInFlight = false;
 	g_LPSLastSuccessfulWriteAt = GetTime();
 	LPS_OnSessionFlushSucceeded();
+	LPS_OnLifecycleFlushSucceeded();
+	LPS_OnSegmentFlushSucceeded();
 
 	if (g_LPSHeartbeatQueued)
 	{
@@ -588,7 +618,7 @@ public void LPS_OnFlushFailed(
 	// queries contain private IP data, so never forward this raw error to logs.
 	LPS_HandleDatabaseFailure(
 		"flush transaction failed",
-		"the database rejected the asynchronous player/session flush"
+		"the database rejected the asynchronous collector flush"
 	);
 }
 

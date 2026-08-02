@@ -24,6 +24,12 @@ void LPS_InitializeModes()
 public void OnMapStart()
 {
 	LPS_RefreshGameMode(true);
+	LPS_OnLifecycleMapStart();
+}
+
+public void OnMapEnd()
+{
+	LPS_OnLifecycleMapEnd();
 }
 
 public void LPS_OnGameModeChanged(ConVar convar, const char[] oldValue, const char[] newValue)
@@ -49,6 +55,14 @@ void LPS_RefreshGameMode(bool notifySessions)
 
 	bool previouslySupported = g_LPSModeFamily != LPSModeFamily_Unsupported;
 	bool nowSupported = nextFamily != LPSModeFamily_Unsupported;
+	LPSModeFamily previousFamily = g_LPSModeFamily;
+	char previousMode[LPS_MAX_GAME_MODE];
+	strcopy(previousMode, sizeof(previousMode), g_LPSGameMode);
+
+	if (notifySessions && g_LPSModeInitialized)
+	{
+		LPS_OnLifecycleModeChanging(previousFamily, previousMode, nextFamily, nextMode);
+	}
 
 	g_LPSModeFamily = nextFamily;
 	strcopy(g_LPSGameMode, sizeof(g_LPSGameMode), nextMode);
@@ -67,6 +81,8 @@ void LPS_RefreshGameMode(bool notifySessions)
 	{
 		LPS_StartEligibleSessions();
 	}
+
+	LPS_OnLifecycleModeChanged(previousFamily, previousMode, nextFamily, nextMode);
 }
 
 LPSModeFamily LPS_GetModeFamily(const char[] gameMode)

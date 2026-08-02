@@ -74,6 +74,7 @@ void LPS_InitializeSessions()
 
 public void OnClientConnected(int client)
 {
+	LPS_ResetClientSegmentState(client);
 	LPS_ResetClientSessionState(client, true);
 }
 
@@ -115,6 +116,7 @@ public void OnClientDisconnect(int client)
 		LPS_EndClientSession(client, "client_disconnect");
 	}
 
+	LPS_ResetClientSegmentState(client);
 	LPS_ResetClientSessionState(client, true);
 }
 
@@ -125,6 +127,7 @@ public Action LPS_Timer_SessionClock(Handle timer)
 		if (g_LPSClientSessionActive[client])
 		{
 			LPS_UpdateClientSessionClock(client, true);
+			LPS_ReconcileClientSegment(client);
 		}
 		else if (g_LPSClientAuthorized[client])
 		{
@@ -141,6 +144,7 @@ public void LPS_Event_PlayerTeam(Event event, const char[] name, bool dontBroadc
 	if (client >= 1 && client <= MaxClients && g_LPSClientSessionActive[client])
 	{
 		LPS_UpdateClientSessionClock(client, true);
+		LPS_ReconcileClientSegment(client);
 	}
 }
 
@@ -160,6 +164,7 @@ void LPS_UpdateSessionClockFromUserId(int userId)
 	if (client >= 1 && client <= MaxClients && g_LPSClientSessionActive[client])
 	{
 		LPS_UpdateClientSessionClock(client, true);
+		LPS_ReconcileClientSegment(client);
 	}
 }
 
@@ -283,6 +288,7 @@ bool LPS_TryStartClientSession(int client)
 	g_LPSClientSessionDirty[client] = true;
 	g_LPSClientSessionActive[client] = true;
 
+	LPS_ReconcileClientSegment(client);
 	LPS_RequestFlush();
 	return true;
 }
@@ -354,6 +360,7 @@ void LPS_EndClientSession(int client, const char[] reason)
 	}
 
 	LPS_UpdateClientSessionClock(client, false);
+	LPS_EndClientSegment(client, "closed");
 
 	LPSSessionSnapshot snapshot;
 	LPS_FillClientSessionSnapshot(client, snapshot, true, reason);

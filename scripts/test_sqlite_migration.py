@@ -123,6 +123,85 @@ def main() -> None:
             ),
         )
 
+        run_insert = (
+            "INSERT INTO lps_runs "
+            "(run_id, boot_id, server_key, mode_family, game_mode, campaign_key, "
+            "started_at, ended_at, last_saved_at, status, round_count, "
+            "completed_round_count, failed_round_count, revision) "
+            "VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?) "
+            "ON CONFLICT(run_id) DO UPDATE SET "
+            "ended_at = excluded.ended_at, last_saved_at = excluded.last_saved_at, "
+            "status = excluded.status, round_count = excluded.round_count, "
+            "completed_round_count = excluded.completed_round_count, "
+            "failed_round_count = excluded.failed_round_count, revision = excluded.revision"
+        )
+        run_id = "test-01:1:a:run:1"
+        database.execute(
+            run_insert,
+            (
+                run_id, "test-01:1:a", "test-01", "pve", "coop", "c1", 10,
+                None, 20, "active", 1, 0, 0, 1,
+            ),
+        )
+        database.execute(
+            run_insert,
+            (
+                run_id, "test-01:1:a", "test-01", "pve", "coop", "c1", 10,
+                90, 90, "completed", 2, 1, 1, 4,
+            ),
+        )
+
+        round_insert = (
+            "INSERT INTO lps_rounds "
+            "(round_id, run_id, server_key, mode_family, map_name, round_seq, "
+            "map_seq, attempt_no, half_no, started_at, ended_at, last_saved_at, "
+            "status, revision) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?) "
+            "ON CONFLICT(round_id) DO UPDATE SET "
+            "ended_at = excluded.ended_at, last_saved_at = excluded.last_saved_at, "
+            "status = excluded.status, revision = excluded.revision"
+        )
+        round_id = "test-01:1:a:round:1"
+        database.execute(
+            round_insert,
+            (
+                round_id, run_id, "test-01", "pve", "c1m1_hotel", 1, 1, 1, 0,
+                10, None, 20, "active", 1,
+            ),
+        )
+        database.execute(
+            round_insert,
+            (
+                round_id, run_id, "test-01", "pve", "c1m1_hotel", 1, 1, 1, 0,
+                10, 45, 45, "failed", 2,
+            ),
+        )
+
+        segment_insert = (
+            "INSERT INTO lps_player_segments "
+            "(segment_id, session_id, run_id, round_id, server_key, steam_id, side, "
+            "started_at, ended_at, last_saved_at, active_play_seconds, status, revision) "
+            "VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?) "
+            "ON CONFLICT(segment_id) DO UPDATE SET "
+            "ended_at = excluded.ended_at, last_saved_at = excluded.last_saved_at, "
+            "active_play_seconds = excluded.active_play_seconds, "
+            "status = excluded.status, revision = excluded.revision"
+        )
+        segment_id = "test-01:1:a:segment:1"
+        database.execute(
+            segment_insert,
+            (
+                segment_id, session_id, run_id, round_id, "test-01",
+                "76561198000000000", "survivor", 12, None, 20, 8, "active", 1,
+            ),
+        )
+        database.execute(
+            segment_insert,
+            (
+                segment_id, session_id, run_id, round_id, "test-01",
+                "76561198000000000", "survivor", 12, 45, 45, 31, "closed", 2,
+            ),
+        )
+
         tables = {
             row[0]
             for row in database.execute(
@@ -163,6 +242,22 @@ def main() -> None:
             "client_disconnect",
             2,
         ), session
+        run = database.execute(
+            "SELECT status, round_count, completed_round_count, "
+            "failed_round_count, revision FROM lps_runs WHERE run_id = ?",
+            (run_id,),
+        ).fetchone()
+        assert run == ("completed", 2, 1, 1, 4), run
+        round_row = database.execute(
+            "SELECT map_seq, attempt_no, half_no, status, revision "
+            "FROM lps_rounds WHERE round_id = ?", (round_id,)
+        ).fetchone()
+        assert round_row == (1, 1, 0, "failed", 2), round_row
+        segment = database.execute(
+            "SELECT side, active_play_seconds, status, revision "
+            "FROM lps_player_segments WHERE segment_id = ?", (segment_id,)
+        ).fetchone()
+        assert segment == ("survivor", 31, "closed", 2), segment
     finally:
         database.close()
 
