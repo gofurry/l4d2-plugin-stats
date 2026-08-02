@@ -2,9 +2,9 @@
 
 ## Current Position
 
-项目已经完成数据契约和数据库地基 v0.1.0：SQLite 在真实 L4D2/SourceMod 环境中完成自动迁移并进入 `ready`；MySQL 和 PostgreSQL 已具备等价迁移与驱动分支，但仍需要真实数据库兼容测试。
+项目已经完成数据库地基和真人身份/Session；v0.3.0 的 Run、Round 和 Segment 生命周期已完成实现，正等待本地游戏验收。SQLite 已在真实 L4D2/SourceMod 环境中进入 `ready`；MySQL 和 PostgreSQL 实机兼容验证保留到 v0.7.0。
 
-当前尚未采集玩家身份、Session、玩法生命周期或统计数据。SourcePawn 采集器、数据库结构和未来 Go 服务的公共边界仍处于 pre-v1 阶段，可以按验证结果调整。
+当前尚未采集击杀、伤害、治疗、救援或章节成绩。SourcePawn 采集器、数据库结构和未来 Go 服务的公共边界仍处于 pre-v1 阶段，可以按验证结果调整。
 
 ## Roadmap Strategy
 
@@ -86,7 +86,7 @@
 
 ### v0.3.0 - Run, Round, and Segment Lifecycle
 
-**Status:** In progress
+**Status:** Implementation complete; local validation pending
 
 **Scope:** Architecture / Correctness / Testing
 
@@ -100,11 +100,12 @@
 
 #### Tasks
 
-- [ ] 实现 PvE 战役推进、团灭重试和结局完成语义
-- [ ] 实现 Versus 两个半场及半场重开语义
-- [ ] 处理手动换图、模式切换、插件重载和异常恢复
-- [ ] 处理阵营切换、观战、闲置和重新接管 Segment
-- [ ] 为生命周期状态机增加固定事件回放测试清单
+- [x] 实现 PvE 战役推进、团灭重试和结局完成语义
+- [x] 实现 Versus 两个半场及半场重开语义
+- [x] 处理手动换图、模式切换、插件重载和异常恢复
+- [x] 处理阵营切换、观战、闲置和重新接管 Segment
+- [x] 为生命周期状态机增加固定事件回放测试清单
+- [ ] 按 `docs/v0.3-test-checklist.md` 完成本地游戏验收
 
 #### Acceptance Criteria
 

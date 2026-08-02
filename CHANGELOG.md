@@ -4,6 +4,15 @@ All notable changes to this project will be documented in this file.
 
 ## Unreleased
 
+## 0.3.0
+
+- Add PvE campaign Run continuity, chapter attempts, failure retries, transitions, and finale completion.
+- Add separate Versus half Rounds with half and attempt numbering.
+- Add human survivor/infected Segments that close on spectating, idle takeover, side changes, or Round end.
+- Persist Run, Round, and Segment absolute snapshots in the shared asynchronous flush transaction.
+- Add a bounded lifecycle closure queue, lifecycle diagnostics, SQLite checks, and a local validation checklist.
+- Keep `boot_id` stable when SourceMod re-executes plugin configuration on map changes.
+
 ## 0.2.0
 
 - Record SteamID64-backed human player identities in supported game modes.

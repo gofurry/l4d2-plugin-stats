@@ -51,6 +51,7 @@ $docsDestination = Join-Path $stagingRoot "docs"
 New-Item -ItemType Directory -Path $docsDestination -Force | Out-Null
 Copy-Item -LiteralPath (Join-Path $projectRoot "docs\database-foundation.md") -Destination $docsDestination -Force
 Copy-Item -LiteralPath (Join-Path $projectRoot "docs\v0.2-test-checklist.md") -Destination $docsDestination -Force
+Copy-Item -LiteralPath (Join-Path $projectRoot "docs\v0.3-test-checklist.md") -Destination $docsDestination -Force
 
 Compress-Archive -Path (Join-Path $stagingRoot "*") -DestinationPath $archivePath -Force
 Write-Host "Release package created: $archivePath"

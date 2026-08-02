@@ -2,7 +2,7 @@
 
 一个面向《求生之路 2》服务器的玩家身份、会话和玩法统计系统。
 
-项目采用 monorepo。当前实现为 v0.2.0 真人身份与 Session；Run、Round、Segment 和玩法统计将在后续版本按已确认契约逐步接入。插件稳定后再开发 Go 后端及其内嵌前端。
+项目采用 monorepo。当前实现为 v0.3.0 生命周期采集器：真人身份和 Session 之外，已接入 Run、Round 和 Segment。击杀、伤害、治疗和救援等玩法统计仍按路线图后续接入。插件稳定后再开发 Go 后端及其内嵌前端。
 
 ## 当前状态
 
@@ -20,8 +20,12 @@
 - 分开累计连接时间与实际操作时间；
 - Session 跨正常地图切换延续，断线或离开支持模式时关闭；
 - 数据库故障期间使用有上限的内存 closed Session 队列。
+- 建立 PvE 战役、章节尝试和 Versus 半场的 Run / Round 归属；
+- 处理正常过图、团灭重试、手动换图、结局和模式切换；
+- 按真人幸存者/感染者身份创建 Segment，观战和闲置会结束当前 Segment；
+- Run、Round 和 Segment 使用绝对快照、单一异步事务和有界 closed 队列持久化。
 
-v0.2.0 **尚不创建 Run、Round、Segment，也不采集击杀、伤害、治疗或救援数据**。
+v0.3.0 **尚不采集击杀、伤害、治疗或救援数据**。
 
 已经确认的基础边界：
 
@@ -67,6 +71,8 @@ VS Code 可以直接执行 `L4D2 Stats: Build` 或 `L4D2 Stats: Build and Deploy
 ## 服务器配置与验证
 
 数据库、ConVar 和 SQLite 首次验证步骤见[数据库地基部署](docs/database-foundation.md)。数据库密码只应存在于服务器自己的 `addons/sourcemod/configs/databases.cfg`，不得提交到仓库。
+
+v0.3 的单人本地验收见 [Run / Round / Segment 测试清单](docs/v0.3-test-checklist.md)。
 
 管理员命令：
 
