@@ -1,0 +1,139 @@
+#if defined _l4d2_player_stats_config_included
+	#endinput
+#endif
+#define _l4d2_player_stats_config_included
+
+ConVar g_LPSEnabled;
+ConVar g_LPSDatabaseConfig;
+ConVar g_LPSServerKeyCvar;
+ConVar g_LPSServerName;
+ConVar g_LPSFlushInterval;
+ConVar g_LPSFlushJitter;
+ConVar g_LPSRetryMaximum;
+ConVar g_LPSLogSuppressionWindow;
+
+void LPS_CreateConfig()
+{
+	g_LPSEnabled = CreateConVar(
+		"sm_lps_enabled",
+		"1",
+		"Enable the L4D2 Player Stats collector.",
+		FCVAR_NONE,
+		true,
+		0.0,
+		true,
+		1.0
+	);
+
+	g_LPSDatabaseConfig = CreateConVar(
+		"sm_lps_database_config",
+		"l4d2_player_stats",
+		"Named database entry in addons/sourcemod/configs/databases.cfg."
+	);
+
+	g_LPSServerKeyCvar = CreateConVar(
+		"sm_lps_server_key",
+		"change-me",
+		"Globally unique server key (1-64 characters: A-Z, a-z, 0-9, dot, underscore, hyphen)."
+	);
+
+	g_LPSServerName = CreateConVar(
+		"sm_lps_server_name",
+		"",
+		"Display name stored for this server. Empty uses hostname."
+	);
+
+	g_LPSFlushInterval = CreateConVar(
+		"sm_lps_flush_interval",
+		"300",
+		"Base database flush interval in seconds.",
+		FCVAR_NONE,
+		true,
+		60.0,
+		true,
+		3600.0
+	);
+
+	g_LPSFlushJitter = CreateConVar(
+		"sm_lps_flush_jitter",
+		"60",
+		"Maximum random seconds added to each flush interval.",
+		FCVAR_NONE,
+		true,
+		0.0,
+		true,
+		600.0
+	);
+
+	g_LPSRetryMaximum = CreateConVar(
+		"sm_lps_retry_maximum",
+		"60",
+		"Maximum database reconnect delay in seconds.",
+		FCVAR_NONE,
+		true,
+		15.0,
+		true,
+		600.0
+	);
+
+	g_LPSLogSuppressionWindow = CreateConVar(
+		"sm_lps_log_suppression_window",
+		"300",
+		"Seconds before repeating equivalent database errors in SourceMod logs.",
+		FCVAR_NONE,
+		true,
+		60.0,
+		true,
+		3600.0
+	);
+}
+
+bool LPS_GetValidatedServerKey(char[] serverKey, int maxLength)
+{
+	g_LPSServerKeyCvar.GetString(serverKey, maxLength);
+	TrimString(serverKey);
+
+	int length = strlen(serverKey);
+	if (length < 1 || length > 64 || StrEqual(serverKey, "change-me", false))
+	{
+		return false;
+	}
+
+	for (int index = 0; index < length; index++)
+	{
+		int value = serverKey[index];
+		bool alphaNumeric = (value >= 'A' && value <= 'Z')
+			|| (value >= 'a' && value <= 'z')
+			|| (value >= '0' && value <= '9');
+
+		if (!alphaNumeric && value != '.' && value != '_' && value != '-')
+		{
+			return false;
+		}
+	}
+
+	return true;
+}
+
+void LPS_GetServerDisplayName(char[] displayName, int maxLength)
+{
+	g_LPSServerName.GetString(displayName, maxLength);
+	TrimString(displayName);
+
+	if (displayName[0] != '\0')
+	{
+		return;
+	}
+
+	ConVar hostname = FindConVar("hostname");
+	if (hostname != null)
+	{
+		hostname.GetString(displayName, maxLength);
+		TrimString(displayName);
+	}
+
+	if (displayName[0] == '\0')
+	{
+		strcopy(displayName, maxLength, "Left 4 Dead 2 Server");
+	}
+}

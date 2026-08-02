@@ -2,11 +2,21 @@
 
 一个面向《求生之路 2》服务器的玩家身份、会话和玩法统计系统。
 
-项目采用 monorepo。当前阶段只定义 SourceMod 采集插件的数据契约；插件稳定后再开发 Go 后端及其内嵌前端。
+项目采用 monorepo。当前实现为数据库地基 v0.1.0；玩家身份、会话和玩法采集将在后续版本按已确认契约逐步接入。插件稳定后再开发 Go 后端及其内嵌前端。
 
 ## 当前状态
 
-项目处于契约设计阶段，尚未开始编写插件实现。
+v0.1.0 已实现：
+
+- 一个模块化 SourcePawn 插件，最终编译为 `l4d2_player_stats.smx`；
+- SQLite、MySQL 和 PostgreSQL 三套等价迁移；
+- 异步连接、自动迁移、服务器启动实例注册和异常启动恢复；
+- 300 秒加随机抖动的服务器心跳；
+- 5/15/30/60 秒有上限重连，以及重复错误日志限流；
+- 仅限 root 管理员的状态、重连和立即刷新命令；
+- 构建、部署、迁移校验和发布打包脚本。
+
+v0.1.0 **尚不创建玩家 Session，也不采集击杀、伤害或治疗数据**。
 
 已经确认的基础边界：
 
@@ -26,19 +36,38 @@
 - [统计口径](contracts/statistics.md)
 - [数据库结构](database/schema.md)
 
-## 计划中的 monorepo 边界
+## Monorepo 边界
 
 ```text
 collector/     SourceMod 数据采集插件
 database/      三种数据库的结构和迁移
 contracts/     插件与未来 Go 服务共同遵守的行为定义
 dashboard/     未来的 Go 后端与内嵌前端
-deploy/        SourceMod 安装包布局
 docs/          架构、部署和测试文档
 scripts/       仓库级构建与发布脚本
 ```
 
-实现阶段会逐步创建这些目录，不提前提交没有内容的占位目录。
+详细说明见[架构文档](docs/architecture.md)。
+
+## 本地构建
+
+1. 将 `scripts/config.example.ps1` 复制为 `scripts/config.local.ps1`，填写本机 SourceMod 路径。
+2. 运行 `scripts/build.ps1`；产物位于 `dist/l4d2_player_stats.smx`。
+3. 运行 `scripts/deploy.ps1`，插件和三套迁移会复制到本机 SourceMod 环境。
+
+VS Code 可以直接执行 `L4D2 Stats: Build` 或 `L4D2 Stats: Build and Deploy` 任务。
+
+## 服务器配置与验证
+
+数据库、ConVar 和 SQLite 首次验证步骤见[数据库地基部署](docs/database-foundation.md)。数据库密码只应存在于服务器自己的 `addons/sourcemod/configs/databases.cfg`，不得提交到仓库。
+
+管理员命令：
+
+| 命令 | 权限 | 用途 |
+|---|---|---|
+| `sm_lps_status` | root | 查看连接、驱动、迁移和最近错误 |
+| `sm_lps_reconnect` | root | 立即重新连接并重新检查迁移 |
+| `sm_lps_flush` | root | 立即执行服务器心跳/刷新请求 |
 
 ## License
 

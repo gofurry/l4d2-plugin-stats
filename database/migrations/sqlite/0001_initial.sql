@@ -1,0 +1,189 @@
+CREATE TABLE IF NOT EXISTS lps_schema_migrations (
+  version INTEGER PRIMARY KEY,
+  name VARCHAR(128) NOT NULL,
+  applied_at BIGINT NOT NULL
+);
+-- statement-breakpoint
+CREATE TABLE IF NOT EXISTS lps_servers (
+  server_key VARCHAR(64) PRIMARY KEY,
+  display_name VARCHAR(128) NOT NULL,
+  first_seen_at BIGINT NOT NULL,
+  last_seen_at BIGINT NOT NULL
+);
+-- statement-breakpoint
+CREATE TABLE IF NOT EXISTS lps_server_boots (
+  boot_id VARCHAR(128) PRIMARY KEY,
+  server_key VARCHAR(64) NOT NULL,
+  started_at BIGINT NOT NULL,
+  ended_at BIGINT NULL,
+  last_heartbeat_at BIGINT NOT NULL,
+  status VARCHAR(32) NOT NULL
+);
+-- statement-breakpoint
+CREATE TABLE IF NOT EXISTS lps_players (
+  steam_id VARCHAR(32) PRIMARY KEY,
+  last_name VARCHAR(128) NOT NULL,
+  first_seen_at BIGINT NOT NULL,
+  last_seen_at BIGINT NOT NULL
+);
+-- statement-breakpoint
+CREATE TABLE IF NOT EXISTS lps_sessions (
+  session_id VARCHAR(128) PRIMARY KEY,
+  boot_id VARCHAR(128) NOT NULL,
+  server_key VARCHAR(64) NOT NULL,
+  steam_id VARCHAR(32) NOT NULL,
+  player_name VARCHAR(128) NOT NULL,
+  ip_address VARCHAR(45) NOT NULL,
+  started_at BIGINT NOT NULL,
+  ended_at BIGINT NULL,
+  last_saved_at BIGINT NOT NULL,
+  connected_seconds BIGINT NOT NULL DEFAULT 0,
+  active_play_seconds BIGINT NOT NULL DEFAULT 0,
+  status VARCHAR(32) NOT NULL,
+  disconnect_reason VARCHAR(32) NOT NULL DEFAULT '',
+  revision BIGINT NOT NULL DEFAULT 0
+);
+-- statement-breakpoint
+CREATE TABLE IF NOT EXISTS lps_runs (
+  run_id VARCHAR(128) PRIMARY KEY,
+  boot_id VARCHAR(128) NOT NULL,
+  server_key VARCHAR(64) NOT NULL,
+  mode_family VARCHAR(32) NOT NULL,
+  game_mode VARCHAR(32) NOT NULL,
+  campaign_key VARCHAR(128) NOT NULL DEFAULT '',
+  started_at BIGINT NOT NULL,
+  ended_at BIGINT NULL,
+  last_saved_at BIGINT NOT NULL,
+  status VARCHAR(32) NOT NULL,
+  round_count BIGINT NOT NULL DEFAULT 0,
+  completed_round_count BIGINT NOT NULL DEFAULT 0,
+  failed_round_count BIGINT NOT NULL DEFAULT 0,
+  revision BIGINT NOT NULL DEFAULT 0
+);
+-- statement-breakpoint
+CREATE TABLE IF NOT EXISTS lps_rounds (
+  round_id VARCHAR(128) PRIMARY KEY,
+  run_id VARCHAR(128) NOT NULL,
+  server_key VARCHAR(64) NOT NULL,
+  mode_family VARCHAR(32) NOT NULL,
+  map_name VARCHAR(128) NOT NULL,
+  round_seq BIGINT NOT NULL,
+  map_seq BIGINT NOT NULL,
+  attempt_no BIGINT NOT NULL,
+  half_no INTEGER NOT NULL DEFAULT 0,
+  started_at BIGINT NOT NULL,
+  ended_at BIGINT NULL,
+  last_saved_at BIGINT NOT NULL,
+  status VARCHAR(32) NOT NULL,
+  revision BIGINT NOT NULL DEFAULT 0
+);
+-- statement-breakpoint
+CREATE TABLE IF NOT EXISTS lps_player_segments (
+  segment_id VARCHAR(128) PRIMARY KEY,
+  session_id VARCHAR(128) NOT NULL,
+  run_id VARCHAR(128) NOT NULL,
+  round_id VARCHAR(128) NOT NULL,
+  server_key VARCHAR(64) NOT NULL,
+  steam_id VARCHAR(32) NOT NULL,
+  side VARCHAR(32) NOT NULL,
+  started_at BIGINT NOT NULL,
+  ended_at BIGINT NULL,
+  last_saved_at BIGINT NOT NULL,
+  active_play_seconds BIGINT NOT NULL DEFAULT 0,
+  status VARCHAR(32) NOT NULL,
+  revision BIGINT NOT NULL DEFAULT 0
+);
+-- statement-breakpoint
+CREATE TABLE IF NOT EXISTS lps_pve_segment_stats (
+  segment_id VARCHAR(128) PRIMARY KEY,
+  stats_version INTEGER NOT NULL DEFAULT 1,
+  last_saved_at BIGINT NOT NULL,
+  common_kills BIGINT NOT NULL DEFAULT 0,
+  special_kills BIGINT NOT NULL DEFAULT 0,
+  tank_kills BIGINT NOT NULL DEFAULT 0,
+  witch_kills BIGINT NOT NULL DEFAULT 0,
+  damage_to_special BIGINT NOT NULL DEFAULT 0,
+  damage_to_tank BIGINT NOT NULL DEFAULT 0,
+  damage_to_witch BIGINT NOT NULL DEFAULT 0,
+  damage_taken_infected BIGINT NOT NULL DEFAULT 0,
+  friendly_fire_to_humans BIGINT NOT NULL DEFAULT 0,
+  friendly_fire_to_bots BIGINT NOT NULL DEFAULT 0,
+  friendly_fire_taken BIGINT NOT NULL DEFAULT 0,
+  incapacitations BIGINT NOT NULL DEFAULT 0,
+  deaths BIGINT NOT NULL DEFAULT 0,
+  incap_revives BIGINT NOT NULL DEFAULT 0,
+  ledge_rescues BIGINT NOT NULL DEFAULT 0,
+  defib_revives BIGINT NOT NULL DEFAULT 0,
+  rescues_received BIGINT NOT NULL DEFAULT 0,
+  medkits_used_self BIGINT NOT NULL DEFAULT 0,
+  medkits_used_on_others BIGINT NOT NULL DEFAULT 0,
+  medkit_healing_self BIGINT NOT NULL DEFAULT 0,
+  medkit_healing_others BIGINT NOT NULL DEFAULT 0,
+  pills_used BIGINT NOT NULL DEFAULT 0,
+  adrenaline_used BIGINT NOT NULL DEFAULT 0,
+  temporary_health_received BIGINT NOT NULL DEFAULT 0,
+  chapter_participations BIGINT NOT NULL DEFAULT 0,
+  chapter_completions_alive BIGINT NOT NULL DEFAULT 0,
+  chapter_completions_dead BIGINT NOT NULL DEFAULT 0,
+  campaign_completions BIGINT NOT NULL DEFAULT 0,
+  revision BIGINT NOT NULL DEFAULT 0
+);
+-- statement-breakpoint
+CREATE TABLE IF NOT EXISTS lps_versus_survivor_stats (
+  segment_id VARCHAR(128) PRIMARY KEY,
+  stats_version INTEGER NOT NULL DEFAULT 1,
+  last_saved_at BIGINT NOT NULL,
+  common_kills BIGINT NOT NULL DEFAULT 0,
+  human_special_kills BIGINT NOT NULL DEFAULT 0,
+  bot_special_kills BIGINT NOT NULL DEFAULT 0,
+  human_tank_kills BIGINT NOT NULL DEFAULT 0,
+  bot_tank_kills BIGINT NOT NULL DEFAULT 0,
+  damage_to_human_special BIGINT NOT NULL DEFAULT 0,
+  damage_to_bot_special BIGINT NOT NULL DEFAULT 0,
+  damage_to_human_tank BIGINT NOT NULL DEFAULT 0,
+  damage_to_bot_tank BIGINT NOT NULL DEFAULT 0,
+  damage_taken_infected BIGINT NOT NULL DEFAULT 0,
+  friendly_fire_to_humans BIGINT NOT NULL DEFAULT 0,
+  friendly_fire_to_bots BIGINT NOT NULL DEFAULT 0,
+  friendly_fire_taken BIGINT NOT NULL DEFAULT 0,
+  incapacitations BIGINT NOT NULL DEFAULT 0,
+  deaths BIGINT NOT NULL DEFAULT 0,
+  incap_revives BIGINT NOT NULL DEFAULT 0,
+  ledge_rescues BIGINT NOT NULL DEFAULT 0,
+  defib_revives BIGINT NOT NULL DEFAULT 0,
+  rescues_received BIGINT NOT NULL DEFAULT 0,
+  medkits_used_self BIGINT NOT NULL DEFAULT 0,
+  medkits_used_on_others BIGINT NOT NULL DEFAULT 0,
+  medkit_healing_self BIGINT NOT NULL DEFAULT 0,
+  medkit_healing_others BIGINT NOT NULL DEFAULT 0,
+  pills_used BIGINT NOT NULL DEFAULT 0,
+  adrenaline_used BIGINT NOT NULL DEFAULT 0,
+  temporary_health_received BIGINT NOT NULL DEFAULT 0,
+  revision BIGINT NOT NULL DEFAULT 0
+);
+-- statement-breakpoint
+CREATE TABLE IF NOT EXISTS lps_versus_infected_stats (
+  segment_id VARCHAR(128) PRIMARY KEY,
+  stats_version INTEGER NOT NULL DEFAULT 1,
+  last_saved_at BIGINT NOT NULL,
+  spawn_count BIGINT NOT NULL DEFAULT 0,
+  damage_to_human_survivors BIGINT NOT NULL DEFAULT 0,
+  damage_to_bot_survivors BIGINT NOT NULL DEFAULT 0,
+  human_survivor_incaps BIGINT NOT NULL DEFAULT 0,
+  bot_survivor_incaps BIGINT NOT NULL DEFAULT 0,
+  human_survivor_kills BIGINT NOT NULL DEFAULT 0,
+  bot_survivor_kills BIGINT NOT NULL DEFAULT 0,
+  revision BIGINT NOT NULL DEFAULT 0
+);
+-- statement-breakpoint
+CREATE INDEX IF NOT EXISTS lps_idx_sessions_server_started ON lps_sessions (server_key, started_at);
+-- statement-breakpoint
+CREATE INDEX IF NOT EXISTS lps_idx_sessions_steam_started ON lps_sessions (steam_id, started_at);
+-- statement-breakpoint
+CREATE INDEX IF NOT EXISTS lps_idx_runs_server_started ON lps_runs (server_key, started_at);
+-- statement-breakpoint
+CREATE INDEX IF NOT EXISTS lps_idx_rounds_run_sequence ON lps_rounds (run_id, round_seq);
+-- statement-breakpoint
+CREATE INDEX IF NOT EXISTS lps_idx_segments_round_steam ON lps_player_segments (round_id, steam_id);
+-- statement-breakpoint
+CREATE INDEX IF NOT EXISTS lps_idx_segments_steam_started ON lps_player_segments (steam_id, started_at);

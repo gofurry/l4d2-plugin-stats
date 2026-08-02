@@ -43,6 +43,15 @@
         "${workspaceFolder}/scripts/package.ps1"
       ],
       "problemMatcher": []
+    },
+    {
+      "label": "L4D2 Stats: Test SQLite migration",
+      "type": "shell",
+      "command": "python",
+      "args": [
+        "${workspaceFolder}/scripts/test_sqlite_migration.py"
+      ],
+      "problemMatcher": []
     }
   ]
 }
