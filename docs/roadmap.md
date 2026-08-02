@@ -60,13 +60,14 @@
 
 #### Tasks
 
-- [ ] 仅在 `coop`、`realism`、`versus` 中创建真人记录
-- [ ] 保存 SteamID64、最近昵称和不含端口的 IPv4/IPv6
-- [ ] 累计 `connected_seconds` 和 `active_play_seconds`
-- [ ] 支持中途加载、跨图延续、断线和模式切换结束
-- [ ] 使用单一刷新事务保存 active Session 和有界 closed Session 队列
-- [ ] 数据库恢复后补写当前绝对快照，不使用数据库增量
-- [ ] 增加管理员状态信息与 SQLite Session 集成测试
+- [x] 仅在 `coop`、`realism`、`versus` 中创建真人记录
+- [x] 保存 SteamID64、最近昵称和不含端口的 IPv4/IPv6
+- [x] 累计 `connected_seconds` 和 `active_play_seconds`
+- [x] 支持中途加载、跨图延续、断线和模式切换结束
+- [x] 使用单一刷新事务保存 active Session 和有界 closed Session 队列
+- [x] 数据库恢复后补写当前绝对快照，不使用数据库增量
+- [x] 增加管理员状态信息与 SQLite Session 集成测试
+- [ ] 完成真实服务器上的观战、闲置、跨图、断线和模式切换验收
 
 #### Acceptance Criteria
 
