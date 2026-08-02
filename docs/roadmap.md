@@ -45,7 +45,7 @@
 
 ### v0.2.0 - Player Identity and Session
 
-**Status:** In progress
+**Status:** Completed (local validation scope)
 
 **Scope:** Architecture / Stability / Security / Testing
 
@@ -67,21 +67,26 @@
 - [x] 使用单一刷新事务保存 active Session 和有界 closed Session 队列
 - [x] 数据库恢复后补写当前绝对快照，不使用数据库增量
 - [x] 增加管理员状态信息与 SQLite Session 集成测试
-- [ ] 完成真实服务器上的观战、闲置、跨图、断线和模式切换验收
+- [x] 完成本地观战、闲置、跨图和模式切换验收
+- [ ] 在独立服务器或多人服务器验证远端真人断线与重连（转移至 v0.7.0）
 
 #### Acceptance Criteria
 
 - Bot、未认证玩家和不支持模式不会创建玩家或 Session
 - Session 可跨正常地图切换，断线重连会创建新 Session
 - 观战和闲置只增加连接时间，不增加有效操作时间
-- 断线、切换到不支持模式和周期刷新均能持久化
+- 本地可验证的模式切换和周期刷新能够持久化
 - 正常日志和管理员状态不输出 IP
+
+#### Notes
+
+本地 listen server 的房主断线会同时终止服务器，不能等价验证“远端真人断线但服务器继续运行”。该代码路径和 SQLite 绝对快照已通过实现级测试，真实多人时序验收保留为 v0.7.0 发布加固任务，不阻塞 v0.3.0。
 
 ---
 
 ### v0.3.0 - Run, Round, and Segment Lifecycle
 
-**Status:** Planned
+**Status:** In progress
 
 **Scope:** Architecture / Correctness / Testing
 
@@ -197,6 +202,7 @@
 #### Tasks
 
 - [ ] 在真实 MySQL 与 PostgreSQL 测试迁移、重连和 upsert
+- [ ] 在独立服务器或多人服务器验证远端真人断线、重连及数据库故障期间断线补写
 - [ ] 增加 SQLite/MySQL/PostgreSQL 自动兼容测试
 - [ ] 验证长时间运行、队列上限、事务大小和地图切换压力
 - [ ] 建立 GitHub Actions 编译、迁移校验和发布产物流程
