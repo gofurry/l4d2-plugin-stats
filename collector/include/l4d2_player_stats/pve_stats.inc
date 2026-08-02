@@ -23,6 +23,17 @@ enum struct LPSPvEStatsSnapshot
 	int ledgeRescues;
 	int defibRevives;
 	int rescuesReceived;
+	int medkitsUsedSelf;
+	int medkitsUsedOnOthers;
+	int medkitHealingSelf;
+	int medkitHealingOthers;
+	int pillsUsed;
+	int adrenalineUsed;
+	int temporaryHealthReceived;
+	int chapterParticipations;
+	int chapterCompletionsAlive;
+	int chapterCompletionsDead;
+	int campaignCompletions;
 	int revision;
 }
 
@@ -44,6 +55,7 @@ bool g_LPSDamageHooked[LPS_MAX_ENTITY_INDEX + 1];
 bool g_LPSDamageHealthCaptured[LPS_MAX_ENTITY_INDEX + 1];
 bool g_LPSDamageVictimWasIncapacitated[LPS_MAX_ENTITY_INDEX + 1];
 float g_LPSDamageHealthBefore[LPS_MAX_ENTITY_INDEX + 1];
+float g_LPSClientEffectiveHealthBeforeCommand[MAXPLAYERS + 1];
 
 void LPS_InitializePvEStats()
 {
@@ -58,6 +70,9 @@ void LPS_InitializePvEStats()
 	HookEvent("player_incapacitated", LPS_Event_PlayerIncapacitatedStats, EventHookMode_Post);
 	HookEvent("revive_success", LPS_Event_ReviveSuccessStats, EventHookMode_Post);
 	HookEvent("defibrillator_used", LPS_Event_DefibrillatorUsedStats, EventHookMode_Post);
+	HookEvent("heal_success", LPS_Event_HealSuccessStats, EventHookMode_Post);
+	HookEvent("pills_used", LPS_Event_PillsUsedStats, EventHookMode_Post);
+	HookEvent("adrenaline_used", LPS_Event_AdrenalineUsedStats, EventHookMode_Post);
 
 	for (int entity = 0; entity <= LPS_MAX_ENTITY_INDEX; entity++)
 	{
@@ -65,6 +80,10 @@ void LPS_InitializePvEStats()
 		g_LPSDamageHealthCaptured[entity] = false;
 		g_LPSDamageVictimWasIncapacitated[entity] = false;
 		g_LPSDamageHealthBefore[entity] = 0.0;
+		if (entity <= MaxClients)
+		{
+			g_LPSClientEffectiveHealthBeforeCommand[entity] = 0.0;
+		}
 	}
 
 	for (int client = 1; client <= MaxClients; client++)
@@ -109,6 +128,34 @@ public void OnEntityDestroyed(int entity)
 	g_LPSDamageHealthCaptured[entity] = false;
 	g_LPSDamageVictimWasIncapacitated[entity] = false;
 	g_LPSDamageHealthBefore[entity] = 0.0;
+	if (entity <= MaxClients)
+	{
+		g_LPSClientEffectiveHealthBeforeCommand[entity] = 0.0;
+	}
+}
+
+public Action OnPlayerRunCmd(
+	int client,
+	int &buttons,
+	int &impulse,
+	float velocity[3],
+	float angles[3],
+	int &weapon,
+	int &subtype,
+	int &commandNumber,
+	int &tickCount,
+	int &randomSeed,
+	int mouse[2]
+)
+{
+	if (client >= 1
+		&& client <= MaxClients
+		&& IsClientInGame(client)
+		&& GetClientTeam(client) == LPS_TEAM_SURVIVOR)
+	{
+		g_LPSClientEffectiveHealthBeforeCommand[client] = LPS_GetTrackedEffectiveHealth(client);
+	}
+	return Plugin_Continue;
 }
 
 void LPS_HookStatsClient(int client)
@@ -147,6 +194,10 @@ void LPS_ResetStatsDamageEntity(int entity)
 	g_LPSDamageHealthCaptured[entity] = false;
 	g_LPSDamageVictimWasIncapacitated[entity] = false;
 	g_LPSDamageHealthBefore[entity] = 0.0;
+	if (entity <= MaxClients)
+	{
+		g_LPSClientEffectiveHealthBeforeCommand[entity] = 0.0;
+	}
 }
 
 public Action LPS_OnTakeDamageAlivePre(
@@ -590,6 +641,152 @@ public void LPS_Event_DefibrillatorUsedStats(Event event, const char[] name, boo
 	LPS_AddPvEStat(subject, LPSPvEStat_RescuesReceived, 1);
 }
 
+public void LPS_Event_HealSuccessStats(Event event, const char[] name, bool dontBroadcast)
+{
+	if (!LPS_CanRecordPvEEvents())
+	{
+		return;
+	}
+
+	int healer = GetClientOfUserId(event.GetInt("userid"));
+	int subject = GetClientOfUserId(event.GetInt("subject"));
+	int restored = event.GetInt("health_restored");
+	if (healer == subject)
+	{
+		LPS_AddPvEStat(healer, LPSPvEStat_MedkitsUsedSelf, 1);
+		LPS_AddPvEStat(healer, LPSPvEStat_MedkitHealingSelf, restored);
+	}
+	else
+	{
+		LPS_AddPvEStat(healer, LPSPvEStat_MedkitsUsedOnOthers, 1);
+		LPS_AddPvEStat(healer, LPSPvEStat_MedkitHealingOthers, restored);
+	}
+}
+
+public void LPS_Event_PillsUsedStats(Event event, const char[] name, bool dontBroadcast)
+{
+	if (!LPS_CanRecordPvEEvents())
+	{
+		return;
+	}
+
+	// The subject is the survivor who actually swallowed and received the pills.
+	int subject = GetClientOfUserId(event.GetInt("subject"));
+	LPS_AddPvEStat(subject, LPSPvEStat_PillsUsed, 1);
+	LPS_RecordTemporaryHealthAfterUse(subject);
+}
+
+public void LPS_Event_AdrenalineUsedStats(Event event, const char[] name, bool dontBroadcast)
+{
+	if (!LPS_CanRecordPvEEvents())
+	{
+		return;
+	}
+
+	int client = GetClientOfUserId(event.GetInt("userid"));
+	LPS_AddPvEStat(client, LPSPvEStat_AdrenalineUsed, 1);
+	LPS_RecordTemporaryHealthAfterUse(client);
+}
+
+void LPS_RecordTemporaryHealthAfterUse(int client)
+{
+	if (client < 1
+		|| client > MaxClients
+		|| !g_LPSClientPvEStatsActive[client]
+		|| !IsClientInGame(client))
+	{
+		return;
+	}
+
+	float before = g_LPSClientEffectiveHealthBeforeCommand[client];
+	float current = LPS_GetTrackedEffectiveHealth(client);
+	if (before <= 0.0)
+	{
+		// A synthetic event without a preceding player command cannot provide a
+		// reliable baseline, so keep the use count but do not invent health.
+		return;
+	}
+
+	if (current - before > 0.25)
+	{
+		LPS_AddPvEStat(
+			client,
+			LPSPvEStat_TemporaryHealthReceived,
+			RoundToNearest(current - before)
+		);
+		return;
+	}
+
+	DataPack pack;
+	CreateDataTimer(0.0, LPS_Timer_RecordTemporaryHealth, pack, TIMER_FLAG_NO_MAPCHANGE);
+	pack.WriteCell(GetClientUserId(client));
+	pack.WriteFloat(before);
+	pack.WriteString(g_LPSClientPvEStats[client].segmentId);
+}
+
+public Action LPS_Timer_RecordTemporaryHealth(Handle timer, DataPack pack)
+{
+	pack.Reset();
+	int client = GetClientOfUserId(pack.ReadCell());
+	float before = pack.ReadFloat();
+	char segmentId[LPS_MAX_SEGMENT_ID];
+	pack.ReadString(segmentId, sizeof(segmentId));
+
+	if (client < 1
+		|| client > MaxClients
+		|| !g_LPSClientPvEStatsActive[client]
+		|| !StrEqual(g_LPSClientPvEStats[client].segmentId, segmentId, true))
+	{
+		return Plugin_Stop;
+	}
+
+	float gained = LPS_GetTrackedEffectiveHealth(client) - before;
+	if (gained > 0.25)
+	{
+		LPS_AddPvEStat(
+			client,
+			LPSPvEStat_TemporaryHealthReceived,
+			RoundToNearest(gained)
+		);
+	}
+	return Plugin_Stop;
+}
+
+void LPS_OnPvERoundCompleting(bool campaignCompleted)
+{
+	if (g_LPSModeFamily != LPSModeFamily_PvE)
+	{
+		return;
+	}
+
+	for (int client = 1; client <= MaxClients; client++)
+	{
+		if (!g_LPSClientPvEStatsActive[client]
+			|| !g_LPSClientSegmentActive[client]
+			|| !IsClientInGame(client)
+			|| IsFakeClient(client)
+			|| GetClientTeam(client) != LPS_TEAM_SURVIVOR)
+		{
+			continue;
+		}
+
+		LPS_AddPvEStat(client, LPSPvEStat_ChapterParticipations, 1);
+		if (IsPlayerAlive(client))
+		{
+			LPS_AddPvEStat(client, LPSPvEStat_ChapterCompletionsAlive, 1);
+		}
+		else
+		{
+			LPS_AddPvEStat(client, LPSPvEStat_ChapterCompletionsDead, 1);
+		}
+
+		if (campaignCompleted)
+		{
+			LPS_AddPvEStat(client, LPSPvEStat_CampaignCompletions, 1);
+		}
+	}
+}
+
 bool LPS_CanRecordPvEEvents()
 {
 	return g_LPSModeFamily == LPSModeFamily_PvE && g_LPSRunActive && g_LPSRoundActive;
@@ -614,6 +811,7 @@ void LPS_OnClientSegmentStartedForStats(int client)
 	g_LPSClientPvEStatsPersistedRevision[client] = 0;
 	g_LPSClientPvEStatsDirty[client] = true;
 	g_LPSClientPvEStatsActive[client] = true;
+	g_LPSClientEffectiveHealthBeforeCommand[client] = LPS_GetTrackedEffectiveHealth(client);
 }
 
 void LPS_OnClientSegmentEndingForStats(int client)
@@ -660,6 +858,17 @@ void LPS_AddPvEStat(int client, LPSPvEStat stat, int amount)
 		case LPSPvEStat_LedgeRescues: g_LPSClientPvEStats[client].ledgeRescues += amount;
 		case LPSPvEStat_DefibRevives: g_LPSClientPvEStats[client].defibRevives += amount;
 		case LPSPvEStat_RescuesReceived: g_LPSClientPvEStats[client].rescuesReceived += amount;
+		case LPSPvEStat_MedkitsUsedSelf: g_LPSClientPvEStats[client].medkitsUsedSelf += amount;
+		case LPSPvEStat_MedkitsUsedOnOthers: g_LPSClientPvEStats[client].medkitsUsedOnOthers += amount;
+		case LPSPvEStat_MedkitHealingSelf: g_LPSClientPvEStats[client].medkitHealingSelf += amount;
+		case LPSPvEStat_MedkitHealingOthers: g_LPSClientPvEStats[client].medkitHealingOthers += amount;
+		case LPSPvEStat_PillsUsed: g_LPSClientPvEStats[client].pillsUsed += amount;
+		case LPSPvEStat_AdrenalineUsed: g_LPSClientPvEStats[client].adrenalineUsed += amount;
+		case LPSPvEStat_TemporaryHealthReceived: g_LPSClientPvEStats[client].temporaryHealthReceived += amount;
+		case LPSPvEStat_ChapterParticipations: g_LPSClientPvEStats[client].chapterParticipations += amount;
+		case LPSPvEStat_ChapterCompletionsAlive: g_LPSClientPvEStats[client].chapterCompletionsAlive += amount;
+		case LPSPvEStat_ChapterCompletionsDead: g_LPSClientPvEStats[client].chapterCompletionsDead += amount;
+		case LPSPvEStat_CampaignCompletions: g_LPSClientPvEStats[client].campaignCompletions += amount;
 	}
 
 	g_LPSClientPvEStats[client].revision++;
@@ -686,6 +895,17 @@ void LPS_FillClientPvEStatsSnapshot(int client, LPSPvEStatsSnapshot snapshot, bo
 	snapshot.ledgeRescues = g_LPSClientPvEStats[client].ledgeRescues;
 	snapshot.defibRevives = g_LPSClientPvEStats[client].defibRevives;
 	snapshot.rescuesReceived = g_LPSClientPvEStats[client].rescuesReceived;
+	snapshot.medkitsUsedSelf = g_LPSClientPvEStats[client].medkitsUsedSelf;
+	snapshot.medkitsUsedOnOthers = g_LPSClientPvEStats[client].medkitsUsedOnOthers;
+	snapshot.medkitHealingSelf = g_LPSClientPvEStats[client].medkitHealingSelf;
+	snapshot.medkitHealingOthers = g_LPSClientPvEStats[client].medkitHealingOthers;
+	snapshot.pillsUsed = g_LPSClientPvEStats[client].pillsUsed;
+	snapshot.adrenalineUsed = g_LPSClientPvEStats[client].adrenalineUsed;
+	snapshot.temporaryHealthReceived = g_LPSClientPvEStats[client].temporaryHealthReceived;
+	snapshot.chapterParticipations = g_LPSClientPvEStats[client].chapterParticipations;
+	snapshot.chapterCompletionsAlive = g_LPSClientPvEStats[client].chapterCompletionsAlive;
+	snapshot.chapterCompletionsDead = g_LPSClientPvEStats[client].chapterCompletionsDead;
+	snapshot.campaignCompletions = g_LPSClientPvEStats[client].campaignCompletions;
 	snapshot.revision = g_LPSClientPvEStats[client].revision + (closed ? 1 : 0);
 }
 
@@ -779,7 +999,7 @@ bool LPS_BuildPvEStatsUpsertQuery(LPSPvEStatsSnapshot snapshot, char[] query, in
 	Format(
 		values,
 		sizeof(values),
-		"'%s', %d, %d, %d, %d, %d, %d, %d, %d, %d, %d, %d, %d, %d, %d, %d, %d, %d, %d, %d, %d",
+		"'%s', %d, %d, %d, %d, %d, %d, %d, %d, %d, %d, %d, %d, %d, %d, %d, %d, %d, %d, %d, %d, %d, %d, %d, %d, %d, %d, %d, %d, %d, %d, %d",
 		segmentId,
 		LPS_STATS_VERSION,
 		savedAt,
@@ -800,16 +1020,27 @@ bool LPS_BuildPvEStatsUpsertQuery(LPSPvEStatsSnapshot snapshot, char[] query, in
 		snapshot.ledgeRescues,
 		snapshot.defibRevives,
 		snapshot.rescuesReceived,
+		snapshot.medkitsUsedSelf,
+		snapshot.medkitsUsedOnOthers,
+		snapshot.medkitHealingSelf,
+		snapshot.medkitHealingOthers,
+		snapshot.pillsUsed,
+		snapshot.adrenalineUsed,
+		snapshot.temporaryHealthReceived,
+		snapshot.chapterParticipations,
+		snapshot.chapterCompletionsAlive,
+		snapshot.chapterCompletionsDead,
+		snapshot.campaignCompletions,
 		snapshot.revision
 	);
 
-	char columns[] = "segment_id, stats_version, last_saved_at, common_kills, special_kills, tank_kills, witch_kills, damage_to_special, damage_to_tank, damage_to_witch, damage_taken_infected, friendly_fire_to_humans, friendly_fire_to_bots, friendly_fire_taken, incapacitations, deaths, incap_revives, ledge_rescues, defib_revives, rescues_received, revision";
+	char columns[] = "segment_id, stats_version, last_saved_at, common_kills, special_kills, tank_kills, witch_kills, damage_to_special, damage_to_tank, damage_to_witch, damage_taken_infected, friendly_fire_to_humans, friendly_fire_to_bots, friendly_fire_taken, incapacitations, deaths, incap_revives, ledge_rescues, defib_revives, rescues_received, medkits_used_self, medkits_used_on_others, medkit_healing_self, medkit_healing_others, pills_used, adrenaline_used, temporary_health_received, chapter_participations, chapter_completions_alive, chapter_completions_dead, campaign_completions, revision";
 	if (g_LPSDatabaseDialect == LPSDatabaseDialect_MySQL)
 	{
 		Format(
 			query,
 			maxLength,
-			"INSERT INTO lps_pve_segment_stats (%s) VALUES (%s) ON DUPLICATE KEY UPDATE stats_version = VALUES(stats_version), last_saved_at = VALUES(last_saved_at), common_kills = VALUES(common_kills), special_kills = VALUES(special_kills), tank_kills = VALUES(tank_kills), witch_kills = VALUES(witch_kills), damage_to_special = VALUES(damage_to_special), damage_to_tank = VALUES(damage_to_tank), damage_to_witch = VALUES(damage_to_witch), damage_taken_infected = VALUES(damage_taken_infected), friendly_fire_to_humans = VALUES(friendly_fire_to_humans), friendly_fire_to_bots = VALUES(friendly_fire_to_bots), friendly_fire_taken = VALUES(friendly_fire_taken), incapacitations = VALUES(incapacitations), deaths = VALUES(deaths), incap_revives = VALUES(incap_revives), ledge_rescues = VALUES(ledge_rescues), defib_revives = VALUES(defib_revives), rescues_received = VALUES(rescues_received), revision = VALUES(revision)",
+			"INSERT INTO lps_pve_segment_stats (%s) VALUES (%s) ON DUPLICATE KEY UPDATE stats_version = VALUES(stats_version), last_saved_at = VALUES(last_saved_at), common_kills = VALUES(common_kills), special_kills = VALUES(special_kills), tank_kills = VALUES(tank_kills), witch_kills = VALUES(witch_kills), damage_to_special = VALUES(damage_to_special), damage_to_tank = VALUES(damage_to_tank), damage_to_witch = VALUES(damage_to_witch), damage_taken_infected = VALUES(damage_taken_infected), friendly_fire_to_humans = VALUES(friendly_fire_to_humans), friendly_fire_to_bots = VALUES(friendly_fire_to_bots), friendly_fire_taken = VALUES(friendly_fire_taken), incapacitations = VALUES(incapacitations), deaths = VALUES(deaths), incap_revives = VALUES(incap_revives), ledge_rescues = VALUES(ledge_rescues), defib_revives = VALUES(defib_revives), rescues_received = VALUES(rescues_received), medkits_used_self = VALUES(medkits_used_self), medkits_used_on_others = VALUES(medkits_used_on_others), medkit_healing_self = VALUES(medkit_healing_self), medkit_healing_others = VALUES(medkit_healing_others), pills_used = VALUES(pills_used), adrenaline_used = VALUES(adrenaline_used), temporary_health_received = VALUES(temporary_health_received), chapter_participations = VALUES(chapter_participations), chapter_completions_alive = VALUES(chapter_completions_alive), chapter_completions_dead = VALUES(chapter_completions_dead), campaign_completions = VALUES(campaign_completions), revision = VALUES(revision)",
 			columns,
 			values
 		);
@@ -819,7 +1050,7 @@ bool LPS_BuildPvEStatsUpsertQuery(LPSPvEStatsSnapshot snapshot, char[] query, in
 		Format(
 			query,
 			maxLength,
-			"INSERT INTO lps_pve_segment_stats (%s) VALUES (%s) ON CONFLICT(segment_id) DO UPDATE SET stats_version = excluded.stats_version, last_saved_at = excluded.last_saved_at, common_kills = excluded.common_kills, special_kills = excluded.special_kills, tank_kills = excluded.tank_kills, witch_kills = excluded.witch_kills, damage_to_special = excluded.damage_to_special, damage_to_tank = excluded.damage_to_tank, damage_to_witch = excluded.damage_to_witch, damage_taken_infected = excluded.damage_taken_infected, friendly_fire_to_humans = excluded.friendly_fire_to_humans, friendly_fire_to_bots = excluded.friendly_fire_to_bots, friendly_fire_taken = excluded.friendly_fire_taken, incapacitations = excluded.incapacitations, deaths = excluded.deaths, incap_revives = excluded.incap_revives, ledge_rescues = excluded.ledge_rescues, defib_revives = excluded.defib_revives, rescues_received = excluded.rescues_received, revision = excluded.revision",
+			"INSERT INTO lps_pve_segment_stats (%s) VALUES (%s) ON CONFLICT(segment_id) DO UPDATE SET stats_version = excluded.stats_version, last_saved_at = excluded.last_saved_at, common_kills = excluded.common_kills, special_kills = excluded.special_kills, tank_kills = excluded.tank_kills, witch_kills = excluded.witch_kills, damage_to_special = excluded.damage_to_special, damage_to_tank = excluded.damage_to_tank, damage_to_witch = excluded.damage_to_witch, damage_taken_infected = excluded.damage_taken_infected, friendly_fire_to_humans = excluded.friendly_fire_to_humans, friendly_fire_to_bots = excluded.friendly_fire_to_bots, friendly_fire_taken = excluded.friendly_fire_taken, incapacitations = excluded.incapacitations, deaths = excluded.deaths, incap_revives = excluded.incap_revives, ledge_rescues = excluded.ledge_rescues, defib_revives = excluded.defib_revives, rescues_received = excluded.rescues_received, medkits_used_self = excluded.medkits_used_self, medkits_used_on_others = excluded.medkits_used_on_others, medkit_healing_self = excluded.medkit_healing_self, medkit_healing_others = excluded.medkit_healing_others, pills_used = excluded.pills_used, adrenaline_used = excluded.adrenaline_used, temporary_health_received = excluded.temporary_health_received, chapter_participations = excluded.chapter_participations, chapter_completions_alive = excluded.chapter_completions_alive, chapter_completions_dead = excluded.chapter_completions_dead, campaign_completions = excluded.campaign_completions, revision = excluded.revision",
 			columns,
 			values
 		);
@@ -900,6 +1131,17 @@ void LPS_ResetClientPvEStatsState(int client)
 	g_LPSClientPvEStats[client].ledgeRescues = 0;
 	g_LPSClientPvEStats[client].defibRevives = 0;
 	g_LPSClientPvEStats[client].rescuesReceived = 0;
+	g_LPSClientPvEStats[client].medkitsUsedSelf = 0;
+	g_LPSClientPvEStats[client].medkitsUsedOnOthers = 0;
+	g_LPSClientPvEStats[client].medkitHealingSelf = 0;
+	g_LPSClientPvEStats[client].medkitHealingOthers = 0;
+	g_LPSClientPvEStats[client].pillsUsed = 0;
+	g_LPSClientPvEStats[client].adrenalineUsed = 0;
+	g_LPSClientPvEStats[client].temporaryHealthReceived = 0;
+	g_LPSClientPvEStats[client].chapterParticipations = 0;
+	g_LPSClientPvEStats[client].chapterCompletionsAlive = 0;
+	g_LPSClientPvEStats[client].chapterCompletionsDead = 0;
+	g_LPSClientPvEStats[client].campaignCompletions = 0;
 	g_LPSClientPvEStats[client].revision = 0;
 }
 
@@ -929,5 +1171,9 @@ void LPS_ShutdownPvEStats()
 		g_LPSDamageHealthCaptured[entity] = false;
 		g_LPSDamageVictimWasIncapacitated[entity] = false;
 		g_LPSDamageHealthBefore[entity] = 0.0;
+		if (entity <= MaxClients)
+		{
+			g_LPSClientEffectiveHealthBeforeCommand[entity] = 0.0;
+		}
 	}
 }

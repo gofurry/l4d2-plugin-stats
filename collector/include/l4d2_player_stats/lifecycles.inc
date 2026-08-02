@@ -272,7 +272,7 @@ public void LPS_Event_FinaleWin(Event event, const char[] name, bool dontBroadca
 
 	if (g_LPSRoundActive)
 	{
-		LPS_EndRound("completed");
+		LPS_EndRound("completed", true);
 	}
 
 	LPS_EndRun("completed");
@@ -391,11 +391,16 @@ int LPS_GetVersusHalfNo()
 	return GameRules_GetProp("m_bInSecondHalfOfRound", 1) != 0 ? 2 : 1;
 }
 
-void LPS_EndRound(const char[] status)
+void LPS_EndRound(const char[] status, bool campaignCompleted = false)
 {
 	if (!g_LPSRoundActive)
 	{
 		return;
+	}
+
+	if (StrEqual(status, "completed", true))
+	{
+		LPS_OnPvERoundCompleting(campaignCompleted);
 	}
 
 	LPS_EndAllActiveSegments(StrEqual(status, "abandoned", true) ? "abandoned" : "closed");

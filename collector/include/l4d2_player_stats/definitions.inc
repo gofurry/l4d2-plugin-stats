@@ -3,7 +3,7 @@
 #endif
 #define _l4d2_player_stats_definitions_included
 
-#define LPS_VERSION "0.4.0"
+#define LPS_VERSION "0.5.0"
 #define LPS_SCHEMA_VERSION 1
 #define LPS_MIGRATION_NAME "initial_schema"
 #define LPS_STATS_VERSION 1
@@ -90,5 +90,16 @@ enum LPSPvEStat
 	LPSPvEStat_IncapRevives,
 	LPSPvEStat_LedgeRescues,
 	LPSPvEStat_DefibRevives,
-	LPSPvEStat_RescuesReceived
+	LPSPvEStat_RescuesReceived,
+	LPSPvEStat_MedkitsUsedSelf,
+	LPSPvEStat_MedkitsUsedOnOthers,
+	LPSPvEStat_MedkitHealingSelf,
+	LPSPvEStat_MedkitHealingOthers,
+	LPSPvEStat_PillsUsed,
+	LPSPvEStat_AdrenalineUsed,
+	LPSPvEStat_TemporaryHealthReceived,
+	LPSPvEStat_ChapterParticipations,
+	LPSPvEStat_ChapterCompletionsAlive,
+	LPSPvEStat_ChapterCompletionsDead,
+	LPSPvEStat_CampaignCompletions
 };
