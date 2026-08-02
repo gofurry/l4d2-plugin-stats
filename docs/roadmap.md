@@ -2,7 +2,7 @@
 
 ## Current Position
 
-项目已经完成数据库地基和真人身份/Session；v0.3.0 的 Run、Round 和 Segment 生命周期已完成实现，正等待本地游戏验收。SQLite 已在真实 L4D2/SourceMod 环境中进入 `ready`；MySQL 和 PostgreSQL 实机兼容验证保留到 v0.7.0。
+项目已经完成数据库地基和真人身份/Session；v0.3.0 的 Run、Round 和 Segment 生命周期已完成实现，PvE 通关、团灭重试、异常换图和本地对抗首半场已经通过真实 SQLite 数据验收。当前只需复测修复后的跨图 Session 续接，即可进入 v0.4.0。SQLite 已在真实 L4D2/SourceMod 环境中进入 `ready`；完整多人对抗、MySQL 和 PostgreSQL 实机兼容验证保留到 v0.7.0。
 
 当前尚未采集击杀、伤害、治疗、救援或章节成绩。SourcePawn 采集器、数据库结构和未来 Go 服务的公共边界仍处于 pre-v1 阶段，可以按验证结果调整。
 
@@ -63,7 +63,7 @@
 - [x] 仅在 `coop`、`realism`、`versus` 中创建真人记录
 - [x] 保存 SteamID64、最近昵称和不含端口的 IPv4/IPv6
 - [x] 累计 `connected_seconds` 和 `active_play_seconds`
-- [x] 支持中途加载、跨图延续、断线和模式切换结束
+- [x] 支持中途加载、按 SteamID 跨图续接、真实断线和模式切换结束
 - [x] 使用单一刷新事务保存 active Session 和有界 closed Session 队列
 - [x] 数据库恢复后补写当前绝对快照，不使用数据库增量
 - [x] 增加管理员状态信息与 SQLite Session 集成测试
@@ -73,20 +73,21 @@
 #### Acceptance Criteria
 
 - Bot、未认证玩家和不支持模式不会创建玩家或 Session
-- Session 可跨正常地图切换，断线重连会创建新 Session
+- Session 可跨正常地图切换；listen server 换图产生的临时重连仍沿用同一 Session
+- 非换图期间的真实断线会关闭 Session，再次连接创建新 Session
 - 观战和闲置只增加连接时间，不增加有效操作时间
 - 本地可验证的模式切换和周期刷新能够持久化
 - 正常日志和管理员状态不输出 IP
 
 #### Notes
 
-本地 listen server 的房主断线会同时终止服务器，不能等价验证“远端真人断线但服务器继续运行”。该代码路径和 SQLite 绝对快照已通过实现级测试，真实多人时序验收保留为 v0.7.0 发布加固任务，不阻塞 v0.3.0。
+本地 listen server 的房主断线会同时终止服务器，不能等价验证“远端真人断线但服务器继续运行”。换图时按 SteamID 暂存 Session 120 秒，成功重连沿用原 `session_id`；超时则以 `map_reconnect_timeout` 关闭。真实多人时序验收保留为 v0.7.0 发布加固任务。
 
 ---
 
 ### v0.3.0 - Run, Round, and Segment Lifecycle
 
-**Status:** Implementation complete; local validation pending
+**Status:** Implementation complete; final map-transfer regression pending
 
 **Scope:** Architecture / Correctness / Testing
 
@@ -105,7 +106,8 @@
 - [x] 处理手动换图、模式切换、插件重载和异常恢复
 - [x] 处理阵营切换、观战、闲置和重新接管 Segment
 - [x] 为生命周期状态机增加固定事件回放测试清单
-- [ ] 按 `docs/v0.3-test-checklist.md` 完成本地游戏验收
+- [x] 完成 PvE 通关、团灭重试、手动换图和本地对抗首半场验收
+- [ ] 复测修复后的跨图 Session，确认一次连续连接只保留一个 `session_id`
 
 #### Acceptance Criteria
 
@@ -204,6 +206,7 @@
 
 - [ ] 在真实 MySQL 与 PostgreSQL 测试迁移、重连和 upsert
 - [ ] 在独立服务器或多人服务器验证远端真人断线、重连及数据库故障期间断线补写
+- [ ] 使用双方真人完成 Versus 两个半场、换队、半场重开和中途退出验收
 - [ ] 增加 SQLite/MySQL/PostgreSQL 自动兼容测试
 - [ ] 验证长时间运行、队列上限、事务大小和地图切换压力
 - [ ] 建立 GitHub Actions 编译、迁移校验和发布产物流程

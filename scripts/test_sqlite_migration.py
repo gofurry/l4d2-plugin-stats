@@ -202,6 +202,68 @@ def main() -> None:
             ),
         )
 
+        # Simulate a process that disappeared while a Versus lifecycle was active.
+        # Registration of the next boot must close every stale active layer.
+        stale_session_id = "test-01:1:a:session:2"
+        stale_run_id = "test-01:1:a:run:2"
+        stale_round_id = "test-01:1:a:round:2"
+        stale_segment_id = "test-01:1:a:segment:2"
+        database.execute(
+            session_insert,
+            (
+                stale_session_id, "test-01:1:a", "test-01",
+                "76561198000000000", "Latest Name", "127.0.0.1",
+                100, None, 125, 25, 20, "active", "", 3,
+            ),
+        )
+        database.execute(
+            run_insert,
+            (
+                stale_run_id, "test-01:1:a", "test-01", "versus", "versus",
+                "c5", 100, None, 125, "active", 1, 1, 0, 3,
+            ),
+        )
+        database.execute(
+            round_insert,
+            (
+                stale_round_id, stale_run_id, "test-01", "versus",
+                "c5m1_waterfront", 1, 1, 1, 1, 100, None, 125, "active", 2,
+            ),
+        )
+        database.execute(
+            segment_insert,
+            (
+                stale_segment_id, stale_session_id, stale_run_id, stale_round_id,
+                "test-01", "76561198000000000", "survivor",
+                100, None, 125, 20, "active", 2,
+            ),
+        )
+
+        current_boot_id = "test-01:2:b"
+        database.execute(
+            "UPDATE lps_player_segments SET status = 'abandoned', "
+            "ended_at = last_saved_at WHERE status = 'active' AND session_id IN "
+            "(SELECT session_id FROM lps_sessions WHERE server_key = ? "
+            "AND boot_id <> ?)",
+            ("test-01", current_boot_id),
+        )
+        database.execute(
+            "UPDATE lps_rounds SET status = 'abandoned', ended_at = last_saved_at "
+            "WHERE status = 'active' AND run_id IN "
+            "(SELECT run_id FROM lps_runs WHERE server_key = ? AND boot_id <> ?)",
+            ("test-01", current_boot_id),
+        )
+        database.execute(
+            "UPDATE lps_sessions SET status = 'abandoned', ended_at = last_saved_at "
+            "WHERE server_key = ? AND boot_id <> ? AND status = 'active'",
+            ("test-01", current_boot_id),
+        )
+        database.execute(
+            "UPDATE lps_runs SET status = 'abandoned', ended_at = last_saved_at "
+            "WHERE server_key = ? AND boot_id <> ? AND status = 'active'",
+            ("test-01", current_boot_id),
+        )
+
         tables = {
             row[0]
             for row in database.execute(
@@ -258,6 +320,40 @@ def main() -> None:
             "FROM lps_player_segments WHERE segment_id = ?", (segment_id,)
         ).fetchone()
         assert segment == ("survivor", 31, "closed", 2), segment
+
+        stale_session = database.execute(
+            "SELECT ended_at, status FROM lps_sessions WHERE session_id = ?",
+            (stale_session_id,),
+        ).fetchone()
+        assert stale_session == (125, "abandoned"), stale_session
+        stale_run = database.execute(
+            "SELECT ended_at, status FROM lps_runs WHERE run_id = ?",
+            (stale_run_id,),
+        ).fetchone()
+        assert stale_run == (125, "abandoned"), stale_run
+        stale_round = database.execute(
+            "SELECT ended_at, status FROM lps_rounds WHERE round_id = ?",
+            (stale_round_id,),
+        ).fetchone()
+        assert stale_round == (125, "abandoned"), stale_round
+        stale_segment = database.execute(
+            "SELECT ended_at, status FROM lps_player_segments WHERE segment_id = ?",
+            (stale_segment_id,),
+        ).fetchone()
+        assert stale_segment == (125, "abandoned"), stale_segment
+
+        active_lifecycle_rows = sum(
+            database.execute(
+                f"SELECT COUNT(*) FROM {table} WHERE status = 'active'"
+            ).fetchone()[0]
+            for table in (
+                "lps_sessions",
+                "lps_runs",
+                "lps_rounds",
+                "lps_player_segments",
+            )
+        )
+        assert active_lifecycle_rows == 0, active_lifecycle_rows
     finally:
         database.close()
 

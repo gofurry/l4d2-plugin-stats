@@ -28,21 +28,71 @@ def main() -> None:
             "SELECT COUNT(*) FROM lps_player_segments"
         ).fetchone()[0]
 
+        integrity = database.execute("PRAGMA integrity_check").fetchone()[0]
+        orphan_rounds = database.execute(
+            "SELECT COUNT(*) FROM lps_rounds r LEFT JOIN lps_runs u "
+            "ON u.run_id = r.run_id WHERE u.run_id IS NULL"
+        ).fetchone()[0]
+        orphan_segments = database.execute(
+            "SELECT COUNT(*) FROM lps_player_segments g "
+            "LEFT JOIN lps_sessions s ON s.session_id = g.session_id "
+            "LEFT JOIN lps_runs u ON u.run_id = g.run_id "
+            "LEFT JOIN lps_rounds r ON r.round_id = g.round_id "
+            "WHERE s.session_id IS NULL OR u.run_id IS NULL OR r.round_id IS NULL"
+        ).fetchone()[0]
+        segment_run_mismatches = database.execute(
+            "SELECT COUNT(*) FROM lps_player_segments g "
+            "JOIN lps_rounds r ON r.round_id = g.round_id "
+            "WHERE r.run_id <> g.run_id"
+        ).fetchone()[0]
+        invalid_times = sum(
+            database.execute(query).fetchone()[0]
+            for query in (
+                "SELECT COUNT(*) FROM lps_sessions WHERE connected_seconds < 0 "
+                "OR active_play_seconds < 0 OR active_play_seconds > connected_seconds "
+                "OR (ended_at IS NOT NULL AND ended_at < started_at)",
+                "SELECT COUNT(*) FROM lps_runs WHERE ended_at IS NOT NULL "
+                "AND ended_at < started_at",
+                "SELECT COUNT(*) FROM lps_rounds WHERE ended_at IS NOT NULL "
+                "AND ended_at < started_at",
+                "SELECT COUNT(*) FROM lps_player_segments WHERE active_play_seconds < 0 "
+                "OR (ended_at IS NOT NULL AND ended_at < started_at)",
+            )
+        )
+        active_records = sum(
+            database.execute(
+                f"SELECT COUNT(*) FROM {table} WHERE status = 'active'"
+            ).fetchone()[0]
+            for table in (
+                "lps_sessions",
+                "lps_runs",
+                "lps_rounds",
+                "lps_player_segments",
+            )
+        )
+
         print(
             f"schema_version={schema} players={players} sessions={sessions} "
             f"runs={runs} rounds={rounds} segments={segments}"
         )
+        print(
+            f"health integrity={integrity} orphan_rounds={orphan_rounds} "
+            f"orphan_segments={orphan_segments} "
+            f"segment_run_mismatches={segment_run_mismatches} "
+            f"invalid_times={invalid_times} active_records={active_records}"
+        )
         print("recent_sessions (IP intentionally omitted):")
         rows = database.execute(
-            "SELECT player_name, status, connected_seconds, active_play_seconds, "
-            "disconnect_reason, revision FROM lps_sessions "
+            "SELECT session_id, player_name, status, connected_seconds, "
+            "active_play_seconds, disconnect_reason, revision FROM lps_sessions "
             "ORDER BY started_at DESC LIMIT 10"
         ).fetchall()
         for row in rows:
             print(
                 "  "
-                f"name={row[0]!r} status={row[1]} connected={row[2]}s "
-                f"active={row[3]}s reason={row[4]!r} revision={row[5]}"
+                f"session={row[0]!r} name={row[1]!r} status={row[2]} "
+                f"connected={row[3]}s active={row[4]}s "
+                f"reason={row[5]!r} revision={row[6]}"
             )
 
         print("recent_runs:")

@@ -12,6 +12,9 @@ All notable changes to this project will be documented in this file.
 - Persist Run, Round, and Segment absolute snapshots in the shared asynchronous flush transaction.
 - Add a bounded lifecycle closure queue, lifecycle diagnostics, SQLite checks, and a local validation checklist.
 - Keep `boot_id` stable when SourceMod re-executes plugin configuration on map changes.
+- Preserve one SteamID-backed Session across listen-server map reconnects, with a bounded 120-second transfer window.
+- Abandon a Versus Run when the map actually ends after only one half instead of preserving a stale half continuation.
+- Extend SQLite inspection and integration checks for corruption, orphan records, invalid times, and abandoned-startup recovery.
 
 ## 0.2.0
 

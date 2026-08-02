@@ -18,7 +18,7 @@
 - 仅在 `coop`、`realism`、`versus` 中保存通过 Steam 认证的真人；
 - 保存 SteamID64、昵称、IP 和一次连续连接的 Session；
 - 分开累计连接时间与实际操作时间；
-- Session 跨正常地图切换延续，断线或离开支持模式时关闭；
+- Session 按 SteamID 跨正常地图切换延续；换图重连窗口为 120 秒，真实断线或离开支持模式时关闭；
 - 数据库故障期间使用有上限的内存 closed Session 队列。
 - 建立 PvE 战役、章节尝试和 Versus 半场的 Run / Round 归属；
 - 处理正常过图、团灭重试、手动换图、结局和模式切换；
