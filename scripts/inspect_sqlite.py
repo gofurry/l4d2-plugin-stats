@@ -27,6 +27,9 @@ def main() -> None:
         segments = database.execute(
             "SELECT COUNT(*) FROM lps_player_segments"
         ).fetchone()[0]
+        pve_stats = database.execute(
+            "SELECT COUNT(*) FROM lps_pve_segment_stats"
+        ).fetchone()[0]
 
         integrity = database.execute("PRAGMA integrity_check").fetchone()[0]
         orphan_rounds = database.execute(
@@ -44,6 +47,21 @@ def main() -> None:
             "SELECT COUNT(*) FROM lps_player_segments g "
             "JOIN lps_rounds r ON r.round_id = g.round_id "
             "WHERE r.run_id <> g.run_id"
+        ).fetchone()[0]
+        orphan_pve_stats = database.execute(
+            "SELECT COUNT(*) FROM lps_pve_segment_stats p "
+            "LEFT JOIN lps_player_segments g ON g.segment_id = p.segment_id "
+            "WHERE g.segment_id IS NULL"
+        ).fetchone()[0]
+        invalid_pve_stats = database.execute(
+            "SELECT COUNT(*) FROM lps_pve_segment_stats WHERE stats_version <> 1 "
+            "OR common_kills < 0 OR special_kills < 0 OR tank_kills < 0 "
+            "OR witch_kills < 0 OR damage_to_special < 0 OR damage_to_tank < 0 "
+            "OR damage_to_witch < 0 OR damage_taken_infected < 0 "
+            "OR friendly_fire_to_humans < 0 OR friendly_fire_to_bots < 0 "
+            "OR friendly_fire_taken < 0 OR incapacitations < 0 OR deaths < 0 "
+            "OR incap_revives < 0 OR ledge_rescues < 0 OR defib_revives < 0 "
+            "OR rescues_received < 0 OR revision < 0"
         ).fetchone()[0]
         invalid_times = sum(
             database.execute(query).fetchone()[0]
@@ -73,12 +91,14 @@ def main() -> None:
 
         print(
             f"schema_version={schema} players={players} sessions={sessions} "
-            f"runs={runs} rounds={rounds} segments={segments}"
+            f"runs={runs} rounds={rounds} segments={segments} pve_stats={pve_stats}"
         )
         print(
             f"health integrity={integrity} orphan_rounds={orphan_rounds} "
             f"orphan_segments={orphan_segments} "
             f"segment_run_mismatches={segment_run_mismatches} "
+            f"orphan_pve_stats={orphan_pve_stats} "
+            f"invalid_pve_stats={invalid_pve_stats} "
             f"invalid_times={invalid_times} active_records={active_records}"
         )
         print("recent_sessions (IP intentionally omitted):")
@@ -130,6 +150,33 @@ def main() -> None:
             print(
                 "  "
                 f"side={row[0]} active={row[1]}s status={row[2]} revision={row[3]}"
+            )
+
+        print("recent_pve_stats:")
+        rows = database.execute(
+            "SELECT r.map_name, u.game_mode, p.common_kills, p.special_kills, "
+            "p.tank_kills, p.witch_kills, p.damage_to_special, p.damage_to_tank, "
+            "p.damage_to_witch, p.damage_taken_infected, "
+            "p.friendly_fire_to_humans, p.friendly_fire_to_bots, "
+            "p.friendly_fire_taken, p.incapacitations, p.deaths, "
+            "p.incap_revives, p.ledge_rescues, p.defib_revives, "
+            "p.rescues_received, p.revision "
+            "FROM lps_pve_segment_stats p "
+            "JOIN lps_player_segments g ON g.segment_id = p.segment_id "
+            "JOIN lps_rounds r ON r.round_id = g.round_id "
+            "JOIN lps_runs u ON u.run_id = g.run_id "
+            "ORDER BY p.last_saved_at DESC LIMIT 10"
+        ).fetchall()
+        for row in rows:
+            print(
+                "  "
+                f"map={row[0]!r} mode={row[1]} common={row[2]} special={row[3]} "
+                f"tank={row[4]} witch={row[5]} damage_si={row[6]} "
+                f"damage_tank={row[7]} damage_witch={row[8]} "
+                f"damage_taken={row[9]} ff_human={row[10]} ff_bot={row[11]} "
+                f"ff_taken={row[12]} incaps={row[13]} deaths={row[14]} "
+                f"revives={row[15]} ledge={row[16]} defib={row[17]} "
+                f"rescues_received={row[18]} revision={row[19]}"
             )
     finally:
         database.close()

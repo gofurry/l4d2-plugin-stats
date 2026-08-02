@@ -202,6 +202,53 @@ def main() -> None:
             ),
         )
 
+        pve_stats_insert = (
+            "INSERT INTO lps_pve_segment_stats "
+            "(segment_id, stats_version, last_saved_at, common_kills, special_kills, "
+            "tank_kills, witch_kills, damage_to_special, damage_to_tank, "
+            "damage_to_witch, damage_taken_infected, friendly_fire_to_humans, "
+            "friendly_fire_to_bots, friendly_fire_taken, incapacitations, deaths, "
+            "incap_revives, ledge_rescues, defib_revives, rescues_received, revision) "
+            "VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?) "
+            "ON CONFLICT(segment_id) DO UPDATE SET "
+            "stats_version = excluded.stats_version, "
+            "last_saved_at = excluded.last_saved_at, "
+            "common_kills = excluded.common_kills, "
+            "special_kills = excluded.special_kills, "
+            "tank_kills = excluded.tank_kills, "
+            "witch_kills = excluded.witch_kills, "
+            "damage_to_special = excluded.damage_to_special, "
+            "damage_to_tank = excluded.damage_to_tank, "
+            "damage_to_witch = excluded.damage_to_witch, "
+            "damage_taken_infected = excluded.damage_taken_infected, "
+            "friendly_fire_to_humans = excluded.friendly_fire_to_humans, "
+            "friendly_fire_to_bots = excluded.friendly_fire_to_bots, "
+            "friendly_fire_taken = excluded.friendly_fire_taken, "
+            "incapacitations = excluded.incapacitations, "
+            "deaths = excluded.deaths, "
+            "incap_revives = excluded.incap_revives, "
+            "ledge_rescues = excluded.ledge_rescues, "
+            "defib_revives = excluded.defib_revives, "
+            "rescues_received = excluded.rescues_received, "
+            "revision = excluded.revision"
+        )
+        database.execute(
+            pve_stats_insert,
+            (
+                segment_id, 1, 20, 5, 1, 0, 0, 80, 0, 0, 12, 0, 3, 0,
+                0, 0, 0, 0, 0, 0, 1,
+            ),
+        )
+        # Absolute snapshots replace the stored values; they must never be
+        # interpreted as deltas and added again during a retry.
+        database.execute(
+            pve_stats_insert,
+            (
+                segment_id, 1, 45, 12, 3, 1, 1, 250, 400, 90, 35, 7, 8, 4,
+                2, 1, 1, 1, 1, 3, 2,
+            ),
+        )
+
         # Simulate a process that disappeared while a Versus lifecycle was active.
         # Registration of the next boot must close every stale active layer.
         stale_session_id = "test-01:1:a:session:2"
@@ -320,6 +367,17 @@ def main() -> None:
             "FROM lps_player_segments WHERE segment_id = ?", (segment_id,)
         ).fetchone()
         assert segment == ("survivor", 31, "closed", 2), segment
+        pve_stats = database.execute(
+            "SELECT stats_version, common_kills, special_kills, tank_kills, "
+            "witch_kills, damage_to_special, damage_to_tank, damage_to_witch, "
+            "damage_taken_infected, friendly_fire_to_humans, "
+            "friendly_fire_to_bots, friendly_fire_taken, incapacitations, deaths, "
+            "incap_revives, ledge_rescues, defib_revives, rescues_received, revision "
+            "FROM lps_pve_segment_stats WHERE segment_id = ?", (segment_id,)
+        ).fetchone()
+        assert pve_stats == (
+            1, 12, 3, 1, 1, 250, 400, 90, 35, 7, 8, 4, 2, 1, 1, 1, 1, 3, 2,
+        ), pve_stats
 
         stale_session = database.execute(
             "SELECT ended_at, status FROM lps_sessions WHERE session_id = ?",
