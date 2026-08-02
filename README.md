@@ -49,6 +49,8 @@ scripts/       仓库级构建与发布脚本
 
 详细说明见[架构文档](docs/architecture.md)。
 
+后续版本按[开发路线图](docs/roadmap.md)推进。
+
 ## 本地构建
 
 1. 将 `scripts/config.example.ps1` 复制为 `scripts/config.local.ps1`，填写本机 SourceMod 路径。
