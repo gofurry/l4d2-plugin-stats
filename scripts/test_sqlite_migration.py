@@ -208,8 +208,13 @@ def main() -> None:
             "tank_kills, witch_kills, damage_to_special, damage_to_tank, "
             "damage_to_witch, damage_taken_infected, friendly_fire_to_humans, "
             "friendly_fire_to_bots, friendly_fire_taken, incapacitations, deaths, "
-            "incap_revives, ledge_rescues, defib_revives, rescues_received, revision) "
-            "VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?) "
+            "incap_revives, ledge_rescues, defib_revives, rescues_received, "
+            "medkits_used_self, medkits_used_on_others, medkit_healing_self, "
+            "medkit_healing_others, pills_used, adrenaline_used, "
+            "temporary_health_received, chapter_participations, "
+            "chapter_completions_alive, chapter_completions_dead, "
+            "campaign_completions, revision) "
+            "VALUES (" + ", ".join(["?"] * 32) + ") "
             "ON CONFLICT(segment_id) DO UPDATE SET "
             "stats_version = excluded.stats_version, "
             "last_saved_at = excluded.last_saved_at, "
@@ -230,13 +235,24 @@ def main() -> None:
             "ledge_rescues = excluded.ledge_rescues, "
             "defib_revives = excluded.defib_revives, "
             "rescues_received = excluded.rescues_received, "
+            "medkits_used_self = excluded.medkits_used_self, "
+            "medkits_used_on_others = excluded.medkits_used_on_others, "
+            "medkit_healing_self = excluded.medkit_healing_self, "
+            "medkit_healing_others = excluded.medkit_healing_others, "
+            "pills_used = excluded.pills_used, "
+            "adrenaline_used = excluded.adrenaline_used, "
+            "temporary_health_received = excluded.temporary_health_received, "
+            "chapter_participations = excluded.chapter_participations, "
+            "chapter_completions_alive = excluded.chapter_completions_alive, "
+            "chapter_completions_dead = excluded.chapter_completions_dead, "
+            "campaign_completions = excluded.campaign_completions, "
             "revision = excluded.revision"
         )
         database.execute(
             pve_stats_insert,
             (
                 segment_id, 1, 20, 5, 1, 0, 0, 80, 0, 0, 12, 0, 3, 0,
-                0, 0, 0, 0, 0, 0, 1,
+                0, 0, 0, 0, 0, 0, 1, 0, 42, 0, 1, 0, 50, 0, 0, 0, 0, 1,
             ),
         )
         # Absolute snapshots replace the stored values; they must never be
@@ -245,7 +261,7 @@ def main() -> None:
             pve_stats_insert,
             (
                 segment_id, 1, 45, 12, 3, 1, 1, 250, 400, 90, 35, 7, 8, 4,
-                2, 1, 1, 1, 1, 3, 2,
+                2, 1, 1, 1, 1, 3, 2, 1, 80, 55, 2, 1, 125, 1, 1, 0, 0, 2,
             ),
         )
 
@@ -372,11 +388,17 @@ def main() -> None:
             "witch_kills, damage_to_special, damage_to_tank, damage_to_witch, "
             "damage_taken_infected, friendly_fire_to_humans, "
             "friendly_fire_to_bots, friendly_fire_taken, incapacitations, deaths, "
-            "incap_revives, ledge_rescues, defib_revives, rescues_received, revision "
+            "incap_revives, ledge_rescues, defib_revives, rescues_received, "
+            "medkits_used_self, medkits_used_on_others, medkit_healing_self, "
+            "medkit_healing_others, pills_used, adrenaline_used, "
+            "temporary_health_received, chapter_participations, "
+            "chapter_completions_alive, chapter_completions_dead, "
+            "campaign_completions, revision "
             "FROM lps_pve_segment_stats WHERE segment_id = ?", (segment_id,)
         ).fetchone()
         assert pve_stats == (
-            1, 12, 3, 1, 1, 250, 400, 90, 35, 7, 8, 4, 2, 1, 1, 1, 1, 3, 2,
+            1, 12, 3, 1, 1, 250, 400, 90, 35, 7, 8, 4, 2, 1, 1, 1, 1, 3,
+            2, 1, 80, 55, 2, 1, 125, 1, 1, 0, 0, 2,
         ), pve_stats
 
         stale_session = database.execute(

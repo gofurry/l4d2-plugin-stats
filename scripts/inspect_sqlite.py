@@ -61,7 +61,15 @@ def main() -> None:
             "OR friendly_fire_to_humans < 0 OR friendly_fire_to_bots < 0 "
             "OR friendly_fire_taken < 0 OR incapacitations < 0 OR deaths < 0 "
             "OR incap_revives < 0 OR ledge_rescues < 0 OR defib_revives < 0 "
-            "OR rescues_received < 0 OR revision < 0"
+            "OR rescues_received < 0 OR medkits_used_self < 0 "
+            "OR medkits_used_on_others < 0 OR medkit_healing_self < 0 "
+            "OR medkit_healing_others < 0 OR pills_used < 0 "
+            "OR adrenaline_used < 0 OR temporary_health_received < 0 "
+            "OR chapter_participations < 0 OR chapter_completions_alive < 0 "
+            "OR chapter_completions_dead < 0 OR campaign_completions < 0 "
+            "OR chapter_completions_alive + chapter_completions_dead "
+            "> chapter_participations OR campaign_completions > chapter_participations "
+            "OR revision < 0"
         ).fetchone()[0]
         invalid_times = sum(
             database.execute(query).fetchone()[0]
@@ -160,7 +168,12 @@ def main() -> None:
             "p.friendly_fire_to_humans, p.friendly_fire_to_bots, "
             "p.friendly_fire_taken, p.incapacitations, p.deaths, "
             "p.incap_revives, p.ledge_rescues, p.defib_revives, "
-            "p.rescues_received, p.revision "
+            "p.rescues_received, p.medkits_used_self, "
+            "p.medkits_used_on_others, p.medkit_healing_self, "
+            "p.medkit_healing_others, p.pills_used, p.adrenaline_used, "
+            "p.temporary_health_received, p.chapter_participations, "
+            "p.chapter_completions_alive, p.chapter_completions_dead, "
+            "p.campaign_completions, p.revision "
             "FROM lps_pve_segment_stats p "
             "JOIN lps_player_segments g ON g.segment_id = p.segment_id "
             "JOIN lps_rounds r ON r.round_id = g.round_id "
@@ -176,7 +189,12 @@ def main() -> None:
                 f"damage_taken={row[9]} ff_human={row[10]} ff_bot={row[11]} "
                 f"ff_taken={row[12]} incaps={row[13]} deaths={row[14]} "
                 f"revives={row[15]} ledge={row[16]} defib={row[17]} "
-                f"rescues_received={row[18]} revision={row[19]}"
+                f"rescues_received={row[18]} medkits_self={row[19]} "
+                f"medkits_others={row[20]} heal_self={row[21]} "
+                f"heal_others={row[22]} pills={row[23]} adrenaline={row[24]} "
+                f"temp_health={row[25]} chapters={row[26]} "
+                f"chapters_alive={row[27]} chapters_dead={row[28]} "
+                f"campaigns={row[29]} revision={row[30]}"
             )
     finally:
         database.close()
