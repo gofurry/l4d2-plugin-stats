@@ -21,11 +21,29 @@ enum struct LPSSessionSnapshot
 	int revision;
 }
 
+enum struct LPSSuspendedSession
+{
+	char sessionId[LPS_MAX_SESSION_ID];
+	char bootId[LPS_MAX_BOOT_ID];
+	char serverKey[LPS_MAX_SERVER_KEY];
+	char steamId[LPS_MAX_STEAM_ID];
+	char playerName[LPS_MAX_PLAYER_NAME];
+	char ipAddress[LPS_MAX_IP_ADDRESS];
+	int startedAt;
+	int connectedSeconds;
+	int activePlaySeconds;
+	int currentRevision;
+	int persistedRevision;
+	int suspendedAt;
+}
+
 ArrayList g_LPSClosedSessions;
+ArrayList g_LPSSuspendedSessions;
 Handle g_LPSSessionClockTimer;
 int g_LPSSessionSequence;
 bool g_LPSSessionQueueOverflowReported;
 bool g_LPSSessionShuttingDown;
+bool g_LPSSessionMapEnding;
 
 bool g_LPSClientAuthorized[MAXPLAYERS + 1];
 bool g_LPSClientSessionActive[MAXPLAYERS + 1];
@@ -50,9 +68,11 @@ int g_LPSFlushClosedSessionCount;
 void LPS_InitializeSessions()
 {
 	g_LPSClosedSessions = new ArrayList(sizeof(LPSSessionSnapshot));
+	g_LPSSuspendedSessions = new ArrayList(sizeof(LPSSuspendedSession));
 	g_LPSSessionSequence = 0;
 	g_LPSSessionQueueOverflowReported = false;
 	g_LPSSessionShuttingDown = false;
+	g_LPSSessionMapEnding = false;
 	g_LPSFlushClosedSessionCount = 0;
 
 	HookEvent("player_team", LPS_Event_PlayerTeam, EventHookMode_Post);
@@ -86,7 +106,10 @@ public void OnClientAuthorized(int client, const char[] auth)
 	}
 
 	LPS_TryCacheClientSteamId(client);
-	LPS_TryStartClientSession(client);
+	if (!LPS_TryResumeClientSession(client))
+	{
+		LPS_TryStartClientSession(client);
+	}
 }
 
 public void OnClientPutInServer(int client)
@@ -101,7 +124,16 @@ public void OnClientPutInServer(int client)
 		LPS_TryCacheClientSteamId(client);
 	}
 
-	LPS_TryStartClientSession(client);
+	if (!LPS_TryResumeClientSession(client))
+	{
+		LPS_TryStartClientSession(client);
+	}
+
+	if (g_LPSClientSessionActive[client])
+	{
+		g_LPSClientWasActive[client] = LPS_IsClientActivelyPlaying(client);
+		LPS_ReconcileClientSegment(client);
+	}
 }
 
 public void OnClientDisconnect(int client)
@@ -113,7 +145,14 @@ public void OnClientDisconnect(int client)
 
 	if (g_LPSClientSessionActive[client])
 	{
-		LPS_EndClientSession(client, "client_disconnect");
+		if (g_LPSSessionMapEnding)
+		{
+			LPS_SuspendClientSession(client);
+		}
+		else
+		{
+			LPS_EndClientSession(client, "client_disconnect");
+		}
 	}
 
 	LPS_ResetClientSegmentState(client);
@@ -122,6 +161,7 @@ public void OnClientDisconnect(int client)
 
 public Action LPS_Timer_SessionClock(Handle timer)
 {
+	int now = GetTime();
 	for (int client = 1; client <= MaxClients; client++)
 	{
 		if (g_LPSClientSessionActive[client])
@@ -131,11 +171,26 @@ public Action LPS_Timer_SessionClock(Handle timer)
 		}
 		else if (g_LPSClientAuthorized[client])
 		{
-			LPS_TryStartClientSession(client);
+			if (!LPS_TryResumeClientSession(client))
+			{
+				LPS_TryStartClientSession(client);
+			}
 		}
 	}
 
+	LPS_ExpireSuspendedSessions(now);
+
 	return Plugin_Continue;
+}
+
+void LPS_OnSessionsMapStart()
+{
+	g_LPSSessionMapEnding = false;
+}
+
+void LPS_OnSessionsMapEnd()
+{
+	g_LPSSessionMapEnding = true;
 }
 
 public void LPS_Event_PlayerTeam(Event event, const char[] name, bool dontBroadcast)
@@ -231,9 +286,72 @@ void LPS_StartEligibleSessions()
 				LPS_TryCacheClientSteamId(client);
 			}
 
-			LPS_TryStartClientSession(client);
+			if (!LPS_TryResumeClientSession(client))
+			{
+				LPS_TryStartClientSession(client);
+			}
 		}
 	}
+}
+
+bool LPS_TryResumeClientSession(int client)
+{
+	if (!LPS_CanCollectSessions()
+		|| client < 1
+		|| client > MaxClients
+		|| g_LPSClientSessionActive[client]
+		|| !g_LPSClientAuthorized[client]
+		|| !IsClientConnected(client)
+		|| IsFakeClient(client)
+		|| g_LPSSuspendedSessions == null)
+	{
+		return false;
+	}
+
+	int index = LPS_FindSuspendedSessionBySteamId(g_LPSClientSteamId[client]);
+	if (index < 0)
+	{
+		return false;
+	}
+
+	LPSSuspendedSession suspended;
+	g_LPSSuspendedSessions.GetArray(index, suspended, sizeof(suspended));
+	int now = GetTime();
+	if (now - suspended.suspendedAt >= LPS_SESSION_TRANSFER_TIMEOUT)
+	{
+		LPS_CloseAndRemoveSuspendedSession(index, "map_reconnect_timeout");
+		LPS_RequestFlush();
+		return false;
+	}
+
+	g_LPSSuspendedSessions.Erase(index);
+
+	int transferSeconds = now - suspended.suspendedAt;
+	if (transferSeconds < 0)
+	{
+		transferSeconds = 0;
+	}
+
+	strcopy(g_LPSClientSessionId[client], sizeof(g_LPSClientSessionId[]), suspended.sessionId);
+	strcopy(g_LPSClientSessionName[client], sizeof(g_LPSClientSessionName[]), suspended.playerName);
+	strcopy(g_LPSClientIpAddress[client], sizeof(g_LPSClientIpAddress[]), suspended.ipAddress);
+	g_LPSClientSessionStartedAt[client] = suspended.startedAt;
+	g_LPSClientLastClockAt[client] = now;
+	g_LPSClientConnectedSeconds[client] = suspended.connectedSeconds + transferSeconds;
+	g_LPSClientActivePlaySeconds[client] = suspended.activePlaySeconds;
+	g_LPSClientCurrentRevision[client] = suspended.currentRevision + 1;
+	g_LPSClientPersistedRevision[client] = suspended.persistedRevision;
+	g_LPSClientWasActive[client] = LPS_IsClientActivelyPlaying(client);
+	g_LPSClientSessionDirty[client] = true;
+	g_LPSClientSessionActive[client] = true;
+
+	if (IsClientInGame(client))
+	{
+		LPS_ReconcileClientSegment(client);
+	}
+
+	LPS_RequestFlush();
+	return true;
 }
 
 bool LPS_TryStartClientSession(int client)
@@ -373,6 +491,106 @@ void LPS_EndClientSession(int client, const char[] reason)
 	}
 }
 
+void LPS_SuspendClientSession(int client)
+{
+	if (!g_LPSClientSessionActive[client])
+	{
+		return;
+	}
+
+	LPS_UpdateClientSessionClock(client, false);
+	LPS_EndClientSegment(client, "closed");
+
+	int existingIndex = LPS_FindSuspendedSessionBySteamId(g_LPSClientSteamId[client]);
+	if (existingIndex >= 0)
+	{
+		LPS_CloseAndRemoveSuspendedSession(existingIndex, "map_transfer_replaced");
+	}
+
+	LPSSuspendedSession suspended;
+	strcopy(suspended.sessionId, sizeof(suspended.sessionId), g_LPSClientSessionId[client]);
+	strcopy(suspended.bootId, sizeof(suspended.bootId), g_LPSBootId);
+	strcopy(suspended.serverKey, sizeof(suspended.serverKey), g_LPSServerKey);
+	strcopy(suspended.steamId, sizeof(suspended.steamId), g_LPSClientSteamId[client]);
+	strcopy(suspended.playerName, sizeof(suspended.playerName), g_LPSClientSessionName[client]);
+	strcopy(suspended.ipAddress, sizeof(suspended.ipAddress), g_LPSClientIpAddress[client]);
+	suspended.startedAt = g_LPSClientSessionStartedAt[client];
+	suspended.connectedSeconds = g_LPSClientConnectedSeconds[client];
+	suspended.activePlaySeconds = g_LPSClientActivePlaySeconds[client];
+	suspended.currentRevision = g_LPSClientCurrentRevision[client] + 1;
+	suspended.persistedRevision = g_LPSClientPersistedRevision[client];
+	suspended.suspendedAt = GetTime();
+	g_LPSSuspendedSessions.PushArray(suspended, sizeof(suspended));
+
+	LPS_ResetClientSessionState(client, false);
+	if (!g_LPSSessionShuttingDown)
+	{
+		LPS_RequestFlush();
+	}
+}
+
+int LPS_FindSuspendedSessionBySteamId(const char[] steamId)
+{
+	if (g_LPSSuspendedSessions == null || steamId[0] == '\0')
+	{
+		return -1;
+	}
+
+	LPSSuspendedSession suspended;
+	for (int index = 0; index < g_LPSSuspendedSessions.Length; index++)
+	{
+		g_LPSSuspendedSessions.GetArray(index, suspended, sizeof(suspended));
+		if (StrEqual(suspended.steamId, steamId, true))
+		{
+			return index;
+		}
+	}
+
+	return -1;
+}
+
+void LPS_ExpireSuspendedSessions(int now)
+{
+	if (g_LPSSuspendedSessions == null)
+	{
+		return;
+	}
+
+	bool changed = false;
+	LPSSuspendedSession suspended;
+	for (int index = g_LPSSuspendedSessions.Length - 1; index >= 0; index--)
+	{
+		g_LPSSuspendedSessions.GetArray(index, suspended, sizeof(suspended));
+		if (now - suspended.suspendedAt < LPS_SESSION_TRANSFER_TIMEOUT)
+		{
+			continue;
+		}
+
+		LPS_CloseAndRemoveSuspendedSession(index, "map_reconnect_timeout");
+		changed = true;
+	}
+
+	if (changed && !g_LPSSessionShuttingDown)
+	{
+		LPS_RequestFlush();
+	}
+}
+
+void LPS_CloseAndRemoveSuspendedSession(int index, const char[] reason)
+{
+	if (g_LPSSuspendedSessions == null || index < 0 || index >= g_LPSSuspendedSessions.Length)
+	{
+		return;
+	}
+
+	LPSSuspendedSession suspended;
+	LPSSessionSnapshot snapshot;
+	g_LPSSuspendedSessions.GetArray(index, suspended, sizeof(suspended));
+	LPS_FillSuspendedSessionSnapshot(suspended, snapshot, true, reason);
+	LPS_QueueClosedSession(snapshot);
+	g_LPSSuspendedSessions.Erase(index);
+}
+
 void LPS_EndAllActiveSessions(const char[] reason)
 {
 	for (int client = 1; client <= MaxClients; client++)
@@ -381,6 +599,19 @@ void LPS_EndAllActiveSessions(const char[] reason)
 		{
 			LPS_EndClientSession(client, reason);
 		}
+	}
+
+	if (g_LPSSuspendedSessions != null)
+	{
+		for (int index = g_LPSSuspendedSessions.Length - 1; index >= 0; index--)
+		{
+			LPS_CloseAndRemoveSuspendedSession(index, reason);
+		}
+	}
+
+	if (!g_LPSSessionShuttingDown)
+	{
+		LPS_RequestFlush();
 	}
 }
 
@@ -430,6 +661,29 @@ void LPS_FillClientSessionSnapshot(
 	snapshot.revision = g_LPSClientCurrentRevision[client] + (closed ? 1 : 0);
 }
 
+void LPS_FillSuspendedSessionSnapshot(
+	LPSSuspendedSession suspended,
+	LPSSessionSnapshot snapshot,
+	bool closed,
+	const char[] reason
+)
+{
+	strcopy(snapshot.sessionId, sizeof(snapshot.sessionId), suspended.sessionId);
+	strcopy(snapshot.bootId, sizeof(snapshot.bootId), suspended.bootId);
+	strcopy(snapshot.serverKey, sizeof(snapshot.serverKey), suspended.serverKey);
+	strcopy(snapshot.steamId, sizeof(snapshot.steamId), suspended.steamId);
+	strcopy(snapshot.playerName, sizeof(snapshot.playerName), suspended.playerName);
+	strcopy(snapshot.latestName, sizeof(snapshot.latestName), suspended.playerName);
+	strcopy(snapshot.ipAddress, sizeof(snapshot.ipAddress), suspended.ipAddress);
+	strcopy(snapshot.status, sizeof(snapshot.status), closed ? "closed" : "active");
+	strcopy(snapshot.disconnectReason, sizeof(snapshot.disconnectReason), closed ? reason : "");
+	snapshot.startedAt = suspended.startedAt;
+	snapshot.endedAt = closed ? suspended.suspendedAt : 0;
+	snapshot.connectedSeconds = suspended.connectedSeconds;
+	snapshot.activePlaySeconds = suspended.activePlaySeconds;
+	snapshot.revision = suspended.currentRevision + (closed ? 1 : 0);
+}
+
 bool LPS_AddSessionFlushQueries(Transaction transaction, int &queryCount, char[] error, int errorLength)
 {
 	LPS_ResetSessionFlushCapture();
@@ -467,6 +721,17 @@ bool LPS_AddSessionFlushQueries(Transaction transaction, int &queryCount, char[]
 			sizeof(g_LPSFlushCapturedSessionId[]),
 			snapshot.sessionId
 		);
+	}
+
+	LPSSuspendedSession suspended;
+	for (int index = 0; index < g_LPSSuspendedSessions.Length; index++)
+	{
+		g_LPSSuspendedSessions.GetArray(index, suspended, sizeof(suspended));
+		LPS_FillSuspendedSessionSnapshot(suspended, snapshot, false, "");
+		if (!LPS_AddSessionSnapshotQueries(transaction, snapshot, queryCount, error, errorLength))
+		{
+			return false;
+		}
 	}
 
 	return true;
@@ -718,6 +983,11 @@ int LPS_GetActiveSessionCount()
 		}
 	}
 	return count;
+}
+
+int LPS_GetSuspendedSessionCount()
+{
+	return g_LPSSuspendedSessions == null ? 0 : g_LPSSuspendedSessions.Length;
 }
 
 int LPS_GetPendingClosedSessionCount()

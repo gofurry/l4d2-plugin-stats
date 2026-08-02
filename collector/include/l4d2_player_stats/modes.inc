@@ -23,12 +23,14 @@ void LPS_InitializeModes()
 
 public void OnMapStart()
 {
+	LPS_OnSessionsMapStart();
 	LPS_RefreshGameMode(true);
 	LPS_OnLifecycleMapStart();
 }
 
 public void OnMapEnd()
 {
+	LPS_OnSessionsMapEnd();
 	LPS_OnLifecycleMapEnd();
 }
 

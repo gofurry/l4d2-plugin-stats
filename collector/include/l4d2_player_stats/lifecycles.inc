@@ -195,8 +195,7 @@ void LPS_OnLifecycleMapEnd()
 
 	if (!g_LPSRoundActive
 		&& (g_LPSContinuation == LPSContinuation_MapTransition
-			|| g_LPSContinuation == LPSContinuation_Retry
-			|| g_LPSContinuation == LPSContinuation_VersusHalf))
+			|| g_LPSContinuation == LPSContinuation_Retry))
 	{
 		return;
 	}

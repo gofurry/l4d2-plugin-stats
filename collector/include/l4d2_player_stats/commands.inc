@@ -58,10 +58,11 @@ public Action LPS_Command_Status(int client, int args)
 	);
 	ReplyToCommand(
 		client,
-		"[LPS] game_mode=%s mode_family=%s active_sessions=%d pending_closed_sessions=%d/%d",
+		"[LPS] game_mode=%s mode_family=%s active_sessions=%d suspended_sessions=%d pending_closed_sessions=%d/%d",
 		g_LPSGameMode,
 		modeFamily,
 		LPS_GetActiveSessionCount(),
+		LPS_GetSuspendedSessionCount(),
 		LPS_GetPendingClosedSessionCount(),
 		g_LPSClosedSessionQueueLimit.IntValue
 	);
