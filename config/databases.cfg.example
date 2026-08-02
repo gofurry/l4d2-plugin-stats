@@ -1,0 +1,34 @@
+"Databases"
+{
+    // Choose exactly one driver configuration and name it l4d2_player_stats.
+
+    // SQLite: creates addons/sourcemod/data/sqlite/l4d2_player_stats.sq3.
+    "l4d2_player_stats"
+    {
+        "driver"    "sqlite"
+        "database"  "l4d2_player_stats"
+    }
+
+    // MySQL example:
+    // "l4d2_player_stats"
+    // {
+    //     "driver"    "mysql"
+    //     "host"      "127.0.0.1"
+    //     "database"  "l4d2_stats"
+    //     "user"      "l4d2_collector"
+    //     "pass"      "replace-me"
+    //     "port"      "3306"
+    // }
+
+    // PostgreSQL example (SourceMod driver identifier is pgsql):
+    // "l4d2_player_stats"
+    // {
+    //     "driver"    "pgsql"
+    //     "host"      "127.0.0.1"
+    //     "database"  "l4d2_stats"
+    //     "user"      "l4d2_collector"
+    //     "pass"      "replace-me"
+    //     "port"      "5432"
+    // }
+}
+

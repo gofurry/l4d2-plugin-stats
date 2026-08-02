@@ -1,0 +1,9 @@
+/dist/
+/scripts/config.local.ps1
+.vscode/settings.json
+*.smx
+*.log
+*.sq3
+.DS_Store
+Thumbs.db
+
