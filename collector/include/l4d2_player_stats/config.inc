@@ -11,6 +11,7 @@ ConVar g_LPSFlushInterval;
 ConVar g_LPSFlushJitter;
 ConVar g_LPSRetryMaximum;
 ConVar g_LPSLogSuppressionWindow;
+ConVar g_LPSClosedSessionQueueLimit;
 
 void LPS_CreateConfig()
 {
@@ -85,6 +86,17 @@ void LPS_CreateConfig()
 		60.0,
 		true,
 		3600.0
+	);
+
+	g_LPSClosedSessionQueueLimit = CreateConVar(
+		"sm_lps_closed_session_queue_limit",
+		"256",
+		"Maximum closed Session snapshots retained in memory while the database is unavailable.",
+		FCVAR_NONE,
+		true,
+		16.0,
+		true,
+		4096.0
 	);
 }
 

@@ -51,6 +51,78 @@ def main() -> None:
             "AND boot_id <> 'test-01:2:b' AND status = 'active'"
         )
 
+        database.execute(
+            "INSERT INTO lps_players "
+            "(steam_id, last_name, first_seen_at, last_seen_at) "
+            "VALUES ('76561198000000000', 'First Name', 10, 10) "
+            "ON CONFLICT(steam_id) DO UPDATE SET "
+            "last_name = CASE WHEN excluded.last_seen_at >= lps_players.last_seen_at "
+            "THEN excluded.last_name ELSE lps_players.last_name END, "
+            "last_seen_at = MAX(lps_players.last_seen_at, excluded.last_seen_at)"
+        )
+        database.execute(
+            "INSERT INTO lps_players "
+            "(steam_id, last_name, first_seen_at, last_seen_at) "
+            "VALUES ('76561198000000000', 'Latest Name', 10, 20) "
+            "ON CONFLICT(steam_id) DO UPDATE SET "
+            "last_name = CASE WHEN excluded.last_seen_at >= lps_players.last_seen_at "
+            "THEN excluded.last_name ELSE lps_players.last_name END, "
+            "last_seen_at = MAX(lps_players.last_seen_at, excluded.last_seen_at)"
+        )
+
+        session_insert = (
+            "INSERT INTO lps_sessions "
+            "(session_id, boot_id, server_key, steam_id, player_name, ip_address, "
+            "started_at, ended_at, last_saved_at, connected_seconds, "
+            "active_play_seconds, status, disconnect_reason, revision) "
+            "VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?) "
+            "ON CONFLICT(session_id) DO UPDATE SET "
+            "ended_at = excluded.ended_at, last_saved_at = excluded.last_saved_at, "
+            "connected_seconds = excluded.connected_seconds, "
+            "active_play_seconds = excluded.active_play_seconds, "
+            "status = excluded.status, disconnect_reason = excluded.disconnect_reason, "
+            "revision = excluded.revision"
+        )
+        session_id = "test-01:1:a:session:1"
+        database.execute(
+            session_insert,
+            (
+                session_id,
+                "test-01:1:a",
+                "test-01",
+                "76561198000000000",
+                "First Name",
+                "127.0.0.1",
+                10,
+                None,
+                20,
+                10,
+                7,
+                "active",
+                "",
+                1,
+            ),
+        )
+        database.execute(
+            session_insert,
+            (
+                session_id,
+                "test-01:1:a",
+                "test-01",
+                "76561198000000000",
+                "First Name",
+                "127.0.0.1",
+                10,
+                30,
+                30,
+                20,
+                12,
+                "closed",
+                "client_disconnect",
+                2,
+            ),
+        )
+
         tables = {
             row[0]
             for row in database.execute(
@@ -72,6 +144,25 @@ def main() -> None:
             "SELECT status FROM lps_server_boots WHERE boot_id = 'test-01:1:a'"
         ).fetchone()
         assert status == ("abandoned",), status
+        player = database.execute(
+            "SELECT last_name, first_seen_at, last_seen_at FROM lps_players "
+            "WHERE steam_id = '76561198000000000'"
+        ).fetchone()
+        assert player == ("Latest Name", 10, 20), player
+        session = database.execute(
+            "SELECT ip_address, ended_at, connected_seconds, active_play_seconds, "
+            "status, disconnect_reason, revision FROM lps_sessions WHERE session_id = ?",
+            (session_id,),
+        ).fetchone()
+        assert session == (
+            "127.0.0.1",
+            30,
+            20,
+            12,
+            "closed",
+            "client_disconnect",
+            2,
+        ), session
     finally:
         database.close()
 

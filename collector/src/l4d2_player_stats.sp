@@ -7,6 +7,8 @@
 #include <l4d2_player_stats/config>
 #include <l4d2_player_stats/runtime>
 #include <l4d2_player_stats/logging>
+#include <l4d2_player_stats/modes>
+#include <l4d2_player_stats/sessions>
 #include <l4d2_player_stats/migrations>
 #include <l4d2_player_stats/database>
 #include <l4d2_player_stats/commands>
@@ -35,6 +37,8 @@ public void OnPluginStart()
 {
 	LPS_CreateConfig();
 	LPS_ResetRuntime();
+	LPS_InitializeModes();
+	LPS_InitializeSessions();
 	LPS_RegisterAdminCommands();
 	AutoExecConfig(true, "l4d2_player_stats");
 
@@ -48,5 +52,6 @@ public void OnConfigsExecuted()
 
 public void OnPluginEnd()
 {
+	LPS_ShutdownSessions();
 	LPS_ShutdownRuntime();
 }

@@ -3,7 +3,7 @@
 #endif
 #define _l4d2_player_stats_definitions_included
 
-#define LPS_VERSION "0.1.0"
+#define LPS_VERSION "0.2.0"
 #define LPS_SCHEMA_VERSION 1
 #define LPS_MIGRATION_NAME "initial_schema"
 
@@ -15,6 +15,17 @@
 #define LPS_MAX_DATABASE_ERROR 256
 #define LPS_MAX_QUERY_LENGTH 8192
 #define LPS_MAX_MIGRATION_LINE 1024
+#define LPS_MAX_STEAM_ID 32
+#define LPS_MAX_PLAYER_NAME 128
+#define LPS_MAX_IP_ADDRESS 46
+#define LPS_MAX_SESSION_ID 128
+#define LPS_MAX_SESSION_STATUS 16
+#define LPS_MAX_DISCONNECT_REASON 32
+#define LPS_MAX_GAME_MODE 32
+
+#define LPS_TEAM_SPECTATOR 1
+#define LPS_TEAM_SURVIVOR 2
+#define LPS_TEAM_INFECTED 3
 
 enum LPSDatabaseState
 {
@@ -34,4 +45,11 @@ enum LPSDatabaseDialect
 	LPSDatabaseDialect_SQLite,
 	LPSDatabaseDialect_MySQL,
 	LPSDatabaseDialect_PostgreSQL
+};
+
+enum LPSModeFamily
+{
+	LPSModeFamily_Unsupported = 0,
+	LPSModeFamily_PvE,
+	LPSModeFamily_Versus
 };

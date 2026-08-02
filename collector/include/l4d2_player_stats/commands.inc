@@ -29,7 +29,9 @@ public Action LPS_Command_Status(int client, int args)
 {
 	char state[32];
 	char databaseConfig[LPS_MAX_DATABASE_CONFIG];
+	char modeFamily[16];
 	LPS_GetDatabaseStateName(state, sizeof(state));
+	LPS_GetModeFamilyName(modeFamily, sizeof(modeFamily));
 	g_LPSDatabaseConfig.GetString(databaseConfig, sizeof(databaseConfig));
 
 	ReplyToCommand(client, "[LPS] version=%s state=%s enabled=%d", LPS_VERSION, state, g_LPSEnabled.BoolValue);
@@ -54,6 +56,15 @@ public Action LPS_Command_Status(int client, int args)
 		g_LPSNextRetryDelay,
 		g_LPSLastSuccessfulWriteAt
 	);
+	ReplyToCommand(
+		client,
+		"[LPS] game_mode=%s mode_family=%s active_sessions=%d pending_closed_sessions=%d/%d",
+		g_LPSGameMode,
+		modeFamily,
+		LPS_GetActiveSessionCount(),
+		LPS_GetPendingClosedSessionCount(),
+		g_LPSClosedSessionQueueLimit.IntValue
+	);
 
 	if (g_LPSLastDatabaseError[0] != '\0')
 	{
@@ -71,15 +82,27 @@ public Action LPS_Command_Reconnect(int client, int args)
 		return Plugin_Handled;
 	}
 
-	if (!LPS_GetValidatedServerKey(g_LPSServerKey, sizeof(g_LPSServerKey)))
+	char previousServerKey[LPS_MAX_SERVER_KEY];
+	char configuredServerKey[LPS_MAX_SERVER_KEY];
+	strcopy(previousServerKey, sizeof(previousServerKey), g_LPSServerKey);
+
+	if (!LPS_GetValidatedServerKey(configuredServerKey, sizeof(configuredServerKey)))
 	{
 		g_LPSDatabaseState = LPSDatabaseState_ConfigError;
 		ReplyToCommand(client, "[LPS] Configure a unique sm_lps_server_key before reconnecting.");
 		return Plugin_Handled;
 	}
 
-	if (g_LPSBootId[0] == '\0')
+	if (!StrEqual(previousServerKey, configuredServerKey, true))
 	{
+		LPS_EndAllActiveSessions("server_key_changed");
+		strcopy(g_LPSServerKey, sizeof(g_LPSServerKey), configuredServerKey);
+		LPS_GenerateBootId();
+		LPS_StartEligibleSessions();
+	}
+	else if (g_LPSBootId[0] == '\0')
+	{
+		strcopy(g_LPSServerKey, sizeof(g_LPSServerKey), configuredServerKey);
 		LPS_GenerateBootId();
 	}
 

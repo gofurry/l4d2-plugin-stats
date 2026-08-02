@@ -21,6 +21,7 @@ void LPS_ApplyConfiguration()
 	}
 
 	LPS_GenerateBootId();
+	LPS_StartEligibleSessions();
 	LPS_StartConnection(true);
 }
 
@@ -442,6 +443,7 @@ public void LPS_OnServerBootRegistered(
 	g_LPSLastSuccessfulWriteAt = GetTime();
 	LPS_ReportDatabaseRecovery();
 	LPS_ScheduleNextFlush();
+	LPS_OnSessionDatabaseReady();
 
 	if (g_LPSHeartbeatQueued)
 	{
@@ -503,6 +505,7 @@ void LPS_RequestFlush()
 	int now = GetTime();
 	Transaction transaction = new Transaction();
 	char query[512];
+	int queryCount = 0;
 
 	Format(
 		query,
@@ -512,6 +515,7 @@ void LPS_RequestFlush()
 		escapedServerKey
 	);
 	transaction.AddQuery(query);
+	queryCount++;
 
 	Format(
 		query,
@@ -521,6 +525,17 @@ void LPS_RequestFlush()
 		escapedBootId
 	);
 	transaction.AddQuery(query);
+	queryCount++;
+
+	char sessionError[LPS_MAX_DATABASE_ERROR];
+	if (!LPS_AddSessionFlushQueries(transaction, queryCount, sessionError, sizeof(sessionError)))
+	{
+		delete transaction;
+		g_LPSHeartbeatInFlight = false;
+		g_LPSHeartbeatQueued = true;
+		LPS_ReportDatabaseError("flush query build failed", sessionError);
+		return;
+	}
 
 	g_LPSDatabase.Execute(
 		transaction,
@@ -546,6 +561,7 @@ public void LPS_OnFlushSucceeded(
 
 	g_LPSHeartbeatInFlight = false;
 	g_LPSLastSuccessfulWriteAt = GetTime();
+	LPS_OnSessionFlushSucceeded();
 
 	if (g_LPSHeartbeatQueued)
 	{
@@ -568,7 +584,12 @@ public void LPS_OnFlushFailed(
 	}
 
 	g_LPSHeartbeatInFlight = false;
-	LPS_HandleDatabaseFailure("heartbeat transaction failed", error);
+	// A driver may include parts of a rejected query in its error text. Session
+	// queries contain private IP data, so never forward this raw error to logs.
+	LPS_HandleDatabaseFailure(
+		"flush transaction failed",
+		"the database rejected the asynchronous player/session flush"
+	);
 }
 
 void LPS_ScheduleNextFlush()
