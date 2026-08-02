@@ -382,6 +382,7 @@ void LPS_StartRound()
 	g_LPSRunDirty = true;
 	g_LPSContinuation = LPSContinuation_None;
 
+	LPS_ResetObjectiveInteractionTracking();
 	LPS_ReconcileAllClientSegments();
 	LPS_RequestFlush();
 }

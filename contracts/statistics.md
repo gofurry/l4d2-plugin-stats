@@ -179,6 +179,34 @@ Smoker / Boomer / Hunter / Spitter / Jockey / Charger
 成功部署燃烧弹药包和高爆弹药包分别写入
 `incendiary_packs_deployed` 与 `explosive_packs_deployed`。激光瞄准器获取不在统计范围内。
 
+### 5.12 目标互动、补给和失能时长
+
+| 字段 | 精确定义 |
+|---|---|
+| `objective_interactions` | 真人幸存者成功完成白名单目标实体的一次互动；同一实体每个 Round 最多归属一次 |
+| `ammo_pile_uses` | 真人幸存者从 `weapon_ammo_spawn` 实际补充弹药并触发 `ammo_pickup` 的次数 |
+| `incapacitated_seconds` | 真人幸存者 Segment 内处于普通倒地状态的累计整秒数，不含挂边时间 |
+| `ledge_hanging_seconds` | 真人幸存者 Segment 内处于挂边状态的累计整秒数 |
+| `black_white_teammates_restored` | 真人使用医疗包成功把开始治疗时为黑白状态的另一名幸存者恢复为彩色的次数 |
+
+目标互动只接受可表达“已完成”的实体输出：
+
+- `func_button` / `func_rot_button` 的 `OnIn`；
+- `func_button_timed` / `func_buildable_button` 的 `OnTimeUp`；
+- `momentary_rot_button` 的 `OnFullyClosed`；
+- `point_script_use_target` 的 `OnUseFinished`。
+
+不监听泛化的 `player_use`，不把 `finale_start`、普通开门、汽油桶/可乐等
+`point_prop_use_target` 搬运目标自动算作目标互动。输出没有明确真人幸存者 activator
+时不猜测归属。
+
+黑白转彩色只给施救真人记账；被治疗队友可以是真人或 Bot，但自疗不计入。
+插件在 `heal_begin` 捕获黑白状态，并在同一次 `heal_success` 后验证状态确实解除。
+治疗中断、目标不匹配或无法验证均不记录。
+
+倒地和挂边时长由状态开始/结束事件结算，不使用每秒轮询。周期保存会先把已经过去的
+完整秒数并入绝对快照，并保留不足一秒的余数；重复保存不得重复累计。
+
 ## 6. 对抗幸存者统计
 
 只统计玩家作为幸存者参与对抗半场时的数据。

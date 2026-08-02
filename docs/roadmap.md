@@ -2,9 +2,9 @@
 
 ## Current Position
 
-项目已经完成数据库地基、真人身份/Session、Run/Round/Segment 生命周期、v0.4.0 PvE 核心战斗统计和 v0.5.0 治疗/章节成绩的本地验收。v0.5.1 正在加入设备、特感职业、控制/解救、Boss 参与和技巧统计。SQLite 已在真实 L4D2/SourceMod 环境中进入 `ready`；完整多人对抗、MySQL 和 PostgreSQL 实机兼容验证保留到 v0.7.0。
+项目已经完成数据库地基、真人身份/Session、Run/Round/Segment 生命周期、v0.4.0 PvE 核心战斗统计和 v0.5.0 治疗/章节成绩的本地验收。v0.5.1 的设备、特感职业、控制/解救、Boss 参与和技巧统计已实现；v0.5.2 正在验收目标互动、弹药堆补给、失能时长和黑白转彩色。SQLite 已在真实 L4D2/SourceMod 环境中进入 `ready`；完整多人对抗、MySQL 和 PostgreSQL 实机兼容验证保留到 v0.7.0。
 
-当前已采集 PvE 击杀、有效伤害、承伤、友伤、基础救援、治疗、临时生命和章节/战役成绩；v0.5.1 的扩展口径已经冻结并进入验收。Versus 仍使用后续独立统计模型。SourcePawn 采集器、数据库结构和未来 Go 服务的公共边界仍处于 pre-v1 阶段，可以按验证结果调整。
+当前已采集 PvE 击杀、有效伤害、承伤、友伤、救援、治疗、临时生命、章节/战役成绩、设备、控制、技巧、目标互动和失能时长。v0.5.x 仍有少量真实游戏分支需要人工验收。Versus 仍使用后续独立统计模型。SourcePawn 采集器、数据库结构和未来 Go 服务的公共边界仍处于 pre-v1 阶段，可以按验证结果调整。
 
 ## Roadmap Strategy
 
@@ -208,6 +208,38 @@
 #### Notes
 
 插件尚未发布，v0.5.1 直接重写 `0001_initial.sql`。验收前需清空或备份旧数据库；首次公开发布后不得再修改已经应用的迁移。
+
+---
+
+### v0.5.2 - PvE Interactions and State Durations
+
+**Status:** Implementation complete; local gameplay validation pending
+
+**Scope:** User-facing / Correctness / Performance / Testing
+
+**Goal:** 补齐可可靠确认完成的目标互动、弹药补给、失能时长和黑白队友恢复统计。
+
+#### Tasks
+
+- [x] 以固定实体输出白名单记录成功目标互动，同一实体每个 Round 最多一次
+- [x] 使用 `ammo_pickup` 记录从弹药堆实际补充弹药的次数
+- [x] 分开累计真人 Segment 内倒地和挂边完整秒数
+- [x] 验证医疗包成功将开始时为黑白状态的队友恢复为彩色
+- [x] 将五项数据加入三数据库初始结构、绝对快照、SQLite 测试和检查工具
+- [x] 明确排除 `player_use`、`finale_start`、普通开门和搬运目标
+- [ ] 在真实本地 PvE 对局中完成 v0.5.2 测试清单
+
+#### Acceptance Criteria
+
+- 未完成、取消或没有真人 activator 的互动不计数
+- 同一目标实体的重复输出不会在同一 Round 重复计数
+- 倒地和挂边时间互斥，不依赖每秒计时器，重复 flush 不重复累计
+- 自疗、治疗中断和未真正解除黑白状态不会计入黑白队友恢复
+- 新统计只写入 coop/realism 真人幸存者 Segment
+
+#### Notes
+
+插件仍未发布，v0.5.2 继续重写 `0001_initial.sql`。验收前必须清空或备份旧数据库并由插件重建。
 
 ---
 

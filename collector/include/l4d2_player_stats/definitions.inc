@@ -3,7 +3,7 @@
 #endif
 #define _l4d2_player_stats_definitions_included
 
-#define LPS_VERSION "0.5.1"
+#define LPS_VERSION "0.5.2"
 #define LPS_SCHEMA_VERSION 1
 #define LPS_MIGRATION_NAME "initial_schema"
 #define LPS_STATS_VERSION 1
@@ -135,7 +135,12 @@ enum LPSPvEStat
 	LPSPvEStat_WitchEncounters,
 	LPSPvEStat_WitchKillParticipations,
 	LPSPvEStat_IncendiaryPacksDeployed,
-	LPSPvEStat_ExplosivePacksDeployed
+	LPSPvEStat_ExplosivePacksDeployed,
+	LPSPvEStat_ObjectiveInteractions,
+	LPSPvEStat_AmmoPileUses,
+	LPSPvEStat_IncapacitatedSeconds,
+	LPSPvEStat_LedgeHangingSeconds,
+	LPSPvEStat_BlackWhiteTeammatesRestored
 };
 
 // Stable IDs persisted by lps_pve_segment_equipment_stats. Never reuse an ID

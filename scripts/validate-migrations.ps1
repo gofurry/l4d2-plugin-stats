@@ -46,7 +46,12 @@ $requiredPvEColumns = @(
     "witch_encounters",
     "witch_kill_participations",
     "incendiary_packs_deployed",
-    "explosive_packs_deployed"
+    "explosive_packs_deployed",
+    "objective_interactions",
+    "ammo_pile_uses",
+    "incapacitated_seconds",
+    "ledge_hanging_seconds",
+    "black_white_teammates_restored"
 )
 $requiredEquipmentColumns = @(
     "equipment_id",

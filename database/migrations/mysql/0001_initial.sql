@@ -166,6 +166,11 @@ CREATE TABLE IF NOT EXISTS lps_pve_segment_stats (
   witch_kill_participations BIGINT NOT NULL DEFAULT 0,
   incendiary_packs_deployed BIGINT NOT NULL DEFAULT 0,
   explosive_packs_deployed BIGINT NOT NULL DEFAULT 0,
+  objective_interactions BIGINT NOT NULL DEFAULT 0,
+  ammo_pile_uses BIGINT NOT NULL DEFAULT 0,
+  incapacitated_seconds BIGINT NOT NULL DEFAULT 0,
+  ledge_hanging_seconds BIGINT NOT NULL DEFAULT 0,
+  black_white_teammates_restored BIGINT NOT NULL DEFAULT 0,
   revision BIGINT NOT NULL DEFAULT 0
 );
 -- statement-breakpoint

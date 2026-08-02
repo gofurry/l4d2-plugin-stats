@@ -29,7 +29,9 @@ PVE_STAT_COLUMNS = [
     "tank_rocks_destroyed", "witch_oneshots", "witch_solo_kills",
     "tank_encounters", "tank_kill_participations", "witch_encounters",
     "witch_kill_participations", "incendiary_packs_deployed",
-    "explosive_packs_deployed", "revision",
+    "explosive_packs_deployed", "objective_interactions", "ammo_pile_uses",
+    "incapacitated_seconds", "ledge_hanging_seconds",
+    "black_white_teammates_restored", "revision",
 ]
 
 EQUIPMENT_STAT_COLUMNS = [
@@ -257,7 +259,7 @@ def main() -> None:
             (
                 segment_id, 1, 20, 5, 1, 0, 0, 80, 0, 0, 12, 0, 3, 0,
                 0, 0, 0, 0, 0, 0, 1, 0, 42, 0, 1, 0, 50, 0, 0, 0, 0,
-                *([0] * 34), 1,
+                *([0] * 39), 1,
             ),
         )
         # Absolute snapshots replace the stored values; they must never be
@@ -269,7 +271,7 @@ def main() -> None:
                 2, 1, 1, 1, 1, 3, 2, 1, 80, 55, 2, 1, 125, 1, 1, 0, 0,
                 1, 0, 1, 0, 1, 0, 100, 20, 50, 10, 30, 40,
                 1, 2, 3, 4, 5, 6, 7, 8, 2, 1, 0, 1,
-                1, 2, 1, 1, 1, 1, 1, 1, 1, 2, 2,
+                1, 2, 1, 1, 1, 1, 1, 1, 1, 2, 3, 2, 11, 4, 1, 2,
             ),
         )
 
@@ -420,7 +422,7 @@ def main() -> None:
             2, 1, 1, 1, 1, 3, 2, 1, 80, 55, 2, 1, 125, 1, 1, 0, 0,
             1, 0, 1, 0, 1, 0, 100, 20, 50, 10, 30, 40,
             1, 2, 3, 4, 5, 6, 7, 8, 2, 1, 0, 1,
-            1, 2, 1, 1, 1, 1, 1, 1, 1, 2, 2,
+            1, 2, 1, 1, 1, 1, 1, 1, 1, 2, 3, 2, 11, 4, 1, 2,
         ), pve_stats
 
         equipment_stats = database.execute(

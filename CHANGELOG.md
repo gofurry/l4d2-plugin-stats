@@ -4,6 +4,10 @@ All notable changes to this project will be documented in this file.
 
 ## Unreleased
 
+- Add allowlisted, success-only objective interaction counts with one attribution per entity and Round.
+- Add ammo-pile refill counts, incapacitated seconds, and ledge-hanging seconds.
+- Add successful medkit restores of black-and-white teammates.
+- Accumulate active duration timers into periodic absolute snapshots without per-second polling.
 - Add fixed-ID per-equipment PvE snapshots for official firearms, official melee weapons, and official throwables.
 - Aggregate every unknown/custom firearm into one bounded `Other Firearm` row while ignoring custom melee and throwables.
 - Add per-class special infected kills and effective damage.
