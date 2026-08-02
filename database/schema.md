@@ -223,10 +223,79 @@ chapter_participations
 chapter_completions_alive
 chapter_completions_dead
 campaign_completions
+smoker_kills
+boomer_kills
+hunter_kills
+spitter_kills
+jockey_kills
+charger_kills
+damage_to_smoker
+damage_to_boomer
+damage_to_hunter
+damage_to_spitter
+damage_to_jockey
+damage_to_charger
+smoker_controls_received
+hunter_controls_received
+jockey_controls_received
+charger_controls_received
+smoker_controlled_seconds
+hunter_controlled_seconds
+jockey_controlled_seconds
+charger_controlled_seconds
+smoker_saves
+hunter_saves
+jockey_saves
+charger_saves
+melee_tongue_self_cuts
+tank_rocks_destroyed
+witch_oneshots
+witch_solo_kills
+tank_encounters
+tank_kill_participations
+witch_encounters
+witch_kill_participations
+incendiary_packs_deployed
+explosive_packs_deployed
 revision
 ```
 
-### 4.10 `lps_versus_survivor_stats`
+### 4.10 `lps_pve_segment_equipment_stats`
+
+复合主键为 `(segment_id, equipment_id)`，并包含：
+
+```text
+stats_version
+last_saved_at
+actions
+common_kills
+special_kills
+tank_kills
+witch_kills
+headshot_kills
+damage_to_special
+damage_to_tank
+damage_to_witch
+revision
+```
+
+`equipment_id` 是公开后不可复用的稳定数值标识。当前 ID：
+
+| 范围 | 内容 |
+|---|---|
+| 1 | `Other Firearm`，所有未知/第三方枪械共享 |
+| 2–4 | 单手枪、双持手枪、马格南 |
+| 5–7 | Uzi、消音冲锋枪、MP5 |
+| 8–11 | 木喷、Chrome、Auto、SPAS |
+| 12–15 | M16、AK-47、SCAR、SG552 |
+| 16–19 | Hunting Rifle、Military Sniper、Scout、AWP |
+| 20–24 | 榴弹发射器、M60、电锯、固定机枪、Minigun |
+| 25–37 | 13 种官方近战脚本 |
+| 38–40 | Molotov、Pipe Bomb、Vomit Jar |
+
+采集器只写精确设备行。类别聚合和全部设备总计由读取侧计算，避免重复数据漂移。
+
+### 4.11 `lps_versus_survivor_stats`
 
 主键为`segment_id`，并包含：
 
@@ -262,7 +331,7 @@ temporary_health_received
 revision
 ```
 
-### 4.11 `lps_versus_infected_stats`
+### 4.12 `lps_versus_infected_stats`
 
 主键为`segment_id`，并包含：
 
@@ -299,6 +368,7 @@ lps_runs(server_key, started_at)
 lps_rounds(run_id, round_seq)
 lps_player_segments(round_id, steam_id)
 lps_player_segments(steam_id, started_at)
+lps_pve_segment_equipment_stats(equipment_id, segment_id)
 ```
 
 不同数据库允许使用不同建索引语法，但索引语义必须一致。

@@ -13,6 +13,7 @@ ConVar g_LPSRetryMaximum;
 ConVar g_LPSLogSuppressionWindow;
 ConVar g_LPSClosedSessionQueueLimit;
 ConVar g_LPSClosedLifecycleQueueLimit;
+ConVar g_LPSClosedEquipmentQueueLimit;
 
 void LPS_CreateConfig()
 {
@@ -109,6 +110,17 @@ void LPS_CreateConfig()
 		32.0,
 		true,
 		8192.0
+	);
+
+	g_LPSClosedEquipmentQueueLimit = CreateConVar(
+		"sm_lps_closed_equipment_queue_limit",
+		"4096",
+		"Maximum closed per-equipment snapshots retained while the database is unavailable.",
+		FCVAR_NONE,
+		true,
+		128.0,
+		true,
+		65536.0
 	);
 }
 

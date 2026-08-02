@@ -123,6 +123,62 @@
 
 Run和Round层面另行保存团队结果，不通过个人计数反推团队结果。
 
+### 5.7 特感职业明细
+
+六种普通特感分别保存击杀数和有效伤害：
+
+```text
+Smoker / Boomer / Hunter / Spitter / Jockey / Charger
+```
+
+职业击杀之和必须等于 `special_kills`，职业伤害之和必须等于
+`damage_to_special`。Tank 与 Witch 继续使用独立字段，不并入普通特感。
+
+### 5.8 武器、近战和投掷物
+
+设备明细以固定数值 ID 写入 `lps_pve_segment_equipment_stats`。明细行为：
+
+- 官方枪械分别记录普通感染者、普通特感、Tank、Witch 击杀，枪械爆头击杀，以及对普通特感、Tank、Witch 的有效伤害；
+- 所有未知或第三方枪械只进入一个固定的 `Other Firearm` 桶，不按 classname 创建新行；
+- 官方近战武器分别记录上述击杀与伤害，但不记录命中、挥砍、命中率或斩首；
+- 自定义近战武器完全忽略；
+- Molotov、Pipe Bomb 和 Vomit Jar 分别记录成功投掷次数，并记录能够可靠直接归属的击杀与伤害；
+- 自定义投掷物完全忽略；
+- 枪械不记录射击数、命中数、命中率、弹药消耗、换弹次数或对普通感染者伤害；
+- 装备类别统计和全部装备总计由未来 Go 查询从精确设备行聚合，不在采集器中重复保存。
+
+`actions` 当前只表示三种官方投掷物的成功投掷次数；其他设备行该字段为 0。
+
+### 5.9 特感控制和团队解救
+
+对 Smoker、Hunter、Jockey 和 Charger 分别保存：
+
+- 真人幸存者被成功控制的次数；
+- 从控制开始到结束的秒数；
+- 真人队友结束该控制的解救次数。
+
+解救者必须是另一个真人幸存者。由本人挣脱不算团队解救；无法可靠找到解救者的结束事件不猜测归属。击杀当前控制者和带有明确解救者字段的停止事件可以计入。
+
+### 5.10 技巧统计
+
+| 字段 | 精确定义 |
+|---|---|
+| `melee_tongue_self_cuts` | 被 Smoker 控制的本人使用官方近战武器切断自己的舌头；替队友断舌不计入 |
+| `tank_rocks_destroyed` | 真人幸存者使用枪械在空中摧毁 `tank_rock` 实体 |
+| `witch_oneshots` | `witch_killed.oneshot` 明确为真的 Witch 击杀 |
+| `witch_solo_kills` | 从首次有效伤害到死亡只有同一名真人贡献者，且该玩家完成最后击杀 |
+
+技巧统计只接受上述可验证信号，不通过时间窗口或动画状态猜测。
+
+### 5.11 Boss 参与和弹药升级包
+
+真人首次对某个 Tank/Witch 造成有效伤害时增加对应 `encounters`；该 Boss
+死亡且该玩家仍可归属到真人 Segment 时增加对应 `kill_participations`。
+最后击杀继续由 `tank_kills` / `witch_kills` 单独表达。
+
+成功部署燃烧弹药包和高爆弹药包分别写入
+`incendiary_packs_deployed` 与 `explosive_packs_deployed`。激光瞄准器获取不在统计范围内。
+
 ## 6. 对抗幸存者统计
 
 只统计玩家作为幸存者参与对抗半场时的数据。

@@ -126,7 +126,59 @@ CREATE TABLE IF NOT EXISTS lps_pve_segment_stats (
   chapter_completions_alive BIGINT NOT NULL DEFAULT 0,
   chapter_completions_dead BIGINT NOT NULL DEFAULT 0,
   campaign_completions BIGINT NOT NULL DEFAULT 0,
+  smoker_kills BIGINT NOT NULL DEFAULT 0,
+  boomer_kills BIGINT NOT NULL DEFAULT 0,
+  hunter_kills BIGINT NOT NULL DEFAULT 0,
+  spitter_kills BIGINT NOT NULL DEFAULT 0,
+  jockey_kills BIGINT NOT NULL DEFAULT 0,
+  charger_kills BIGINT NOT NULL DEFAULT 0,
+  damage_to_smoker BIGINT NOT NULL DEFAULT 0,
+  damage_to_boomer BIGINT NOT NULL DEFAULT 0,
+  damage_to_hunter BIGINT NOT NULL DEFAULT 0,
+  damage_to_spitter BIGINT NOT NULL DEFAULT 0,
+  damage_to_jockey BIGINT NOT NULL DEFAULT 0,
+  damage_to_charger BIGINT NOT NULL DEFAULT 0,
+  smoker_controls_received BIGINT NOT NULL DEFAULT 0,
+  hunter_controls_received BIGINT NOT NULL DEFAULT 0,
+  jockey_controls_received BIGINT NOT NULL DEFAULT 0,
+  charger_controls_received BIGINT NOT NULL DEFAULT 0,
+  smoker_controlled_seconds BIGINT NOT NULL DEFAULT 0,
+  hunter_controlled_seconds BIGINT NOT NULL DEFAULT 0,
+  jockey_controlled_seconds BIGINT NOT NULL DEFAULT 0,
+  charger_controlled_seconds BIGINT NOT NULL DEFAULT 0,
+  smoker_saves BIGINT NOT NULL DEFAULT 0,
+  hunter_saves BIGINT NOT NULL DEFAULT 0,
+  jockey_saves BIGINT NOT NULL DEFAULT 0,
+  charger_saves BIGINT NOT NULL DEFAULT 0,
+  melee_tongue_self_cuts BIGINT NOT NULL DEFAULT 0,
+  tank_rocks_destroyed BIGINT NOT NULL DEFAULT 0,
+  witch_oneshots BIGINT NOT NULL DEFAULT 0,
+  witch_solo_kills BIGINT NOT NULL DEFAULT 0,
+  tank_encounters BIGINT NOT NULL DEFAULT 0,
+  tank_kill_participations BIGINT NOT NULL DEFAULT 0,
+  witch_encounters BIGINT NOT NULL DEFAULT 0,
+  witch_kill_participations BIGINT NOT NULL DEFAULT 0,
+  incendiary_packs_deployed BIGINT NOT NULL DEFAULT 0,
+  explosive_packs_deployed BIGINT NOT NULL DEFAULT 0,
   revision BIGINT NOT NULL DEFAULT 0
+);
+-- statement-breakpoint
+CREATE TABLE IF NOT EXISTS lps_pve_segment_equipment_stats (
+  segment_id VARCHAR(128) NOT NULL,
+  equipment_id INTEGER NOT NULL,
+  stats_version INTEGER NOT NULL DEFAULT 1,
+  last_saved_at BIGINT NOT NULL,
+  actions BIGINT NOT NULL DEFAULT 0,
+  common_kills BIGINT NOT NULL DEFAULT 0,
+  special_kills BIGINT NOT NULL DEFAULT 0,
+  tank_kills BIGINT NOT NULL DEFAULT 0,
+  witch_kills BIGINT NOT NULL DEFAULT 0,
+  headshot_kills BIGINT NOT NULL DEFAULT 0,
+  damage_to_special BIGINT NOT NULL DEFAULT 0,
+  damage_to_tank BIGINT NOT NULL DEFAULT 0,
+  damage_to_witch BIGINT NOT NULL DEFAULT 0,
+  revision BIGINT NOT NULL DEFAULT 0,
+  PRIMARY KEY (segment_id, equipment_id)
 );
 -- statement-breakpoint
 CREATE TABLE IF NOT EXISTS lps_versus_survivor_stats (
@@ -187,3 +239,5 @@ CREATE INDEX IF NOT EXISTS lps_idx_rounds_run_sequence ON lps_rounds (run_id, ro
 CREATE INDEX IF NOT EXISTS lps_idx_segments_round_steam ON lps_player_segments (round_id, steam_id);
 -- statement-breakpoint
 CREATE INDEX IF NOT EXISTS lps_idx_segments_steam_started ON lps_player_segments (steam_id, started_at);
+-- statement-breakpoint
+CREATE INDEX IF NOT EXISTS lps_idx_pve_equipment_id ON lps_pve_segment_equipment_stats (equipment_id, segment_id);

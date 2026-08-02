@@ -3,7 +3,7 @@
 #endif
 #define _l4d2_player_stats_definitions_included
 
-#define LPS_VERSION "0.5.0"
+#define LPS_VERSION "0.5.1"
 #define LPS_SCHEMA_VERSION 1
 #define LPS_MIGRATION_NAME "initial_schema"
 #define LPS_STATS_VERSION 1
@@ -101,5 +101,109 @@ enum LPSPvEStat
 	LPSPvEStat_ChapterParticipations,
 	LPSPvEStat_ChapterCompletionsAlive,
 	LPSPvEStat_ChapterCompletionsDead,
-	LPSPvEStat_CampaignCompletions
+	LPSPvEStat_CampaignCompletions,
+	LPSPvEStat_SmokerKills,
+	LPSPvEStat_BoomerKills,
+	LPSPvEStat_HunterKills,
+	LPSPvEStat_SpitterKills,
+	LPSPvEStat_JockeyKills,
+	LPSPvEStat_ChargerKills,
+	LPSPvEStat_DamageToSmoker,
+	LPSPvEStat_DamageToBoomer,
+	LPSPvEStat_DamageToHunter,
+	LPSPvEStat_DamageToSpitter,
+	LPSPvEStat_DamageToJockey,
+	LPSPvEStat_DamageToCharger,
+	LPSPvEStat_SmokerControlsReceived,
+	LPSPvEStat_HunterControlsReceived,
+	LPSPvEStat_JockeyControlsReceived,
+	LPSPvEStat_ChargerControlsReceived,
+	LPSPvEStat_SmokerControlledSeconds,
+	LPSPvEStat_HunterControlledSeconds,
+	LPSPvEStat_JockeyControlledSeconds,
+	LPSPvEStat_ChargerControlledSeconds,
+	LPSPvEStat_SmokerSaves,
+	LPSPvEStat_HunterSaves,
+	LPSPvEStat_JockeySaves,
+	LPSPvEStat_ChargerSaves,
+	LPSPvEStat_MeleeTongueSelfCuts,
+	LPSPvEStat_TankRocksDestroyed,
+	LPSPvEStat_WitchOneShots,
+	LPSPvEStat_WitchSoloKills,
+	LPSPvEStat_TankEncounters,
+	LPSPvEStat_TankKillParticipations,
+	LPSPvEStat_WitchEncounters,
+	LPSPvEStat_WitchKillParticipations,
+	LPSPvEStat_IncendiaryPacksDeployed,
+	LPSPvEStat_ExplosivePacksDeployed
+};
+
+// Stable IDs persisted by lps_pve_segment_equipment_stats. Never reuse an ID
+// for another item after the public schema is released.
+enum LPSEquipment
+{
+	LPSEquipment_None = 0,
+	LPSEquipment_OtherFirearm,
+	LPSEquipment_Pistol,
+	LPSEquipment_DualPistols,
+	LPSEquipment_Magnum,
+	LPSEquipment_SMG,
+	LPSEquipment_SilencedSMG,
+	LPSEquipment_MP5,
+	LPSEquipment_PumpShotgun,
+	LPSEquipment_ChromeShotgun,
+	LPSEquipment_AutoShotgun,
+	LPSEquipment_SPAS,
+	LPSEquipment_M16,
+	LPSEquipment_AK47,
+	LPSEquipment_SCAR,
+	LPSEquipment_SG552,
+	LPSEquipment_HuntingRifle,
+	LPSEquipment_MilitarySniper,
+	LPSEquipment_Scout,
+	LPSEquipment_AWP,
+	LPSEquipment_GrenadeLauncher,
+	LPSEquipment_M60,
+	LPSEquipment_Chainsaw,
+	LPSEquipment_MountedGun,
+	LPSEquipment_Minigun,
+	LPSEquipment_BaseballBat,
+	LPSEquipment_CricketBat,
+	LPSEquipment_Crowbar,
+	LPSEquipment_ElectricGuitar,
+	LPSEquipment_FireAxe,
+	LPSEquipment_FryingPan,
+	LPSEquipment_GolfClub,
+	LPSEquipment_Katana,
+	LPSEquipment_Knife,
+	LPSEquipment_Machete,
+	LPSEquipment_Pitchfork,
+	LPSEquipment_Shovel,
+	LPSEquipment_Tonfa,
+	LPSEquipment_Molotov,
+	LPSEquipment_PipeBomb,
+	LPSEquipment_VomitJar,
+	LPSEquipment_Count
+};
+
+enum LPSEquipmentStat
+{
+	LPSEquipmentStat_Actions = 0,
+	LPSEquipmentStat_CommonKills,
+	LPSEquipmentStat_SpecialKills,
+	LPSEquipmentStat_TankKills,
+	LPSEquipmentStat_WitchKills,
+	LPSEquipmentStat_HeadshotKills,
+	LPSEquipmentStat_DamageToSpecial,
+	LPSEquipmentStat_DamageToTank,
+	LPSEquipmentStat_DamageToWitch
+};
+
+enum LPSControlType
+{
+	LPSControlType_None = 0,
+	LPSControlType_Smoker,
+	LPSControlType_Hunter,
+	LPSControlType_Jockey,
+	LPSControlType_Charger
 };

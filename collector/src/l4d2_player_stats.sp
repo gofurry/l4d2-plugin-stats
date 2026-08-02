@@ -14,6 +14,8 @@
 #include <l4d2_player_stats/segments>
 #include <l4d2_player_stats/sessions>
 #include <l4d2_player_stats/pve_stats>
+#include <l4d2_player_stats/equipment_stats>
+#include <l4d2_player_stats/pve_extended>
 #include <l4d2_player_stats/migrations>
 #include <l4d2_player_stats/database>
 #include <l4d2_player_stats/commands>
@@ -47,6 +49,8 @@ public void OnPluginStart()
 	LPS_InitializeSegments();
 	LPS_InitializeSessions();
 	LPS_InitializePvEStats();
+	LPS_InitializeEquipmentStats();
+	LPS_InitializeExtendedPvEStats();
 	LPS_RegisterAdminCommands();
 	AutoExecConfig(true, "l4d2_player_stats");
 
@@ -61,6 +65,8 @@ public void OnConfigsExecuted()
 public void OnPluginEnd()
 {
 	LPS_ShutdownLifecycles();
+	LPS_ShutdownExtendedPvEStats();
+	LPS_ShutdownEquipmentStats();
 	LPS_ShutdownPvEStats();
 	LPS_ShutdownSessions();
 	LPS_ShutdownRuntime();
