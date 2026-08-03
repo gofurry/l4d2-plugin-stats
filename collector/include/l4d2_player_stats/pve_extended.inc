@@ -99,7 +99,9 @@ public Action LPS_OnTankRockTakeDamage(
 	int &damageType
 )
 {
-	if (!LPS_CanRecordPvEEvents()
+	bool recordPvE = LPS_CanRecordPvEEvents();
+	bool recordVersus = LPS_CanRecordVersusEvents();
+	if ((!recordPvE && !recordVersus)
 		|| victim < 1
 		|| victim > LPS_MAX_ENTITY_INDEX
 		|| g_LPSTankRockDestroyed[victim]
@@ -121,7 +123,18 @@ public Action LPS_OnTankRockTakeDamage(
 	if (health > 0 && damage + 0.01 >= float(health))
 	{
 		g_LPSTankRockDestroyed[victim] = true;
-		LPS_AddPvEStat(humanAttacker, LPSPvEStat_TankRocksDestroyed, 1);
+		if (recordPvE)
+		{
+			LPS_AddPvEStat(humanAttacker, LPSPvEStat_TankRocksDestroyed, 1);
+		}
+		else
+		{
+			LPS_AddVersusSurvivorStat(
+				humanAttacker,
+				LPSVersusSurvivorStat_TankRocksDestroyed,
+				1
+			);
+		}
 	}
 	return Plugin_Continue;
 }
@@ -142,7 +155,9 @@ public void LPS_Event_TongueReleaseStats(Event event, const char[] name, bool do
 
 public void LPS_Event_TongueStoppedStats(Event event, const char[] name, bool dontBroadcast)
 {
-	if (!LPS_CanRecordPvEEvents())
+	bool recordPvE = LPS_CanRecordPvEEvents();
+	bool recordVersus = LPS_CanRecordVersusEvents();
+	if (!recordPvE && !recordVersus)
 	{
 		return;
 	}
@@ -160,14 +175,28 @@ public void LPS_Event_TongueStoppedStats(Event event, const char[] name, bool do
 		LPSEquipment equipment = LPS_GetActiveEquipment(victim, false);
 		if (LPS_IsMeleeEquipment(equipment))
 		{
-			LPS_AddPvEStat(victim, LPSPvEStat_MeleeTongueSelfCuts, 1);
+			if (recordPvE)
+			{
+				LPS_AddPvEStat(victim, LPSPvEStat_MeleeTongueSelfCuts, 1);
+			}
+			else
+			{
+				LPS_AddVersusSurvivorStat(
+					victim,
+					LPSVersusSurvivorStat_MeleeTongueSelfCuts,
+					1
+				);
+			}
 		}
 	}
-	else
+	else if (recordPvE)
 	{
 		LPS_AwardControlSave(rescuer, victim, LPSControlType_Smoker);
 	}
-	LPS_EndControl(victim);
+	if (recordPvE)
+	{
+		LPS_EndControl(victim);
+	}
 }
 
 public void LPS_Event_LungePounceStats(Event event, const char[] name, bool dontBroadcast)
@@ -387,9 +416,12 @@ void LPS_OnSpecialInfectedDeathForExtendedStats(int infected, int attacker)
 
 void LPS_RecordBossContribution(int boss, int client)
 {
+	bool recordPvE = LPS_CanRecordPvEEvents();
+	bool recordVersusWitch = LPS_CanRecordVersusEvents() && LPS_IsWitchEntity(boss);
 	if (boss < 1
 		|| boss > LPS_MAX_ENTITY_INDEX
-		|| !LPS_IsHumanSurvivorClient(client))
+		|| !LPS_IsHumanSurvivorClient(client)
+		|| (!recordPvE && !recordVersusWitch))
 	{
 		return;
 	}
@@ -410,6 +442,10 @@ void LPS_RecordBossContribution(int boss, int client)
 			continue;
 		}
 		g_LPSBossContributorUserId[boss][slot] = userId;
+		if (!recordPvE)
+		{
+			return;
+		}
 		if (boss <= MaxClients && LPS_GetZombieClass(boss) == 8)
 		{
 			LPS_AddPvEStat(client, LPSPvEStat_TankEncounters, 1);
@@ -491,7 +527,8 @@ public void LPS_Event_WitchSpawnStats(Event event, const char[] name, bool dontB
 public void LPS_Event_UpgradePackBeginStats(Event event, const char[] name, bool dontBroadcast)
 {
 	int client = GetClientOfUserId(event.GetInt("userid"));
-	if (!LPS_IsHumanSurvivorClient(client))
+	if ((!LPS_CanRecordPvEEvents() && !LPS_CanRecordVersusEvents())
+		|| !LPS_IsHumanSurvivorClient(client))
 	{
 		return;
 	}
@@ -518,18 +555,42 @@ public void LPS_Event_UpgradePackBeginStats(Event event, const char[] name, bool
 public void LPS_Event_UpgradePackUsedStats(Event event, const char[] name, bool dontBroadcast)
 {
 	int client = GetClientOfUserId(event.GetInt("userid"));
-	if (!LPS_IsHumanSurvivorClient(client))
+	bool recordPvE = LPS_CanRecordPvEEvents();
+	bool recordVersus = LPS_CanRecordVersusEvents();
+	if ((!recordPvE && !recordVersus) || !LPS_IsHumanSurvivorClient(client))
 	{
 		return;
 	}
 
 	if (g_LPSPendingUpgradePackType[client] == 1)
 	{
-		LPS_AddPvEStat(client, LPSPvEStat_IncendiaryPacksDeployed, 1);
+		if (recordPvE)
+		{
+			LPS_AddPvEStat(client, LPSPvEStat_IncendiaryPacksDeployed, 1);
+		}
+		else
+		{
+			LPS_AddVersusSurvivorStat(
+				client,
+				LPSVersusSurvivorStat_IncendiaryPacksDeployed,
+				1
+			);
+		}
 	}
 	else if (g_LPSPendingUpgradePackType[client] == 2)
 	{
-		LPS_AddPvEStat(client, LPSPvEStat_ExplosivePacksDeployed, 1);
+		if (recordPvE)
+		{
+			LPS_AddPvEStat(client, LPSPvEStat_ExplosivePacksDeployed, 1);
+		}
+		else
+		{
+			LPS_AddVersusSurvivorStat(
+				client,
+				LPSVersusSurvivorStat_ExplosivePacksDeployed,
+				1
+			);
+		}
 	}
 	g_LPSPendingUpgradePackType[client] = 0;
 }

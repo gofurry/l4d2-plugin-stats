@@ -333,10 +333,40 @@ medkit_healing_others
 pills_used
 adrenaline_used
 temporary_health_received
+witch_kills
+damage_to_witch
+molotovs_thrown
+pipe_bombs_thrown
+vomit_jars_thrown
+incendiary_packs_deployed
+explosive_packs_deployed
+melee_tongue_self_cuts
+tank_rocks_destroyed
+witch_oneshots
+witch_solo_kills
 revision
 ```
 
-### 4.12 `lps_versus_infected_stats`
+### 4.12 `lps_versus_survivor_infected_class_stats`
+
+复合主键为 `(segment_id, infected_class)`。每个幸存者 Segment 最多产生七行，
+并包含：
+
+```text
+stats_version
+last_saved_at
+human_controller_kills
+bot_controller_kills
+damage_to_human_controllers
+damage_to_bot_controllers
+revision
+```
+
+`infected_class` 使用 1～6 和 8 七个固定职业 ID，定义与感染者职业表一致。
+未知职业不创建行。1～6 职业行的四项合计必须分别等于幸存者总表中的普通特感
+真人/Bot 击杀与伤害；职业 8 必须等于对应 Tank 总计。
+
+### 4.13 `lps_versus_infected_stats`
 
 主键为`segment_id`，并包含：
 
@@ -353,7 +383,7 @@ bot_survivor_kills
 revision
 ```
 
-### 4.13 `lps_versus_infected_class_stats`
+### 4.14 `lps_versus_infected_class_stats`
 
 复合主键为 `(segment_id, infected_class)`。每个感染者 Segment 最多产生七行，
 并包含：
@@ -419,6 +449,7 @@ lps_rounds(run_id, round_seq)
 lps_player_segments(round_id, steam_id)
 lps_player_segments(steam_id, started_at)
 lps_pve_segment_equipment_stats(equipment_id, segment_id)
+lps_versus_survivor_infected_class_stats(infected_class, segment_id)
 lps_versus_infected_class_stats(infected_class, segment_id)
 ```
 

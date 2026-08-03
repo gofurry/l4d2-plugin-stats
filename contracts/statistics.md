@@ -249,6 +249,52 @@ Smoker / Boomer / Hunter / Spitter / Jockey / Charger
 
 这些数据只进入对抗幸存者统计表，不进入PvE统计表。
 
+### 6.4 特感职业战斗明细
+
+Smoker、Boomer、Hunter、Spitter、Jockey、Charger、Tank 使用固定职业 ID 保存：
+
+- 击杀真人控制感染者次数；
+- 击杀 Bot 控制感染者次数；
+- 对真人控制感染者造成的有效伤害；
+- 对 Bot 控制感染者造成的有效伤害。
+
+每个幸存者 Segment 最多七个职业行。未知职业不创建动态 ID 或名称行。1～6 职业
+明细必须严格聚合回普通特感真人/Bot 总计，Tank 职业明细必须严格聚合回 Tank
+真人/Bot 总计。总计与明细在同一次内存更新中共同增加，检查工具将任何不一致视为
+数据健康错误。
+
+### 6.5 Witch、投掷物、升级包和技巧
+
+对抗幸存者总表额外保存：
+
+| 字段 | 含义 |
+|---|---|
+| `witch_kills` | 对 Witch 完成最后击杀的次数 |
+| `damage_to_witch` | 对 Witch 造成的有效生命损失 |
+| `molotovs_thrown` | 投出官方 Molotov 的次数 |
+| `pipe_bombs_thrown` | 投出官方 Pipe Bomb 的次数 |
+| `vomit_jars_thrown` | 投出官方 Vomit Jar 的次数 |
+| `incendiary_packs_deployed` | 成功部署燃烧弹药包的次数 |
+| `explosive_packs_deployed` | 成功部署高爆弹药包的次数 |
+| `melee_tongue_self_cuts` | 使用官方近战武器切断控制自己的 Smoker 舌头次数 |
+| `tank_rocks_destroyed` | 摧毁飞行中 Tank 石头的次数 |
+| `witch_oneshots` | 单次伤害击杀此前满血 Witch 的次数 |
+| `witch_solo_kills` | 本次 Witch 击杀仅有该真人幸存者造成过有效伤害的次数 |
+
+投掷物和升级包仅接受固定官方类型，未知/第三方名称不创建维度或记录。Witch 参与者
+使用受服务器最大客户端数约束的内存槽位；伤害、投掷和技巧事件只更新绝对快照，
+不直接访问数据库。
+
+### 6.6 明确不采集的幸存者明细
+
+对抗首版不创建逐武器统计表，也不记录：
+
+- 枪械射击数、命中数、命中率、弹药消耗和换弹；
+- 对普通感染者的武器伤害；
+- 近战命中数、命中率和斩首；
+- 自定义武器、近战或投掷物动态名称；
+- Skeet、Level、Deadstop 等难以稳定归属的技术动作。
+
 ## 7. 对抗感染者统计
 
 只统计玩家作为感染者参与对抗半场时的数据。

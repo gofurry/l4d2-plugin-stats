@@ -372,7 +372,10 @@ bool LPS_CanCaptureStatsDamage(int victim, float damage)
 				|| GetClientTeam(victim) == LPS_TEAM_INFECTED);
 	}
 
-	return g_LPSModeFamily == LPSModeFamily_PvE && LPS_IsWitchEntity(victim);
+	return (g_LPSModeFamily == LPSModeFamily_PvE
+			|| (g_LPSModeFamily == LPSModeFamily_Versus
+				&& g_LPSVersusStatsEnabled.BoolValue))
+		&& LPS_IsWitchEntity(victim);
 }
 
 float LPS_GetTrackedEffectiveHealth(int entity)
@@ -740,6 +743,7 @@ public void LPS_Event_WitchKilledStats(Event event, const char[] name, bool dont
 {
 	if (!LPS_CanRecordPvEEvents())
 	{
+		LPS_RecordVersusWitchKilled(event);
 		return;
 	}
 

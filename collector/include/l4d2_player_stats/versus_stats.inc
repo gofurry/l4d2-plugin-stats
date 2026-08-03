@@ -32,6 +32,21 @@ enum struct LPSVersusSurvivorStatsSnapshot
 	int pillsUsed;
 	int adrenalineUsed;
 	int temporaryHealthReceived;
+	int witchKills;
+	int damageToWitch;
+	int molotovsThrown;
+	int pipeBombsThrown;
+	int vomitJarsThrown;
+	int incendiaryPacksDeployed;
+	int explosivePacksDeployed;
+	int meleeTongueSelfCuts;
+	int tankRocksDestroyed;
+	int witchOneShots;
+	int witchSoloKills;
+	int classStats[
+		view_as<int>(LPSVersusInfectedClass_Count)
+		* view_as<int>(LPSVersusSurvivorClassStat_Count)
+	];
 	int revision;
 }
 
@@ -118,6 +133,7 @@ bool LPS_CanRecordVersusEvents()
 void LPS_OnClientVersusSegmentStarted(int client)
 {
 	LPS_OnClientVersusAbilitySegmentStarted(client);
+	LPS_OnClientVersusSurvivorDetailSegmentStarted(client);
 
 	if (!LPS_CanRecordVersusEvents() || !g_LPSClientSegmentActive[client])
 	{
@@ -161,6 +177,7 @@ void LPS_OnClientVersusSegmentEnding(int client)
 	// Close both sides of a possible pin before the infected snapshot is
 	// captured. This covers death, rescue, side changes and Round shutdown.
 	LPS_OnClientVersusAbilitySegmentEnding(client);
+	LPS_OnClientVersusSurvivorDetailSegmentEnding(client);
 
 	if (g_LPSClientVersusSurvivorStatsActive[client])
 	{
@@ -238,9 +255,38 @@ void LPS_RecordVersusDamage(int victim, int attacker, int inflictor, int actualD
 {
 	if (!LPS_CanRecordVersusEvents()
 		|| victim < 1
-		|| victim > MaxClients
-		|| !IsClientInGame(victim)
+		|| victim > LPS_MAX_ENTITY_INDEX
+		|| !IsValidEntity(victim)
 		|| actualDamage <= 0)
+	{
+		return;
+	}
+
+	if (victim > MaxClients)
+	{
+		if (!LPS_IsWitchEntity(victim))
+		{
+			return;
+		}
+
+		int survivor = LPS_ResolveHumanVersusAttacker(
+			attacker,
+			inflictor,
+			LPS_TEAM_SURVIVOR
+		);
+		if (survivor > 0)
+		{
+			LPS_AddVersusSurvivorStat(
+				survivor,
+				LPSVersusSurvivorStat_DamageToWitch,
+				actualDamage
+			);
+			LPS_RecordVersusWitchContribution(victim, survivor);
+		}
+		return;
+	}
+
+	if (!IsClientInGame(victim))
 	{
 		return;
 	}
@@ -254,28 +300,15 @@ void LPS_RecordVersusDamage(int victim, int attacker, int inflictor, int actualD
 			return;
 		}
 
-		bool botVictim = IsFakeClient(victim);
 		int zombieClass = LPS_GetZombieClass(victim);
-		if (zombieClass == 8)
-		{
-			LPS_AddVersusSurvivorStat(
-				survivor,
-				botVictim
-					? LPSVersusSurvivorStat_DamageToBotTank
-					: LPSVersusSurvivorStat_DamageToHumanTank,
-				actualDamage
-			);
-		}
-		else if (zombieClass >= 1 && zombieClass <= 6)
-		{
-			LPS_AddVersusSurvivorStat(
-				survivor,
-				botVictim
-					? LPSVersusSurvivorStat_DamageToBotSpecial
-					: LPSVersusSurvivorStat_DamageToHumanSpecial,
-				actualDamage
-			);
-		}
+		LPS_AddVersusSurvivorClassStat(
+			survivor,
+			zombieClass,
+			IsFakeClient(victim)
+				? LPSVersusSurvivorClassStat_DamageToBotControllers
+				: LPSVersusSurvivorClassStat_DamageToHumanControllers,
+			actualDamage
+		);
 		return;
 	}
 
@@ -416,28 +449,15 @@ public void LPS_Event_VersusPlayerDeathStats(Event event, const char[] name, boo
 		return;
 	}
 
-	bool botVictim = IsFakeClient(victim);
 	int zombieClass = LPS_GetZombieClass(victim);
-	if (zombieClass == 8)
-	{
-		LPS_AddVersusSurvivorStat(
-			attacker,
-			botVictim
-				? LPSVersusSurvivorStat_BotTankKills
-				: LPSVersusSurvivorStat_HumanTankKills,
-			1
-		);
-	}
-	else if (zombieClass >= 1 && zombieClass <= 6)
-	{
-		LPS_AddVersusSurvivorStat(
-			attacker,
-			botVictim
-				? LPSVersusSurvivorStat_BotSpecialKills
-				: LPSVersusSurvivorStat_HumanSpecialKills,
-			1
-		);
-	}
+	LPS_AddVersusSurvivorClassStat(
+		attacker,
+		zombieClass,
+		IsFakeClient(victim)
+			? LPSVersusSurvivorClassStat_BotControllerKills
+			: LPSVersusSurvivorClassStat_HumanControllerKills,
+		1
+	);
 }
 
 public void LPS_Event_VersusPlayerIncapacitatedStats(Event event, const char[] name, bool dontBroadcast)
@@ -681,6 +701,84 @@ void LPS_AddVersusSurvivorStat(int client, LPSVersusSurvivorStat stat, int amoun
 		case LPSVersusSurvivorStat_PillsUsed: g_LPSClientVersusSurvivorStats[client].pillsUsed += amount;
 		case LPSVersusSurvivorStat_AdrenalineUsed: g_LPSClientVersusSurvivorStats[client].adrenalineUsed += amount;
 		case LPSVersusSurvivorStat_TemporaryHealthReceived: g_LPSClientVersusSurvivorStats[client].temporaryHealthReceived += amount;
+		case LPSVersusSurvivorStat_WitchKills: g_LPSClientVersusSurvivorStats[client].witchKills += amount;
+		case LPSVersusSurvivorStat_DamageToWitch: g_LPSClientVersusSurvivorStats[client].damageToWitch += amount;
+		case LPSVersusSurvivorStat_MolotovsThrown: g_LPSClientVersusSurvivorStats[client].molotovsThrown += amount;
+		case LPSVersusSurvivorStat_PipeBombsThrown: g_LPSClientVersusSurvivorStats[client].pipeBombsThrown += amount;
+		case LPSVersusSurvivorStat_VomitJarsThrown: g_LPSClientVersusSurvivorStats[client].vomitJarsThrown += amount;
+		case LPSVersusSurvivorStat_IncendiaryPacksDeployed: g_LPSClientVersusSurvivorStats[client].incendiaryPacksDeployed += amount;
+		case LPSVersusSurvivorStat_ExplosivePacksDeployed: g_LPSClientVersusSurvivorStats[client].explosivePacksDeployed += amount;
+		case LPSVersusSurvivorStat_MeleeTongueSelfCuts: g_LPSClientVersusSurvivorStats[client].meleeTongueSelfCuts += amount;
+		case LPSVersusSurvivorStat_TankRocksDestroyed: g_LPSClientVersusSurvivorStats[client].tankRocksDestroyed += amount;
+		case LPSVersusSurvivorStat_WitchOneShots: g_LPSClientVersusSurvivorStats[client].witchOneShots += amount;
+		case LPSVersusSurvivorStat_WitchSoloKills: g_LPSClientVersusSurvivorStats[client].witchSoloKills += amount;
+	}
+
+	g_LPSClientVersusSurvivorStats[client].revision++;
+	g_LPSClientVersusSurvivorStatsDirty[client] = true;
+}
+
+int LPS_GetVersusSurvivorClassStatOffset(
+	int classIndex,
+	LPSVersusSurvivorClassStat stat
+)
+{
+	return (classIndex * view_as<int>(LPSVersusSurvivorClassStat_Count))
+		+ view_as<int>(stat);
+}
+
+void LPS_AddVersusSurvivorClassStat(
+	int client,
+	int zombieClass,
+	LPSVersusSurvivorClassStat stat,
+	int amount
+)
+{
+	int classIndex = LPS_GetVersusInfectedClassIndex(zombieClass);
+	if (amount <= 0
+		|| classIndex < 0
+		|| stat < LPSVersusSurvivorClassStat_HumanControllerKills
+		|| stat >= LPSVersusSurvivorClassStat_Count
+		|| client < 1
+		|| client > MaxClients
+		|| !g_LPSClientVersusSurvivorStatsActive[client]
+		|| !g_LPSClientSegmentActive[client]
+		|| !StrEqual(
+			g_LPSClientVersusSurvivorStats[client].segmentId,
+			g_LPSClientSegmentId[client],
+			true
+		))
+	{
+		return;
+	}
+
+	g_LPSClientVersusSurvivorStats[client].classStats[
+		LPS_GetVersusSurvivorClassStatOffset(classIndex, stat)
+	] += amount;
+
+	bool tank = zombieClass == 8;
+	switch (stat)
+	{
+		case LPSVersusSurvivorClassStat_HumanControllerKills:
+		{
+			if (tank) g_LPSClientVersusSurvivorStats[client].humanTankKills += amount;
+			else g_LPSClientVersusSurvivorStats[client].humanSpecialKills += amount;
+		}
+		case LPSVersusSurvivorClassStat_BotControllerKills:
+		{
+			if (tank) g_LPSClientVersusSurvivorStats[client].botTankKills += amount;
+			else g_LPSClientVersusSurvivorStats[client].botSpecialKills += amount;
+		}
+		case LPSVersusSurvivorClassStat_DamageToHumanControllers:
+		{
+			if (tank) g_LPSClientVersusSurvivorStats[client].damageToHumanTank += amount;
+			else g_LPSClientVersusSurvivorStats[client].damageToHumanSpecial += amount;
+		}
+		case LPSVersusSurvivorClassStat_DamageToBotControllers:
+		{
+			if (tank) g_LPSClientVersusSurvivorStats[client].damageToBotTank += amount;
+			else g_LPSClientVersusSurvivorStats[client].damageToBotSpecial += amount;
+		}
 	}
 
 	g_LPSClientVersusSurvivorStats[client].revision++;
@@ -790,6 +888,21 @@ void LPS_FillClientVersusSurvivorSnapshot(
 	snapshot.pillsUsed = g_LPSClientVersusSurvivorStats[client].pillsUsed;
 	snapshot.adrenalineUsed = g_LPSClientVersusSurvivorStats[client].adrenalineUsed;
 	snapshot.temporaryHealthReceived = g_LPSClientVersusSurvivorStats[client].temporaryHealthReceived;
+	snapshot.witchKills = g_LPSClientVersusSurvivorStats[client].witchKills;
+	snapshot.damageToWitch = g_LPSClientVersusSurvivorStats[client].damageToWitch;
+	snapshot.molotovsThrown = g_LPSClientVersusSurvivorStats[client].molotovsThrown;
+	snapshot.pipeBombsThrown = g_LPSClientVersusSurvivorStats[client].pipeBombsThrown;
+	snapshot.vomitJarsThrown = g_LPSClientVersusSurvivorStats[client].vomitJarsThrown;
+	snapshot.incendiaryPacksDeployed = g_LPSClientVersusSurvivorStats[client].incendiaryPacksDeployed;
+	snapshot.explosivePacksDeployed = g_LPSClientVersusSurvivorStats[client].explosivePacksDeployed;
+	snapshot.meleeTongueSelfCuts = g_LPSClientVersusSurvivorStats[client].meleeTongueSelfCuts;
+	snapshot.tankRocksDestroyed = g_LPSClientVersusSurvivorStats[client].tankRocksDestroyed;
+	snapshot.witchOneShots = g_LPSClientVersusSurvivorStats[client].witchOneShots;
+	snapshot.witchSoloKills = g_LPSClientVersusSurvivorStats[client].witchSoloKills;
+	for (int index = 0; index < sizeof(snapshot.classStats); index++)
+	{
+		snapshot.classStats[index] = g_LPSClientVersusSurvivorStats[client].classStats[index];
+	}
 	snapshot.revision = g_LPSClientVersusSurvivorStats[client].revision + (closed ? 1 : 0);
 }
 
@@ -932,6 +1045,17 @@ bool LPS_AddVersusSurvivorSnapshotQuery(
 	}
 	transaction.AddQuery(query);
 	queryCount++;
+
+	if (!LPS_BuildVersusSurvivorClassUpsertQuery(snapshot, query, sizeof(query)))
+	{
+		strcopy(error, errorLength, "a Versus survivor class stats value exceeded its SQL buffer");
+		return false;
+	}
+	if (query[0] != '\0')
+	{
+		transaction.AddQuery(query);
+		queryCount++;
+	}
 	return true;
 }
 
@@ -1000,7 +1124,7 @@ bool LPS_BuildVersusSurvivorUpsertQuery(
 	written += FormatEx(
 		values[written],
 		sizeof(values) - written,
-		", %d, %d, %d, %d, %d, %d, %d, %d, %d, %d, %d, %d, %d, %d",
+		", %d, %d, %d, %d, %d, %d, %d, %d, %d, %d, %d, %d, %d",
 		snapshot.incapacitations,
 		snapshot.deaths,
 		snapshot.incapRevives,
@@ -1013,7 +1137,23 @@ bool LPS_BuildVersusSurvivorUpsertQuery(
 		snapshot.medkitHealingOthers,
 		snapshot.pillsUsed,
 		snapshot.adrenalineUsed,
-		snapshot.temporaryHealthReceived,
+		snapshot.temporaryHealthReceived
+	);
+	written += FormatEx(
+		values[written],
+		sizeof(values) - written,
+		", %d, %d, %d, %d, %d, %d, %d, %d, %d, %d, %d, %d",
+		snapshot.witchKills,
+		snapshot.damageToWitch,
+		snapshot.molotovsThrown,
+		snapshot.pipeBombsThrown,
+		snapshot.vomitJarsThrown,
+		snapshot.incendiaryPacksDeployed,
+		snapshot.explosivePacksDeployed,
+		snapshot.meleeTongueSelfCuts,
+		snapshot.tankRocksDestroyed,
+		snapshot.witchOneShots,
+		snapshot.witchSoloKills,
 		snapshot.revision
 	);
 	if (written >= sizeof(values) - 1)
@@ -1021,13 +1161,13 @@ bool LPS_BuildVersusSurvivorUpsertQuery(
 		return false;
 	}
 
-	char columns[] = "segment_id, stats_version, last_saved_at, common_kills, human_special_kills, bot_special_kills, human_tank_kills, bot_tank_kills, damage_to_human_special, damage_to_bot_special, damage_to_human_tank, damage_to_bot_tank, damage_taken_infected, friendly_fire_to_humans, friendly_fire_to_bots, friendly_fire_taken, incapacitations, deaths, incap_revives, ledge_rescues, defib_revives, rescues_received, medkits_used_self, medkits_used_on_others, medkit_healing_self, medkit_healing_others, pills_used, adrenaline_used, temporary_health_received, revision";
+	char columns[] = "segment_id, stats_version, last_saved_at, common_kills, human_special_kills, bot_special_kills, human_tank_kills, bot_tank_kills, damage_to_human_special, damage_to_bot_special, damage_to_human_tank, damage_to_bot_tank, damage_taken_infected, friendly_fire_to_humans, friendly_fire_to_bots, friendly_fire_taken, incapacitations, deaths, incap_revives, ledge_rescues, defib_revives, rescues_received, medkits_used_self, medkits_used_on_others, medkit_healing_self, medkit_healing_others, pills_used, adrenaline_used, temporary_health_received, witch_kills, damage_to_witch, molotovs_thrown, pipe_bombs_thrown, vomit_jars_thrown, incendiary_packs_deployed, explosive_packs_deployed, melee_tongue_self_cuts, tank_rocks_destroyed, witch_oneshots, witch_solo_kills, revision";
 	if (g_LPSDatabaseDialect == LPSDatabaseDialect_MySQL)
 	{
 		FormatEx(
 			query,
 			maxLength,
-			"INSERT INTO lps_versus_survivor_stats (%s) VALUES (%s) ON DUPLICATE KEY UPDATE stats_version = VALUES(stats_version), last_saved_at = VALUES(last_saved_at), common_kills = VALUES(common_kills), human_special_kills = VALUES(human_special_kills), bot_special_kills = VALUES(bot_special_kills), human_tank_kills = VALUES(human_tank_kills), bot_tank_kills = VALUES(bot_tank_kills), damage_to_human_special = VALUES(damage_to_human_special), damage_to_bot_special = VALUES(damage_to_bot_special), damage_to_human_tank = VALUES(damage_to_human_tank), damage_to_bot_tank = VALUES(damage_to_bot_tank), damage_taken_infected = VALUES(damage_taken_infected), friendly_fire_to_humans = VALUES(friendly_fire_to_humans), friendly_fire_to_bots = VALUES(friendly_fire_to_bots), friendly_fire_taken = VALUES(friendly_fire_taken), incapacitations = VALUES(incapacitations), deaths = VALUES(deaths), incap_revives = VALUES(incap_revives), ledge_rescues = VALUES(ledge_rescues), defib_revives = VALUES(defib_revives), rescues_received = VALUES(rescues_received), medkits_used_self = VALUES(medkits_used_self), medkits_used_on_others = VALUES(medkits_used_on_others), medkit_healing_self = VALUES(medkit_healing_self), medkit_healing_others = VALUES(medkit_healing_others), pills_used = VALUES(pills_used), adrenaline_used = VALUES(adrenaline_used), temporary_health_received = VALUES(temporary_health_received), revision = VALUES(revision)",
+			"INSERT INTO lps_versus_survivor_stats (%s) VALUES (%s) ON DUPLICATE KEY UPDATE stats_version = VALUES(stats_version), last_saved_at = VALUES(last_saved_at), common_kills = VALUES(common_kills), human_special_kills = VALUES(human_special_kills), bot_special_kills = VALUES(bot_special_kills), human_tank_kills = VALUES(human_tank_kills), bot_tank_kills = VALUES(bot_tank_kills), damage_to_human_special = VALUES(damage_to_human_special), damage_to_bot_special = VALUES(damage_to_bot_special), damage_to_human_tank = VALUES(damage_to_human_tank), damage_to_bot_tank = VALUES(damage_to_bot_tank), damage_taken_infected = VALUES(damage_taken_infected), friendly_fire_to_humans = VALUES(friendly_fire_to_humans), friendly_fire_to_bots = VALUES(friendly_fire_to_bots), friendly_fire_taken = VALUES(friendly_fire_taken), incapacitations = VALUES(incapacitations), deaths = VALUES(deaths), incap_revives = VALUES(incap_revives), ledge_rescues = VALUES(ledge_rescues), defib_revives = VALUES(defib_revives), rescues_received = VALUES(rescues_received), medkits_used_self = VALUES(medkits_used_self), medkits_used_on_others = VALUES(medkits_used_on_others), medkit_healing_self = VALUES(medkit_healing_self), medkit_healing_others = VALUES(medkit_healing_others), pills_used = VALUES(pills_used), adrenaline_used = VALUES(adrenaline_used), temporary_health_received = VALUES(temporary_health_received), witch_kills = VALUES(witch_kills), damage_to_witch = VALUES(damage_to_witch), molotovs_thrown = VALUES(molotovs_thrown), pipe_bombs_thrown = VALUES(pipe_bombs_thrown), vomit_jars_thrown = VALUES(vomit_jars_thrown), incendiary_packs_deployed = VALUES(incendiary_packs_deployed), explosive_packs_deployed = VALUES(explosive_packs_deployed), melee_tongue_self_cuts = VALUES(melee_tongue_self_cuts), tank_rocks_destroyed = VALUES(tank_rocks_destroyed), witch_oneshots = VALUES(witch_oneshots), witch_solo_kills = VALUES(witch_solo_kills), revision = VALUES(revision)",
 			columns,
 			values
 		);
@@ -1037,12 +1177,102 @@ bool LPS_BuildVersusSurvivorUpsertQuery(
 		FormatEx(
 			query,
 			maxLength,
-			"INSERT INTO lps_versus_survivor_stats (%s) VALUES (%s) ON CONFLICT(segment_id) DO UPDATE SET stats_version = excluded.stats_version, last_saved_at = excluded.last_saved_at, common_kills = excluded.common_kills, human_special_kills = excluded.human_special_kills, bot_special_kills = excluded.bot_special_kills, human_tank_kills = excluded.human_tank_kills, bot_tank_kills = excluded.bot_tank_kills, damage_to_human_special = excluded.damage_to_human_special, damage_to_bot_special = excluded.damage_to_bot_special, damage_to_human_tank = excluded.damage_to_human_tank, damage_to_bot_tank = excluded.damage_to_bot_tank, damage_taken_infected = excluded.damage_taken_infected, friendly_fire_to_humans = excluded.friendly_fire_to_humans, friendly_fire_to_bots = excluded.friendly_fire_to_bots, friendly_fire_taken = excluded.friendly_fire_taken, incapacitations = excluded.incapacitations, deaths = excluded.deaths, incap_revives = excluded.incap_revives, ledge_rescues = excluded.ledge_rescues, defib_revives = excluded.defib_revives, rescues_received = excluded.rescues_received, medkits_used_self = excluded.medkits_used_self, medkits_used_on_others = excluded.medkits_used_on_others, medkit_healing_self = excluded.medkit_healing_self, medkit_healing_others = excluded.medkit_healing_others, pills_used = excluded.pills_used, adrenaline_used = excluded.adrenaline_used, temporary_health_received = excluded.temporary_health_received, revision = excluded.revision",
+			"INSERT INTO lps_versus_survivor_stats (%s) VALUES (%s) ON CONFLICT(segment_id) DO UPDATE SET stats_version = excluded.stats_version, last_saved_at = excluded.last_saved_at, common_kills = excluded.common_kills, human_special_kills = excluded.human_special_kills, bot_special_kills = excluded.bot_special_kills, human_tank_kills = excluded.human_tank_kills, bot_tank_kills = excluded.bot_tank_kills, damage_to_human_special = excluded.damage_to_human_special, damage_to_bot_special = excluded.damage_to_bot_special, damage_to_human_tank = excluded.damage_to_human_tank, damage_to_bot_tank = excluded.damage_to_bot_tank, damage_taken_infected = excluded.damage_taken_infected, friendly_fire_to_humans = excluded.friendly_fire_to_humans, friendly_fire_to_bots = excluded.friendly_fire_to_bots, friendly_fire_taken = excluded.friendly_fire_taken, incapacitations = excluded.incapacitations, deaths = excluded.deaths, incap_revives = excluded.incap_revives, ledge_rescues = excluded.ledge_rescues, defib_revives = excluded.defib_revives, rescues_received = excluded.rescues_received, medkits_used_self = excluded.medkits_used_self, medkits_used_on_others = excluded.medkits_used_on_others, medkit_healing_self = excluded.medkit_healing_self, medkit_healing_others = excluded.medkit_healing_others, pills_used = excluded.pills_used, adrenaline_used = excluded.adrenaline_used, temporary_health_received = excluded.temporary_health_received, witch_kills = excluded.witch_kills, damage_to_witch = excluded.damage_to_witch, molotovs_thrown = excluded.molotovs_thrown, pipe_bombs_thrown = excluded.pipe_bombs_thrown, vomit_jars_thrown = excluded.vomit_jars_thrown, incendiary_packs_deployed = excluded.incendiary_packs_deployed, explosive_packs_deployed = excluded.explosive_packs_deployed, melee_tongue_self_cuts = excluded.melee_tongue_self_cuts, tank_rocks_destroyed = excluded.tank_rocks_destroyed, witch_oneshots = excluded.witch_oneshots, witch_solo_kills = excluded.witch_solo_kills, revision = excluded.revision",
 			columns,
 			values
 		);
 	}
 	return true;
+}
+
+bool LPS_BuildVersusSurvivorClassUpsertQuery(
+	LPSVersusSurvivorStatsSnapshot snapshot,
+	char[] query,
+	int maxLength
+)
+{
+	query[0] = '\0';
+	char segmentId[(LPS_MAX_SEGMENT_ID * 2) + 1];
+	if (!g_LPSDatabase.Escape(snapshot.segmentId, segmentId, sizeof(segmentId)))
+	{
+		return false;
+	}
+
+	char values[2048];
+	values[0] = '\0';
+	int written = 0;
+	int rowCount = 0;
+	int savedAt = GetTime();
+	for (int classIndex = 0;
+		classIndex < view_as<int>(LPSVersusInfectedClass_Count);
+		classIndex++)
+	{
+		int base = classIndex * view_as<int>(LPSVersusSurvivorClassStat_Count);
+		bool hasValues = false;
+		for (int statIndex = 0;
+			statIndex < view_as<int>(LPSVersusSurvivorClassStat_Count);
+			statIndex++)
+		{
+			if (snapshot.classStats[base + statIndex] > 0)
+			{
+				hasValues = true;
+				break;
+			}
+		}
+		if (!hasValues)
+		{
+			continue;
+		}
+
+		written += FormatEx(
+			values[written],
+			sizeof(values) - written,
+			"%s('%s', %d, %d, %d, %d, %d, %d, %d, %d)",
+			rowCount > 0 ? ", " : "",
+			segmentId,
+			LPS_GetVersusInfectedZombieClass(classIndex),
+			LPS_STATS_VERSION,
+			savedAt,
+			snapshot.classStats[base + view_as<int>(LPSVersusSurvivorClassStat_HumanControllerKills)],
+			snapshot.classStats[base + view_as<int>(LPSVersusSurvivorClassStat_BotControllerKills)],
+			snapshot.classStats[base + view_as<int>(LPSVersusSurvivorClassStat_DamageToHumanControllers)],
+			snapshot.classStats[base + view_as<int>(LPSVersusSurvivorClassStat_DamageToBotControllers)],
+			snapshot.revision
+		);
+		if (written >= sizeof(values) - 1)
+		{
+			return false;
+		}
+		rowCount++;
+	}
+
+	if (rowCount == 0)
+	{
+		return true;
+	}
+
+	char columns[] = "segment_id, infected_class, stats_version, last_saved_at, human_controller_kills, bot_controller_kills, damage_to_human_controllers, damage_to_bot_controllers, revision";
+	if (g_LPSDatabaseDialect == LPSDatabaseDialect_MySQL)
+	{
+		FormatEx(
+			query,
+			maxLength,
+			"INSERT INTO lps_versus_survivor_infected_class_stats (%s) VALUES %s ON DUPLICATE KEY UPDATE stats_version = VALUES(stats_version), last_saved_at = VALUES(last_saved_at), human_controller_kills = VALUES(human_controller_kills), bot_controller_kills = VALUES(bot_controller_kills), damage_to_human_controllers = VALUES(damage_to_human_controllers), damage_to_bot_controllers = VALUES(damage_to_bot_controllers), revision = VALUES(revision)",
+			columns,
+			values
+		);
+	}
+	else
+	{
+		FormatEx(
+			query,
+			maxLength,
+			"INSERT INTO lps_versus_survivor_infected_class_stats (%s) VALUES %s ON CONFLICT(segment_id, infected_class) DO UPDATE SET stats_version = excluded.stats_version, last_saved_at = excluded.last_saved_at, human_controller_kills = excluded.human_controller_kills, bot_controller_kills = excluded.bot_controller_kills, damage_to_human_controllers = excluded.damage_to_human_controllers, damage_to_bot_controllers = excluded.damage_to_bot_controllers, revision = excluded.revision",
+			columns,
+			values
+		);
+	}
+	return query[0] != '\0';
 }
 
 bool LPS_BuildVersusInfectedUpsertQuery(
@@ -1327,6 +1557,21 @@ void LPS_ResetClientVersusStatsState(int client)
 	g_LPSClientVersusSurvivorStats[client].pillsUsed = 0;
 	g_LPSClientVersusSurvivorStats[client].adrenalineUsed = 0;
 	g_LPSClientVersusSurvivorStats[client].temporaryHealthReceived = 0;
+	g_LPSClientVersusSurvivorStats[client].witchKills = 0;
+	g_LPSClientVersusSurvivorStats[client].damageToWitch = 0;
+	g_LPSClientVersusSurvivorStats[client].molotovsThrown = 0;
+	g_LPSClientVersusSurvivorStats[client].pipeBombsThrown = 0;
+	g_LPSClientVersusSurvivorStats[client].vomitJarsThrown = 0;
+	g_LPSClientVersusSurvivorStats[client].incendiaryPacksDeployed = 0;
+	g_LPSClientVersusSurvivorStats[client].explosivePacksDeployed = 0;
+	g_LPSClientVersusSurvivorStats[client].meleeTongueSelfCuts = 0;
+	g_LPSClientVersusSurvivorStats[client].tankRocksDestroyed = 0;
+	g_LPSClientVersusSurvivorStats[client].witchOneShots = 0;
+	g_LPSClientVersusSurvivorStats[client].witchSoloKills = 0;
+	for (int index = 0; index < sizeof(g_LPSClientVersusSurvivorStats[].classStats); index++)
+	{
+		g_LPSClientVersusSurvivorStats[client].classStats[index] = 0;
+	}
 	g_LPSClientVersusSurvivorStats[client].revision = 0;
 
 	g_LPSClientVersusInfectedStatsActive[client] = false;

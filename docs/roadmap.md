@@ -2,9 +2,9 @@
 
 ## Current Position
 
-项目已经完成数据库地基、真人身份/Session、Run/Round/Segment 生命周期，以及 v0.4.0～v0.5.3 PvE 统计的本地验收。v0.6.0 对抗核心统计和 v0.6.2 感染者职业明细已经通过本地验证；v0.6.3 控制与能力效果完成实现和离线验证，等待本地数据验收。完整双方真人对抗、MySQL 和 PostgreSQL 实机兼容验证统一保留到 v0.7.0。
+项目已经完成数据库地基、真人身份/Session、Run/Round/Segment 生命周期，以及 v0.4.0～v0.5.3 PvE 统计的本地验收。v0.6.0 对抗核心统计、v0.6.2 感染者职业明细和 v0.6.3 控制与能力效果已经通过本地验证；v0.6.4 幸存者战斗明细完成实现和离线验证，等待本地数据验收。完整双方真人对抗、MySQL 和 PostgreSQL 实机兼容验证统一保留到 v0.7.0。
 
-当前已采集 PvE 击杀、有效伤害、承伤、友伤、救援、治疗、临时生命、章节/战役成绩、设备、控制、技巧、目标互动和失能时长。Versus 使用独立统计模型，首版已覆盖幸存者战斗/生存/救援/治疗，以及感染者出生/伤害/倒地/击杀。SourcePawn 采集器、数据库结构和未来 Go 服务的公共边界仍处于 pre-v1 阶段，可以按真实服务器验证结果调整。
+当前已采集 PvE 击杀、有效伤害、承伤、友伤、救援、治疗、临时生命、章节/战役成绩、设备、控制、技巧、目标互动和失能时长。Versus 使用独立统计模型，首版已覆盖幸存者职业战斗、Witch、官方消耗品、技巧、生存/救援/治疗，以及感染者职业出生、伤害、倒地、击杀、控制和能力效果。SourcePawn 采集器、数据库结构和未来 Go 服务的公共边界仍处于 pre-v1 阶段，可以按真实服务器验证结果调整。
 
 ## Roadmap Strategy
 
@@ -362,13 +362,13 @@ v0.6.0 不新增迁移：三数据库 `0001_initial.sql` 已预留两张对抗�
 
 #### Notes
 
-插件尚未公开发布，v0.6.2 继续重写 `0001_initial.sql`，不保留测试数据库升级包袱。测试前必须备份后清空旧数据库，由插件按当前 13 表、8 索引结构重新建立。
+插件尚未公开发布，v0.6.2 继续重写 `0001_initial.sql`，不保留测试数据库升级包袱。测试前必须备份后清空旧数据库，由插件按当时的 13 表、8 索引结构重新建立。
 
 ---
 
 ### v0.6.3 - Control and Ability Effectiveness
 
-**Status:** Implementation complete; local validation pending
+**Status:** Completed (local validation)
 
 **Scope:** User-facing / Correctness / Performance
 
@@ -386,7 +386,7 @@ v0.6.0 不新增迁移：三数据库 `0001_initial.sql` 已预留两张对抗�
 - [x] 记录 Boomer 胆汁命中人数和 Spitter 酸液有效伤害，并拆分真人/Bot 目标
 - [x] 将新增指标并入固定职业内存状态和周期绝对快照
 - [x] 静态验证事件热路径不产生逐事件 SQL、动态职业行或无界分配
-- [ ] 按 [v0.6.3 本地测试清单](v0.6.3-test-checklist.md) 验证控制封口与能力归属
+- [x] 按 [v0.6.3 本地测试清单](v0.6.3-test-checklist.md) 验证控制封口与能力归属
 
 #### Acceptance Criteria
 
@@ -398,7 +398,7 @@ v0.6.0 不新增迁移：三数据库 `0001_initial.sql` 已预留两张对抗�
 
 ### v0.6.4 - Versus Survivor Combat Detail
 
-**Status:** Planned
+**Status:** Implementation complete; local validation pending
 
 **Scope:** User-facing / Data model / Testing
 
@@ -412,10 +412,12 @@ v0.6.0 不新增迁移：三数据库 `0001_initial.sql` 已预留两张对抗�
 
 #### Tasks
 
-- [ ] 按职业拆分幸存者对真人/Bot 特感的击杀与有效伤害
-- [ ] 评估官方投掷物、弹药升级包及关键技巧是否适合进入对抗模型
-- [ ] 保留现有幸存者总计并增加明细合计一致性检查
-- [ ] 明确不采集的枪械命中率、逐发命中、弹药和换弹指标
+- [x] 按职业拆分幸存者对真人/Bot 特感的击杀与有效伤害
+- [x] 记录官方投掷物、弹药升级包、本人近战断舌、Tank 石头空爆和 Witch 技巧
+- [x] 保留现有幸存者总计并增加明细合计一致性检查
+- [x] 明确不采集枪械命中率、逐发命中、弹药、换弹及逐武器对抗表
+- [x] 完成 SQLite 集成、三数据库迁移等价性、检查器、编译和打包离线验证
+- [ ] 按 [v0.6.4 本地测试清单](v0.6.4-test-checklist.md) 验证游戏事件归属和数据库快照
 
 #### Acceptance Criteria
 

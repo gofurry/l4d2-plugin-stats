@@ -55,6 +55,9 @@ def main() -> None:
         versus_survivor_stats = database.execute(
             "SELECT COUNT(*) FROM lps_versus_survivor_stats"
         ).fetchone()[0]
+        versus_survivor_class_stats = database.execute(
+            "SELECT COUNT(*) FROM lps_versus_survivor_infected_class_stats"
+        ).fetchone()[0]
         versus_infected_stats = database.execute(
             "SELECT COUNT(*) FROM lps_versus_infected_stats"
         ).fetchone()[0]
@@ -93,6 +96,12 @@ def main() -> None:
             "SELECT COUNT(*) FROM lps_versus_survivor_stats v "
             "LEFT JOIN lps_player_segments g ON g.segment_id = v.segment_id "
             "WHERE g.segment_id IS NULL"
+        ).fetchone()[0]
+        orphan_versus_survivor_class_stats = database.execute(
+            "SELECT COUNT(*) FROM lps_versus_survivor_infected_class_stats c "
+            "LEFT JOIN lps_player_segments g ON g.segment_id = c.segment_id "
+            "LEFT JOIN lps_versus_survivor_stats v ON v.segment_id = c.segment_id "
+            "WHERE g.segment_id IS NULL OR v.segment_id IS NULL"
         ).fetchone()[0]
         orphan_versus_infected_stats = database.execute(
             "SELECT COUNT(*) FROM lps_versus_infected_stats v "
@@ -165,7 +174,19 @@ def main() -> None:
             "friendly_fire_taken, incapacitations, deaths, incap_revives, "
             "ledge_rescues, defib_revives, rescues_received, medkits_used_self, "
             "medkits_used_on_others, medkit_healing_self, medkit_healing_others, "
-            "pills_used, adrenaline_used, temporary_health_received, revision) < 0"
+            "pills_used, adrenaline_used, temporary_health_received, "
+            "witch_kills, damage_to_witch, molotovs_thrown, pipe_bombs_thrown, "
+            "vomit_jars_thrown, incendiary_packs_deployed, "
+            "explosive_packs_deployed, melee_tongue_self_cuts, "
+            "tank_rocks_destroyed, witch_oneshots, witch_solo_kills, revision) < 0 "
+            "OR witch_oneshots > witch_kills OR witch_solo_kills > witch_kills"
+        ).fetchone()[0]
+        invalid_versus_survivor_class_stats = database.execute(
+            "SELECT COUNT(*) FROM lps_versus_survivor_infected_class_stats "
+            "WHERE stats_version <> 1 "
+            "OR infected_class NOT IN (1, 2, 3, 4, 5, 6, 8) "
+            "OR min(human_controller_kills, bot_controller_kills, "
+            "damage_to_human_controllers, damage_to_bot_controllers, revision) < 0"
         ).fetchone()[0]
         invalid_versus_infected_stats = database.execute(
             "SELECT COUNT(*) FROM lps_versus_infected_stats "
@@ -223,10 +244,50 @@ def main() -> None:
             "OR COALESCE(c.human_survivor_kills, 0) <> v.human_survivor_kills "
             "OR COALESCE(c.bot_survivor_kills, 0) <> v.bot_survivor_kills"
         ).fetchone()[0]
+        versus_survivor_class_total_mismatches = database.execute(
+            "SELECT COUNT(*) FROM lps_versus_survivor_stats v LEFT JOIN ("
+            "SELECT segment_id, "
+            "SUM(CASE WHEN infected_class BETWEEN 1 AND 6 "
+            "THEN human_controller_kills ELSE 0 END) AS human_special_kills, "
+            "SUM(CASE WHEN infected_class BETWEEN 1 AND 6 "
+            "THEN bot_controller_kills ELSE 0 END) AS bot_special_kills, "
+            "SUM(CASE WHEN infected_class = 8 "
+            "THEN human_controller_kills ELSE 0 END) AS human_tank_kills, "
+            "SUM(CASE WHEN infected_class = 8 "
+            "THEN bot_controller_kills ELSE 0 END) AS bot_tank_kills, "
+            "SUM(CASE WHEN infected_class BETWEEN 1 AND 6 "
+            "THEN damage_to_human_controllers ELSE 0 END) "
+            "AS damage_to_human_special, "
+            "SUM(CASE WHEN infected_class BETWEEN 1 AND 6 "
+            "THEN damage_to_bot_controllers ELSE 0 END) "
+            "AS damage_to_bot_special, "
+            "SUM(CASE WHEN infected_class = 8 "
+            "THEN damage_to_human_controllers ELSE 0 END) "
+            "AS damage_to_human_tank, "
+            "SUM(CASE WHEN infected_class = 8 "
+            "THEN damage_to_bot_controllers ELSE 0 END) "
+            "AS damage_to_bot_tank "
+            "FROM lps_versus_survivor_infected_class_stats GROUP BY segment_id) c "
+            "ON c.segment_id = v.segment_id WHERE "
+            "COALESCE(c.human_special_kills, 0) <> v.human_special_kills "
+            "OR COALESCE(c.bot_special_kills, 0) <> v.bot_special_kills "
+            "OR COALESCE(c.human_tank_kills, 0) <> v.human_tank_kills "
+            "OR COALESCE(c.bot_tank_kills, 0) <> v.bot_tank_kills "
+            "OR COALESCE(c.damage_to_human_special, 0) "
+            "<> v.damage_to_human_special "
+            "OR COALESCE(c.damage_to_bot_special, 0) "
+            "<> v.damage_to_bot_special "
+            "OR COALESCE(c.damage_to_human_tank, 0) <> v.damage_to_human_tank "
+            "OR COALESCE(c.damage_to_bot_tank, 0) <> v.damage_to_bot_tank"
+        ).fetchone()[0]
         versus_side_mismatches = database.execute(
             "SELECT COUNT(*) FROM ("
             "SELECT v.segment_id FROM lps_versus_survivor_stats v "
             "JOIN lps_player_segments g ON g.segment_id = v.segment_id "
+            "WHERE g.side <> 'survivor' UNION ALL "
+            "SELECT c.segment_id "
+            "FROM lps_versus_survivor_infected_class_stats c "
+            "JOIN lps_player_segments g ON g.segment_id = c.segment_id "
             "WHERE g.side <> 'survivor' UNION ALL "
             "SELECT v.segment_id FROM lps_versus_infected_stats v "
             "JOIN lps_player_segments g ON g.segment_id = v.segment_id "
@@ -236,6 +297,11 @@ def main() -> None:
             "SELECT COUNT(*) FROM ("
             "SELECT v.segment_id FROM lps_versus_survivor_stats v "
             "JOIN lps_player_segments g ON g.segment_id = v.segment_id "
+            "JOIN lps_runs u ON u.run_id = g.run_id "
+            "WHERE u.mode_family <> 'versus' UNION ALL "
+            "SELECT c.segment_id "
+            "FROM lps_versus_survivor_infected_class_stats c "
+            "JOIN lps_player_segments g ON g.segment_id = c.segment_id "
             "JOIN lps_runs u ON u.run_id = g.run_id "
             "WHERE u.mode_family <> 'versus' UNION ALL "
             "SELECT v.segment_id FROM lps_versus_infected_stats v "
@@ -278,6 +344,7 @@ def main() -> None:
             f"runs={runs} rounds={rounds} segments={segments} pve_stats={pve_stats} "
             f"equipment_stats={equipment_stats} "
             f"versus_survivor_stats={versus_survivor_stats} "
+            f"versus_survivor_class_stats={versus_survivor_class_stats} "
             f"versus_infected_stats={versus_infected_stats} "
             f"versus_infected_class_stats={versus_infected_class_stats}"
         )
@@ -288,12 +355,16 @@ def main() -> None:
             f"orphan_pve_stats={orphan_pve_stats} "
             f"orphan_equipment_stats={orphan_equipment_stats} "
             f"orphan_versus_survivor_stats={orphan_versus_survivor_stats} "
+            f"orphan_versus_survivor_class_stats="
+            f"{orphan_versus_survivor_class_stats} "
             f"orphan_versus_infected_stats={orphan_versus_infected_stats} "
             f"orphan_versus_infected_class_stats="
             f"{orphan_versus_infected_class_stats} "
             f"invalid_pve_stats={invalid_pve_stats} "
             f"invalid_equipment_stats={invalid_equipment_stats} "
             f"invalid_versus_survivor_stats={invalid_versus_survivor_stats} "
+            f"invalid_versus_survivor_class_stats="
+            f"{invalid_versus_survivor_class_stats} "
             f"invalid_versus_infected_stats={invalid_versus_infected_stats} "
             f"invalid_versus_infected_class_stats="
             f"{invalid_versus_infected_class_stats} "
@@ -301,6 +372,8 @@ def main() -> None:
             f"{invalid_versus_infected_ability_stats} "
             f"versus_infected_class_total_mismatches="
             f"{versus_infected_class_total_mismatches} "
+            f"versus_survivor_class_total_mismatches="
+            f"{versus_survivor_class_total_mismatches} "
             f"versus_side_mismatches={versus_side_mismatches} "
             f"versus_mode_mismatches={versus_mode_mismatches} "
             f"dual_versus_stats={dual_versus_stats} "
@@ -457,7 +530,11 @@ def main() -> None:
             "v.defib_revives, v.rescues_received, v.medkits_used_self, "
             "v.medkits_used_on_others, v.medkit_healing_self, "
             "v.medkit_healing_others, v.pills_used, v.adrenaline_used, "
-            "v.temporary_health_received, v.revision "
+            "v.temporary_health_received, v.witch_kills, v.damage_to_witch, "
+            "v.molotovs_thrown, v.pipe_bombs_thrown, v.vomit_jars_thrown, "
+            "v.incendiary_packs_deployed, v.explosive_packs_deployed, "
+            "v.melee_tongue_self_cuts, v.tank_rocks_destroyed, "
+            "v.witch_oneshots, v.witch_solo_kills, v.revision "
             "FROM lps_versus_survivor_stats v "
             "JOIN lps_player_segments g ON g.segment_id = v.segment_id "
             "JOIN lps_rounds r ON r.round_id = g.round_id "
@@ -477,7 +554,35 @@ def main() -> None:
                 f"rescues_received={row[20]} medkits_self={row[21]} "
                 f"medkits_others={row[22]} heal_self={row[23]} "
                 f"heal_others={row[24]} pills={row[25]} adrenaline={row[26]} "
-                f"temp_health={row[27]} revision={row[28]}"
+                f"temp_health={row[27]} witch={row[28]} "
+                f"damage_witch={row[29]} molotovs={row[30]} "
+                f"pipe_bombs={row[31]} vomit_jars={row[32]} "
+                f"incendiary_packs={row[33]} explosive_packs={row[34]} "
+                f"tongue_self_cuts={row[35]} rocks={row[36]} "
+                f"witch_oneshots={row[37]} witch_solo={row[38]} "
+                f"revision={row[39]}"
+            )
+
+        print("recent_versus_survivor_infected_class_stats:")
+        rows = database.execute(
+            "SELECT r.map_name, r.half_no, c.infected_class, "
+            "c.human_controller_kills, c.bot_controller_kills, "
+            "c.damage_to_human_controllers, c.damage_to_bot_controllers, "
+            "c.revision "
+            "FROM lps_versus_survivor_infected_class_stats c "
+            "JOIN lps_player_segments g ON g.segment_id = c.segment_id "
+            "JOIN lps_rounds r ON r.round_id = g.round_id "
+            "ORDER BY c.last_saved_at DESC, c.segment_id DESC, c.infected_class "
+            "LIMIT 40"
+        ).fetchall()
+        for row in rows:
+            print(
+                "  "
+                f"map={row[0]!r} half={row[1]} class="
+                f"{INFECTED_CLASS_NAMES.get(row[2], f'Unknown({row[2]})')!r} "
+                f"kills_human={row[3]} kills_bot={row[4]} "
+                f"damage_human={row[5]} damage_bot={row[6]} "
+                f"revision={row[7]}"
             )
 
         print("recent_versus_infected_stats:")

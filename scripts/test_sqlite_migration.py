@@ -51,7 +51,17 @@ VERSUS_SURVIVOR_STAT_COLUMNS = [
     "ledge_rescues", "defib_revives", "rescues_received",
     "medkits_used_self", "medkits_used_on_others", "medkit_healing_self",
     "medkit_healing_others", "pills_used", "adrenaline_used",
-    "temporary_health_received", "revision",
+    "temporary_health_received", "witch_kills", "damage_to_witch",
+    "molotovs_thrown", "pipe_bombs_thrown", "vomit_jars_thrown",
+    "incendiary_packs_deployed", "explosive_packs_deployed",
+    "melee_tongue_self_cuts", "tank_rocks_destroyed", "witch_oneshots",
+    "witch_solo_kills", "revision",
+]
+
+VERSUS_SURVIVOR_CLASS_STAT_COLUMNS = [
+    "infected_class", "stats_version", "last_saved_at",
+    "human_controller_kills", "bot_controller_kills",
+    "damage_to_human_controllers", "damage_to_bot_controllers", "revision",
 ]
 
 VERSUS_INFECTED_STAT_COLUMNS = [
@@ -380,7 +390,8 @@ def main() -> None:
             versus_survivor_insert,
             (
                 stale_segment_id, 1, 115, 4, 1, 2, 0, 1, 100, 80, 0, 200,
-                25, 2, 3, 4, 1, 0, 1, 0, 0, 1, 1, 0, 30, 0, 1, 0, 50, 1,
+                25, 2, 3, 4, 1, 0, 1, 0, 0, 1, 1, 0, 30, 0, 1, 0, 50,
+                0, 0, 1, 0, 0, 0, 0, 0, 0, 0, 0, 1,
             ),
         )
         # A retry replaces the absolute snapshot rather than incrementing it.
@@ -389,8 +400,35 @@ def main() -> None:
             (
                 stale_segment_id, 1, 125, 12, 3, 4, 1, 2, 300, 200, 500,
                 400, 70, 10, 11, 12, 2, 1, 3, 1, 1, 4, 1, 2, 80, 90, 2,
-                1, 125, 2,
+                1, 125, 2, 300, 2, 1, 1, 1, 1, 1, 2, 1, 1, 2,
             ),
+        )
+
+        versus_survivor_class_insert = build_snapshot_upsert(
+            "lps_versus_survivor_infected_class_stats",
+            ["infected_class"],
+            VERSUS_SURVIVOR_CLASS_STAT_COLUMNS,
+        )
+        database.execute(
+            versus_survivor_class_insert,
+            (stale_segment_id, 1, 1, 115, 0, 1, 50, 20, 1),
+        )
+        # Absolute retry replaces Smoker's earlier row.
+        database.execute(
+            versus_survivor_class_insert,
+            (stale_segment_id, 1, 1, 125, 1, 1, 100, 50, 2),
+        )
+        database.execute(
+            versus_survivor_class_insert,
+            (stale_segment_id, 3, 1, 125, 1, 2, 100, 100, 2),
+        )
+        database.execute(
+            versus_survivor_class_insert,
+            (stale_segment_id, 6, 1, 125, 1, 1, 100, 50, 2),
+        )
+        database.execute(
+            versus_survivor_class_insert,
+            (stale_segment_id, 8, 1, 125, 1, 2, 500, 400, 2),
         )
 
         versus_infected_insert = build_snapshot_upsert(
@@ -492,8 +530,8 @@ def main() -> None:
             )
         }
 
-        assert len(tables) == 13, tables
-        assert len(indexes) == 8, indexes
+        assert len(tables) == 14, tables
+        assert len(indexes) == 9, indexes
         status = database.execute(
             "SELECT status FROM lps_server_boots WHERE boot_id = 'test-01:1:a'"
         ).fetchone()
@@ -589,8 +627,45 @@ def main() -> None:
         ).fetchone()
         assert versus_survivor_stats == (
             1, 125, 12, 3, 4, 1, 2, 300, 200, 500, 400, 70, 10, 11, 12,
-            2, 1, 3, 1, 1, 4, 1, 2, 80, 90, 2, 1, 125, 2,
+            2, 1, 3, 1, 1, 4, 1, 2, 80, 90, 2, 1, 125, 2, 300, 2, 1,
+            1, 1, 1, 1, 2, 1, 1, 2,
         ), versus_survivor_stats
+
+        versus_survivor_class_stats = database.execute(
+            f"SELECT {', '.join(VERSUS_SURVIVOR_CLASS_STAT_COLUMNS)} "
+            "FROM lps_versus_survivor_infected_class_stats "
+            "WHERE segment_id = ? ORDER BY infected_class",
+            (stale_segment_id,),
+        ).fetchall()
+        assert versus_survivor_class_stats == [
+            (1, 1, 125, 1, 1, 100, 50, 2),
+            (3, 1, 125, 1, 2, 100, 100, 2),
+            (6, 1, 125, 1, 1, 100, 50, 2),
+            (8, 1, 125, 1, 2, 500, 400, 2),
+        ], versus_survivor_class_stats
+
+        survivor_special_class_totals = database.execute(
+            "SELECT SUM(human_controller_kills), SUM(bot_controller_kills), "
+            "SUM(damage_to_human_controllers), "
+            "SUM(damage_to_bot_controllers) "
+            "FROM lps_versus_survivor_infected_class_stats "
+            "WHERE segment_id = ? AND infected_class BETWEEN 1 AND 6",
+            (stale_segment_id,),
+        ).fetchone()
+        assert survivor_special_class_totals == (3, 4, 300, 200), (
+            survivor_special_class_totals
+        )
+
+        survivor_tank_class_totals = database.execute(
+            "SELECT human_controller_kills, bot_controller_kills, "
+            "damage_to_human_controllers, damage_to_bot_controllers "
+            "FROM lps_versus_survivor_infected_class_stats "
+            "WHERE segment_id = ? AND infected_class = 8",
+            (stale_segment_id,),
+        ).fetchone()
+        assert survivor_tank_class_totals == (1, 2, 500, 400), (
+            survivor_tank_class_totals
+        )
 
         versus_infected_stats = database.execute(
             f"SELECT {', '.join(VERSUS_INFECTED_STAT_COLUMNS)} "
@@ -641,6 +716,9 @@ def main() -> None:
             "SELECT COUNT(*) FROM ("
             "SELECT s.segment_id FROM lps_versus_survivor_stats s "
             "JOIN lps_player_segments g ON g.segment_id = s.segment_id "
+            "WHERE g.side <> 'survivor' UNION ALL "
+            "SELECT c.segment_id FROM lps_versus_survivor_infected_class_stats c "
+            "JOIN lps_player_segments g ON g.segment_id = c.segment_id "
             "WHERE g.side <> 'survivor' UNION ALL "
             "SELECT i.segment_id FROM lps_versus_infected_stats i "
             "JOIN lps_player_segments g ON g.segment_id = i.segment_id "

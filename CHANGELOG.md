@@ -4,6 +4,10 @@ All notable changes to this project will be documented in this file.
 
 ## Unreleased
 
+- Add a bounded seven-class Versus survivor breakdown for kills and effective damage split by human or Bot infected controllers.
+- Record Versus survivor Witch kills/damage, official throwable use, ammo-pack deployments, self tongue cuts, destroyed Tank rocks, and Witch one-shot/solo kills.
+- Validate that Versus survivor class sums match the existing special infected and Tank totals.
+- Keep per-weapon Versus statistics, shot/hit/accuracy/ammo/reload metrics, and dynamic custom equipment dimensions out of scope.
 - Record Smoker, Hunter, Jockey, and Charger control counts and durations split by human or Bot survivor targets.
 - Record Boomer bile victim counts and Spitter acid effective damage with bounded per-class absolute snapshots.
 - Preserve late Spitter acid attribution by capturing the original human owner of each acid pool.

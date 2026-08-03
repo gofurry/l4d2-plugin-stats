@@ -3,7 +3,7 @@
 #endif
 #define _l4d2_player_stats_definitions_included
 
-#define LPS_VERSION "0.6.3"
+#define LPS_VERSION "0.6.4"
 #define LPS_SCHEMA_VERSION 1
 #define LPS_MIGRATION_NAME "initial_schema"
 #define LPS_STATS_VERSION 1
@@ -240,7 +240,30 @@ enum LPSVersusSurvivorStat
 	LPSVersusSurvivorStat_MedkitHealingOthers,
 	LPSVersusSurvivorStat_PillsUsed,
 	LPSVersusSurvivorStat_AdrenalineUsed,
-	LPSVersusSurvivorStat_TemporaryHealthReceived
+	LPSVersusSurvivorStat_TemporaryHealthReceived,
+	LPSVersusSurvivorStat_WitchKills,
+	LPSVersusSurvivorStat_DamageToWitch,
+	LPSVersusSurvivorStat_MolotovsThrown,
+	LPSVersusSurvivorStat_PipeBombsThrown,
+	LPSVersusSurvivorStat_VomitJarsThrown,
+	LPSVersusSurvivorStat_IncendiaryPacksDeployed,
+	LPSVersusSurvivorStat_ExplosivePacksDeployed,
+	LPSVersusSurvivorStat_MeleeTongueSelfCuts,
+	LPSVersusSurvivorStat_TankRocksDestroyed,
+	LPSVersusSurvivorStat_WitchOneShots,
+	LPSVersusSurvivorStat_WitchSoloKills
+};
+
+// Fixed per-class combat metrics for a human survivor attacking the seven
+// playable infected classes. The controller identity is evaluated for each
+// damage or death event, so Tank takeovers remain explainable.
+enum LPSVersusSurvivorClassStat
+{
+	LPSVersusSurvivorClassStat_HumanControllerKills = 0,
+	LPSVersusSurvivorClassStat_BotControllerKills,
+	LPSVersusSurvivorClassStat_DamageToHumanControllers,
+	LPSVersusSurvivorClassStat_DamageToBotControllers,
+	LPSVersusSurvivorClassStat_Count
 };
 
 enum LPSVersusInfectedStat

@@ -130,7 +130,17 @@ void LPS_RegisterMeleeName(const char[] name, LPSEquipment equipment)
 
 public void LPS_Event_WeaponFireStats(Event event, const char[] name, bool dontBroadcast)
 {
-	if (!LPS_CanRecordPvEEvents())
+	bool recordPvE = LPS_CanRecordPvEEvents();
+	bool recordVersus = LPS_CanRecordVersusEvents();
+	if (!recordPvE && !recordVersus)
+	{
+		return;
+	}
+
+	int weaponId = event.GetInt("weaponid");
+	// Versus only records the two throwables exposed reliably by weapon_fire.
+	// Reject every gunshot with a cheap integer branch before reading strings.
+	if (recordVersus && weaponId != 13 && weaponId != 14)
 	{
 		return;
 	}
@@ -145,7 +155,7 @@ public void LPS_Event_WeaponFireStats(Event event, const char[] name, bool dontB
 	event.GetString("weapon", weaponName, sizeof(weaponName));
 	LPSEquipment equipment = LPS_GetEquipmentFromWeaponEvent(
 		client,
-		event.GetInt("weaponid"),
+		weaponId,
 		weaponName,
 		true
 	);
@@ -156,7 +166,14 @@ public void LPS_Event_WeaponFireStats(Event event, const char[] name, bool dontB
 	// two paths mutually exclusive and avoid duplicate actions.
 	if (LPS_IsThrowableEquipment(equipment) && equipment != LPSEquipment_VomitJar)
 	{
-		LPS_AddEquipmentStat(client, equipment, LPSEquipmentStat_Actions, 1);
+		if (recordPvE)
+		{
+			LPS_AddEquipmentStat(client, equipment, LPSEquipmentStat_Actions, 1);
+		}
+		else
+		{
+			LPS_RecordVersusThrowableAction(client, equipment);
+		}
 	}
 }
 
@@ -339,7 +356,9 @@ void LPS_OnEquipmentEntityCreated(int entity, const char[] classname)
 public void LPS_Frame_RecordVomitJarThrow(any entityReference)
 {
 	int entity = EntRefToEntIndex(entityReference);
-	if (!LPS_CanRecordPvEEvents()
+	bool recordPvE = LPS_CanRecordPvEEvents();
+	bool recordVersus = LPS_CanRecordVersusEvents();
+	if ((!recordPvE && !recordVersus)
 		|| entity < 1
 		|| entity > LPS_MAX_ENTITY_INDEX
 		|| !IsValidEntity(entity)
@@ -353,12 +372,19 @@ public void LPS_Frame_RecordVomitJarThrow(any entityReference)
 	int thrower = LPS_GetEntityPlayerOwner(entity);
 	if (LPS_IsHumanSurvivorClient(thrower))
 	{
-		LPS_AddEquipmentStat(
-			thrower,
-			LPSEquipment_VomitJar,
-			LPSEquipmentStat_Actions,
-			1
-		);
+		if (recordPvE)
+		{
+			LPS_AddEquipmentStat(
+				thrower,
+				LPSEquipment_VomitJar,
+				LPSEquipmentStat_Actions,
+				1
+			);
+		}
+		else
+		{
+			LPS_RecordVersusThrowableAction(thrower, LPSEquipment_VomitJar);
+		}
 	}
 }
 

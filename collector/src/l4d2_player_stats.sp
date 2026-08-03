@@ -18,6 +18,7 @@
 #include <l4d2_player_stats/versus_abilities>
 #include <l4d2_player_stats/equipment_stats>
 #include <l4d2_player_stats/pve_extended>
+#include <l4d2_player_stats/versus_survivor_detail>
 #include <l4d2_player_stats/pve_interactions>
 #include <l4d2_player_stats/migrations>
 #include <l4d2_player_stats/database>

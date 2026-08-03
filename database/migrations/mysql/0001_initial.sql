@@ -223,7 +223,32 @@ CREATE TABLE IF NOT EXISTS lps_versus_survivor_stats (
   pills_used BIGINT NOT NULL DEFAULT 0,
   adrenaline_used BIGINT NOT NULL DEFAULT 0,
   temporary_health_received BIGINT NOT NULL DEFAULT 0,
+  witch_kills BIGINT NOT NULL DEFAULT 0,
+  damage_to_witch BIGINT NOT NULL DEFAULT 0,
+  molotovs_thrown BIGINT NOT NULL DEFAULT 0,
+  pipe_bombs_thrown BIGINT NOT NULL DEFAULT 0,
+  vomit_jars_thrown BIGINT NOT NULL DEFAULT 0,
+  incendiary_packs_deployed BIGINT NOT NULL DEFAULT 0,
+  explosive_packs_deployed BIGINT NOT NULL DEFAULT 0,
+  melee_tongue_self_cuts BIGINT NOT NULL DEFAULT 0,
+  tank_rocks_destroyed BIGINT NOT NULL DEFAULT 0,
+  witch_oneshots BIGINT NOT NULL DEFAULT 0,
+  witch_solo_kills BIGINT NOT NULL DEFAULT 0,
   revision BIGINT NOT NULL DEFAULT 0
+);
+-- statement-breakpoint
+CREATE TABLE IF NOT EXISTS lps_versus_survivor_infected_class_stats (
+  segment_id VARCHAR(128) NOT NULL,
+  infected_class INTEGER NOT NULL,
+  stats_version INTEGER NOT NULL DEFAULT 1,
+  last_saved_at BIGINT NOT NULL,
+  human_controller_kills BIGINT NOT NULL DEFAULT 0,
+  bot_controller_kills BIGINT NOT NULL DEFAULT 0,
+  damage_to_human_controllers BIGINT NOT NULL DEFAULT 0,
+  damage_to_bot_controllers BIGINT NOT NULL DEFAULT 0,
+  revision BIGINT NOT NULL DEFAULT 0,
+  PRIMARY KEY (segment_id, infected_class),
+  INDEX lps_idx_versus_survivor_infected_class_id (infected_class, segment_id)
 );
 -- statement-breakpoint
 CREATE TABLE IF NOT EXISTS lps_versus_infected_stats (
