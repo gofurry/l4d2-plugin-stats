@@ -1,0 +1,47 @@
+version: "2"
+sql:
+  - name: dashboard
+    engine: sqlite
+    schema: database/dashboard/migrations
+    queries: database/dashboard/queries
+    gen:
+      go:
+        package: dashsql
+        out: internal/store/sqlcgen/dashboard
+        sql_package: database/sql
+        emit_interface: true
+        emit_empty_slices: true
+        emit_json_tags: true
+  - name: stats_sqlite
+    engine: sqlite
+    schema: ../database/migrations/sqlite
+    queries: database/stats/sqlite/queries
+    gen:
+      go:
+        package: statssqlite
+        out: internal/store/sqlcgen/stats_sqlite
+        sql_package: database/sql
+        emit_interface: true
+        emit_empty_slices: true
+  - name: stats_mysql
+    engine: mysql
+    schema: ../database/migrations/mysql
+    queries: database/stats/mysql/queries
+    gen:
+      go:
+        package: statsmysql
+        out: internal/store/sqlcgen/stats_mysql
+        sql_package: database/sql
+        emit_interface: true
+        emit_empty_slices: true
+  - name: stats_postgres
+    engine: postgresql
+    schema: ../database/migrations/pgsql
+    queries: database/stats/postgres/queries
+    gen:
+      go:
+        package: statspg
+        out: internal/store/sqlcgen/stats_postgres
+        sql_package: database/sql
+        emit_interface: true
+        emit_empty_slices: true

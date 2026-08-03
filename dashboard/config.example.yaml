@@ -1,0 +1,65 @@
+# Production serves both the embedded React UI and API from this address.
+# Use 0.0.0.0:18848 only when intentionally exposing the service directly.
+server:
+  listen: "127.0.0.1:18848"
+  public_base_url: ""
+  read_timeout: "10s"
+  write_timeout: "15s"
+  idle_timeout: "60s"
+
+# Relative paths are resolved from the directory containing config.yaml.
+dashboard_database:
+  path: "./dashboard.db"
+
+# Supported drivers: sqlite, mysql, pgsql.
+# SQLite is always opened read-only. MySQL and PostgreSQL credentials should
+# use a database account that has SELECT permission only.
+stats_database:
+  driver: "sqlite"
+  dsn: "./l4d2_player_stats.sq3"
+  query_timeout: "5s"
+  max_open_conns: 10
+  max_idle_conns: 5
+  conn_max_lifetime: "30m"
+
+logging:
+  level: "info"
+  format: "json"
+  file: "./logs/l4d2-stats.log"
+  max_size_mb: 50
+  max_backups: 10
+  max_age_days: 30
+  compress: true
+  also_console: false
+
+# Imported only when the Dashboard DB has no corresponding records.
+# To explicitly replace existing values, run:
+#   ./l4d2-stats bootstrap apply --replace --config ./config.yaml
+bootstrap:
+  site:
+    title: "L4D2 Stats"
+    footer_text: |-
+      本站展示本服务器的公开游戏统计。
+    footer_links:
+      - label: "ICP备案查询"
+        url: "https://beian.miit.gov.cn/"
+        open_in_new_tab: true
+        enabled: true
+  servers:
+    - server_key: "main"
+      display_name: "主服务器"
+      connect_address: "127.0.0.1:27015"
+      query_address: "127.0.0.1:27015"
+      primary: true
+      enabled: true
+      sort_order: 0
+
+# Authentication is reserved for the later administrator milestone. Keeping
+# this block now freezes the future JWT configuration contract.
+admin:
+  enabled: false
+  username: "admin"
+  password_hash: ""
+  jwt_secret: ""
+  token_ttl: "8h"
+  cookie_secure: "auto"

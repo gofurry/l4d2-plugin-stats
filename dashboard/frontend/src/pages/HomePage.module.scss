@@ -1,0 +1,41 @@
+.layout { min-height: 100vh; background: transparent; }
+
+.header {
+  height: auto;
+  min-height: 82px;
+  padding: 18px clamp(20px, 5vw, 72px);
+  background: rgba(255, 250, 243, 0.84);
+  border-bottom: 1px solid rgba(151, 98, 64, 0.14);
+  backdrop-filter: blur(16px);
+}
+
+.header :global(.ant-typography) { margin: 0; color: #4e3c32; }
+.header :global(.ant-typography-secondary) { color: #8d7b6f; }
+.content { width: min(1180px, calc(100% - 32px)); padding: 34px 0 26px; }
+.serverCard, .metricCard, .modeCard { border: 1px solid rgba(151, 98, 64, 0.14); box-shadow: 0 18px 50px rgba(91, 62, 43, 0.07); }
+.serverCard { background: linear-gradient(135deg, rgba(255, 250, 243, 0.98), rgba(247, 235, 219, 0.92)); }
+.serverTop { gap: 18px; }
+.serverTop :global(.ant-typography) { margin: 2px 0 12px; color: #4e3c32; }
+.eyebrow { color: #a06443 !important; font-weight: 650; letter-spacing: 0.06em; text-transform: uppercase; }
+.serverDetails { margin: 4px 0 20px; }
+.serverDetails span, .serverDetails strong { display: block; }
+.serverDetails span { margin-bottom: 4px; color: #8d7b6f; font-size: 13px; }
+.serverDetails strong { color: #4e3c32; font-size: 17px; }
+.sectionTitle { margin: 34px 0 16px !important; color: #4e3c32 !important; }
+.metricCard { height: 100%; background: rgba(255, 250, 243, 0.92); }
+.metricCard :global(.ant-statistic-content) { color: #8f4f2f; }
+.metricCard :global(.ant-statistic-content-suffix) { display: block; margin: 7px 0 0; color: #8d7b6f; font-size: 12px; }
+.modeGrid { margin-top: 20px; }
+.modeCard { height: 100%; background: rgba(255, 250, 243, 0.9); }
+.modeCard :global(.ant-card-head-title) { color: #6d4b38; }
+.modeCard :global(.ant-statistic-content) { color: #4e3c32; font-size: 25px; }
+.loading, .alert { margin-top: 28px; }
+
+@media (max-width: 600px) {
+  .header { padding: 14px 16px; }
+  .header :global(h3.ant-typography) { font-size: 18px; }
+  .header :global(.ant-typography-secondary) { display: none; }
+  .content { width: min(100% - 22px, 1180px); padding-top: 20px; }
+  .serverTop { align-items: center; }
+  .serverTop :global(h2.ant-typography) { font-size: 22px; }
+}

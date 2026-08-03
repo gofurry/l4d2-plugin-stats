@@ -2,11 +2,17 @@
 
 一个面向《求生之路 2》服务器的玩家身份、会话和玩法统计系统。
 
-项目采用 monorepo。当前实现为 v0.6.5 统计采集器：在真人身份、Session、Run、Round 和 Segment 生命周期之上，已接入 `coop`、`realism` 的完整 PvE 统计，以及独立的 `versus` 幸存者/感染者统计、双方职业明细、控制/能力效果和引擎权威比分结果。插件稳定后再开发 Go 后端及其内嵌前端。
+项目采用 monorepo。v0.6.6 SourceMod 采集器已经覆盖真人身份、生命周期、PvE 与 Versus 统计并冻结对抗 v1 契约；当前同时实现了 v0.8.0–v0.8.1 Go + 内嵌 React Dashboard，可只读连接三种统计数据库并展示首页历史指标和主服务器 A2S 状态。
 
 ## 当前状态
 
 当前已实现：
+
+- 一个 Go 1.26 + Fiber v3 Dashboard 子模块，生产环境由单二进制同时提供 API 和 React 页面；
+- Dashboard 自有纯 Go SQLite、Goose 自动迁移和配置首次 Bootstrap；
+- Stats DB 只读支持 SQLite、MySQL 和 PostgreSQL，首页查询按 PvE/Versus 契约隔离；
+- 主服务器 A2S 状态、全服历史总览、自定义页脚、限时缓存与故障降级；
+- Cobra CLI、Zap/Lumberjack 限量日志、systemd 安装和部署诊断；
 
 - 一个模块化 SourcePawn 插件，最终编译为 `l4d2_player_stats.smx`；
 - SQLite、MySQL 和 PostgreSQL 三套等价迁移；
@@ -46,8 +52,10 @@
 - 对抗感染者侧记录四种控制次数/时长、Boomer 胆汁命中人数和 Spitter 酸液有效伤害，并拆分真人/Bot 目标；
 - 对抗半场记录逻辑队伍地图分与累计分，对抗 Run 记录最终累计分、平局/胜负和异常结束状态；
 - 对抗幸存者与感染者使用不同数据库表、绝对快照和有界关闭队列，不能进入 PvE 聚合。
+- 使用机器可读清单冻结六张 Versus v1 表，并严格校验三种数据库的字段顺序、声明和主键；
+- 提供跨数据库契约健康查询和未来 Go 读取示例。
 
-v0.6.0 的核心归属、单人 Bot 上下半场和跨图 Run/Session 连续性已经通过本地验收；v0.6.2 职业明细和 v0.6.3 控制与能力效果也已通过本地验收。v0.6.4 幸存者战斗明细完成实现和离线验证，等待本地对抗数据验收；v0.6.5 已接入引擎半场/战役分数和最终结果，等待本地结果验收。完整的双方真人、换队、Tank 交接、重连和半场重开统一延期到 v0.7.0。当前不推算跨 Run 稳定队伍、逐时刻推进曲线或 MVP；对抗首版不建立逐武器统计表。
+v0.6.0～v0.6.5 的本地可验证范围已经通过验收，v0.6.6 已冻结对抗 v1 字段语义、Bot 口径、结果状态和读取不变量。完整的双方真人、换队、Tank 交接、重连和半场重开统一延期到 v0.7.0。当前不推算跨 Run 稳定队伍、逐时刻推进曲线或 MVP；对抗首版不建立逐武器统计表。
 
 已经确认的基础边界：
 
@@ -65,7 +73,10 @@ v0.6.0 的核心归属、单人 Bot 上下半场和跨图 Run/Session 连续性�
 
 - [模式与生命周期](contracts/modes.md)
 - [统计口径](contracts/statistics.md)
+- [Versus v1 冻结契约](contracts/versus-v1.md)
+- [Versus v1 机器清单](contracts/versus-schema-v1.json)
 - [数据库结构](database/schema.md)
+- [读取查询示例](docs/query-examples.md)
 
 ## Monorepo 边界
 
@@ -73,7 +84,7 @@ v0.6.0 的核心归属、单人 Bot 上下半场和跨图 Run/Session 连续性�
 collector/     SourceMod 数据采集插件
 database/      三种数据库的结构和迁移
 contracts/     插件与未来 Go 服务共同遵守的行为定义
-dashboard/     未来的 Go 后端与内嵌前端
+dashboard/     Go 后端、Dashboard DB 与内嵌 React 前端
 docs/          架构、部署和测试文档
 scripts/       仓库级构建与发布脚本
 ```
@@ -84,17 +95,19 @@ scripts/       仓库级构建与发布脚本
 
 ## 本地构建
 
-1. 将 `scripts/config.example.ps1` 复制为 `scripts/config.local.ps1`，填写本机 SourceMod 路径。
+1. 安装 Python 3，并将 `scripts/config.example.ps1` 复制为 `scripts/config.local.ps1`，填写本机 SourceMod 路径。
 2. 运行 `scripts/build.ps1`；产物位于 `dist/l4d2_player_stats.smx`。
 3. 运行 `scripts/deploy.ps1`，插件和三套迁移会复制到本机 SourceMod 环境。
 
 VS Code 可以直接执行 `L4D2 Stats: Build` 或 `L4D2 Stats: Build and Deploy` 任务。
 
+Dashboard 的开发与部署见 [Dashboard README](dashboard/README.md)。运行 `scripts/build-dashboard.ps1`（Linux 使用 `scripts/build-dashboard.sh`）会完成前端检查、sqlc 生成、Go 测试并生成 `dist/l4d2-stats` 单二进制。
+
 ## 服务器配置与验证
 
 数据库、ConVar 和 SQLite 首次验证步骤见[数据库地基部署](docs/database-foundation.md)。数据库密码只应存在于服务器自己的 `addons/sourcemod/configs/databases.cfg`，不得提交到仓库。
 
-v0.3 的生命周期验收见 [Run / Round / Segment 测试清单](docs/v0.3-test-checklist.md)，v0.4 的战斗统计验收见 [PvE 核心统计测试清单](docs/v0.4-test-checklist.md)，v0.5 的治疗与章节统计验收见 [PvE 治疗与章节测试清单](docs/v0.5-test-checklist.md)，v0.5.1 的扩展统计验收见 [PvE 扩展统计测试清单](docs/v0.5.1-test-checklist.md)，v0.5.2 的互动与状态验收见 [PvE 互动与状态测试清单](docs/v0.5.2-test-checklist.md)，v0.6 的核心验收见 [Versus 核心统计测试清单](docs/v0.6-test-checklist.md)，v0.6.2 的职业明细验收见 [Versus 感染者职业测试清单](docs/v0.6.2-test-checklist.md)，v0.6.3 的能力效果验收见 [Versus 控制与能力测试清单](docs/v0.6.3-test-checklist.md)，v0.6.4 的幸存者明细验收见 [Versus 幸存者战斗明细测试清单](docs/v0.6.4-test-checklist.md)，v0.6.5 的比分与结果验收见 [Versus 比分与结果测试清单](docs/v0.6.5-test-checklist.md)。
+v0.3 的生命周期验收见 [Run / Round / Segment 测试清单](docs/v0.3-test-checklist.md)，v0.4 的战斗统计验收见 [PvE 核心统计测试清单](docs/v0.4-test-checklist.md)，v0.5 的治疗与章节统计验收见 [PvE 治疗与章节测试清单](docs/v0.5-test-checklist.md)，v0.5.1 的扩展统计验收见 [PvE 扩展统计测试清单](docs/v0.5.1-test-checklist.md)，v0.5.2 的互动与状态验收见 [PvE 互动与状态测试清单](docs/v0.5.2-test-checklist.md)，v0.6 的核心验收见 [Versus 核心统计测试清单](docs/v0.6-test-checklist.md)，v0.6.2 的职业明细验收见 [Versus 感染者职业测试清单](docs/v0.6.2-test-checklist.md)，v0.6.3 的能力效果验收见 [Versus 控制与能力测试清单](docs/v0.6.3-test-checklist.md)，v0.6.4 的幸存者明细验收见 [Versus 幸存者战斗明细测试清单](docs/v0.6.4-test-checklist.md)，v0.6.5 的比分与结果验收见 [Versus 比分与结果测试清单](docs/v0.6.5-test-checklist.md)，v0.6.6 的冻结验证见 [Versus v1 契约冻结](docs/v0.6.6-contract-freeze.md)。
 
 管理员命令：
 

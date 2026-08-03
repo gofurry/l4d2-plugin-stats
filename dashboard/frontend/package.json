@@ -1,0 +1,45 @@
+{
+  "name": "@gofurry/l4d2-stats-dashboard",
+  "private": true,
+  "version": "0.8.1",
+  "type": "module",
+  "packageManager": "pnpm@10.11.0",
+  "scripts": {
+    "dev": "vite",
+    "build": "tsc -b && vite build",
+    "typecheck": "tsc -b --pretty false",
+    "lint": "eslint .",
+    "test": "vitest run"
+  },
+  "dependencies": {
+    "@ant-design/icons": "latest",
+    "@tanstack/react-query": "latest",
+    "antd": "^6.0.0",
+    "i18next": "latest",
+    "react": "^19.0.0",
+    "react-dom": "^19.0.0",
+    "react-i18next": "latest",
+    "react-router-dom": "latest"
+  },
+  "devDependencies": {
+    "@eslint/js": "latest",
+    "@tailwindcss/vite": "^4.0.0",
+    "@testing-library/jest-dom": "latest",
+    "@testing-library/react": "latest",
+    "@types/node": "latest",
+    "@types/react": "latest",
+    "@types/react-dom": "latest",
+    "@vitejs/plugin-react": "latest",
+    "eslint": "latest",
+    "eslint-plugin-react-hooks": "latest",
+    "eslint-plugin-react-refresh": "latest",
+    "globals": "latest",
+    "jsdom": "latest",
+    "sass": "latest",
+    "tailwindcss": "^4.0.0",
+    "typescript": "^6.0.0",
+    "typescript-eslint": "latest",
+    "vite": "latest",
+    "vitest": "latest"
+  }
+}

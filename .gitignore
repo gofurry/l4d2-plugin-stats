@@ -8,3 +8,11 @@ __pycache__/
 *.pyc
 .DS_Store
 Thumbs.db
+/dashboard/frontend/node_modules/
+/dashboard/frontend/coverage/
+/dashboard/frontend/.vite/
+/dashboard/config.yaml
+/dashboard/dashboard.db
+/dashboard/dashboard.db-shm
+/dashboard/dashboard.db-wal
+/dashboard/logs/

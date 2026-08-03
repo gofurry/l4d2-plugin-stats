@@ -52,6 +52,54 @@
         "${workspaceFolder}/scripts/test_sqlite_migration.py"
       ],
       "problemMatcher": []
+    },
+    {
+      "label": "L4D2 Stats: Validate Versus contract",
+      "type": "shell",
+      "command": "python",
+      "args": [
+        "${workspaceFolder}/scripts/validate_versus_contract.py"
+      ],
+      "problemMatcher": []
+    },
+    {
+      "label": "Dashboard: API Dev",
+      "type": "shell",
+      "command": "go",
+      "args": [
+        "run",
+        "./cmd/l4d2-stats",
+        "serve",
+        "--config",
+        "./config.yaml"
+      ],
+      "options": {
+        "cwd": "${workspaceFolder}/dashboard"
+      },
+      "problemMatcher": []
+    },
+    {
+      "label": "Dashboard: Frontend Dev",
+      "type": "shell",
+      "command": "pnpm",
+      "args": ["dev"],
+      "options": {
+        "cwd": "${workspaceFolder}/dashboard/frontend"
+      },
+      "problemMatcher": []
+    },
+    {
+      "label": "Dashboard: Verify and Build",
+      "type": "shell",
+      "command": "powershell.exe",
+      "args": [
+        "-NoProfile",
+        "-ExecutionPolicy",
+        "Bypass",
+        "-File",
+        "${workspaceFolder}/scripts/build-dashboard.ps1"
+      ],
+      "problemMatcher": []
     }
   ]
 }

@@ -4,6 +4,17 @@ All notable changes to this project will be documented in this file.
 
 ## Unreleased
 
+- Add the v0.8.0-v0.8.1 Go 1.26/Fiber dashboard foundation and embedded React 19 homepage.
+- Add strict YAML configuration, a Goose-managed pure-Go SQLite Dashboard DB, bootstrap site/server settings, and safe custom footer links.
+- Add sqlc-generated read-only overview queries for SQLite, MySQL, and PostgreSQL with PvE/Versus mode isolation.
+- Add primary-server A2S status with bounded concurrency, timeout, cache, and recent-success fallback.
+- Add Cobra diagnostics/bootstrap/systemd commands, Zap/Lumberjack rotation, production build scripts, frontend tests, and deployment documentation.
+- Freeze the Versus v1 field semantics, ownership, units, Bot attribution, result states, and reader invariants for the future Go service.
+- Add a machine-readable six-table Versus schema manifest with strict SQLite/MySQL/PostgreSQL column and primary-key validation.
+- Add portable Versus contract health queries, mutation-backed SQLite regression checks, and read-only query examples.
+- Require future Versus schema changes to use a new migration and incompatible statistical semantics to use a new `stats_version`.
+- Determine each Versus scoring team from the observed map-score change, with the half number as a zero-score fallback, instead of trusting `m_bAreTeamsFlipped` on listen servers.
+- Add an inspection check for Versus round results whose scoring slot disagrees with the recorded half.
 - Record authoritative Versus map/half and campaign scores from L4D2 GameRules without adding a Left4DHooks dependency.
 - Persist one bounded result snapshot per Versus Round and Run, including completed, abandoned, tie, and unavailable-score states.
 - Preserve raw engine winner fields for diagnostics while deriving the final logical winner only from completed campaign scores.
