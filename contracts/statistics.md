@@ -349,20 +349,36 @@ Boomer 使用 `player_now_it.by_boomer` 记录实际被胆汁命中的真人/Bot
 
 ## 8. 对抗比赛结果
 
-第一阶段不保存或推算：
+对抗结果直接读取 L4D2 `CTerrorGameRules` 的权威整数值，不根据玩家坐标、存活人数或
+自定义公式重新计算。结果使用 Run 内部的逻辑队伍槽位 `team_0` / `team_1`，它们不是
+跨 Run 稳定的战队身份，也不能被解释为当前幸存者/感染者阵营。
 
-- 稳定队伍A/队伍B；
-- 对抗推进距离；
-- 半场队伍得分；
-- 最终胜负；
+每个已结束半场在 `lps_versus_round_results` 保存：
+
+| 字段 | 含义 |
+|---|---|
+| `scoring_team_slot` | 本半场担任幸存者并获得地图分的逻辑队伍槽位，0 或 1 |
+| `teams_flipped` | 半场开始时引擎的队伍翻转标记，诊断字段 |
+| `team_0_map_score` / `team_1_map_score` | 引擎当前保存的本章节/半场得分；尚未出场可以是 -1 |
+| `team_0_campaign_score` / `team_1_campaign_score` | 该时刻的战役累计分 |
+| `score_available` | 本半场计分队伍的地图分是否可用 |
+| `raw_winner_team` | `round_end` 的原始引擎阵营编号，只供诊断 |
+| `result_status` | `completed` 或因重开/异常结束修正为 `abandoned` |
+
+每个对抗 Run 在 `lps_versus_run_results` 保存累计分和结果。半场结束后先写入 `active`
+快照；比赛正常结束时写入 `completed`，比较两边累计分得到 `winner_team_slot`：0/1 为
+获胜槽位，2 为平局，-1 为未知。异常结束写入 `abandoned`，不宣布胜者。插件异常退出
+后，下次启动会把遗留的 `active` 结果恢复为 `abandoned`。
+
+`raw_winner_team` 保存 `versus_match_finished` 的原始值，只用于排查引擎或第三方模式差异；
+网页不得直接用它代替 `winner_team_slot`。`score_available=0` 时不得把 -1 当作真实分数。
+
+第一阶段仍不保存或推算：
+
+- 跨 Run 稳定队伍或战队成员关系；
+- 逐时刻推进距离、进度曲线或逐玩家推进贡献；
+- 第三方计分插件的额外分项；
 - MVP归属。
-
-第一阶段只保存：
-
-- Run和Round是否正常结束；
-- 玩家参与了哪些半场；
-- 玩家在每个半场的阵营；
-- 幸存者和感染者个人统计。
 
 ## 9. 统计版本
 

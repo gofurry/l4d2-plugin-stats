@@ -100,6 +100,7 @@ void LPS_InitializeLifecycles()
 
 	HookEvent("round_start", LPS_Event_RoundStart, EventHookMode_PostNoCopy);
 	HookEvent("round_end", LPS_Event_RoundEnd, EventHookMode_Post);
+	HookEvent("versus_match_finished", LPS_Event_VersusMatchFinished, EventHookMode_Post);
 	HookEvent("map_transition", LPS_Event_MapTransition, EventHookMode_PostNoCopy);
 	HookEvent("mission_lost", LPS_Event_MissionLost, EventHookMode_PostNoCopy);
 	HookEvent("finale_win", LPS_Event_FinaleWin, EventHookMode_PostNoCopy);
@@ -228,6 +229,7 @@ public void LPS_Event_RoundEnd(Event event, const char[] name, bool dontBroadcas
 	// listen server. Preserve the campaign Run and suspend a late-disconnecting
 	// host from the second-half boundary instead of waiting for OnMapEnd.
 	bool mapCompleted = g_LPSRoundHalfNo == 2;
+	LPS_SetVersusRoundWinner(event.GetInt("winner"));
 	LPS_EndRound("completed");
 	if (mapCompleted)
 	{
@@ -238,6 +240,22 @@ public void LPS_Event_RoundEnd(Event event, const char[] name, bool dontBroadcas
 	{
 		g_LPSContinuation = LPSContinuation_VersusHalf;
 	}
+	LPS_RequestFlush();
+}
+
+public void LPS_Event_VersusMatchFinished(Event event, const char[] name, bool dontBroadcast)
+{
+	if (!g_LPSRunActive || !StrEqual(g_LPSRunModeFamily, "versus", true))
+	{
+		return;
+	}
+
+	LPS_SetVersusMatchWinner(event.GetInt("winners"));
+	if (g_LPSRoundActive)
+	{
+		LPS_EndRound("completed");
+	}
+	LPS_EndRun("completed");
 	LPS_RequestFlush();
 }
 
@@ -278,6 +296,12 @@ public void LPS_Event_MissionLost(Event event, const char[] name, bool dontBroad
 public void LPS_Event_FinaleWin(Event event, const char[] name, bool dontBroadcast)
 {
 	if (!g_LPSRunActive)
+	{
+		return;
+	}
+	// In Versus this event can occur for the first team before the second half.
+	// Only versus_match_finished is authoritative for the complete match.
+	if (StrEqual(g_LPSRunModeFamily, "versus", true))
 	{
 		return;
 	}
@@ -338,6 +362,10 @@ void LPS_StartRun()
 	g_LPSLastRoundStatus[0] = '\0';
 	g_LPSLastRoundAttemptNo = 0;
 	g_LPSLastRoundHalfNo = 0;
+	if (g_LPSModeFamily == LPSModeFamily_Versus)
+	{
+		LPS_OnVersusRunStarted();
+	}
 
 	LPS_RequestFlush();
 }
@@ -394,6 +422,10 @@ void LPS_StartRound()
 	g_LPSRunCurrentRevision++;
 	g_LPSRunDirty = true;
 	g_LPSContinuation = LPSContinuation_None;
+	if (g_LPSModeFamily == LPSModeFamily_Versus)
+	{
+		LPS_OnVersusRoundStarted();
+	}
 
 	LPS_ResetObjectiveInteractionTracking();
 	LPS_ReconcileAllClientSegments();
@@ -424,6 +456,10 @@ void LPS_EndRound(const char[] status, bool campaignCompleted = false)
 	LPS_QueueClosedRound(snapshot);
 	g_LPSLastClosedRoundSnapshot = snapshot;
 	g_LPSHasLastClosedRoundSnapshot = true;
+	if (g_LPSModeFamily == LPSModeFamily_Versus)
+	{
+		LPS_OnVersusRoundEnding(status);
+	}
 
 	strcopy(g_LPSLastRoundMapName, sizeof(g_LPSLastRoundMapName), g_LPSRoundMapName);
 	strcopy(g_LPSLastRoundStatus, sizeof(g_LPSLastRoundStatus), status);
@@ -464,6 +500,7 @@ void LPS_ReclassifyLastVersusRoundAsAbandoned()
 	);
 	g_LPSLastClosedRoundSnapshot.revision++;
 	LPS_QueueClosedRound(g_LPSLastClosedRoundSnapshot);
+	LPS_ReclassifyLastVersusResultAsAbandoned(g_LPSLastClosedRoundSnapshot.roundId);
 	strcopy(g_LPSLastRoundStatus, sizeof(g_LPSLastRoundStatus), "abandoned");
 	if (g_LPSRunCompletedRoundCount > 0)
 	{
@@ -488,6 +525,7 @@ void LPS_EndRun(const char[] status)
 	LPSRunSnapshot snapshot;
 	LPS_FillRunSnapshot(snapshot, true, status);
 	LPS_QueueClosedRun(snapshot);
+	LPS_OnVersusRunEnding(status);
 	LPS_ResetRunState();
 	g_LPSContinuation = LPSContinuation_None;
 
@@ -559,7 +597,7 @@ void LPS_FillRoundSnapshot(LPSRoundSnapshot snapshot, bool closed, const char[] 
 
 bool LPS_HasLifecycleQueueCapacity()
 {
-	int total = g_LPSClosedRuns.Length + g_LPSClosedRounds.Length + LPS_GetPendingClosedSegmentCount();
+	int total = LPS_GetPendingClosedLifecycleCount();
 	if (total < g_LPSClosedLifecycleQueueLimit.IntValue)
 	{
 		return true;
@@ -827,7 +865,8 @@ int LPS_GetPendingClosedLifecycleCount()
 {
 	int runCount = g_LPSClosedRuns == null ? 0 : g_LPSClosedRuns.Length;
 	int roundCount = g_LPSClosedRounds == null ? 0 : g_LPSClosedRounds.Length;
-	return runCount + roundCount + LPS_GetPendingClosedSegmentCount();
+	return runCount + roundCount + LPS_GetPendingClosedSegmentCount()
+		+ LPS_GetPendingVersusResultCount();
 }
 
 void LPS_OnLifecycleDatabaseReady()

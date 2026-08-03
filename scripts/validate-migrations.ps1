@@ -11,6 +11,8 @@ $requiredTables = @(
     "lps_sessions",
     "lps_runs",
     "lps_rounds",
+    "lps_versus_round_results",
+    "lps_versus_run_results",
     "lps_player_segments",
     "lps_pve_segment_stats",
     "lps_pve_segment_equipment_stats",
@@ -99,6 +101,27 @@ $requiredVersusSurvivorClassColumns = @(
     "damage_to_human_controllers",
     "damage_to_bot_controllers"
 )
+$requiredVersusRoundResultColumns = @(
+    "scoring_team_slot",
+    "teams_flipped",
+    "team_0_map_score",
+    "team_1_map_score",
+    "team_0_campaign_score",
+    "team_1_campaign_score",
+    "raw_winner_team",
+    "score_available",
+    "result_status",
+    "finalized_at"
+)
+$requiredVersusRunResultColumns = @(
+    "team_0_campaign_score",
+    "team_1_campaign_score",
+    "winner_team_slot",
+    "raw_winner_team",
+    "score_available",
+    "result_status",
+    "finalized_at"
+)
 
 foreach ($driver in $drivers) {
     $migration = Join-Path $migrationRoot "$driver\0001_initial.sql"
@@ -165,6 +188,18 @@ foreach ($driver in $drivers) {
     foreach ($column in $requiredVersusSurvivorClassColumns) {
         if ($sql -notmatch "(?i)\b$column\b") {
             throw "$driver migration is missing Versus survivor class column $column."
+        }
+    }
+
+    foreach ($column in $requiredVersusRoundResultColumns) {
+        if ($sql -notmatch "(?i)\b$column\b") {
+            throw "$driver migration is missing Versus round result column $column."
+        }
+    }
+
+    foreach ($column in $requiredVersusRunResultColumns) {
+        if ($sql -notmatch "(?i)\b$column\b") {
+            throw "$driver migration is missing Versus run result column $column."
         }
     }
 

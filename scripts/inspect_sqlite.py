@@ -64,6 +64,12 @@ def main() -> None:
         versus_infected_class_stats = database.execute(
             "SELECT COUNT(*) FROM lps_versus_infected_class_stats"
         ).fetchone()[0]
+        versus_round_results = database.execute(
+            "SELECT COUNT(*) FROM lps_versus_round_results"
+        ).fetchone()[0]
+        versus_run_results = database.execute(
+            "SELECT COUNT(*) FROM lps_versus_run_results"
+        ).fetchone()[0]
 
         integrity = database.execute("PRAGMA integrity_check").fetchone()[0]
         orphan_rounds = database.execute(
@@ -113,6 +119,15 @@ def main() -> None:
             "LEFT JOIN lps_player_segments g ON g.segment_id = c.segment_id "
             "LEFT JOIN lps_versus_infected_stats v ON v.segment_id = c.segment_id "
             "WHERE g.segment_id IS NULL OR v.segment_id IS NULL"
+        ).fetchone()[0]
+        orphan_versus_round_results = database.execute(
+            "SELECT COUNT(*) FROM lps_versus_round_results v "
+            "LEFT JOIN lps_rounds r ON r.round_id = v.round_id "
+            "WHERE r.round_id IS NULL"
+        ).fetchone()[0]
+        orphan_versus_run_results = database.execute(
+            "SELECT COUNT(*) FROM lps_versus_run_results v "
+            "LEFT JOIN lps_runs u ON u.run_id = v.run_id WHERE u.run_id IS NULL"
         ).fetchone()[0]
         invalid_pve_stats = database.execute(
             "SELECT COUNT(*) FROM lps_pve_segment_stats WHERE stats_version <> 1 "
@@ -222,6 +237,44 @@ def main() -> None:
             "(bot_survivor_control_seconds > 0 AND bot_survivor_controls = 0) OR "
             "human_survivor_ability_damage > damage_to_human_survivors OR "
             "bot_survivor_ability_damage > damage_to_bot_survivors"
+        ).fetchone()[0]
+        invalid_versus_round_results = database.execute(
+            "SELECT COUNT(*) FROM lps_versus_round_results WHERE "
+            "stats_version <> 1 OR scoring_team_slot NOT IN (0, 1) "
+            "OR teams_flipped NOT IN (0, 1) "
+            "OR min(team_0_map_score, team_1_map_score, "
+            "team_0_campaign_score, team_1_campaign_score) < -1 "
+            "OR raw_winner_team < -1 OR score_available NOT IN (0, 1) "
+            "OR result_status NOT IN ('completed', 'abandoned') "
+            "OR finalized_at <= 0 OR revision < 1 "
+            "OR (score_available = 1 AND ((scoring_team_slot = 0 "
+            "AND team_0_map_score < 0) OR (scoring_team_slot = 1 "
+            "AND team_1_map_score < 0)))"
+        ).fetchone()[0]
+        invalid_versus_run_results = database.execute(
+            "SELECT COUNT(*) FROM lps_versus_run_results WHERE "
+            "stats_version <> 1 OR min(team_0_campaign_score, "
+            "team_1_campaign_score) < -1 OR winner_team_slot NOT IN (-1, 0, 1, 2) "
+            "OR raw_winner_team < -1 OR score_available NOT IN (0, 1) "
+            "OR result_status NOT IN ('active', 'completed', 'abandoned') "
+            "OR revision < 1 OR (result_status = 'active' AND finalized_at IS NOT NULL) "
+            "OR (result_status <> 'active' AND finalized_at IS NULL) "
+            "OR (result_status <> 'completed' AND winner_team_slot <> -1) "
+            "OR (result_status = 'completed' AND score_available = 1 AND "
+            "((team_0_campaign_score > team_1_campaign_score "
+            "AND winner_team_slot <> 0) OR (team_1_campaign_score > "
+            "team_0_campaign_score AND winner_team_slot <> 1) OR "
+            "(team_0_campaign_score = team_1_campaign_score "
+            "AND winner_team_slot <> 2)))"
+        ).fetchone()[0]
+        versus_result_status_mismatches = database.execute(
+            "SELECT COUNT(*) FROM ("
+            "SELECT v.round_id FROM lps_versus_round_results v "
+            "JOIN lps_rounds r ON r.round_id = v.round_id "
+            "WHERE r.mode_family <> 'versus' OR r.status <> v.result_status "
+            "UNION ALL SELECT v.run_id FROM lps_versus_run_results v "
+            "JOIN lps_runs u ON u.run_id = v.run_id "
+            "WHERE u.mode_family <> 'versus' OR u.status <> v.result_status)"
         ).fetchone()[0]
         versus_infected_class_total_mismatches = database.execute(
             "SELECT COUNT(*) FROM lps_versus_infected_stats v LEFT JOIN ("
@@ -346,7 +399,9 @@ def main() -> None:
             f"versus_survivor_stats={versus_survivor_stats} "
             f"versus_survivor_class_stats={versus_survivor_class_stats} "
             f"versus_infected_stats={versus_infected_stats} "
-            f"versus_infected_class_stats={versus_infected_class_stats}"
+            f"versus_infected_class_stats={versus_infected_class_stats} "
+            f"versus_round_results={versus_round_results} "
+            f"versus_run_results={versus_run_results}"
         )
         print(
             f"health integrity={integrity} orphan_rounds={orphan_rounds} "
@@ -360,6 +415,8 @@ def main() -> None:
             f"orphan_versus_infected_stats={orphan_versus_infected_stats} "
             f"orphan_versus_infected_class_stats="
             f"{orphan_versus_infected_class_stats} "
+            f"orphan_versus_round_results={orphan_versus_round_results} "
+            f"orphan_versus_run_results={orphan_versus_run_results} "
             f"invalid_pve_stats={invalid_pve_stats} "
             f"invalid_equipment_stats={invalid_equipment_stats} "
             f"invalid_versus_survivor_stats={invalid_versus_survivor_stats} "
@@ -370,6 +427,10 @@ def main() -> None:
             f"{invalid_versus_infected_class_stats} "
             f"invalid_versus_infected_ability_stats="
             f"{invalid_versus_infected_ability_stats} "
+            f"invalid_versus_round_results={invalid_versus_round_results} "
+            f"invalid_versus_run_results={invalid_versus_run_results} "
+            f"versus_result_status_mismatches="
+            f"{versus_result_status_mismatches} "
             f"versus_infected_class_total_mismatches="
             f"{versus_infected_class_total_mismatches} "
             f"versus_survivor_class_total_mismatches="
@@ -515,6 +576,42 @@ def main() -> None:
                 f"tank={row[6]} witch={row[7]} headshot={row[8]} "
                 f"damage_si={row[9]} damage_tank={row[10]} "
                 f"damage_witch={row[11]} revision={row[12]}"
+            )
+
+        print("recent_versus_round_results:")
+        rows = database.execute(
+            "SELECT r.map_name, r.half_no, v.scoring_team_slot, "
+            "v.teams_flipped, v.team_0_map_score, v.team_1_map_score, "
+            "v.team_0_campaign_score, v.team_1_campaign_score, "
+            "v.raw_winner_team, v.score_available, v.result_status, v.revision "
+            "FROM lps_versus_round_results v "
+            "JOIN lps_rounds r ON r.round_id = v.round_id "
+            "ORDER BY v.finalized_at DESC LIMIT 20"
+        ).fetchall()
+        for row in rows:
+            print(
+                "  "
+                f"map={row[0]!r} half={row[1]} scoring_slot={row[2]} "
+                f"flipped={row[3]} map_scores={row[4:6]} "
+                f"campaign_scores={row[6:8]} raw_winner={row[8]} "
+                f"available={row[9]} status={row[10]} revision={row[11]}"
+            )
+
+        print("recent_versus_run_results:")
+        rows = database.execute(
+            "SELECT u.campaign_key, v.team_0_campaign_score, "
+            "v.team_1_campaign_score, v.winner_team_slot, v.raw_winner_team, "
+            "v.score_available, v.result_status, v.revision "
+            "FROM lps_versus_run_results v "
+            "JOIN lps_runs u ON u.run_id = v.run_id "
+            "ORDER BY v.last_saved_at DESC LIMIT 10"
+        ).fetchall()
+        for row in rows:
+            print(
+                "  "
+                f"campaign={row[0]!r} campaign_scores={row[1:3]} "
+                f"winner_slot={row[3]} raw_winner={row[4]} "
+                f"available={row[5]} status={row[6]} revision={row[7]}"
             )
 
         print("recent_versus_survivor_stats:")

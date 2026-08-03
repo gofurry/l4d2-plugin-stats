@@ -310,6 +310,15 @@ void LPS_RegisterServerBoot(int generation)
 	Format(
 		query,
 		sizeof(query),
+		"UPDATE lps_versus_run_results SET result_status = 'abandoned', finalized_at = last_saved_at WHERE result_status = 'active' AND run_id IN (SELECT run_id FROM lps_runs WHERE server_key = '%s' AND boot_id <> '%s')",
+		escapedServerKey,
+		escapedBootId
+	);
+	transaction.AddQuery(query);
+
+	Format(
+		query,
+		sizeof(query),
 		"UPDATE lps_rounds SET status = 'abandoned', ended_at = last_saved_at WHERE status = 'active' AND run_id IN (SELECT run_id FROM lps_runs WHERE server_key = '%s' AND boot_id <> '%s')",
 		escapedServerKey,
 		escapedBootId
@@ -556,6 +565,7 @@ void LPS_RequestFlush()
 
 	char lifecycleError[LPS_MAX_DATABASE_ERROR];
 	if (!LPS_AddLifecycleFlushQueries(transaction, queryCount, lifecycleError, sizeof(lifecycleError))
+		|| !LPS_AddVersusResultFlushQueries(transaction, queryCount, lifecycleError, sizeof(lifecycleError))
 		|| !LPS_AddSegmentFlushQueries(transaction, queryCount, lifecycleError, sizeof(lifecycleError))
 		|| !LPS_AddPvEStatsFlushQueries(transaction, queryCount, lifecycleError, sizeof(lifecycleError))
 		|| !LPS_AddVersusStatsFlushQueries(transaction, queryCount, lifecycleError, sizeof(lifecycleError))
@@ -593,6 +603,7 @@ public void LPS_OnFlushSucceeded(
 	g_LPSHeartbeatInFlight = false;
 	g_LPSLastSuccessfulWriteAt = GetTime();
 	LPS_OnSessionFlushSucceeded();
+	LPS_OnVersusResultFlushSucceeded();
 	LPS_OnLifecycleFlushSucceeded();
 	LPS_OnSegmentFlushSucceeded();
 	LPS_OnPvEStatsFlushSucceeded();

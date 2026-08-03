@@ -166,9 +166,54 @@ IP保存规则：
 | `status` | `active`、`completed`、`failed`、`abandoned` |
 | `revision` | 绝对快照版本 |
 
-第一阶段不加入对抗队伍分数和胜负字段。
+对抗分数和胜负不混入通用 Round 字段，使用下面两张只属于 `versus` 的结果表。
 
-### 4.8 `lps_player_segments`
+### 4.8 `lps_versus_round_results`
+
+主键为 `round_id`，只为已结束的对抗半场创建，并包含：
+
+```text
+stats_version
+last_saved_at
+scoring_team_slot
+teams_flipped
+team_0_map_score
+team_1_map_score
+team_0_campaign_score
+team_1_campaign_score
+raw_winner_team
+score_available
+result_status
+finalized_at
+revision
+```
+
+`scoring_team_slot` 是本半场幸存者所属的引擎逻辑槽位 0/1；`teams_flipped` 保存取值时的
+原始翻转标记。未出场或不可用分数使用 -1，并由 `score_available` 明确区分。结果状态只
+允许 `completed` 或 `abandoned`。
+
+### 4.9 `lps_versus_run_results`
+
+主键为 `run_id`，并包含：
+
+```text
+stats_version
+last_saved_at
+team_0_campaign_score
+team_1_campaign_score
+winner_team_slot
+raw_winner_team
+score_available
+result_status
+finalized_at
+revision
+```
+
+`winner_team_slot` 取 -1（未知）、0、1 或 2（平局）。只有正常完成且分数可用的 Run
+能够产生 0/1/2；`active` 和 `abandoned` 必须为 -1。逻辑队伍槽位只在一个 Run 内稳定，
+不是跨战役战队身份。
+
+### 4.10 `lps_player_segments`
 
 | 字段 | 说明 |
 |---|---|
@@ -188,7 +233,7 @@ IP保存规则：
 
 观战和闲置不创建独立Segment。
 
-### 4.9 `lps_pve_segment_stats`
+### 4.11 `lps_pve_segment_stats`
 
 主键为`segment_id`，并包含：
 
@@ -265,7 +310,7 @@ black_white_teammates_restored
 revision
 ```
 
-### 4.10 `lps_pve_segment_equipment_stats`
+### 4.12 `lps_pve_segment_equipment_stats`
 
 复合主键为 `(segment_id, equipment_id)`，并包含：
 
@@ -300,7 +345,7 @@ revision
 
 采集器只写精确设备行。类别聚合和全部设备总计由读取侧计算，避免重复数据漂移。
 
-### 4.11 `lps_versus_survivor_stats`
+### 4.13 `lps_versus_survivor_stats`
 
 主键为`segment_id`，并包含：
 
@@ -347,7 +392,7 @@ witch_solo_kills
 revision
 ```
 
-### 4.12 `lps_versus_survivor_infected_class_stats`
+### 4.14 `lps_versus_survivor_infected_class_stats`
 
 复合主键为 `(segment_id, infected_class)`。每个幸存者 Segment 最多产生七行，
 并包含：
@@ -366,7 +411,7 @@ revision
 未知职业不创建行。1～6 职业行的四项合计必须分别等于幸存者总表中的普通特感
 真人/Bot 击杀与伤害；职业 8 必须等于对应 Tank 总计。
 
-### 4.13 `lps_versus_infected_stats`
+### 4.15 `lps_versus_infected_stats`
 
 主键为`segment_id`，并包含：
 
@@ -383,7 +428,7 @@ bot_survivor_kills
 revision
 ```
 
-### 4.14 `lps_versus_infected_class_stats`
+### 4.16 `lps_versus_infected_class_stats`
 
 复合主键为 `(segment_id, infected_class)`。每个感染者 Segment 最多产生七行，
 并包含：
@@ -431,6 +476,15 @@ Boomer 使用能力命中人数；Spitter 使用酸液有效伤害。每项均�
 ## 5. 逻辑关联和外键
 
 第一阶段只定义逻辑外键，不要求数据库建立物理`FOREIGN KEY`约束。
+
+结果表的逻辑父级固定为：
+
+```text
+lps_versus_round_results.round_id -> lps_rounds.round_id
+lps_versus_run_results.run_id     -> lps_runs.run_id
+```
+
+结果表只允许关联 `mode_family=versus` 的父记录，父级与结果的完成/异常状态必须一致。
 
 原因：
 

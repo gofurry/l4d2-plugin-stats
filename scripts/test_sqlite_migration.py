@@ -366,6 +366,63 @@ def main() -> None:
                 "c5m1_waterfront", 1, 1, 1, 1, 100, None, 125, "active", 2,
             ),
         )
+        versus_round_result_insert = (
+            "INSERT INTO lps_versus_round_results "
+            "(round_id, stats_version, last_saved_at, scoring_team_slot, "
+            "teams_flipped, team_0_map_score, team_1_map_score, "
+            "team_0_campaign_score, team_1_campaign_score, raw_winner_team, "
+            "score_available, result_status, finalized_at, revision) "
+            "VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?) "
+            "ON CONFLICT(round_id) DO UPDATE SET "
+            "last_saved_at = excluded.last_saved_at, "
+            "scoring_team_slot = excluded.scoring_team_slot, "
+            "teams_flipped = excluded.teams_flipped, "
+            "team_0_map_score = excluded.team_0_map_score, "
+            "team_1_map_score = excluded.team_1_map_score, "
+            "team_0_campaign_score = excluded.team_0_campaign_score, "
+            "team_1_campaign_score = excluded.team_1_campaign_score, "
+            "raw_winner_team = excluded.raw_winner_team, "
+            "score_available = excluded.score_available, "
+            "result_status = excluded.result_status, "
+            "finalized_at = excluded.finalized_at, revision = excluded.revision"
+        )
+        database.execute(
+            versus_round_result_insert,
+            (
+                stale_round_id, 1, 125, 0, 0, 420, -1, 0, 0, 2, 1,
+                "completed", 125, 1,
+            ),
+        )
+        # A restarted half reclassifies the same authoritative snapshot rather
+        # than creating a second result row.
+        database.execute(
+            versus_round_result_insert,
+            (
+                stale_round_id, 1, 126, 0, 0, 420, -1, 0, 0, 2, 1,
+                "abandoned", 125, 2,
+            ),
+        )
+
+        versus_run_result_insert = (
+            "INSERT INTO lps_versus_run_results "
+            "(run_id, stats_version, last_saved_at, team_0_campaign_score, "
+            "team_1_campaign_score, winner_team_slot, raw_winner_team, "
+            "score_available, result_status, finalized_at, revision) "
+            "VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?) "
+            "ON CONFLICT(run_id) DO UPDATE SET "
+            "last_saved_at = excluded.last_saved_at, "
+            "team_0_campaign_score = excluded.team_0_campaign_score, "
+            "team_1_campaign_score = excluded.team_1_campaign_score, "
+            "winner_team_slot = excluded.winner_team_slot, "
+            "raw_winner_team = excluded.raw_winner_team, "
+            "score_available = excluded.score_available, "
+            "result_status = excluded.result_status, "
+            "finalized_at = excluded.finalized_at, revision = excluded.revision"
+        )
+        database.execute(
+            versus_run_result_insert,
+            (stale_run_id, 1, 125, 0, 0, -1, -1, 1, "active", None, 1),
+        )
         database.execute(
             segment_insert,
             (
@@ -505,6 +562,13 @@ def main() -> None:
             ("test-01", current_boot_id),
         )
         database.execute(
+            "UPDATE lps_versus_run_results SET result_status = 'abandoned', "
+            "finalized_at = last_saved_at WHERE result_status = 'active' "
+            "AND run_id IN (SELECT run_id FROM lps_runs WHERE server_key = ? "
+            "AND boot_id <> ?)",
+            ("test-01", current_boot_id),
+        )
+        database.execute(
             "UPDATE lps_sessions SET status = 'abandoned', ended_at = last_saved_at "
             "WHERE server_key = ? AND boot_id <> ? AND status = 'active'",
             ("test-01", current_boot_id),
@@ -513,6 +577,29 @@ def main() -> None:
             "UPDATE lps_runs SET status = 'abandoned', ended_at = last_saved_at "
             "WHERE server_key = ? AND boot_id <> ? AND status = 'active'",
             ("test-01", current_boot_id),
+        )
+
+        completed_versus_run_id = "test-01:1:a:run:3"
+        database.execute(
+            run_insert,
+            (
+                completed_versus_run_id, "test-01:1:a", "test-01", "versus",
+                "versus", "c8", 200, 300, 300, "completed", 2, 2, 0, 4,
+            ),
+        )
+        database.execute(
+            versus_run_result_insert,
+            (
+                completed_versus_run_id, 1, 250, 500, 450, -1, -1, 1,
+                "active", None, 1,
+            ),
+        )
+        database.execute(
+            versus_run_result_insert,
+            (
+                completed_versus_run_id, 1, 300, 500, 700, 1, 2, 1,
+                "completed", 300, 2,
+            ),
         )
 
         tables = {
@@ -530,7 +617,7 @@ def main() -> None:
             )
         }
 
-        assert len(tables) == 14, tables
+        assert len(tables) == 16, tables
         assert len(indexes) == 9, indexes
         status = database.execute(
             "SELECT status FROM lps_server_boots WHERE boot_id = 'test-01:1:a'"
@@ -609,6 +696,34 @@ def main() -> None:
             (stale_round_id,),
         ).fetchone()
         assert stale_round == (125, "abandoned"), stale_round
+        versus_round_result = database.execute(
+            "SELECT scoring_team_slot, teams_flipped, team_0_map_score, "
+            "team_1_map_score, team_0_campaign_score, team_1_campaign_score, "
+            "score_available, result_status, revision "
+            "FROM lps_versus_round_results WHERE round_id = ?",
+            (stale_round_id,),
+        ).fetchone()
+        assert versus_round_result == (
+            0, 0, 420, -1, 0, 0, 1, "abandoned", 2,
+        ), versus_round_result
+        versus_run_result = database.execute(
+            "SELECT team_0_campaign_score, team_1_campaign_score, "
+            "winner_team_slot, score_available, result_status, finalized_at, "
+            "revision FROM lps_versus_run_results WHERE run_id = ?",
+            (stale_run_id,),
+        ).fetchone()
+        assert versus_run_result == (
+            0, 0, -1, 1, "abandoned", 125, 1,
+        ), versus_run_result
+        completed_versus_run_result = database.execute(
+            "SELECT team_0_campaign_score, team_1_campaign_score, "
+            "winner_team_slot, raw_winner_team, score_available, result_status, "
+            "finalized_at, revision FROM lps_versus_run_results WHERE run_id = ?",
+            (completed_versus_run_id,),
+        ).fetchone()
+        assert completed_versus_run_result == (
+            500, 700, 1, 2, 1, "completed", 300, 2,
+        ), completed_versus_run_result
         stale_segment = database.execute(
             "SELECT ended_at, status FROM lps_player_segments WHERE segment_id = ?",
             (stale_segment_id,),

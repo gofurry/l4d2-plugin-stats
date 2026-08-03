@@ -82,6 +82,37 @@ CREATE TABLE IF NOT EXISTS lps_rounds (
   INDEX lps_idx_rounds_run_sequence (run_id, round_seq)
 );
 -- statement-breakpoint
+CREATE TABLE IF NOT EXISTS lps_versus_round_results (
+  round_id VARCHAR(128) PRIMARY KEY,
+  stats_version INTEGER NOT NULL DEFAULT 1,
+  last_saved_at BIGINT NOT NULL,
+  scoring_team_slot INTEGER NOT NULL DEFAULT -1,
+  teams_flipped INTEGER NOT NULL DEFAULT 0,
+  team_0_map_score BIGINT NOT NULL DEFAULT -1,
+  team_1_map_score BIGINT NOT NULL DEFAULT -1,
+  team_0_campaign_score BIGINT NOT NULL DEFAULT -1,
+  team_1_campaign_score BIGINT NOT NULL DEFAULT -1,
+  raw_winner_team INTEGER NOT NULL DEFAULT -1,
+  score_available INTEGER NOT NULL DEFAULT 0,
+  result_status VARCHAR(32) NOT NULL,
+  finalized_at BIGINT NOT NULL,
+  revision BIGINT NOT NULL DEFAULT 0
+);
+-- statement-breakpoint
+CREATE TABLE IF NOT EXISTS lps_versus_run_results (
+  run_id VARCHAR(128) PRIMARY KEY,
+  stats_version INTEGER NOT NULL DEFAULT 1,
+  last_saved_at BIGINT NOT NULL,
+  team_0_campaign_score BIGINT NOT NULL DEFAULT -1,
+  team_1_campaign_score BIGINT NOT NULL DEFAULT -1,
+  winner_team_slot INTEGER NOT NULL DEFAULT -1,
+  raw_winner_team INTEGER NOT NULL DEFAULT -1,
+  score_available INTEGER NOT NULL DEFAULT 0,
+  result_status VARCHAR(32) NOT NULL,
+  finalized_at BIGINT NULL,
+  revision BIGINT NOT NULL DEFAULT 0
+);
+-- statement-breakpoint
 CREATE TABLE IF NOT EXISTS lps_player_segments (
   segment_id VARCHAR(128) PRIMARY KEY,
   session_id VARCHAR(128) NOT NULL,

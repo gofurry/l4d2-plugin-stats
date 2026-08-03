@@ -4,6 +4,10 @@ All notable changes to this project will be documented in this file.
 
 ## Unreleased
 
+- Record authoritative Versus map/half and campaign scores from L4D2 GameRules without adding a Left4DHooks dependency.
+- Persist one bounded result snapshot per Versus Round and Run, including completed, abandoned, tie, and unavailable-score states.
+- Preserve raw engine winner fields for diagnostics while deriving the final logical winner only from completed campaign scores.
+- Recover stale active Versus Run results as abandoned after an abnormal server restart.
 - Add a bounded seven-class Versus survivor breakdown for kills and effective damage split by human or Bot infected controllers.
 - Record Versus survivor Witch kills/damage, official throwable use, ammo-pack deployments, self tongue cuts, destroyed Tank rocks, and Witch one-shot/solo kills.
 - Validate that Versus survivor class sums match the existing special infected and Tank totals.

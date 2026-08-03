@@ -11,6 +11,7 @@
 #include <l4d2_player_stats/logging>
 #include <l4d2_player_stats/modes>
 #include <l4d2_player_stats/lifecycles>
+#include <l4d2_player_stats/versus_results>
 #include <l4d2_player_stats/segments>
 #include <l4d2_player_stats/sessions>
 #include <l4d2_player_stats/pve_stats>
@@ -49,6 +50,7 @@ public void OnPluginStart()
 	LPS_CreateConfig();
 	LPS_ResetRuntime();
 	LPS_InitializeModes();
+	LPS_InitializeVersusResults();
 	LPS_InitializeLifecycles();
 	LPS_InitializeSegments();
 	LPS_InitializeSessions();
@@ -72,6 +74,7 @@ public void OnConfigsExecuted()
 public void OnPluginEnd()
 {
 	LPS_ShutdownLifecycles();
+	LPS_ShutdownVersusResults();
 	LPS_ShutdownPvEInteractions();
 	LPS_ShutdownExtendedPvEStats();
 	LPS_ShutdownEquipmentStats();
