@@ -15,6 +15,7 @@
 #include <l4d2_player_stats/sessions>
 #include <l4d2_player_stats/pve_stats>
 #include <l4d2_player_stats/versus_stats>
+#include <l4d2_player_stats/versus_abilities>
 #include <l4d2_player_stats/equipment_stats>
 #include <l4d2_player_stats/pve_extended>
 #include <l4d2_player_stats/pve_interactions>
@@ -52,6 +53,7 @@ public void OnPluginStart()
 	LPS_InitializeSessions();
 	LPS_InitializePvEStats();
 	LPS_InitializeVersusStats();
+	LPS_InitializeVersusAbilities();
 	LPS_InitializeEquipmentStats();
 	LPS_InitializeExtendedPvEStats();
 	LPS_InitializePvEInteractions();
@@ -72,6 +74,7 @@ public void OnPluginEnd()
 	LPS_ShutdownPvEInteractions();
 	LPS_ShutdownExtendedPvEStats();
 	LPS_ShutdownEquipmentStats();
+	LPS_ShutdownVersusAbilities();
 	LPS_ShutdownVersusStats();
 	LPS_ShutdownPvEStats();
 	LPS_ShutdownSessions();

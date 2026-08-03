@@ -65,7 +65,12 @@ VERSUS_INFECTED_CLASS_STAT_COLUMNS = [
     "infected_class", "stats_version", "last_saved_at", "spawn_count",
     "damage_to_human_survivors", "damage_to_bot_survivors",
     "human_survivor_incaps", "bot_survivor_incaps",
-    "human_survivor_kills", "bot_survivor_kills", "revision",
+    "human_survivor_kills", "bot_survivor_kills",
+    "human_survivor_controls", "bot_survivor_controls",
+    "human_survivor_control_seconds", "bot_survivor_control_seconds",
+    "human_survivor_ability_hits", "bot_survivor_ability_hits",
+    "human_survivor_ability_damage", "bot_survivor_ability_damage",
+    "revision",
 ]
 
 
@@ -407,20 +412,37 @@ def main() -> None:
         database.execute(
             versus_infected_class_insert,
             (
-                stale_infected_segment_id, 1, 1, 115, 2, 150, 60, 1, 0, 0, 0, 1,
+                stale_infected_segment_id, 1, 1, 115, 1, 50, 10, 1, 0, 0, 0,
+                1, 0, 4, 0, 0, 0, 0, 0, 1,
             ),
         )
         # Absolute retry replaces Smoker's earlier row.
         database.execute(
             versus_infected_class_insert,
             (
-                stale_infected_segment_id, 1, 1, 125, 3, 300, 100, 1, 1, 1, 0, 2,
+                stale_infected_segment_id, 1, 1, 125, 1, 100, 20, 1, 0, 1, 0,
+                2, 1, 10, 4, 0, 0, 0, 0, 2,
             ),
         )
         database.execute(
             versus_infected_class_insert,
             (
-                stale_infected_segment_id, 8, 1, 125, 1, 150, 20, 1, 0, 0, 0, 2,
+                stale_infected_segment_id, 2, 1, 125, 1, 0, 0, 0, 0, 0, 0,
+                0, 0, 0, 0, 2, 3, 0, 0, 2,
+            ),
+        )
+        database.execute(
+            versus_infected_class_insert,
+            (
+                stale_infected_segment_id, 4, 1, 125, 1, 200, 80, 0, 0, 0, 0,
+                0, 0, 0, 0, 0, 0, 200, 80, 2,
+            ),
+        )
+        database.execute(
+            versus_infected_class_insert,
+            (
+                stale_infected_segment_id, 8, 1, 125, 1, 150, 20, 1, 1, 0, 0,
+                0, 0, 0, 0, 0, 0, 0, 0, 2,
             ),
         )
         database.execute(
@@ -586,8 +608,10 @@ def main() -> None:
             (stale_infected_segment_id,),
         ).fetchall()
         assert versus_infected_class_stats == [
-            (1, 1, 125, 3, 300, 100, 1, 1, 1, 0, 2),
-            (8, 1, 125, 1, 150, 20, 1, 0, 0, 0, 2),
+            (1, 1, 125, 1, 100, 20, 1, 0, 1, 0, 2, 1, 10, 4, 0, 0, 0, 0, 2),
+            (2, 1, 125, 1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 2, 3, 0, 0, 2),
+            (4, 1, 125, 1, 200, 80, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 200, 80, 2),
+            (8, 1, 125, 1, 150, 20, 1, 1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 2),
         ], versus_infected_class_stats
 
         class_totals = database.execute(
@@ -599,6 +623,19 @@ def main() -> None:
             (stale_infected_segment_id,),
         ).fetchone()
         assert class_totals == (4, 450, 120, 2, 1, 1, 0), class_totals
+
+        ability_totals = database.execute(
+            "SELECT SUM(human_survivor_controls), SUM(bot_survivor_controls), "
+            "SUM(human_survivor_control_seconds), "
+            "SUM(bot_survivor_control_seconds), "
+            "SUM(human_survivor_ability_hits), "
+            "SUM(bot_survivor_ability_hits), "
+            "SUM(human_survivor_ability_damage), "
+            "SUM(bot_survivor_ability_damage) "
+            "FROM lps_versus_infected_class_stats WHERE segment_id = ?",
+            (stale_infected_segment_id,),
+        ).fetchone()
+        assert ability_totals == (2, 1, 10, 4, 2, 3, 200, 80), ability_totals
 
         versus_side_mismatches = database.execute(
             "SELECT COUNT(*) FROM ("

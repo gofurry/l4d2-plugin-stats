@@ -368,6 +368,14 @@ human_survivor_incaps
 bot_survivor_incaps
 human_survivor_kills
 bot_survivor_kills
+human_survivor_controls
+bot_survivor_controls
+human_survivor_control_seconds
+bot_survivor_control_seconds
+human_survivor_ability_hits
+bot_survivor_ability_hits
+human_survivor_ability_damage
+bot_survivor_ability_damage
 revision
 ```
 
@@ -383,8 +391,12 @@ revision
 | 6 | Charger |
 | 8 | Tank |
 
-未知职业不创建行。职业行是同一绝对快照的有界明细，其各项合计必须分别等于
-`lps_versus_infected_stats` 中对应总计。
+未知职业不创建行。职业行是同一绝对快照的有界明细，其中出生、伤害、倒地和击杀
+合计必须分别等于 `lps_versus_infected_stats` 中对应总计。
+
+能力字段按职业限定：Smoker、Hunter、Jockey、Charger 使用控制次数和控制秒数；
+Boomer 使用能力命中人数；Spitter 使用酸液有效伤害。每项均拆分真人与 Bot 幸存者
+目标。其他职业对应字段必须为 0，Spitter 能力伤害不得大于该职业的总有效伤害。
 
 ## 5. 逻辑关联和外键
 

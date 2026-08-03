@@ -2,7 +2,7 @@
 
 ## Current Position
 
-项目已经完成数据库地基、真人身份/Session、Run/Round/Segment 生命周期，以及 v0.4.0～v0.5.3 PvE 统计的本地验收。v0.6.0 对抗核心统计已经通过单人 Bot 上下半场与跨图回归；v0.6.2 感染者职业明细完成实现和离线验证，等待本地数据验收。完整双方真人对抗、MySQL 和 PostgreSQL 实机兼容验证统一保留到 v0.7.0。
+项目已经完成数据库地基、真人身份/Session、Run/Round/Segment 生命周期，以及 v0.4.0～v0.5.3 PvE 统计的本地验收。v0.6.0 对抗核心统计和 v0.6.2 感染者职业明细已经通过本地验证；v0.6.3 控制与能力效果完成实现和离线验证，等待本地数据验收。完整双方真人对抗、MySQL 和 PostgreSQL 实机兼容验证统一保留到 v0.7.0。
 
 当前已采集 PvE 击杀、有效伤害、承伤、友伤、救援、治疗、临时生命、章节/战役成绩、设备、控制、技巧、目标互动和失能时长。Versus 使用独立统计模型，首版已覆盖幸存者战斗/生存/救援/治疗，以及感染者出生/伤害/倒地/击杀。SourcePawn 采集器、数据库结构和未来 Go 服务的公共边界仍处于 pre-v1 阶段，可以按真实服务器验证结果调整。
 
@@ -334,7 +334,7 @@ v0.6.0 不新增迁移：三数据库 `0001_initial.sql` 已预留两张对抗�
 
 ### v0.6.2 - Infected Class Breakdown
 
-**Status:** Implementation complete; local validation pending
+**Status:** Completed (local validation scope)
 
 **Scope:** User-facing / Data model / Testing
 
@@ -352,7 +352,7 @@ v0.6.0 不新增迁移：三数据库 `0001_initial.sql` 已预留两张对抗�
 - [x] 按职业拆分真人感染者出生、伤害、倒地和击杀，并保留真人/Bot 目标口径
 - [x] 保留现有感染者总计作为可直接查询的权威快照
 - [x] 增加职业总和与总计一致性检查和 SQLite 绝对快照测试
-- [ ] 按 [v0.6.2 本地测试清单](v0.6.2-test-checklist.md) 验证真实职业行与总计一致
+- [x] 按 [v0.6.2 本地测试清单](v0.6.2-test-checklist.md) 验证真实职业行与总计一致
 
 #### Acceptance Criteria
 
@@ -368,7 +368,7 @@ v0.6.0 不新增迁移：三数据库 `0001_initial.sql` 已预留两张对抗�
 
 ### v0.6.3 - Control and Ability Effectiveness
 
-**Status:** Planned
+**Status:** Implementation complete; local validation pending
 
 **Scope:** User-facing / Correctness / Performance
 
@@ -382,10 +382,11 @@ v0.6.0 不新增迁移：三数据库 `0001_initial.sql` 已预留两张对抗�
 
 #### Tasks
 
-- [ ] 定义 Smoker、Hunter、Jockey、Charger 控制口径及重复事件去重
-- [ ] 评估 Boomer 命中人数、Spitter 有效伤害等可可靠归属指标
-- [ ] 将新增指标并入固定内存状态和周期绝对快照
-- [ ] 验证 20×20 服务器下不产生逐事件 SQL 或动态分配热点
+- [x] 定义 Smoker、Hunter、Jockey、Charger 控制口径及重复事件去重
+- [x] 记录 Boomer 胆汁命中人数和 Spitter 酸液有效伤害，并拆分真人/Bot 目标
+- [x] 将新增指标并入固定职业内存状态和周期绝对快照
+- [x] 静态验证事件热路径不产生逐事件 SQL、动态职业行或无界分配
+- [ ] 按 [v0.6.3 本地测试清单](v0.6.3-test-checklist.md) 验证控制封口与能力归属
 
 #### Acceptance Criteria
 

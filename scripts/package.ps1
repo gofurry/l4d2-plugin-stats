@@ -58,6 +58,7 @@ Copy-Item -LiteralPath (Join-Path $projectRoot "docs\v0.5.1-test-checklist.md") 
 Copy-Item -LiteralPath (Join-Path $projectRoot "docs\v0.5.2-test-checklist.md") -Destination $docsDestination -Force
 Copy-Item -LiteralPath (Join-Path $projectRoot "docs\v0.6-test-checklist.md") -Destination $docsDestination -Force
 Copy-Item -LiteralPath (Join-Path $projectRoot "docs\v0.6.2-test-checklist.md") -Destination $docsDestination -Force
+Copy-Item -LiteralPath (Join-Path $projectRoot "docs\v0.6.3-test-checklist.md") -Destination $docsDestination -Force
 
 Compress-Archive -Path (Join-Path $stagingRoot "*") -DestinationPath $archivePath -Force
 Write-Host "Release package created: $archivePath"

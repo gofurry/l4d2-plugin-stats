@@ -4,6 +4,9 @@ All notable changes to this project will be documented in this file.
 
 ## Unreleased
 
+- Record Smoker, Hunter, Jockey, and Charger control counts and durations split by human or Bot survivor targets.
+- Record Boomer bile victim counts and Spitter acid effective damage with bounded per-class absolute snapshots.
+- Preserve late Spitter acid attribution by capturing the original human owner of each acid pool.
 - Add a bounded seven-class Versus infected breakdown for spawns, damage, incapacitations, and kills split by human or Bot survivor targets.
 - Preserve the existing Versus infected totals as authoritative snapshots and validate that every class sum matches its total.
 - Add equivalent SQLite, MySQL, and PostgreSQL class tables plus inspection and integration checks.

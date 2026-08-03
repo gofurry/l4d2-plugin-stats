@@ -153,6 +153,7 @@ public void OnEntityCreated(int entity, const char[] classname)
 	LPS_OnEquipmentEntityCreated(entity, classname);
 	LPS_OnExtendedEntityCreated(entity, classname);
 	LPS_OnInteractionEntityCreated(entity);
+	LPS_OnVersusAbilityEntityCreated(entity, classname);
 
 	if (StrEqual(classname, "witch", true) || StrEqual(classname, "witch_bride", true))
 	{
@@ -170,6 +171,7 @@ public void OnEntityDestroyed(int entity)
 	LPS_OnEquipmentEntityDestroyed(entity);
 	LPS_OnExtendedEntityDestroyed(entity);
 	LPS_OnInteractionEntityDestroyed(entity);
+	LPS_OnVersusAbilityEntityDestroyed(entity);
 	g_LPSDamageHooked[entity] = false;
 	g_LPSDamageHealthCaptured[entity] = false;
 	g_LPSDamageVictimWasIncapacitated[entity] = false;

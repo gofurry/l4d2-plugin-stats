@@ -3,7 +3,7 @@
 #endif
 #define _l4d2_player_stats_definitions_included
 
-#define LPS_VERSION "0.6.2"
+#define LPS_VERSION "0.6.3"
 #define LPS_SCHEMA_VERSION 1
 #define LPS_MIGRATION_NAME "initial_schema"
 #define LPS_STATS_VERSION 1
@@ -253,6 +253,23 @@ enum LPSVersusInfectedStat
 	LPSVersusInfectedStat_HumanSurvivorKills,
 	LPSVersusInfectedStat_BotSurvivorKills,
 	LPSVersusInfectedStat_Count
+};
+
+// Fixed per-class ability metrics persisted alongside the seven-class
+// breakdown. Only the classes whose abilities match a metric populate it:
+// Smoker/Hunter/Jockey/Charger use controls, Boomer uses ability hits, and
+// Spitter uses ability damage.
+enum LPSVersusInfectedAbilityStat
+{
+	LPSVersusInfectedAbilityStat_HumanSurvivorControls = 0,
+	LPSVersusInfectedAbilityStat_BotSurvivorControls,
+	LPSVersusInfectedAbilityStat_HumanSurvivorControlSeconds,
+	LPSVersusInfectedAbilityStat_BotSurvivorControlSeconds,
+	LPSVersusInfectedAbilityStat_HumanSurvivorAbilityHits,
+	LPSVersusInfectedAbilityStat_BotSurvivorAbilityHits,
+	LPSVersusInfectedAbilityStat_HumanSurvivorAbilityDamage,
+	LPSVersusInfectedAbilityStat_BotSurvivorAbilityDamage,
+	LPSVersusInfectedAbilityStat_Count
 };
 
 // Stable bounded indexes for the seven playable infected classes. Database

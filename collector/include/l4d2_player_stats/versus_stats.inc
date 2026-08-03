@@ -49,6 +49,10 @@ enum struct LPSVersusInfectedStatsSnapshot
 		view_as<int>(LPSVersusInfectedClass_Count)
 		* view_as<int>(LPSVersusInfectedStat_Count)
 	];
+	int classAbilityStats[
+		view_as<int>(LPSVersusInfectedClass_Count)
+		* view_as<int>(LPSVersusInfectedAbilityStat_Count)
+	];
 	int revision;
 }
 
@@ -113,6 +117,8 @@ bool LPS_CanRecordVersusEvents()
 
 void LPS_OnClientVersusSegmentStarted(int client)
 {
+	LPS_OnClientVersusAbilitySegmentStarted(client);
+
 	if (!LPS_CanRecordVersusEvents() || !g_LPSClientSegmentActive[client])
 	{
 		return;
@@ -152,6 +158,10 @@ void LPS_OnClientVersusSegmentStarted(int client)
 
 void LPS_OnClientVersusSegmentEnding(int client)
 {
+	// Close both sides of a possible pin before the infected snapshot is
+	// captured. This covers death, rescue, side changes and Round shutdown.
+	LPS_OnClientVersusAbilitySegmentEnding(client);
+
 	if (g_LPSClientVersusSurvivorStatsActive[client])
 	{
 		LPSVersusSurvivorStatsSnapshot snapshot;
@@ -301,17 +311,36 @@ void LPS_RecordVersusDamage(int victim, int attacker, int inflictor, int actualD
 		return;
 	}
 
-	int infected = LPS_ResolveHumanVersusAttacker(attacker, inflictor, LPS_TEAM_INFECTED);
+	// Spit pools can outlive their Spitter. Resolve their captured owner first
+	// so late acid ticks remain attributed to the original human and class.
+	int infected = LPS_ResolveHumanVersusSpitOwner(attacker, inflictor);
+	int zombieClass = infected > 0 ? 4 : 0;
+	if (infected <= 0)
+	{
+		infected = LPS_ResolveHumanVersusAttacker(attacker, inflictor, LPS_TEAM_INFECTED);
+		zombieClass = infected > 0 ? LPS_GetZombieClass(infected) : 0;
+	}
 	if (infected > 0)
 	{
 		LPS_AddVersusInfectedStat(
 			infected,
-			LPS_GetZombieClass(infected),
+			zombieClass,
 			IsFakeClient(victim)
 				? LPSVersusInfectedStat_DamageToBotSurvivors
 				: LPSVersusInfectedStat_DamageToHumanSurvivors,
 			actualDamage
 		);
+		if (zombieClass == 4 && LPS_IsVersusSpitDamageSource(attacker, inflictor))
+		{
+			LPS_AddVersusInfectedAbilityStat(
+				infected,
+				4,
+				IsFakeClient(victim)
+					? LPSVersusInfectedAbilityStat_BotSurvivorAbilityDamage
+					: LPSVersusInfectedAbilityStat_HumanSurvivorAbilityDamage,
+				actualDamage
+			);
+		}
 	}
 
 	if (!IsFakeClient(victim)
@@ -350,6 +379,7 @@ public void LPS_Event_VersusPlayerDeathStats(Event event, const char[] name, boo
 	{
 		return;
 	}
+	LPS_OnVersusAbilityPlayerDeath(victim);
 
 	int victimTeam = GetClientTeam(victim);
 	if (victimTeam == LPS_TEAM_INFECTED)
@@ -781,6 +811,10 @@ void LPS_FillClientVersusInfectedSnapshot(
 	{
 		snapshot.classStats[index] = g_LPSClientVersusInfectedStats[client].classStats[index];
 	}
+	for (int index = 0; index < sizeof(snapshot.classAbilityStats); index++)
+	{
+		snapshot.classAbilityStats[index] = g_LPSClientVersusInfectedStats[client].classAbilityStats[index];
+	}
 	snapshot.revision = g_LPSClientVersusInfectedStats[client].revision + (closed ? 1 : 0);
 }
 
@@ -1088,6 +1122,7 @@ bool LPS_BuildVersusInfectedClassUpsertQuery(
 		classIndex++)
 	{
 		int base = classIndex * view_as<int>(LPSVersusInfectedStat_Count);
+		int abilityBase = classIndex * view_as<int>(LPSVersusInfectedAbilityStat_Count);
 		bool hasValues = false;
 		for (int statIndex = 0;
 			statIndex < view_as<int>(LPSVersusInfectedStat_Count);
@@ -1101,13 +1136,26 @@ bool LPS_BuildVersusInfectedClassUpsertQuery(
 		}
 		if (!hasValues)
 		{
+			for (int statIndex = 0;
+				statIndex < view_as<int>(LPSVersusInfectedAbilityStat_Count);
+				statIndex++)
+			{
+				if (snapshot.classAbilityStats[abilityBase + statIndex] > 0)
+				{
+					hasValues = true;
+					break;
+				}
+			}
+		}
+		if (!hasValues)
+		{
 			continue;
 		}
 
 		written += FormatEx(
 			values[written],
 			sizeof(values) - written,
-			"%s('%s', %d, %d, %d, %d, %d, %d, %d, %d, %d, %d, %d)",
+			"%s('%s', %d, %d, %d, %d, %d, %d, %d, %d, %d, %d, %d, %d, %d, %d, %d, %d, %d, %d, %d)",
 			rowCount > 0 ? ", " : "",
 			segmentId,
 			LPS_GetVersusInfectedZombieClass(classIndex),
@@ -1120,6 +1168,14 @@ bool LPS_BuildVersusInfectedClassUpsertQuery(
 			snapshot.classStats[base + view_as<int>(LPSVersusInfectedStat_BotSurvivorIncaps)],
 			snapshot.classStats[base + view_as<int>(LPSVersusInfectedStat_HumanSurvivorKills)],
 			snapshot.classStats[base + view_as<int>(LPSVersusInfectedStat_BotSurvivorKills)],
+			snapshot.classAbilityStats[abilityBase + view_as<int>(LPSVersusInfectedAbilityStat_HumanSurvivorControls)],
+			snapshot.classAbilityStats[abilityBase + view_as<int>(LPSVersusInfectedAbilityStat_BotSurvivorControls)],
+			snapshot.classAbilityStats[abilityBase + view_as<int>(LPSVersusInfectedAbilityStat_HumanSurvivorControlSeconds)],
+			snapshot.classAbilityStats[abilityBase + view_as<int>(LPSVersusInfectedAbilityStat_BotSurvivorControlSeconds)],
+			snapshot.classAbilityStats[abilityBase + view_as<int>(LPSVersusInfectedAbilityStat_HumanSurvivorAbilityHits)],
+			snapshot.classAbilityStats[abilityBase + view_as<int>(LPSVersusInfectedAbilityStat_BotSurvivorAbilityHits)],
+			snapshot.classAbilityStats[abilityBase + view_as<int>(LPSVersusInfectedAbilityStat_HumanSurvivorAbilityDamage)],
+			snapshot.classAbilityStats[abilityBase + view_as<int>(LPSVersusInfectedAbilityStat_BotSurvivorAbilityDamage)],
 			snapshot.revision
 		);
 		if (written >= sizeof(values) - 1)
@@ -1134,13 +1190,13 @@ bool LPS_BuildVersusInfectedClassUpsertQuery(
 		return true;
 	}
 
-	char columns[] = "segment_id, infected_class, stats_version, last_saved_at, spawn_count, damage_to_human_survivors, damage_to_bot_survivors, human_survivor_incaps, bot_survivor_incaps, human_survivor_kills, bot_survivor_kills, revision";
+	char columns[] = "segment_id, infected_class, stats_version, last_saved_at, spawn_count, damage_to_human_survivors, damage_to_bot_survivors, human_survivor_incaps, bot_survivor_incaps, human_survivor_kills, bot_survivor_kills, human_survivor_controls, bot_survivor_controls, human_survivor_control_seconds, bot_survivor_control_seconds, human_survivor_ability_hits, bot_survivor_ability_hits, human_survivor_ability_damage, bot_survivor_ability_damage, revision";
 	if (g_LPSDatabaseDialect == LPSDatabaseDialect_MySQL)
 	{
 		FormatEx(
 			query,
 			maxLength,
-			"INSERT INTO lps_versus_infected_class_stats (%s) VALUES %s ON DUPLICATE KEY UPDATE stats_version = VALUES(stats_version), last_saved_at = VALUES(last_saved_at), spawn_count = VALUES(spawn_count), damage_to_human_survivors = VALUES(damage_to_human_survivors), damage_to_bot_survivors = VALUES(damage_to_bot_survivors), human_survivor_incaps = VALUES(human_survivor_incaps), bot_survivor_incaps = VALUES(bot_survivor_incaps), human_survivor_kills = VALUES(human_survivor_kills), bot_survivor_kills = VALUES(bot_survivor_kills), revision = VALUES(revision)",
+			"INSERT INTO lps_versus_infected_class_stats (%s) VALUES %s ON DUPLICATE KEY UPDATE stats_version = VALUES(stats_version), last_saved_at = VALUES(last_saved_at), spawn_count = VALUES(spawn_count), damage_to_human_survivors = VALUES(damage_to_human_survivors), damage_to_bot_survivors = VALUES(damage_to_bot_survivors), human_survivor_incaps = VALUES(human_survivor_incaps), bot_survivor_incaps = VALUES(bot_survivor_incaps), human_survivor_kills = VALUES(human_survivor_kills), bot_survivor_kills = VALUES(bot_survivor_kills), human_survivor_controls = VALUES(human_survivor_controls), bot_survivor_controls = VALUES(bot_survivor_controls), human_survivor_control_seconds = VALUES(human_survivor_control_seconds), bot_survivor_control_seconds = VALUES(bot_survivor_control_seconds), human_survivor_ability_hits = VALUES(human_survivor_ability_hits), bot_survivor_ability_hits = VALUES(bot_survivor_ability_hits), human_survivor_ability_damage = VALUES(human_survivor_ability_damage), bot_survivor_ability_damage = VALUES(bot_survivor_ability_damage), revision = VALUES(revision)",
 			columns,
 			values
 		);
@@ -1150,7 +1206,7 @@ bool LPS_BuildVersusInfectedClassUpsertQuery(
 		FormatEx(
 			query,
 			maxLength,
-			"INSERT INTO lps_versus_infected_class_stats (%s) VALUES %s ON CONFLICT(segment_id, infected_class) DO UPDATE SET stats_version = excluded.stats_version, last_saved_at = excluded.last_saved_at, spawn_count = excluded.spawn_count, damage_to_human_survivors = excluded.damage_to_human_survivors, damage_to_bot_survivors = excluded.damage_to_bot_survivors, human_survivor_incaps = excluded.human_survivor_incaps, bot_survivor_incaps = excluded.bot_survivor_incaps, human_survivor_kills = excluded.human_survivor_kills, bot_survivor_kills = excluded.bot_survivor_kills, revision = excluded.revision",
+			"INSERT INTO lps_versus_infected_class_stats (%s) VALUES %s ON CONFLICT(segment_id, infected_class) DO UPDATE SET stats_version = excluded.stats_version, last_saved_at = excluded.last_saved_at, spawn_count = excluded.spawn_count, damage_to_human_survivors = excluded.damage_to_human_survivors, damage_to_bot_survivors = excluded.damage_to_bot_survivors, human_survivor_incaps = excluded.human_survivor_incaps, bot_survivor_incaps = excluded.bot_survivor_incaps, human_survivor_kills = excluded.human_survivor_kills, bot_survivor_kills = excluded.bot_survivor_kills, human_survivor_controls = excluded.human_survivor_controls, bot_survivor_controls = excluded.bot_survivor_controls, human_survivor_control_seconds = excluded.human_survivor_control_seconds, bot_survivor_control_seconds = excluded.bot_survivor_control_seconds, human_survivor_ability_hits = excluded.human_survivor_ability_hits, bot_survivor_ability_hits = excluded.bot_survivor_ability_hits, human_survivor_ability_damage = excluded.human_survivor_ability_damage, bot_survivor_ability_damage = excluded.bot_survivor_ability_damage, revision = excluded.revision",
 			columns,
 			values
 		);
@@ -1288,6 +1344,10 @@ void LPS_ResetClientVersusStatsState(int client)
 	for (int index = 0; index < sizeof(g_LPSClientVersusInfectedStats[].classStats); index++)
 	{
 		g_LPSClientVersusInfectedStats[client].classStats[index] = 0;
+	}
+	for (int index = 0; index < sizeof(g_LPSClientVersusInfectedStats[].classAbilityStats); index++)
+	{
+		g_LPSClientVersusInfectedStats[client].classAbilityStats[index] = 0;
 	}
 	g_LPSClientVersusInfectedStats[client].revision = 0;
 }

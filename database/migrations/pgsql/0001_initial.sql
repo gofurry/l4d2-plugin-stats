@@ -245,6 +245,14 @@ CREATE TABLE IF NOT EXISTS lps_versus_infected_class_stats (
   bot_survivor_incaps BIGINT NOT NULL DEFAULT 0,
   human_survivor_kills BIGINT NOT NULL DEFAULT 0,
   bot_survivor_kills BIGINT NOT NULL DEFAULT 0,
+  human_survivor_controls BIGINT NOT NULL DEFAULT 0,
+  bot_survivor_controls BIGINT NOT NULL DEFAULT 0,
+  human_survivor_control_seconds BIGINT NOT NULL DEFAULT 0,
+  bot_survivor_control_seconds BIGINT NOT NULL DEFAULT 0,
+  human_survivor_ability_hits BIGINT NOT NULL DEFAULT 0,
+  bot_survivor_ability_hits BIGINT NOT NULL DEFAULT 0,
+  human_survivor_ability_damage BIGINT NOT NULL DEFAULT 0,
+  bot_survivor_ability_damage BIGINT NOT NULL DEFAULT 0,
   revision BIGINT NOT NULL DEFAULT 0,
   PRIMARY KEY (segment_id, infected_class)
 );

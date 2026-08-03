@@ -281,18 +281,25 @@ Smoker、Boomer、Hunter、Spitter、Jockey、Charger、Tank 使用固定职业 
 职业明细。正常数据中，每一项职业明细之和必须严格等于对应总计；检查工具将不一致
 视为数据健康错误。Bot 感染者仍不拥有个人 Segment 或职业统计。
 
-### 7.3 后续字段
+### 7.3 控制与能力效果
 
-以下指标明确推迟，不属于第一阶段数据库兼容验收条件：
+Smoker、Hunter、Jockey 和 Charger 分别保存对真人/Bot 幸存者成功控制的次数与控制
+秒数。控制从对应成功事件开始，持续到释放、获救、受害者或控制者死亡、换队、Segment
+结束或 Round 结束。Charger 的搬运转入捶打属于同一次控制，不重复计数。重复开始或结束
+事件必须幂等。
 
-- Hunter扑击距离；
-- Smoker控制时间；
-- Jockey骑乘距离；
-- Charger冲锋距离；
-- Boomer喷中人数；
-- Spitter酸液伤害；
+Boomer 使用 `player_now_it.by_boomer` 记录实际被胆汁命中的真人/Bot 幸存者人数；普通
+胆汁罐不归给 Boomer。Spitter 只记录 `insect_swarm` 对真人/Bot 幸存者造成的有效生命
+损失，酸液池在 Spitter 死亡后仍归给原所有者。抓、骑、撞击、喷吐和酸液事件只更新
+固定内存快照，不直接访问数据库。
+
+以下指标继续延期：
+
+- Hunter 扑击距离；
+- Jockey 骑乘距离；
+- Charger 冲锋距离；
 - 控制链；
-- Skeet、Level和Deadstop等技术动作。
+- Skeet、Level 和 Deadstop 等技术动作。
 
 ## 8. 对抗比赛结果
 
