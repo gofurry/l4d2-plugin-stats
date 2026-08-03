@@ -2,7 +2,7 @@
 
 一个面向《求生之路 2》服务器的玩家身份、会话和玩法统计系统。
 
-项目采用 monorepo。当前实现为 v0.5.3 PvE 统计采集器：在真人身份、Session、Run、Round 和 Segment 生命周期之上，已接入 `coop` 与 `realism` 的战斗、救援、治疗、章节成绩、设备明细、控制/解救、技巧、目标互动和状态时长统计。插件稳定后再开发 Go 后端及其内嵌前端。
+项目采用 monorepo。当前实现为 v0.6.0 统计采集器：在真人身份、Session、Run、Round 和 Segment 生命周期之上，已接入 `coop`、`realism` 的完整 PvE 统计，以及第一阶段独立的 `versus` 幸存者/感染者统计。插件稳定后再开发 Go 后端及其内嵌前端。
 
 ## 当前状态
 
@@ -37,8 +37,12 @@
 - 记录燃烧与高爆弹药升级包部署，不记录激光瞄准器；
 - 记录成功目标互动、从弹药堆补充弹药、倒地/挂边累计时间和把黑白队友治疗回彩色；
 - PvE 统计使用绝对快照与有界关闭队列，不为 Bot 建立个人统计。
+- 对抗幸存者侧拆分真人/Bot 特感与 Tank 的击杀和有效伤害；
+- 对抗幸存者侧记录普通感染者击杀、感染者承伤、真人/Bot 友伤、生存、救援、治疗和临时生命；
+- 对抗感染者侧记录有效出生、对真人/Bot 幸存者的伤害、倒地和击杀；
+- 对抗幸存者与感染者使用不同数据库表、绝对快照和有界关闭队列，不能进入 PvE 聚合。
 
-v0.5.3 **尚不采集 Versus 玩法统计**；设备类别和总计将在未来 Go 查询侧从精确设备行聚合。
+v0.6.0 的实现与离线数据库验证已经完成；完整的双方真人、换队、Tank 交接、重连和半场重开仍需在真实多人服务器验收。第一阶段不推算稳定队伍、推进分、胜负或 MVP；设备类别和总计将在未来 Go 查询侧从精确设备行聚合。
 
 已经确认的基础边界：
 
@@ -85,7 +89,7 @@ VS Code 可以直接执行 `L4D2 Stats: Build` 或 `L4D2 Stats: Build and Deploy
 
 数据库、ConVar 和 SQLite 首次验证步骤见[数据库地基部署](docs/database-foundation.md)。数据库密码只应存在于服务器自己的 `addons/sourcemod/configs/databases.cfg`，不得提交到仓库。
 
-v0.3 的生命周期验收见 [Run / Round / Segment 测试清单](docs/v0.3-test-checklist.md)，v0.4 的战斗统计验收见 [PvE 核心统计测试清单](docs/v0.4-test-checklist.md)，v0.5 的治疗与章节统计验收见 [PvE 治疗与章节测试清单](docs/v0.5-test-checklist.md)，v0.5.1 的扩展统计验收见 [PvE 扩展统计测试清单](docs/v0.5.1-test-checklist.md)，v0.5.2 的互动与状态验收见 [PvE 互动与状态测试清单](docs/v0.5.2-test-checklist.md)。
+v0.3 的生命周期验收见 [Run / Round / Segment 测试清单](docs/v0.3-test-checklist.md)，v0.4 的战斗统计验收见 [PvE 核心统计测试清单](docs/v0.4-test-checklist.md)，v0.5 的治疗与章节统计验收见 [PvE 治疗与章节测试清单](docs/v0.5-test-checklist.md)，v0.5.1 的扩展统计验收见 [PvE 扩展统计测试清单](docs/v0.5.1-test-checklist.md)，v0.5.2 的互动与状态验收见 [PvE 互动与状态测试清单](docs/v0.5.2-test-checklist.md)，v0.6 的真实服务器验收见 [Versus 核心统计测试清单](docs/v0.6-test-checklist.md)。
 
 管理员命令：
 

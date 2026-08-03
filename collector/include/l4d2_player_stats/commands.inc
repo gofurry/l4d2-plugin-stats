@@ -95,6 +95,21 @@ public Action LPS_Command_Status(int client, int args)
 		LPS_GetPendingClosedEquipmentStatsCount(),
 		g_LPSClosedEquipmentQueueLimit.IntValue
 	);
+	ReplyToCommand(
+		client,
+		"[LPS] versus_stats_enabled=%d active_versus_survivor=%d active_versus_infected=%d",
+		g_LPSVersusStatsEnabled.BoolValue,
+		LPS_GetActiveVersusSurvivorStatsCount(),
+		LPS_GetActiveVersusInfectedStatsCount()
+	);
+	ReplyToCommand(
+		client,
+		"[LPS] pending_closed_versus_survivor=%d/%d pending_closed_versus_infected=%d/%d",
+		LPS_GetPendingClosedVersusSurvivorStatsCount(),
+		g_LPSClosedLifecycleQueueLimit.IntValue,
+		LPS_GetPendingClosedVersusInfectedStatsCount(),
+		g_LPSClosedLifecycleQueueLimit.IntValue
+	);
 
 	if (g_LPSLastDatabaseError[0] != '\0')
 	{

@@ -2,9 +2,9 @@
 
 ## Current Position
 
-项目已经完成数据库地基、真人身份/Session、Run/Round/Segment 生命周期，以及 v0.4.0～v0.5.2 PvE 统计的本地验收。v0.5.3 正在修复胆汁罐投掷事件缺失；SQLite 已在真实 L4D2/SourceMod 环境中进入 `ready`。完整多人对抗、MySQL 和 PostgreSQL 实机兼容验证保留到 v0.7.0。
+项目已经完成数据库地基、真人身份/Session、Run/Round/Segment 生命周期，以及 v0.4.0～v0.5.3 PvE 统计的本地验收。v0.6.0 对抗核心统计已经实现并通过编译、SQLite 集成与结构检查；完整双方真人对抗、MySQL 和 PostgreSQL 实机兼容验证仍保留到真实服务器阶段。
 
-当前已采集 PvE 击杀、有效伤害、承伤、友伤、救援、治疗、临时生命、章节/战役成绩、设备、控制、技巧、目标互动和失能时长。v0.5.x 只剩胆汁罐回归测试；Versus 仍使用后续独立统计模型。SourcePawn 采集器、数据库结构和未来 Go 服务的公共边界仍处于 pre-v1 阶段，可以按验证结果调整。
+当前已采集 PvE 击杀、有效伤害、承伤、友伤、救援、治疗、临时生命、章节/战役成绩、设备、控制、技巧、目标互动和失能时长。Versus 使用独立统计模型，首版已覆盖幸存者战斗/生存/救援/治疗，以及感染者出生/伤害/倒地/击杀。SourcePawn 采集器、数据库结构和未来 Go 服务的公共边界仍处于 pre-v1 阶段，可以按真实服务器验证结果调整。
 
 ## Roadmap Strategy
 
@@ -245,7 +245,7 @@
 
 ### v0.5.3 - Vomit Jar Action Reliability
 
-**Status:** Implementation complete; local regression validation pending
+**Status:** Completed (local validation scope)
 
 **Scope:** Correctness / Testing
 
@@ -256,7 +256,7 @@
 - [x] 从 `vomitjar_projectile` 的真人投掷者记录一次 `Vomit Jar actions`
 - [x] 胆汁罐不再进入原有 `weapon_fire` 动作路径，避免重复计数
 - [x] 保持数据库结构和既有 v0.5.2 数据兼容
-- [ ] 在真实本地 PvE 对局投掷胆汁罐并确认只增加一次
+- [x] 在真实本地 PvE 对局投掷多个胆汁罐并确认每次只增加一次
 
 #### Acceptance Criteria
 
@@ -268,7 +268,7 @@
 
 ### v0.6.0 - Versus Statistics
 
-**Status:** Planned
+**Status:** Implementation complete; real-server validation pending
 
 **Scope:** User-facing / Architecture / Testing
 
@@ -276,16 +276,168 @@
 
 #### Tasks
 
-- [ ] 拆分真人/Bot 特感和 Tank 击杀与伤害
-- [ ] 复用但隔离对抗幸存者生存、救援和治疗统计
-- [ ] 采集感染者出生、伤害、倒地和击杀
-- [ ] 完成半场切换、换队和中途加入测试
+- [x] 拆分真人/Bot 特感和 Tank 击杀与有效伤害
+- [x] 在独立表中采集对抗幸存者普通感染者击杀、感染者承伤和真人/Bot 友伤
+- [x] 复用但隔离对抗幸存者倒地、死亡、救援、治疗和临时生命统计
+- [x] 采集真人感染者有效出生，以及对真人/Bot 幸存者的伤害、倒地和击杀
+- [x] 接入绝对快照、统一异步刷新事务、有界关闭队列和管理员状态诊断
+- [x] 扩展 SQLite 集成测试与数据库检查工具
+- [ ] 在真实多人服务器完成双方真人、半场切换、换队、Tank 交接、重连和中途加入测试
 
 #### Acceptance Criteria
 
 - Versus 数据不会进入 PvE 排行或聚合
 - 幸存者和感染者统计写入不同表
 - 第一阶段不推算稳定队伍、推进分、胜负或 MVP
+
+#### Notes
+
+v0.6.0 不新增迁移：三数据库 `0001_initial.sql` 已预留两张对抗统计表。当前完成的是代码、编译和离线数据库验收；单人本地对抗无法覆盖双方真人时序，必须按照 [v0.6.0 真实服务器测试清单](v0.6-test-checklist.md) 在综合服务器灰度验证。
+
+---
+
+### v0.6.1 - Versus Production Stabilization
+
+**Status:** Planned
+
+**Scope:** Stability / Correctness / Testing
+
+**Goal:** 根据真实服务器首轮数据修正时序、归属和生命周期问题，不扩张统计口径。
+
+#### Focus
+
+- 双方真人完整半场
+- 换队、闲置、旁观、重连与中途加入
+- Tank 控制权交接与半场重开
+
+#### Tasks
+
+- [ ] 在 3～7 天灰度期收集数据库检查结果和 SourceMod 错误日志
+- [ ] 核对每个对抗 Segment 的阵营、Round、Session 和统计表唯一归属
+- [ ] 修复真人/Bot 归属、重复出生、跨 Segment 污染和生命周期时序问题
+- [ ] 完成 v0.6.0 测试清单中的全部真实服务器项目
+
+#### Acceptance Criteria
+
+- 数据库健康检查的 orphan、side mismatch、mode mismatch 和 dual stats 全部为 0
+- 换队、重连和 Tank 交接不会把统计写给错误 SteamID 或 Segment
+- 两个完整半场和半场重开均能生成可解释、可重复核对的数据
+
+---
+
+### v0.6.2 - Infected Class Breakdown
+
+**Status:** Planned
+
+**Scope:** User-facing / Data model / Testing
+
+**Goal:** 在核心归属稳定后补充对抗感染者职业明细。
+
+#### Focus
+
+- Smoker、Boomer、Hunter、Spitter、Jockey、Charger、Tank
+- 职业出生、伤害、倒地和击杀
+- 固定白名单与有界表结构
+
+#### Tasks
+
+- [ ] 设计固定职业字段或子表契约并评估三数据库迁移
+- [ ] 按职业拆分真人感染者出生、伤害、倒地和击杀
+- [ ] 保留现有感染者总计作为可直接查询的权威快照
+- [ ] 增加职业总和与总计一致性检查
+
+#### Acceptance Criteria
+
+- 未知职业不会创建动态列或无限增长的名称维度
+- 职业明细能够无歧义聚合回现有感染者总计
+- 不记录 Bot 自己的个人统计
+
+---
+
+### v0.6.3 - Control and Ability Effectiveness
+
+**Status:** Planned
+
+**Scope:** User-facing / Correctness / Performance
+
+**Goal:** 记录对抗特感控制和关键技能效果，而不保存逐事件流水。
+
+#### Focus
+
+- 控制成功次数和持续时间
+- 可可靠归属的技能命中/效果
+- 低频绝对快照
+
+#### Tasks
+
+- [ ] 定义 Smoker、Hunter、Jockey、Charger 控制口径及重复事件去重
+- [ ] 评估 Boomer 命中人数、Spitter 有效伤害等可可靠归属指标
+- [ ] 将新增指标并入固定内存状态和周期绝对快照
+- [ ] 验证 20×20 服务器下不产生逐事件 SQL 或动态分配热点
+
+#### Acceptance Criteria
+
+- 每项能力指标都有明确所有者、开始、结束和排除条件
+- 救援、死亡、换队和 Round 结束能正确封口控制时长
+- 高频伤害事件仍只修改内存，不直接访问数据库
+
+---
+
+### v0.6.4 - Versus Survivor Combat Detail
+
+**Status:** Planned
+
+**Scope:** User-facing / Data model / Testing
+
+**Goal:** 在不复制 PvE 模型的前提下补充对抗幸存者有价值的战斗明细。
+
+#### Focus
+
+- 特感职业击杀与伤害
+- 对抗设备使用边界
+- 与感染者职业明细的交叉校验
+
+#### Tasks
+
+- [ ] 按职业拆分幸存者对真人/Bot 特感的击杀与有效伤害
+- [ ] 评估官方投掷物、弹药升级包及关键技巧是否适合进入对抗模型
+- [ ] 保留现有幸存者总计并增加明细合计一致性检查
+- [ ] 明确不采集的枪械命中率、逐发命中、弹药和换弹指标
+
+#### Acceptance Criteria
+
+- 幸存者职业明细可无歧义聚合回现有真人/Bot 总计
+- PvE 与 Versus 设备数据仍由表和查询边界彻底隔离
+- 新增统计不会导致事件级 SQL 或不受控维度增长
+
+---
+
+### v0.6.5 - Versus Contract Freeze
+
+**Status:** Planned
+
+**Scope:** Architecture / Stability / Documentation
+
+**Goal:** 冻结 Go 查询侧开始前的第一版对抗统计契约。
+
+#### Focus
+
+- 字段语义与兼容性
+- 三数据库迁移
+- 读取侧聚合边界
+
+#### Tasks
+
+- [ ] 审核 v0.6.x 每个字段的所有者、单位、归属、排除和 Bot 语义
+- [ ] 完成 SQLite/MySQL/PostgreSQL 等价迁移与回归查询
+- [ ] 更新统计契约、数据库结构、运维和查询示例
+- [ ] 明确推进分、稳定队伍、最终胜负和 MVP 继续延期
+
+#### Acceptance Criteria
+
+- Go 读取侧无需猜测字段语义或重新推断真人/Bot 归属
+- 三种数据库对同一绝对快照产生等价结果
+- v0.6.x 之后对已发布字段的破坏性修改必须通过新迁移处理
 
 ---
 

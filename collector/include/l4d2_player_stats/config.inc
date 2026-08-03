@@ -14,6 +14,7 @@ ConVar g_LPSLogSuppressionWindow;
 ConVar g_LPSClosedSessionQueueLimit;
 ConVar g_LPSClosedLifecycleQueueLimit;
 ConVar g_LPSClosedEquipmentQueueLimit;
+ConVar g_LPSVersusStatsEnabled;
 
 void LPS_CreateConfig()
 {
@@ -121,6 +122,17 @@ void LPS_CreateConfig()
 		128.0,
 		true,
 		65536.0
+	);
+
+	g_LPSVersusStatsEnabled = CreateConVar(
+		"sm_lps_versus_stats_enabled",
+		"1",
+		"Collect Versus survivor and infected gameplay statistics. Takes effect for new Segments.",
+		FCVAR_NONE,
+		true,
+		0.0,
+		true,
+		1.0
 	);
 }
 

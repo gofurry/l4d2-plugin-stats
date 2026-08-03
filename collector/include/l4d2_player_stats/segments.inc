@@ -399,6 +399,7 @@ void LPS_ResetClientSegmentState(int client)
 	g_LPSClientSegmentCurrentRevision[client] = 0;
 	g_LPSClientSegmentPersistedRevision[client] = 0;
 	LPS_ResetClientPvEStatsState(client);
+	LPS_ResetClientVersusStatsState(client);
 }
 
 int LPS_GetActiveSegmentCount()

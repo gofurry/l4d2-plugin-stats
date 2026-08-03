@@ -57,11 +57,12 @@ sm_lps_log_suppression_window "300"
 sm_lps_closed_session_queue_limit "256"
 sm_lps_closed_lifecycle_queue_limit "512"
 sm_lps_closed_equipment_queue_limit "4096"
+sm_lps_versus_stats_enabled "1"
 ```
 
-`server_name` 留空时使用游戏服务器的 `hostname`。
+`server_name` 留空时使用游戏服务器的 `hostname`。`sm_lps_versus_stats_enabled` 只控制对抗幸存者/感染者玩法统计；身份、Session 和生命周期仍按支持模式契约工作。修改该开关后以新 Segment 为边界生效。
 
-v0.1.0 修改连接、驱动、启用状态或 `server_key` 后需要重载插件，或者在配置有效时执行 `sm_lps_reconnect`；运行时热更新 ConVar 会在后续版本统一处理。
+修改连接、驱动、总启用状态或 `server_key` 后需要重载插件，或者在配置有效时执行 `sm_lps_reconnect`。
 
 ## 4. SQLite 首次验证
 

@@ -558,6 +558,7 @@ void LPS_RequestFlush()
 	if (!LPS_AddLifecycleFlushQueries(transaction, queryCount, lifecycleError, sizeof(lifecycleError))
 		|| !LPS_AddSegmentFlushQueries(transaction, queryCount, lifecycleError, sizeof(lifecycleError))
 		|| !LPS_AddPvEStatsFlushQueries(transaction, queryCount, lifecycleError, sizeof(lifecycleError))
+		|| !LPS_AddVersusStatsFlushQueries(transaction, queryCount, lifecycleError, sizeof(lifecycleError))
 		|| !LPS_AddEquipmentStatsFlushQueries(transaction, queryCount, lifecycleError, sizeof(lifecycleError)))
 	{
 		delete transaction;
@@ -595,6 +596,7 @@ public void LPS_OnFlushSucceeded(
 	LPS_OnLifecycleFlushSucceeded();
 	LPS_OnSegmentFlushSucceeded();
 	LPS_OnPvEStatsFlushSucceeded();
+	LPS_OnVersusStatsFlushSucceeded();
 	LPS_OnEquipmentStatsFlushSucceeded();
 
 	if (g_LPSHeartbeatQueued)

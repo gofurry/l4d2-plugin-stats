@@ -47,6 +47,12 @@ def main() -> None:
         equipment_stats = database.execute(
             "SELECT COUNT(*) FROM lps_pve_segment_equipment_stats"
         ).fetchone()[0]
+        versus_survivor_stats = database.execute(
+            "SELECT COUNT(*) FROM lps_versus_survivor_stats"
+        ).fetchone()[0]
+        versus_infected_stats = database.execute(
+            "SELECT COUNT(*) FROM lps_versus_infected_stats"
+        ).fetchone()[0]
 
         integrity = database.execute("PRAGMA integrity_check").fetchone()[0]
         orphan_rounds = database.execute(
@@ -73,6 +79,16 @@ def main() -> None:
         orphan_equipment_stats = database.execute(
             "SELECT COUNT(*) FROM lps_pve_segment_equipment_stats e "
             "LEFT JOIN lps_player_segments g ON g.segment_id = e.segment_id "
+            "WHERE g.segment_id IS NULL"
+        ).fetchone()[0]
+        orphan_versus_survivor_stats = database.execute(
+            "SELECT COUNT(*) FROM lps_versus_survivor_stats v "
+            "LEFT JOIN lps_player_segments g ON g.segment_id = v.segment_id "
+            "WHERE g.segment_id IS NULL"
+        ).fetchone()[0]
+        orphan_versus_infected_stats = database.execute(
+            "SELECT COUNT(*) FROM lps_versus_infected_stats v "
+            "LEFT JOIN lps_player_segments g ON g.segment_id = v.segment_id "
             "WHERE g.segment_id IS NULL"
         ).fetchone()[0]
         invalid_pve_stats = database.execute(
@@ -125,6 +141,49 @@ def main() -> None:
             "OR damage_to_special < 0 OR damage_to_tank < 0 "
             "OR damage_to_witch < 0 OR revision < 0"
         ).fetchone()[0]
+        invalid_versus_survivor_stats = database.execute(
+            "SELECT COUNT(*) FROM lps_versus_survivor_stats "
+            "WHERE stats_version <> 1 OR min(common_kills, human_special_kills, "
+            "bot_special_kills, human_tank_kills, bot_tank_kills, "
+            "damage_to_human_special, damage_to_bot_special, "
+            "damage_to_human_tank, damage_to_bot_tank, damage_taken_infected, "
+            "friendly_fire_to_humans, friendly_fire_to_bots, "
+            "friendly_fire_taken, incapacitations, deaths, incap_revives, "
+            "ledge_rescues, defib_revives, rescues_received, medkits_used_self, "
+            "medkits_used_on_others, medkit_healing_self, medkit_healing_others, "
+            "pills_used, adrenaline_used, temporary_health_received, revision) < 0"
+        ).fetchone()[0]
+        invalid_versus_infected_stats = database.execute(
+            "SELECT COUNT(*) FROM lps_versus_infected_stats "
+            "WHERE stats_version <> 1 OR min(spawn_count, "
+            "damage_to_human_survivors, damage_to_bot_survivors, "
+            "human_survivor_incaps, bot_survivor_incaps, "
+            "human_survivor_kills, bot_survivor_kills, revision) < 0"
+        ).fetchone()[0]
+        versus_side_mismatches = database.execute(
+            "SELECT COUNT(*) FROM ("
+            "SELECT v.segment_id FROM lps_versus_survivor_stats v "
+            "JOIN lps_player_segments g ON g.segment_id = v.segment_id "
+            "WHERE g.side <> 'survivor' UNION ALL "
+            "SELECT v.segment_id FROM lps_versus_infected_stats v "
+            "JOIN lps_player_segments g ON g.segment_id = v.segment_id "
+            "WHERE g.side <> 'infected')"
+        ).fetchone()[0]
+        versus_mode_mismatches = database.execute(
+            "SELECT COUNT(*) FROM ("
+            "SELECT v.segment_id FROM lps_versus_survivor_stats v "
+            "JOIN lps_player_segments g ON g.segment_id = v.segment_id "
+            "JOIN lps_runs u ON u.run_id = g.run_id "
+            "WHERE u.mode_family <> 'versus' UNION ALL "
+            "SELECT v.segment_id FROM lps_versus_infected_stats v "
+            "JOIN lps_player_segments g ON g.segment_id = v.segment_id "
+            "JOIN lps_runs u ON u.run_id = g.run_id "
+            "WHERE u.mode_family <> 'versus')"
+        ).fetchone()[0]
+        dual_versus_stats = database.execute(
+            "SELECT COUNT(*) FROM lps_versus_survivor_stats s "
+            "JOIN lps_versus_infected_stats i ON i.segment_id = s.segment_id"
+        ).fetchone()[0]
         invalid_times = sum(
             database.execute(query).fetchone()[0]
             for query in (
@@ -154,7 +213,9 @@ def main() -> None:
         print(
             f"schema_version={schema} players={players} sessions={sessions} "
             f"runs={runs} rounds={rounds} segments={segments} pve_stats={pve_stats} "
-            f"equipment_stats={equipment_stats}"
+            f"equipment_stats={equipment_stats} "
+            f"versus_survivor_stats={versus_survivor_stats} "
+            f"versus_infected_stats={versus_infected_stats}"
         )
         print(
             f"health integrity={integrity} orphan_rounds={orphan_rounds} "
@@ -162,8 +223,15 @@ def main() -> None:
             f"segment_run_mismatches={segment_run_mismatches} "
             f"orphan_pve_stats={orphan_pve_stats} "
             f"orphan_equipment_stats={orphan_equipment_stats} "
+            f"orphan_versus_survivor_stats={orphan_versus_survivor_stats} "
+            f"orphan_versus_infected_stats={orphan_versus_infected_stats} "
             f"invalid_pve_stats={invalid_pve_stats} "
             f"invalid_equipment_stats={invalid_equipment_stats} "
+            f"invalid_versus_survivor_stats={invalid_versus_survivor_stats} "
+            f"invalid_versus_infected_stats={invalid_versus_infected_stats} "
+            f"versus_side_mismatches={versus_side_mismatches} "
+            f"versus_mode_mismatches={versus_mode_mismatches} "
+            f"dual_versus_stats={dual_versus_stats} "
             f"invalid_times={invalid_times} active_records={active_records}"
         )
         print("recent_sessions (IP intentionally omitted):")
@@ -302,6 +370,62 @@ def main() -> None:
                 f"tank={row[6]} witch={row[7]} headshot={row[8]} "
                 f"damage_si={row[9]} damage_tank={row[10]} "
                 f"damage_witch={row[11]} revision={row[12]}"
+            )
+
+        print("recent_versus_survivor_stats:")
+        rows = database.execute(
+            "SELECT r.map_name, r.half_no, v.common_kills, "
+            "v.human_special_kills, v.bot_special_kills, "
+            "v.human_tank_kills, v.bot_tank_kills, "
+            "v.damage_to_human_special, v.damage_to_bot_special, "
+            "v.damage_to_human_tank, v.damage_to_bot_tank, "
+            "v.damage_taken_infected, v.friendly_fire_to_humans, "
+            "v.friendly_fire_to_bots, v.friendly_fire_taken, "
+            "v.incapacitations, v.deaths, v.incap_revives, v.ledge_rescues, "
+            "v.defib_revives, v.rescues_received, v.medkits_used_self, "
+            "v.medkits_used_on_others, v.medkit_healing_self, "
+            "v.medkit_healing_others, v.pills_used, v.adrenaline_used, "
+            "v.temporary_health_received, v.revision "
+            "FROM lps_versus_survivor_stats v "
+            "JOIN lps_player_segments g ON g.segment_id = v.segment_id "
+            "JOIN lps_rounds r ON r.round_id = g.round_id "
+            "ORDER BY v.last_saved_at DESC LIMIT 20"
+        ).fetchall()
+        for row in rows:
+            print(
+                "  "
+                f"map={row[0]!r} half={row[1]} common={row[2]} "
+                f"special_human={row[3]} special_bot={row[4]} "
+                f"tank_human={row[5]} tank_bot={row[6]} "
+                f"damage_special_human={row[7]} damage_special_bot={row[8]} "
+                f"damage_tank_human={row[9]} damage_tank_bot={row[10]} "
+                f"damage_taken={row[11]} ff_human={row[12]} ff_bot={row[13]} "
+                f"ff_taken={row[14]} incaps={row[15]} deaths={row[16]} "
+                f"revives={row[17]} ledge={row[18]} defib={row[19]} "
+                f"rescues_received={row[20]} medkits_self={row[21]} "
+                f"medkits_others={row[22]} heal_self={row[23]} "
+                f"heal_others={row[24]} pills={row[25]} adrenaline={row[26]} "
+                f"temp_health={row[27]} revision={row[28]}"
+            )
+
+        print("recent_versus_infected_stats:")
+        rows = database.execute(
+            "SELECT r.map_name, r.half_no, v.spawn_count, "
+            "v.damage_to_human_survivors, v.damage_to_bot_survivors, "
+            "v.human_survivor_incaps, v.bot_survivor_incaps, "
+            "v.human_survivor_kills, v.bot_survivor_kills, v.revision "
+            "FROM lps_versus_infected_stats v "
+            "JOIN lps_player_segments g ON g.segment_id = v.segment_id "
+            "JOIN lps_rounds r ON r.round_id = g.round_id "
+            "ORDER BY v.last_saved_at DESC LIMIT 20"
+        ).fetchall()
+        for row in rows:
+            print(
+                "  "
+                f"map={row[0]!r} half={row[1]} spawns={row[2]} "
+                f"damage_human={row[3]} damage_bot={row[4]} "
+                f"incaps_human={row[5]} incaps_bot={row[6]} "
+                f"kills_human={row[7]} kills_bot={row[8]} revision={row[9]}"
             )
     finally:
         database.close()

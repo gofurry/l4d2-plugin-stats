@@ -3,7 +3,7 @@
 #endif
 #define _l4d2_player_stats_definitions_included
 
-#define LPS_VERSION "0.5.3"
+#define LPS_VERSION "0.6.0"
 #define LPS_SCHEMA_VERSION 1
 #define LPS_MIGRATION_NAME "initial_schema"
 #define LPS_STATS_VERSION 1
@@ -211,4 +211,45 @@ enum LPSControlType
 	LPSControlType_Hunter,
 	LPSControlType_Jockey,
 	LPSControlType_Charger
+};
+
+enum LPSVersusSurvivorStat
+{
+	LPSVersusSurvivorStat_CommonKills = 0,
+	LPSVersusSurvivorStat_HumanSpecialKills,
+	LPSVersusSurvivorStat_BotSpecialKills,
+	LPSVersusSurvivorStat_HumanTankKills,
+	LPSVersusSurvivorStat_BotTankKills,
+	LPSVersusSurvivorStat_DamageToHumanSpecial,
+	LPSVersusSurvivorStat_DamageToBotSpecial,
+	LPSVersusSurvivorStat_DamageToHumanTank,
+	LPSVersusSurvivorStat_DamageToBotTank,
+	LPSVersusSurvivorStat_DamageTakenInfected,
+	LPSVersusSurvivorStat_FriendlyFireToHumans,
+	LPSVersusSurvivorStat_FriendlyFireToBots,
+	LPSVersusSurvivorStat_FriendlyFireTaken,
+	LPSVersusSurvivorStat_Incapacitations,
+	LPSVersusSurvivorStat_Deaths,
+	LPSVersusSurvivorStat_IncapRevives,
+	LPSVersusSurvivorStat_LedgeRescues,
+	LPSVersusSurvivorStat_DefibRevives,
+	LPSVersusSurvivorStat_RescuesReceived,
+	LPSVersusSurvivorStat_MedkitsUsedSelf,
+	LPSVersusSurvivorStat_MedkitsUsedOnOthers,
+	LPSVersusSurvivorStat_MedkitHealingSelf,
+	LPSVersusSurvivorStat_MedkitHealingOthers,
+	LPSVersusSurvivorStat_PillsUsed,
+	LPSVersusSurvivorStat_AdrenalineUsed,
+	LPSVersusSurvivorStat_TemporaryHealthReceived
+};
+
+enum LPSVersusInfectedStat
+{
+	LPSVersusInfectedStat_SpawnCount = 0,
+	LPSVersusInfectedStat_DamageToHumanSurvivors,
+	LPSVersusInfectedStat_DamageToBotSurvivors,
+	LPSVersusInfectedStat_HumanSurvivorIncaps,
+	LPSVersusInfectedStat_BotSurvivorIncaps,
+	LPSVersusInfectedStat_HumanSurvivorKills,
+	LPSVersusInfectedStat_BotSurvivorKills
 };

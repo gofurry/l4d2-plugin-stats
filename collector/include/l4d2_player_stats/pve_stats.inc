@@ -194,12 +194,17 @@ public Action OnPlayerRunCmd(
 	int mouse[2]
 )
 {
-	if (client >= 1
-		&& client <= MaxClients
-		&& IsClientInGame(client)
-		&& GetClientTeam(client) == LPS_TEAM_SURVIVOR)
+	if (client >= 1 && client <= MaxClients && IsClientInGame(client))
 	{
-		g_LPSClientEffectiveHealthBeforeCommand[client] = LPS_GetTrackedEffectiveHealth(client);
+		int team = GetClientTeam(client);
+		if (team == LPS_TEAM_SURVIVOR)
+		{
+			g_LPSClientEffectiveHealthBeforeCommand[client] = LPS_GetTrackedEffectiveHealth(client);
+		}
+		else if (team == LPS_TEAM_INFECTED)
+		{
+			LPS_RecordVersusSpawnIfReady(client);
+		}
 	}
 	return Plugin_Continue;
 }
@@ -254,7 +259,7 @@ public Action LPS_OnTakeDamageAlivePre(
 	int &damageType
 )
 {
-	if (!LPS_CanCapturePvEDamage(victim, damage))
+	if (!LPS_CanCaptureStatsDamage(victim, damage))
 	{
 		return Plugin_Continue;
 	}
@@ -292,7 +297,7 @@ public void LPS_OnTakeDamageAlivePost(
 	g_LPSDamageVictimWasIncapacitated[victim] = false;
 	g_LPSDamageHealthBefore[victim] = 0.0;
 
-	if (!LPS_CanCapturePvEDamage(victim, damage)
+	if (!LPS_CanCaptureStatsDamage(victim, damage)
 		|| LPS_IsExcludedCombatDamage(damageType)
 		|| attacker == victim)
 	{
@@ -323,7 +328,14 @@ public void LPS_OnTakeDamageAlivePost(
 		return;
 	}
 
-	LPS_RecordPvEDamage(victim, attacker, inflictor, actualDamage);
+	if (g_LPSModeFamily == LPSModeFamily_PvE)
+	{
+		LPS_RecordPvEDamage(victim, attacker, inflictor, actualDamage);
+	}
+	else if (g_LPSModeFamily == LPSModeFamily_Versus)
+	{
+		LPS_RecordVersusDamage(victim, attacker, inflictor, actualDamage);
+	}
 }
 
 bool LPS_IsSurvivorIncapacitated(int client)
@@ -336,9 +348,12 @@ bool LPS_IsSurvivorIncapacitated(int client)
 		&& GetEntProp(client, Prop_Send, "m_isIncapacitated") != 0;
 }
 
-bool LPS_CanCapturePvEDamage(int victim, float damage)
+bool LPS_CanCaptureStatsDamage(int victim, float damage)
 {
-	if (g_LPSModeFamily != LPSModeFamily_PvE
+	bool supportedStatsMode = g_LPSModeFamily == LPSModeFamily_PvE
+		|| (g_LPSModeFamily == LPSModeFamily_Versus
+			&& g_LPSVersusStatsEnabled.BoolValue);
+	if (!supportedStatsMode
 		|| !g_LPSRunActive
 		|| !g_LPSRoundActive
 		|| damage <= 0.0
@@ -355,7 +370,7 @@ bool LPS_CanCapturePvEDamage(int victim, float damage)
 				|| GetClientTeam(victim) == LPS_TEAM_INFECTED);
 	}
 
-	return LPS_IsWitchEntity(victim);
+	return g_LPSModeFamily == LPSModeFamily_PvE && LPS_IsWitchEntity(victim);
 }
 
 float LPS_GetTrackedEffectiveHealth(int entity)
@@ -939,6 +954,13 @@ bool LPS_CanRecordPvEEvents()
 void LPS_OnClientSegmentStartedForStats(int client)
 {
 	LPS_ResetClientPvEStatsState(client);
+	LPS_ResetClientVersusStatsState(client);
+	if (g_LPSModeFamily == LPSModeFamily_Versus)
+	{
+		LPS_OnClientVersusSegmentStarted(client);
+		return;
+	}
+
 	if (g_LPSModeFamily != LPSModeFamily_PvE
 		|| !g_LPSClientSegmentActive[client]
 		|| !StrEqual(g_LPSClientSegmentSide[client], "survivor", true))
@@ -963,18 +985,18 @@ void LPS_OnClientSegmentStartedForStats(int client)
 
 void LPS_OnClientSegmentEndingForStats(int client)
 {
-	if (!g_LPSClientPvEStatsActive[client])
+	if (g_LPSClientPvEStatsActive[client])
 	{
-		return;
+		LPS_OnClientPvEInteractionSegmentEnding(client);
+		LPS_OnClientExtendedSegmentEnding(client);
+		LPS_OnClientEquipmentSegmentEnding(client);
+		LPSPvEStatsSnapshot snapshot;
+		LPS_FillClientPvEStatsSnapshot(client, snapshot, true);
+		LPS_QueueClosedPvEStats(snapshot);
+		LPS_ResetClientPvEStatsState(client);
 	}
 
-	LPS_OnClientPvEInteractionSegmentEnding(client);
-	LPS_OnClientExtendedSegmentEnding(client);
-	LPS_OnClientEquipmentSegmentEnding(client);
-	LPSPvEStatsSnapshot snapshot;
-	LPS_FillClientPvEStatsSnapshot(client, snapshot, true);
-	LPS_QueueClosedPvEStats(snapshot);
-	LPS_ResetClientPvEStatsState(client);
+	LPS_OnClientVersusSegmentEnding(client);
 }
 
 void LPS_AddPvEStat(int client, LPSPvEStat stat, int amount)

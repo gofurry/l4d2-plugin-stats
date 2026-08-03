@@ -4,6 +4,12 @@ All notable changes to this project will be documented in this file.
 
 ## Unreleased
 
+- Add separate absolute snapshot collectors for Versus survivor and infected Segments.
+- Split Versus survivor special infected and Tank kills/damage by human or Bot victim.
+- Record Versus survivor common kills, infected damage taken, friendly fire, survival, rescue, healing, and temporary health.
+- Record valid human infected spawns plus damage, incapacitations, and kills split by human or Bot survivor victim.
+- Add bounded closed Versus queues, shared transactional flush integration, status diagnostics, and a runtime enable ConVar.
+- Extend SQLite integration and inspection tools with Versus table, side, mode, orphan, and snapshot checks.
 - Count Vomit Jar actions from `vomitjar_projectile` ownership when `weapon_fire` does not expose the throw.
 - Keep Vomit Jar projectile accounting separate from the Molotov/Pipe Bomb event path to prevent duplicate actions.
 - Add allowlisted, success-only objective interaction counts with one attribution per entity and Round.

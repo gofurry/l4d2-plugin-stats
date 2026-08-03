@@ -41,6 +41,26 @@ EQUIPMENT_STAT_COLUMNS = [
     "damage_to_witch", "revision",
 ]
 
+VERSUS_SURVIVOR_STAT_COLUMNS = [
+    "stats_version", "last_saved_at", "common_kills",
+    "human_special_kills", "bot_special_kills", "human_tank_kills",
+    "bot_tank_kills", "damage_to_human_special", "damage_to_bot_special",
+    "damage_to_human_tank", "damage_to_bot_tank", "damage_taken_infected",
+    "friendly_fire_to_humans", "friendly_fire_to_bots",
+    "friendly_fire_taken", "incapacitations", "deaths", "incap_revives",
+    "ledge_rescues", "defib_revives", "rescues_received",
+    "medkits_used_self", "medkits_used_on_others", "medkit_healing_self",
+    "medkit_healing_others", "pills_used", "adrenaline_used",
+    "temporary_health_received", "revision",
+]
+
+VERSUS_INFECTED_STAT_COLUMNS = [
+    "stats_version", "last_saved_at", "spawn_count",
+    "damage_to_human_survivors", "damage_to_bot_survivors",
+    "human_survivor_incaps", "bot_survivor_incaps",
+    "human_survivor_kills", "bot_survivor_kills", "revision",
+]
+
 
 def build_snapshot_upsert(table: str, key_columns: list[str], columns: list[str]) -> str:
     all_columns = ["segment_id", *columns]
@@ -301,6 +321,7 @@ def main() -> None:
         stale_run_id = "test-01:1:a:run:2"
         stale_round_id = "test-01:1:a:round:2"
         stale_segment_id = "test-01:1:a:segment:2"
+        stale_infected_segment_id = "test-01:1:a:segment:3"
         database.execute(
             session_insert,
             (
@@ -329,6 +350,50 @@ def main() -> None:
                 stale_segment_id, stale_session_id, stale_run_id, stale_round_id,
                 "test-01", "76561198000000000", "survivor",
                 100, None, 125, 20, "active", 2,
+            ),
+        )
+        database.execute(
+            segment_insert,
+            (
+                stale_infected_segment_id, stale_session_id, stale_run_id,
+                stale_round_id, "test-01", "76561198000000000", "infected",
+                105, None, 125, 15, "active", 2,
+            ),
+        )
+
+        versus_survivor_insert = build_snapshot_upsert(
+            "lps_versus_survivor_stats", [], VERSUS_SURVIVOR_STAT_COLUMNS
+        )
+        database.execute(
+            versus_survivor_insert,
+            (
+                stale_segment_id, 1, 115, 4, 1, 2, 0, 1, 100, 80, 0, 200,
+                25, 2, 3, 4, 1, 0, 1, 0, 0, 1, 1, 0, 30, 0, 1, 0, 50, 1,
+            ),
+        )
+        # A retry replaces the absolute snapshot rather than incrementing it.
+        database.execute(
+            versus_survivor_insert,
+            (
+                stale_segment_id, 1, 125, 12, 3, 4, 1, 2, 300, 200, 500,
+                400, 70, 10, 11, 12, 2, 1, 3, 1, 1, 4, 1, 2, 80, 90, 2,
+                1, 125, 2,
+            ),
+        )
+
+        versus_infected_insert = build_snapshot_upsert(
+            "lps_versus_infected_stats", [], VERSUS_INFECTED_STAT_COLUMNS
+        )
+        database.execute(
+            versus_infected_insert,
+            (
+                stale_infected_segment_id, 1, 115, 2, 150, 60, 1, 0, 0, 0, 1,
+            ),
+        )
+        database.execute(
+            versus_infected_insert,
+            (
+                stale_infected_segment_id, 1, 125, 4, 450, 120, 2, 1, 1, 0, 2,
             ),
         )
 
@@ -456,6 +521,41 @@ def main() -> None:
             (stale_segment_id,),
         ).fetchone()
         assert stale_segment == (125, "abandoned"), stale_segment
+        stale_infected_segment = database.execute(
+            "SELECT ended_at, status FROM lps_player_segments WHERE segment_id = ?",
+            (stale_infected_segment_id,),
+        ).fetchone()
+        assert stale_infected_segment == (125, "abandoned"), stale_infected_segment
+
+        versus_survivor_stats = database.execute(
+            f"SELECT {', '.join(VERSUS_SURVIVOR_STAT_COLUMNS)} "
+            "FROM lps_versus_survivor_stats WHERE segment_id = ?",
+            (stale_segment_id,),
+        ).fetchone()
+        assert versus_survivor_stats == (
+            1, 125, 12, 3, 4, 1, 2, 300, 200, 500, 400, 70, 10, 11, 12,
+            2, 1, 3, 1, 1, 4, 1, 2, 80, 90, 2, 1, 125, 2,
+        ), versus_survivor_stats
+
+        versus_infected_stats = database.execute(
+            f"SELECT {', '.join(VERSUS_INFECTED_STAT_COLUMNS)} "
+            "FROM lps_versus_infected_stats WHERE segment_id = ?",
+            (stale_infected_segment_id,),
+        ).fetchone()
+        assert versus_infected_stats == (
+            1, 125, 4, 450, 120, 2, 1, 1, 0, 2,
+        ), versus_infected_stats
+
+        versus_side_mismatches = database.execute(
+            "SELECT COUNT(*) FROM ("
+            "SELECT s.segment_id FROM lps_versus_survivor_stats s "
+            "JOIN lps_player_segments g ON g.segment_id = s.segment_id "
+            "WHERE g.side <> 'survivor' UNION ALL "
+            "SELECT i.segment_id FROM lps_versus_infected_stats i "
+            "JOIN lps_player_segments g ON g.segment_id = i.segment_id "
+            "WHERE g.side <> 'infected')"
+        ).fetchone()[0]
+        assert versus_side_mismatches == 0, versus_side_mismatches
 
         active_lifecycle_rows = sum(
             database.execute(
