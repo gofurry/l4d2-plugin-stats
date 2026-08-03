@@ -224,8 +224,20 @@ public void LPS_Event_RoundEnd(Event event, const char[] name, bool dontBroadcas
 		return;
 	}
 
+	// Versus does not reliably emit map_transition after the second half on a
+	// listen server. Preserve the campaign Run and suspend a late-disconnecting
+	// host from the second-half boundary instead of waiting for OnMapEnd.
+	bool mapCompleted = g_LPSRoundHalfNo == 2;
 	LPS_EndRound("completed");
-	g_LPSContinuation = LPSContinuation_VersusHalf;
+	if (mapCompleted)
+	{
+		g_LPSContinuation = LPSContinuation_MapTransition;
+		LPS_OnSessionsMapTransition();
+	}
+	else
+	{
+		g_LPSContinuation = LPSContinuation_VersusHalf;
+	}
 	LPS_RequestFlush();
 }
 
@@ -341,7 +353,8 @@ void LPS_StartRound()
 	GetCurrentMap(mapName, sizeof(mapName));
 	int halfNo = g_LPSModeFamily == LPSModeFamily_Versus ? LPS_GetVersusHalfNo() : 0;
 	if (g_LPSModeFamily == LPSModeFamily_Versus
-		&& g_LPSContinuation == LPSContinuation_VersusHalf
+		&& (g_LPSContinuation == LPSContinuation_VersusHalf
+			|| g_LPSContinuation == LPSContinuation_MapTransition)
 		&& g_LPSLastRoundMapName[0] != '\0'
 		&& StrEqual(mapName, g_LPSLastRoundMapName, true)
 		&& halfNo == g_LPSLastRoundHalfNo)

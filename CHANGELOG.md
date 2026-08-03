@@ -4,6 +4,8 @@ All notable changes to this project will be documented in this file.
 
 ## Unreleased
 
+- Preserve one Versus campaign Run and one listen-server Session when the second half advances to the next map without a reliable `map_transition` event.
+- Reclassify a repeated second half as abandoned even when it was initially treated as a pending map transition.
 - Add separate absolute snapshot collectors for Versus survivor and infected Segments.
 - Split Versus survivor special infected and Tank kills/damage by human or Bot victim.
 - Record Versus survivor common kills, infected damage taken, friendly fire, survival, rescue, healing, and temporary health.

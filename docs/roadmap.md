@@ -2,7 +2,7 @@
 
 ## Current Position
 
-项目已经完成数据库地基、真人身份/Session、Run/Round/Segment 生命周期，以及 v0.4.0～v0.5.3 PvE 统计的本地验收。v0.6.0 对抗核心统计已经实现并通过编译、SQLite 集成与结构检查；完整双方真人对抗、MySQL 和 PostgreSQL 实机兼容验证仍保留到真实服务器阶段。
+项目已经完成数据库地基、真人身份/Session、Run/Round/Segment 生命周期，以及 v0.4.0～v0.5.3 PvE 统计的本地验收。v0.6.0 对抗核心统计已经实现并通过单人 Bot 上下半场验证；本地测试发现的第二半场正常过图 Run/Session 断裂已经修复，等待一次 c5m1→c5m2 回归。完整双方真人对抗、MySQL 和 PostgreSQL 实机兼容验证统一保留到 v0.7.0。
 
 当前已采集 PvE 击杀、有效伤害、承伤、友伤、救援、治疗、临时生命、章节/战役成绩、设备、控制、技巧、目标互动和失能时长。Versus 使用独立统计模型，首版已覆盖幸存者战斗/生存/救援/治疗，以及感染者出生/伤害/倒地/击杀。SourcePawn 采集器、数据库结构和未来 Go 服务的公共边界仍处于 pre-v1 阶段，可以按真实服务器验证结果调整。
 
@@ -268,7 +268,7 @@
 
 ### v0.6.0 - Versus Statistics
 
-**Status:** Implementation complete; real-server validation pending
+**Status:** Implementation complete; local cross-map regression pending
 
 **Scope:** User-facing / Architecture / Testing
 
@@ -282,7 +282,10 @@
 - [x] 采集真人感染者有效出生，以及对真人/Bot 幸存者的伤害、倒地和击杀
 - [x] 接入绝对快照、统一异步刷新事务、有界关闭队列和管理员状态诊断
 - [x] 扩展 SQLite 集成测试与数据库检查工具
-- [ ] 在真实多人服务器完成双方真人、半场切换、换队、Tank 交接、重连和中途加入测试
+- [x] 使用 `versus + sb_all_bot_game 1` 完成单人上下半场统计归属验证
+- [x] 修复第二半场结束后缺少可靠 `map_transition` 导致的 Run/Session 跨图断裂
+- [ ] 完成 c5m1 上下半场并进入 c5m2，确认同一 Run、同一 Session、`round_seq=3`、`map_seq=2`
+- [ ] 在真实多人服务器完成双方真人、换队、Tank 交接、重连和中途加入测试（转移至 v0.7.0）
 
 #### Acceptance Criteria
 
@@ -292,17 +295,17 @@
 
 #### Notes
 
-v0.6.0 不新增迁移：三数据库 `0001_initial.sql` 已预留两张对抗统计表。当前完成的是代码、编译和离线数据库验收；单人本地对抗无法覆盖双方真人时序，必须按照 [v0.6.0 真实服务器测试清单](v0.6-test-checklist.md) 在综合服务器灰度验证。
+v0.6.0 不新增迁移：三数据库 `0001_initial.sql` 已预留两张对抗统计表。单人本地对抗能够验证上下半场、Bot 目标、跨图和绝对快照，但无法覆盖两个 SteamID 同时在线的真人时序。真实多人部分按照 [v0.6.0 对抗测试清单](v0.6-test-checklist.md) 延期到 v0.7.0。
 
 ---
 
 ### v0.6.1 - Versus Production Stabilization
 
-**Status:** Planned
+**Status:** Deferred to v0.7.0
 
 **Scope:** Stability / Correctness / Testing
 
-**Goal:** 根据真实服务器首轮数据修正时序、归属和生命周期问题，不扩张统计口径。
+**Goal:** 根据真实服务器首轮数据修正多人时序、归属和生命周期问题，不扩张统计口径。
 
 #### Focus
 
@@ -322,6 +325,10 @@ v0.6.0 不新增迁移：三数据库 `0001_initial.sql` 已预留两张对抗�
 - 数据库健康检查的 orphan、side mismatch、mode mismatch 和 dual stats 全部为 0
 - 换队、重连和 Tank 交接不会把统计写给错误 SteamID 或 Segment
 - 两个完整半场和半场重开均能生成可解释、可重复核对的数据
+
+#### Notes
+
+本阶段依赖至少两名真实玩家和持续运行的服务器，当前不作为 v0.6.2～v0.6.5 代码扩展的前置条件。任务与验收统一并入 v0.7.0 的多人/发布加固阶段，避免为了版本编号阻塞本地可验证的统计开发。
 
 ---
 
@@ -454,6 +461,7 @@ v0.6.0 不新增迁移：三数据库 `0001_initial.sql` 已预留两张对抗�
 - [ ] 在真实 MySQL 与 PostgreSQL 测试迁移、重连和 upsert
 - [ ] 在独立服务器或多人服务器验证远端真人断线、重连及数据库故障期间断线补写
 - [ ] 使用双方真人完成 Versus 两个半场、换队、半场重开和中途退出验收
+- [ ] 完成 3～7 天 Versus 灰度，核对 Tank 交接、真人/Bot 归属、重复出生和跨 Segment 污染
 - [ ] 增加 SQLite/MySQL/PostgreSQL 自动兼容测试
 - [ ] 验证长时间运行、队列上限、事务大小和地图切换压力
 - [ ] 建立 GitHub Actions 编译、迁移校验和发布产物流程
