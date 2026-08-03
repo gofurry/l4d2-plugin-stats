@@ -4,6 +4,11 @@ import argparse
 import sqlite3
 from pathlib import Path
 
+PROJECT_ROOT = Path(__file__).resolve().parent.parent
+VERSUS_CONTRACT_CHECKS = (
+    PROJECT_ROOT / "database" / "queries" / "versus_contract_checks.sql"
+)
+
 EQUIPMENT_NAMES = {
     1: "Other Firearm", 2: "Pistol", 3: "Dual Pistols", 4: "Magnum",
     5: "SMG", 6: "Silenced SMG", 7: "MP5", 8: "Pump Shotgun",
@@ -22,6 +27,21 @@ INFECTED_CLASS_NAMES = {
     1: "Smoker", 2: "Boomer", 3: "Hunter", 4: "Spitter",
     5: "Jockey", 6: "Charger", 8: "Tank",
 }
+
+
+def run_versus_contract_checks(database: sqlite3.Connection) -> dict[str, int]:
+    results: dict[str, int] = {}
+    for statement in VERSUS_CONTRACT_CHECKS.read_text(encoding="utf-8").split(
+        "-- statement-breakpoint"
+    ):
+        statement = statement.strip()
+        if not statement:
+            continue
+        row = database.execute(statement).fetchone()
+        if row is None or len(row) != 2:
+            raise RuntimeError(f"invalid Versus contract check result: {row!r}")
+        results[str(row[0])] = int(row[1])
+    return results
 
 
 def main() -> None:
@@ -276,6 +296,12 @@ def main() -> None:
             "JOIN lps_runs u ON u.run_id = v.run_id "
             "WHERE u.mode_family <> 'versus' OR u.status <> v.result_status)"
         ).fetchone()[0]
+        versus_scoring_slot_mismatches = database.execute(
+            "SELECT COUNT(*) FROM lps_versus_round_results v "
+            "JOIN lps_rounds r ON r.round_id = v.round_id "
+            "WHERE r.mode_family = 'versus' AND r.half_no IN (1, 2) "
+            "AND v.scoring_team_slot <> r.half_no - 1"
+        ).fetchone()[0]
         versus_infected_class_total_mismatches = database.execute(
             "SELECT COUNT(*) FROM lps_versus_infected_stats v LEFT JOIN ("
             "SELECT segment_id, SUM(spawn_count) AS spawn_count, "
@@ -431,6 +457,8 @@ def main() -> None:
             f"invalid_versus_run_results={invalid_versus_run_results} "
             f"versus_result_status_mismatches="
             f"{versus_result_status_mismatches} "
+            f"versus_scoring_slot_mismatches="
+            f"{versus_scoring_slot_mismatches} "
             f"versus_infected_class_total_mismatches="
             f"{versus_infected_class_total_mismatches} "
             f"versus_survivor_class_total_mismatches="
@@ -439,6 +467,14 @@ def main() -> None:
             f"versus_mode_mismatches={versus_mode_mismatches} "
             f"dual_versus_stats={dual_versus_stats} "
             f"invalid_times={invalid_times} active_records={active_records}"
+        )
+        versus_contract_checks = run_versus_contract_checks(database)
+        print(
+            "versus_contract "
+            + " ".join(
+                f"{name}={violations}"
+                for name, violations in versus_contract_checks.items()
+            )
         )
         print("recent_sessions (IP intentionally omitted):")
         rows = database.execute(

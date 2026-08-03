@@ -6,6 +6,9 @@ from pathlib import Path
 
 PROJECT_ROOT = Path(__file__).resolve().parent.parent
 MIGRATION = PROJECT_ROOT / "database" / "migrations" / "sqlite" / "0001_initial.sql"
+VERSUS_CONTRACT_CHECKS = (
+    PROJECT_ROOT / "database" / "queries" / "versus_contract_checks.sql"
+)
 
 PVE_STAT_COLUMNS = [
     "stats_version", "last_saved_at", "common_kills", "special_kills",
@@ -97,6 +100,24 @@ def build_snapshot_upsert(table: str, key_columns: list[str], columns: list[str]
         f"VALUES ({', '.join(['?'] * len(all_columns))}) "
         f"ON CONFLICT({conflict}) DO UPDATE SET {updates}"
     )
+
+
+def run_versus_contract_checks(database: sqlite3.Connection) -> dict[str, int]:
+    statements = [
+        statement.strip()
+        for statement in VERSUS_CONTRACT_CHECKS.read_text(encoding="utf-8").split(
+            "-- statement-breakpoint"
+        )
+        if statement.strip()
+    ]
+    results: dict[str, int] = {}
+    for statement in statements:
+        row = database.execute(statement).fetchone()
+        if row is None or len(row) != 2:
+            raise AssertionError(f"invalid Versus contract check result: {row!r}")
+        name, violations = row
+        results[str(name)] = int(violations)
+    return results
 
 
 def main() -> None:
@@ -840,6 +861,58 @@ def main() -> None:
             "WHERE g.side <> 'infected')"
         ).fetchone()[0]
         assert versus_side_mismatches == 0, versus_side_mismatches
+
+        contract_checks = run_versus_contract_checks(database)
+        assert len(contract_checks) == 10, contract_checks
+        assert all(value == 0 for value in contract_checks.values()), contract_checks
+
+        # Prove that the frozen checks reject the three most important forms
+        # of drift instead of only accepting the happy-path fixture.
+        database.execute(
+            "UPDATE lps_versus_round_results SET scoring_team_slot = 1 "
+            "WHERE round_id = ?",
+            (stale_round_id,),
+        )
+        assert run_versus_contract_checks(database)[
+            "versus_scoring_slot_mismatches"
+        ] == 1
+        database.execute(
+            "UPDATE lps_versus_round_results SET scoring_team_slot = 0 "
+            "WHERE round_id = ?",
+            (stale_round_id,),
+        )
+
+        database.execute(
+            "UPDATE lps_versus_survivor_stats SET human_special_kills = 4 "
+            "WHERE segment_id = ?",
+            (stale_segment_id,),
+        )
+        assert run_versus_contract_checks(database)[
+            "versus_survivor_class_total_mismatches"
+        ] == 1
+        database.execute(
+            "UPDATE lps_versus_survivor_stats SET human_special_kills = 3 "
+            "WHERE segment_id = ?",
+            (stale_segment_id,),
+        )
+
+        database.execute(
+            "UPDATE lps_versus_infected_stats SET spawn_count = 5 "
+            "WHERE segment_id = ?",
+            (stale_infected_segment_id,),
+        )
+        assert run_versus_contract_checks(database)[
+            "versus_infected_class_total_mismatches"
+        ] == 1
+        database.execute(
+            "UPDATE lps_versus_infected_stats SET spawn_count = 4 "
+            "WHERE segment_id = ?",
+            (stale_infected_segment_id,),
+        )
+        assert all(
+            value == 0
+            for value in run_versus_contract_checks(database).values()
+        )
 
         active_lifecycle_rows = sum(
             database.execute(

@@ -39,8 +39,8 @@ int g_LPSFlushClosedVersusRunResultCount;
 
 bool g_LPSVersusRoundResultActive;
 char g_LPSVersusResultRoundId[LPS_MAX_ROUND_ID];
-int g_LPSVersusScoringTeamSlot;
 int g_LPSVersusTeamsFlipped;
+int g_LPSVersusRoundStartMapScore[2];
 int g_LPSVersusRawRoundWinnerTeam;
 int g_LPSVersusRawMatchWinnerTeam;
 int g_LPSVersusRunResultRevision;
@@ -81,7 +81,17 @@ void LPS_OnVersusRoundStarted()
 
 	strcopy(g_LPSVersusResultRoundId, sizeof(g_LPSVersusResultRoundId), g_LPSRoundId);
 	g_LPSVersusTeamsFlipped = GameRules_GetProp("m_bAreTeamsFlipped", 1) != 0 ? 1 : 0;
-	g_LPSVersusScoringTeamSlot = g_LPSVersusTeamsFlipped;
+	int unusedCampaignScore0;
+	int unusedCampaignScore1;
+	LPS_ReadVersusScores(
+		g_LPSVersusRoundStartMapScore[0],
+		g_LPSVersusRoundStartMapScore[1],
+		unusedCampaignScore0,
+		unusedCampaignScore1
+	);
+	// m_bAreTeamsFlipped is retained for diagnostics, but listen servers can
+	// leave it false in both halves. The final slot is resolved from the actual
+	// map-score change at round end, with the half number as a fallback.
 	g_LPSVersusRawRoundWinnerTeam = -1;
 	g_LPSVersusRoundResultActive = true;
 }
@@ -109,13 +119,16 @@ void LPS_OnVersusRoundEnding(const char[] status)
 
 	LPSVersusRoundResultSnapshot snapshot;
 	strcopy(snapshot.roundId, sizeof(snapshot.roundId), g_LPSVersusResultRoundId);
-	snapshot.scoringTeamSlot = g_LPSVersusScoringTeamSlot;
 	snapshot.teamsFlipped = g_LPSVersusTeamsFlipped;
 	LPS_ReadVersusScores(
 		snapshot.team0MapScore,
 		snapshot.team1MapScore,
 		snapshot.team0CampaignScore,
 		snapshot.team1CampaignScore
+	);
+	snapshot.scoringTeamSlot = LPS_DetermineVersusScoringTeamSlot(
+		snapshot.team0MapScore,
+		snapshot.team1MapScore
 	);
 	snapshot.rawWinnerTeam = g_LPSVersusRawRoundWinnerTeam;
 	snapshot.scoreAvailable = LPS_IsVersusRoundScoreAvailable(snapshot) ? 1 : 0;
@@ -257,6 +270,50 @@ void LPS_ReadVersusScores(
 	team1MapScore = GameRules_GetProp("m_iSurvivorScore", 4, 1);
 	team0CampaignScore = GameRules_GetProp("m_iCampaignScore", 4, 0);
 	team1CampaignScore = GameRules_GetProp("m_iCampaignScore", 4, 1);
+}
+
+int LPS_DetermineVersusScoringTeamSlot(int team0MapScore, int team1MapScore)
+{
+	if (g_LPSVersusRoundStartMapScore[0] >= 0
+		&& g_LPSVersusRoundStartMapScore[1] >= 0
+		&& team0MapScore >= 0
+		&& team1MapScore >= 0)
+	{
+		int team0Delta = team0MapScore - g_LPSVersusRoundStartMapScore[0];
+		int team1Delta = team1MapScore - g_LPSVersusRoundStartMapScore[1];
+		if (team0Delta > 0 && team0Delta > team1Delta)
+		{
+			return 0;
+		}
+		if (team1Delta > 0 && team1Delta > team0Delta)
+		{
+			return 1;
+		}
+	}
+
+	// Some round-start events expose the previous half's map score. The final
+	// one-sided score remains useful when the delta is therefore inconclusive.
+	if (team0MapScore > 0 && team1MapScore <= 0)
+	{
+		return 0;
+	}
+	if (team1MapScore > 0 && team0MapScore <= 0)
+	{
+		return 1;
+	}
+
+	// A survivor team can legitimately score zero. In that case the first and
+	// second halves still map to logical team slots 0 and 1 respectively.
+	return LPS_GetVersusHalfFallbackTeamSlot();
+}
+
+int LPS_GetVersusHalfFallbackTeamSlot()
+{
+	if (g_LPSRoundHalfNo == 2)
+	{
+		return 1;
+	}
+	return 0;
 }
 
 bool LPS_IsVersusRoundScoreAvailable(LPSVersusRoundResultSnapshot snapshot)
@@ -410,8 +467,9 @@ void LPS_ResetVersusRoundResultState()
 {
 	g_LPSVersusRoundResultActive = false;
 	g_LPSVersusResultRoundId[0] = '\0';
-	g_LPSVersusScoringTeamSlot = -1;
 	g_LPSVersusTeamsFlipped = 0;
+	g_LPSVersusRoundStartMapScore[0] = -1;
+	g_LPSVersusRoundStartMapScore[1] = -1;
 	g_LPSVersusRawRoundWinnerTeam = -1;
 }
 

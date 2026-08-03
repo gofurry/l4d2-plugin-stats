@@ -1,0 +1,143 @@
+{
+  "contract_version": 1,
+  "stats_version": 1,
+  "infected_class_ids": [1, 2, 3, 4, 5, 6, 8],
+  "tables": {
+    "lps_versus_round_results": {
+      "primary_key": ["round_id"],
+      "columns": [
+        "round_id",
+        "stats_version",
+        "last_saved_at",
+        "scoring_team_slot",
+        "teams_flipped",
+        "team_0_map_score",
+        "team_1_map_score",
+        "team_0_campaign_score",
+        "team_1_campaign_score",
+        "raw_winner_team",
+        "score_available",
+        "result_status",
+        "finalized_at",
+        "revision"
+      ]
+    },
+    "lps_versus_run_results": {
+      "primary_key": ["run_id"],
+      "columns": [
+        "run_id",
+        "stats_version",
+        "last_saved_at",
+        "team_0_campaign_score",
+        "team_1_campaign_score",
+        "winner_team_slot",
+        "raw_winner_team",
+        "score_available",
+        "result_status",
+        "finalized_at",
+        "revision"
+      ]
+    },
+    "lps_versus_survivor_stats": {
+      "primary_key": ["segment_id"],
+      "columns": [
+        "segment_id",
+        "stats_version",
+        "last_saved_at",
+        "common_kills",
+        "human_special_kills",
+        "bot_special_kills",
+        "human_tank_kills",
+        "bot_tank_kills",
+        "damage_to_human_special",
+        "damage_to_bot_special",
+        "damage_to_human_tank",
+        "damage_to_bot_tank",
+        "damage_taken_infected",
+        "friendly_fire_to_humans",
+        "friendly_fire_to_bots",
+        "friendly_fire_taken",
+        "incapacitations",
+        "deaths",
+        "incap_revives",
+        "ledge_rescues",
+        "defib_revives",
+        "rescues_received",
+        "medkits_used_self",
+        "medkits_used_on_others",
+        "medkit_healing_self",
+        "medkit_healing_others",
+        "pills_used",
+        "adrenaline_used",
+        "temporary_health_received",
+        "witch_kills",
+        "damage_to_witch",
+        "molotovs_thrown",
+        "pipe_bombs_thrown",
+        "vomit_jars_thrown",
+        "incendiary_packs_deployed",
+        "explosive_packs_deployed",
+        "melee_tongue_self_cuts",
+        "tank_rocks_destroyed",
+        "witch_oneshots",
+        "witch_solo_kills",
+        "revision"
+      ]
+    },
+    "lps_versus_survivor_infected_class_stats": {
+      "primary_key": ["segment_id", "infected_class"],
+      "columns": [
+        "segment_id",
+        "infected_class",
+        "stats_version",
+        "last_saved_at",
+        "human_controller_kills",
+        "bot_controller_kills",
+        "damage_to_human_controllers",
+        "damage_to_bot_controllers",
+        "revision"
+      ]
+    },
+    "lps_versus_infected_stats": {
+      "primary_key": ["segment_id"],
+      "columns": [
+        "segment_id",
+        "stats_version",
+        "last_saved_at",
+        "spawn_count",
+        "damage_to_human_survivors",
+        "damage_to_bot_survivors",
+        "human_survivor_incaps",
+        "bot_survivor_incaps",
+        "human_survivor_kills",
+        "bot_survivor_kills",
+        "revision"
+      ]
+    },
+    "lps_versus_infected_class_stats": {
+      "primary_key": ["segment_id", "infected_class"],
+      "columns": [
+        "segment_id",
+        "infected_class",
+        "stats_version",
+        "last_saved_at",
+        "spawn_count",
+        "damage_to_human_survivors",
+        "damage_to_bot_survivors",
+        "human_survivor_incaps",
+        "bot_survivor_incaps",
+        "human_survivor_kills",
+        "bot_survivor_kills",
+        "human_survivor_controls",
+        "bot_survivor_controls",
+        "human_survivor_control_seconds",
+        "bot_survivor_control_seconds",
+        "human_survivor_ability_hits",
+        "bot_survivor_ability_hits",
+        "human_survivor_ability_damage",
+        "bot_survivor_ability_damage",
+        "revision"
+      ]
+    }
+  }
+}

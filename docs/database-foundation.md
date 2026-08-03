@@ -90,3 +90,26 @@ schema=1/1
 - `sm_lps_flush` 在 ready 状态执行两条异步心跳更新；并发请求会合并，不启动同一份并行刷新。
 
 插件不创建专属日志文件，也不会记录数据库密码、连接字符串或玩家 IP。
+
+## 6. 契约与迁移验证
+
+本地构建会自动执行：
+
+```powershell
+python scripts/validate_versus_contract.py
+```
+
+该检查会把 `contracts/versus-schema-v1.json` 与 SQLite、MySQL、PostgreSQL 的
+`0001_initial.sql` 逐表比较，验证六张 Versus v1 表的字段顺序、字段声明和主键完全等价。
+
+SQLite 数据回归继续执行：
+
+```powershell
+python scripts/test_sqlite_migration.py
+```
+
+它还会执行 `database/queries/versus_contract_checks.sql`，并主动制造计分槽位、幸存者职业
+合计和感染者职业合计错误，确认健康查询能够发现这些数据漂移。
+
+从 v0.6.6 起不得再修改 Versus v1 已冻结的 `0001_initial.sql` 结构。后续数据库变化必须
+新增 `0002` 或更高迁移；三种驱动必须在同一次变更中提供等价实现。

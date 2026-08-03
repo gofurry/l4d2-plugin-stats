@@ -4,7 +4,7 @@ This directory contains the SourceMod collector. Source files are split into a
 single plugin entry point under `src/` and compile-time modules under `include/`.
 The build still produces one `l4d2_player_stats.smx` file.
 
-Version 0.6.5 maintains separate absolute snapshots for human Versus survivor and
+Version 0.6.6 maintains separate absolute snapshots for human Versus survivor and
 infected Segments. Survivor snapshots add seven fixed infected-class rows, Witch
 combat, official throwables and ammo packs, self tongue cuts, destroyed Tank
 rocks, and Witch techniques while retaining survival, rescue, healing,
@@ -18,3 +18,7 @@ Versus round and Run results are stored separately from player Segments. The
 collector reads L4D2 GameRules map and campaign scores, preserves raw winner
 events for diagnostics, and only derives a winner for a normally completed Run.
 It does not require Left4DHooks or recompute score formulas.
+
+The Versus v1 database and reader boundary is frozen by
+`contracts/versus-v1.md` and `contracts/versus-schema-v1.json`. Builds compare
+that manifest with all three migrations before compiling the plugin.

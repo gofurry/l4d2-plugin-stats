@@ -47,6 +47,18 @@ Copy-Item -LiteralPath (Join-Path $projectRoot "config\databases.cfg.example") -
 Copy-Item -LiteralPath (Join-Path $projectRoot "README.md") -Destination $stagingRoot -Force
 Copy-Item -LiteralPath (Join-Path $projectRoot "LICENSE") -Destination $stagingRoot -Force
 Copy-Item -LiteralPath (Join-Path $projectRoot "CHANGELOG.md") -Destination $stagingRoot -Force
+$contractsDestination = Join-Path $stagingRoot "contracts"
+New-Item -ItemType Directory -Path $contractsDestination -Force | Out-Null
+Copy-Item -LiteralPath (Join-Path $projectRoot "contracts\modes.md") -Destination $contractsDestination -Force
+Copy-Item -LiteralPath (Join-Path $projectRoot "contracts\statistics.md") -Destination $contractsDestination -Force
+Copy-Item -LiteralPath (Join-Path $projectRoot "contracts\versus-v1.md") -Destination $contractsDestination -Force
+Copy-Item -LiteralPath (Join-Path $projectRoot "contracts\versus-schema-v1.json") -Destination $contractsDestination -Force
+$databaseDocsDestination = Join-Path $stagingRoot "database"
+New-Item -ItemType Directory -Path $databaseDocsDestination -Force | Out-Null
+Copy-Item -LiteralPath (Join-Path $projectRoot "database\schema.md") -Destination $databaseDocsDestination -Force
+$queryDestination = Join-Path $databaseDocsDestination "queries"
+New-Item -ItemType Directory -Path $queryDestination -Force | Out-Null
+Copy-Item -LiteralPath (Join-Path $projectRoot "database\queries\versus_contract_checks.sql") -Destination $queryDestination -Force
 $docsDestination = Join-Path $stagingRoot "docs"
 New-Item -ItemType Directory -Path $docsDestination -Force | Out-Null
 Copy-Item -LiteralPath (Join-Path $projectRoot "docs\database-foundation.md") -Destination $docsDestination -Force
@@ -61,6 +73,8 @@ Copy-Item -LiteralPath (Join-Path $projectRoot "docs\v0.6.2-test-checklist.md") 
 Copy-Item -LiteralPath (Join-Path $projectRoot "docs\v0.6.3-test-checklist.md") -Destination $docsDestination -Force
 Copy-Item -LiteralPath (Join-Path $projectRoot "docs\v0.6.4-test-checklist.md") -Destination $docsDestination -Force
 Copy-Item -LiteralPath (Join-Path $projectRoot "docs\v0.6.5-test-checklist.md") -Destination $docsDestination -Force
+Copy-Item -LiteralPath (Join-Path $projectRoot "docs\v0.6.6-contract-freeze.md") -Destination $docsDestination -Force
+Copy-Item -LiteralPath (Join-Path $projectRoot "docs\query-examples.md") -Destination $docsDestination -Force
 
 Compress-Archive -Path (Join-Path $stagingRoot "*") -DestinationPath $archivePath -Force
 Write-Host "Release package created: $archivePath"

@@ -1,6 +1,6 @@
 # 统计口径契约
 
-状态：已确认
+状态：已确认；Versus v1 自 collector v0.6.6 起冻结
 
 本文定义每一个统计值的业务含义。数据库字段、SourceMod事件和未来Go展示必须遵守相同口径。
 
@@ -358,7 +358,7 @@ Boomer 使用 `player_now_it.by_boomer` 记录实际被胆汁命中的真人/Bot
 | 字段 | 含义 |
 |---|---|
 | `scoring_team_slot` | 本半场担任幸存者并获得地图分的逻辑队伍槽位，0 或 1 |
-| `teams_flipped` | 半场开始时引擎的队伍翻转标记，诊断字段 |
+| `teams_flipped` | 半场开始时引擎的原始队伍翻转标记，仅供诊断，不用于单独推断计分槽位 |
 | `team_0_map_score` / `team_1_map_score` | 引擎当前保存的本章节/半场得分；尚未出场可以是 -1 |
 | `team_0_campaign_score` / `team_1_campaign_score` | 该时刻的战役累计分 |
 | `score_available` | 本半场计分队伍的地图分是否可用 |
@@ -372,6 +372,11 @@ Boomer 使用 `player_now_it.by_boomer` 记录实际被胆汁命中的真人/Bot
 
 `raw_winner_team` 保存 `versus_match_finished` 的原始值，只用于排查引擎或第三方模式差异；
 网页不得直接用它代替 `winner_team_slot`。`score_available=0` 时不得把 -1 当作真实分数。
+
+`scoring_team_slot` 优先根据半场开始与结束之间两个逻辑槽位的地图分变化确定；若幸存者
+本半场得分为 0 或引擎快照无法形成明确变化，则第一半场回退为槽位 0、第二半场回退为
+槽位 1。`m_bAreTeamsFlipped` 在 listen server 中可能两个半场都为 false，因此只保存为
+诊断信息。
 
 第一阶段仍不保存或推算：
 
@@ -388,4 +393,7 @@ Boomer 使用 `player_now_it.by_boomer` 记录实际被胆汁命中的真人/Bot
 stats_version = 1
 ```
 
-以后统计口径发生不兼容变化时必须增加版本，不得悄悄改变旧数据含义。
+以后统计口径发生不兼容变化时必须增加版本，不得悄悄改变旧数据含义。对抗字段的完整
+所有者、单位、Bot 语义、读取不变量和兼容规则见
+[`versus-v1.md`](versus-v1.md)，机器可读字段清单见
+[`versus-schema-v1.json`](versus-schema-v1.json)。

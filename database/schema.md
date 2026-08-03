@@ -1,6 +1,6 @@
 # 数据库结构契约
 
-状态：已确认
+状态：已确认；Versus v1 自 collector v0.6.6 起冻结
 
 本文定义SQLite、MySQL和PostgreSQL必须共同表达的数据模型。具体DDL由后续`database/migrations/<driver>/`实现。
 
@@ -62,7 +62,9 @@ ID不是安全令牌，但必须在共享数据库中全局唯一。所有ID在�
 | `name` | 不可变的迁移名称 |
 | `applied_at` | 应用时间 |
 
-已经发布并应用的迁移文件不得修改。结构变化必须增加更高版本的新迁移。
+从 v0.6.6 起，Versus v1 在 `0001_initial.sql` 中的结构不得再修改。任何后续结构变化
+必须增加 `0002` 或更高版本迁移，并为 SQLite、MySQL 和 PostgreSQL 同时实现。字段含义
+发生破坏性变化时还必须提高 `stats_version`，不得让读取侧猜测旧字段的新含义。
 
 ### 4.2 `lps_servers`
 
@@ -188,9 +190,10 @@ finalized_at
 revision
 ```
 
-`scoring_team_slot` 是本半场幸存者所属的引擎逻辑槽位 0/1；`teams_flipped` 保存取值时的
-原始翻转标记。未出场或不可用分数使用 -1，并由 `score_available` 明确区分。结果状态只
-允许 `completed` 或 `abandoned`。
+`scoring_team_slot` 是本半场幸存者所属的引擎逻辑槽位 0/1：优先根据半场地图分变化
+确定，零分或变化不明确时按第一/第二半场回退为 0/1。`teams_flipped` 保存取值时的原始
+翻转标记，仅供诊断，不能单独用于推断计分槽位。未出场或不可用分数使用 -1，并由
+`score_available` 明确区分。结果状态只允许 `completed` 或 `abandoned`。
 
 ### 4.9 `lps_versus_run_results`
 
@@ -612,3 +615,7 @@ database/migrations/pgsql/
 ```
 
 SourceMod采集器负责检查和执行迁移。未来Go服务是数据库只读消费者，不得维护另一份独立迁移历史。
+
+Versus v1 的精确表、字段顺序和主键由 `contracts/versus-schema-v1.json` 冻结，并由
+`scripts/validate_versus_contract.py` 对三套迁移进行严格校验。跨数据库健康查询位于
+`database/queries/versus_contract_checks.sql`。
