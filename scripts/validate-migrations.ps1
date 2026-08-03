@@ -15,7 +15,8 @@ $requiredTables = @(
     "lps_pve_segment_stats",
     "lps_pve_segment_equipment_stats",
     "lps_versus_survivor_stats",
-    "lps_versus_infected_stats"
+    "lps_versus_infected_stats",
+    "lps_versus_infected_class_stats"
 )
 $requiredIndexes = @(
     "lps_idx_sessions_server_started",
@@ -24,7 +25,8 @@ $requiredIndexes = @(
     "lps_idx_rounds_run_sequence",
     "lps_idx_segments_round_steam",
     "lps_idx_segments_steam_started",
-    "lps_idx_pve_equipment_id"
+    "lps_idx_pve_equipment_id",
+    "lps_idx_versus_infected_class_id"
 )
 $requiredPvEColumns = @(
     "smoker_kills",
@@ -64,6 +66,16 @@ $requiredEquipmentColumns = @(
     "damage_to_special",
     "damage_to_tank",
     "damage_to_witch"
+)
+$requiredVersusInfectedClassColumns = @(
+    "infected_class",
+    "spawn_count",
+    "damage_to_human_survivors",
+    "damage_to_bot_survivors",
+    "human_survivor_incaps",
+    "bot_survivor_incaps",
+    "human_survivor_kills",
+    "bot_survivor_kills"
 )
 
 foreach ($driver in $drivers) {
@@ -113,6 +125,12 @@ foreach ($driver in $drivers) {
     foreach ($column in $requiredEquipmentColumns) {
         if ($sql -notmatch "(?i)\b$column\b") {
             throw "$driver migration is missing equipment column $column."
+        }
+    }
+
+    foreach ($column in $requiredVersusInfectedClassColumns) {
+        if ($sql -notmatch "(?i)\b$column\b") {
+            throw "$driver migration is missing Versus infected class column $column."
         }
     }
 

@@ -4,6 +4,9 @@ All notable changes to this project will be documented in this file.
 
 ## Unreleased
 
+- Add a bounded seven-class Versus infected breakdown for spawns, damage, incapacitations, and kills split by human or Bot survivor targets.
+- Preserve the existing Versus infected totals as authoritative snapshots and validate that every class sum matches its total.
+- Add equivalent SQLite, MySQL, and PostgreSQL class tables plus inspection and integration checks.
 - Preserve one Versus campaign Run and one listen-server Session when the second half advances to the next map without a reliable `map_transition` event.
 - Reclassify a repeated second half as abandoned even when it was initially treated as a pending map transition.
 - Add separate absolute snapshot collectors for Versus survivor and infected Segments.

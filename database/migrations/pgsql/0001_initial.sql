@@ -233,6 +233,22 @@ CREATE TABLE IF NOT EXISTS lps_versus_infected_stats (
   revision BIGINT NOT NULL DEFAULT 0
 );
 -- statement-breakpoint
+CREATE TABLE IF NOT EXISTS lps_versus_infected_class_stats (
+  segment_id VARCHAR(128) NOT NULL,
+  infected_class INTEGER NOT NULL,
+  stats_version INTEGER NOT NULL DEFAULT 1,
+  last_saved_at BIGINT NOT NULL,
+  spawn_count BIGINT NOT NULL DEFAULT 0,
+  damage_to_human_survivors BIGINT NOT NULL DEFAULT 0,
+  damage_to_bot_survivors BIGINT NOT NULL DEFAULT 0,
+  human_survivor_incaps BIGINT NOT NULL DEFAULT 0,
+  bot_survivor_incaps BIGINT NOT NULL DEFAULT 0,
+  human_survivor_kills BIGINT NOT NULL DEFAULT 0,
+  bot_survivor_kills BIGINT NOT NULL DEFAULT 0,
+  revision BIGINT NOT NULL DEFAULT 0,
+  PRIMARY KEY (segment_id, infected_class)
+);
+-- statement-breakpoint
 CREATE INDEX IF NOT EXISTS lps_idx_sessions_server_started ON lps_sessions (server_key, started_at);
 -- statement-breakpoint
 CREATE INDEX IF NOT EXISTS lps_idx_sessions_steam_started ON lps_sessions (steam_id, started_at);
@@ -246,3 +262,5 @@ CREATE INDEX IF NOT EXISTS lps_idx_segments_round_steam ON lps_player_segments (
 CREATE INDEX IF NOT EXISTS lps_idx_segments_steam_started ON lps_player_segments (steam_id, started_at);
 -- statement-breakpoint
 CREATE INDEX IF NOT EXISTS lps_idx_pve_equipment_id ON lps_pve_segment_equipment_stats (equipment_id, segment_id);
+-- statement-breakpoint
+CREATE INDEX IF NOT EXISTS lps_idx_versus_infected_class_id ON lps_versus_infected_class_stats (infected_class, segment_id);

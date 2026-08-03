@@ -253,7 +253,7 @@ Smoker / Boomer / Hunter / Spitter / Jockey / Charger
 
 只统计玩家作为感染者参与对抗半场时的数据。
 
-### 7.1 第一阶段字段
+### 7.1 总计字段
 
 | 字段 | 含义 |
 |---|---|
@@ -265,13 +265,26 @@ Smoker / Boomer / Hunter / Spitter / Jockey / Charger
 | `human_survivor_kills` | 造成真人幸存者死亡的次数 |
 | `bot_survivor_kills` | 造成Bot幸存者死亡的次数 |
 
-Tank属于对抗感染者身份，但第一阶段不把不同感染者职业拆成独立个人排行榜。
+Tank属于对抗感染者身份。上述总计是读取侧无需聚合即可使用的权威快照。
 
-### 7.2 后续字段
+### 7.2 职业明细
+
+Smoker、Boomer、Hunter、Spitter、Jockey、Charger、Tank 使用固定职业 ID
+分别保存与总计相同的七项指标：
+
+- 出生次数；
+- 对真人/Bot 幸存者的有效伤害；
+- 造成真人/Bot 幸存者倒地的次数；
+- 造成真人/Bot 幸存者死亡的次数。
+
+每个感染者 Segment 最多七个职业行。未知职业不创建动态 ID 或名称行，也不记录
+职业明细。正常数据中，每一项职业明细之和必须严格等于对应总计；检查工具将不一致
+视为数据健康错误。Bot 感染者仍不拥有个人 Segment 或职业统计。
+
+### 7.3 后续字段
 
 以下指标明确推迟，不属于第一阶段数据库兼容验收条件：
 
-- 各职业出生、伤害和击杀明细；
 - Hunter扑击距离；
 - Smoker控制时间；
 - Jockey骑乘距离；

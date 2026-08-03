@@ -61,6 +61,13 @@ VERSUS_INFECTED_STAT_COLUMNS = [
     "human_survivor_kills", "bot_survivor_kills", "revision",
 ]
 
+VERSUS_INFECTED_CLASS_STAT_COLUMNS = [
+    "infected_class", "stats_version", "last_saved_at", "spawn_count",
+    "damage_to_human_survivors", "damage_to_bot_survivors",
+    "human_survivor_incaps", "bot_survivor_incaps",
+    "human_survivor_kills", "bot_survivor_kills", "revision",
+]
+
 
 def build_snapshot_upsert(table: str, key_columns: list[str], columns: list[str]) -> str:
     all_columns = ["segment_id", *columns]
@@ -390,6 +397,32 @@ def main() -> None:
                 stale_infected_segment_id, 1, 115, 2, 150, 60, 1, 0, 0, 0, 1,
             ),
         )
+
+        versus_infected_class_insert = build_snapshot_upsert(
+            "lps_versus_infected_class_stats",
+            ["infected_class"],
+            VERSUS_INFECTED_CLASS_STAT_COLUMNS,
+        )
+        # Class IDs use L4D2's stable zombie-class values: 1-6 and Tank 8.
+        database.execute(
+            versus_infected_class_insert,
+            (
+                stale_infected_segment_id, 1, 1, 115, 2, 150, 60, 1, 0, 0, 0, 1,
+            ),
+        )
+        # Absolute retry replaces Smoker's earlier row.
+        database.execute(
+            versus_infected_class_insert,
+            (
+                stale_infected_segment_id, 1, 1, 125, 3, 300, 100, 1, 1, 1, 0, 2,
+            ),
+        )
+        database.execute(
+            versus_infected_class_insert,
+            (
+                stale_infected_segment_id, 8, 1, 125, 1, 150, 20, 1, 0, 0, 0, 2,
+            ),
+        )
         database.execute(
             versus_infected_insert,
             (
@@ -437,8 +470,8 @@ def main() -> None:
             )
         }
 
-        assert len(tables) == 12, tables
-        assert len(indexes) == 7, indexes
+        assert len(tables) == 13, tables
+        assert len(indexes) == 8, indexes
         status = database.execute(
             "SELECT status FROM lps_server_boots WHERE boot_id = 'test-01:1:a'"
         ).fetchone()
@@ -545,6 +578,27 @@ def main() -> None:
         assert versus_infected_stats == (
             1, 125, 4, 450, 120, 2, 1, 1, 0, 2,
         ), versus_infected_stats
+
+        versus_infected_class_stats = database.execute(
+            f"SELECT {', '.join(VERSUS_INFECTED_CLASS_STAT_COLUMNS)} "
+            "FROM lps_versus_infected_class_stats WHERE segment_id = ? "
+            "ORDER BY infected_class",
+            (stale_infected_segment_id,),
+        ).fetchall()
+        assert versus_infected_class_stats == [
+            (1, 1, 125, 3, 300, 100, 1, 1, 1, 0, 2),
+            (8, 1, 125, 1, 150, 20, 1, 0, 0, 0, 2),
+        ], versus_infected_class_stats
+
+        class_totals = database.execute(
+            "SELECT SUM(spawn_count), SUM(damage_to_human_survivors), "
+            "SUM(damage_to_bot_survivors), SUM(human_survivor_incaps), "
+            "SUM(bot_survivor_incaps), SUM(human_survivor_kills), "
+            "SUM(bot_survivor_kills) "
+            "FROM lps_versus_infected_class_stats WHERE segment_id = ?",
+            (stale_infected_segment_id,),
+        ).fetchone()
+        assert class_totals == (4, 450, 120, 2, 1, 1, 0), class_totals
 
         versus_side_mismatches = database.execute(
             "SELECT COUNT(*) FROM ("

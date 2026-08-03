@@ -239,3 +239,20 @@ CREATE TABLE IF NOT EXISTS lps_versus_infected_stats (
   bot_survivor_kills BIGINT NOT NULL DEFAULT 0,
   revision BIGINT NOT NULL DEFAULT 0
 );
+-- statement-breakpoint
+CREATE TABLE IF NOT EXISTS lps_versus_infected_class_stats (
+  segment_id VARCHAR(128) NOT NULL,
+  infected_class INTEGER NOT NULL,
+  stats_version INTEGER NOT NULL DEFAULT 1,
+  last_saved_at BIGINT NOT NULL,
+  spawn_count BIGINT NOT NULL DEFAULT 0,
+  damage_to_human_survivors BIGINT NOT NULL DEFAULT 0,
+  damage_to_bot_survivors BIGINT NOT NULL DEFAULT 0,
+  human_survivor_incaps BIGINT NOT NULL DEFAULT 0,
+  bot_survivor_incaps BIGINT NOT NULL DEFAULT 0,
+  human_survivor_kills BIGINT NOT NULL DEFAULT 0,
+  bot_survivor_kills BIGINT NOT NULL DEFAULT 0,
+  revision BIGINT NOT NULL DEFAULT 0,
+  PRIMARY KEY (segment_id, infected_class),
+  INDEX lps_idx_versus_infected_class_id (infected_class, segment_id)
+);

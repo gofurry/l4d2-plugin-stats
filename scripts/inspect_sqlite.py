@@ -18,6 +18,11 @@ EQUIPMENT_NAMES = {
     37: "Tonfa", 38: "Molotov", 39: "Pipe Bomb", 40: "Vomit Jar",
 }
 
+INFECTED_CLASS_NAMES = {
+    1: "Smoker", 2: "Boomer", 3: "Hunter", 4: "Spitter",
+    5: "Jockey", 6: "Charger", 8: "Tank",
+}
+
 
 def main() -> None:
     parser = argparse.ArgumentParser(
@@ -52,6 +57,9 @@ def main() -> None:
         ).fetchone()[0]
         versus_infected_stats = database.execute(
             "SELECT COUNT(*) FROM lps_versus_infected_stats"
+        ).fetchone()[0]
+        versus_infected_class_stats = database.execute(
+            "SELECT COUNT(*) FROM lps_versus_infected_class_stats"
         ).fetchone()[0]
 
         integrity = database.execute("PRAGMA integrity_check").fetchone()[0]
@@ -90,6 +98,12 @@ def main() -> None:
             "SELECT COUNT(*) FROM lps_versus_infected_stats v "
             "LEFT JOIN lps_player_segments g ON g.segment_id = v.segment_id "
             "WHERE g.segment_id IS NULL"
+        ).fetchone()[0]
+        orphan_versus_infected_class_stats = database.execute(
+            "SELECT COUNT(*) FROM lps_versus_infected_class_stats c "
+            "LEFT JOIN lps_player_segments g ON g.segment_id = c.segment_id "
+            "LEFT JOIN lps_versus_infected_stats v ON v.segment_id = c.segment_id "
+            "WHERE g.segment_id IS NULL OR v.segment_id IS NULL"
         ).fetchone()[0]
         invalid_pve_stats = database.execute(
             "SELECT COUNT(*) FROM lps_pve_segment_stats WHERE stats_version <> 1 "
@@ -160,6 +174,35 @@ def main() -> None:
             "human_survivor_incaps, bot_survivor_incaps, "
             "human_survivor_kills, bot_survivor_kills, revision) < 0"
         ).fetchone()[0]
+        invalid_versus_infected_class_stats = database.execute(
+            "SELECT COUNT(*) FROM lps_versus_infected_class_stats "
+            "WHERE stats_version <> 1 OR infected_class NOT IN (1, 2, 3, 4, 5, 6, 8) "
+            "OR min(spawn_count, damage_to_human_survivors, "
+            "damage_to_bot_survivors, human_survivor_incaps, "
+            "bot_survivor_incaps, human_survivor_kills, "
+            "bot_survivor_kills, revision) < 0"
+        ).fetchone()[0]
+        versus_infected_class_total_mismatches = database.execute(
+            "SELECT COUNT(*) FROM lps_versus_infected_stats v LEFT JOIN ("
+            "SELECT segment_id, SUM(spawn_count) AS spawn_count, "
+            "SUM(damage_to_human_survivors) AS damage_to_human_survivors, "
+            "SUM(damage_to_bot_survivors) AS damage_to_bot_survivors, "
+            "SUM(human_survivor_incaps) AS human_survivor_incaps, "
+            "SUM(bot_survivor_incaps) AS bot_survivor_incaps, "
+            "SUM(human_survivor_kills) AS human_survivor_kills, "
+            "SUM(bot_survivor_kills) AS bot_survivor_kills "
+            "FROM lps_versus_infected_class_stats GROUP BY segment_id) c "
+            "ON c.segment_id = v.segment_id WHERE "
+            "COALESCE(c.spawn_count, 0) <> v.spawn_count "
+            "OR COALESCE(c.damage_to_human_survivors, 0) "
+            "<> v.damage_to_human_survivors "
+            "OR COALESCE(c.damage_to_bot_survivors, 0) "
+            "<> v.damage_to_bot_survivors "
+            "OR COALESCE(c.human_survivor_incaps, 0) <> v.human_survivor_incaps "
+            "OR COALESCE(c.bot_survivor_incaps, 0) <> v.bot_survivor_incaps "
+            "OR COALESCE(c.human_survivor_kills, 0) <> v.human_survivor_kills "
+            "OR COALESCE(c.bot_survivor_kills, 0) <> v.bot_survivor_kills"
+        ).fetchone()[0]
         versus_side_mismatches = database.execute(
             "SELECT COUNT(*) FROM ("
             "SELECT v.segment_id FROM lps_versus_survivor_stats v "
@@ -215,7 +258,8 @@ def main() -> None:
             f"runs={runs} rounds={rounds} segments={segments} pve_stats={pve_stats} "
             f"equipment_stats={equipment_stats} "
             f"versus_survivor_stats={versus_survivor_stats} "
-            f"versus_infected_stats={versus_infected_stats}"
+            f"versus_infected_stats={versus_infected_stats} "
+            f"versus_infected_class_stats={versus_infected_class_stats}"
         )
         print(
             f"health integrity={integrity} orphan_rounds={orphan_rounds} "
@@ -225,10 +269,16 @@ def main() -> None:
             f"orphan_equipment_stats={orphan_equipment_stats} "
             f"orphan_versus_survivor_stats={orphan_versus_survivor_stats} "
             f"orphan_versus_infected_stats={orphan_versus_infected_stats} "
+            f"orphan_versus_infected_class_stats="
+            f"{orphan_versus_infected_class_stats} "
             f"invalid_pve_stats={invalid_pve_stats} "
             f"invalid_equipment_stats={invalid_equipment_stats} "
             f"invalid_versus_survivor_stats={invalid_versus_survivor_stats} "
             f"invalid_versus_infected_stats={invalid_versus_infected_stats} "
+            f"invalid_versus_infected_class_stats="
+            f"{invalid_versus_infected_class_stats} "
+            f"versus_infected_class_total_mismatches="
+            f"{versus_infected_class_total_mismatches} "
             f"versus_side_mismatches={versus_side_mismatches} "
             f"versus_mode_mismatches={versus_mode_mismatches} "
             f"dual_versus_stats={dual_versus_stats} "
@@ -426,6 +476,28 @@ def main() -> None:
                 f"damage_human={row[3]} damage_bot={row[4]} "
                 f"incaps_human={row[5]} incaps_bot={row[6]} "
                 f"kills_human={row[7]} kills_bot={row[8]} revision={row[9]}"
+            )
+
+        print("recent_versus_infected_class_stats:")
+        rows = database.execute(
+            "SELECT r.map_name, r.half_no, c.infected_class, c.spawn_count, "
+            "c.damage_to_human_survivors, c.damage_to_bot_survivors, "
+            "c.human_survivor_incaps, c.bot_survivor_incaps, "
+            "c.human_survivor_kills, c.bot_survivor_kills, c.revision "
+            "FROM lps_versus_infected_class_stats c "
+            "JOIN lps_player_segments g ON g.segment_id = c.segment_id "
+            "JOIN lps_rounds r ON r.round_id = g.round_id "
+            "ORDER BY c.last_saved_at DESC, c.segment_id DESC, c.infected_class "
+            "LIMIT 40"
+        ).fetchall()
+        for row in rows:
+            print(
+                "  "
+                f"map={row[0]!r} half={row[1]} class="
+                f"{INFECTED_CLASS_NAMES.get(row[2], f'Unknown({row[2]})')!r} "
+                f"spawns={row[3]} damage_human={row[4]} damage_bot={row[5]} "
+                f"incaps_human={row[6]} incaps_bot={row[7]} "
+                f"kills_human={row[8]} kills_bot={row[9]} revision={row[10]}"
             )
     finally:
         database.close()

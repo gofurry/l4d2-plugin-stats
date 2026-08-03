@@ -2,7 +2,7 @@
 
 ## Current Position
 
-项目已经完成数据库地基、真人身份/Session、Run/Round/Segment 生命周期，以及 v0.4.0～v0.5.3 PvE 统计的本地验收。v0.6.0 对抗核心统计已经实现并通过单人 Bot 上下半场验证；本地测试发现的第二半场正常过图 Run/Session 断裂已经修复，等待一次 c5m1→c5m2 回归。完整双方真人对抗、MySQL 和 PostgreSQL 实机兼容验证统一保留到 v0.7.0。
+项目已经完成数据库地基、真人身份/Session、Run/Round/Segment 生命周期，以及 v0.4.0～v0.5.3 PvE 统计的本地验收。v0.6.0 对抗核心统计已经通过单人 Bot 上下半场与跨图回归；v0.6.2 感染者职业明细完成实现和离线验证，等待本地数据验收。完整双方真人对抗、MySQL 和 PostgreSQL 实机兼容验证统一保留到 v0.7.0。
 
 当前已采集 PvE 击杀、有效伤害、承伤、友伤、救援、治疗、临时生命、章节/战役成绩、设备、控制、技巧、目标互动和失能时长。Versus 使用独立统计模型，首版已覆盖幸存者战斗/生存/救援/治疗，以及感染者出生/伤害/倒地/击杀。SourcePawn 采集器、数据库结构和未来 Go 服务的公共边界仍处于 pre-v1 阶段，可以按真实服务器验证结果调整。
 
@@ -268,7 +268,7 @@
 
 ### v0.6.0 - Versus Statistics
 
-**Status:** Implementation complete; local cross-map regression pending
+**Status:** Completed (local validation scope)
 
 **Scope:** User-facing / Architecture / Testing
 
@@ -284,7 +284,7 @@
 - [x] 扩展 SQLite 集成测试与数据库检查工具
 - [x] 使用 `versus + sb_all_bot_game 1` 完成单人上下半场统计归属验证
 - [x] 修复第二半场结束后缺少可靠 `map_transition` 导致的 Run/Session 跨图断裂
-- [ ] 完成 c5m1 上下半场并进入 c5m2，确认同一 Run、同一 Session、`round_seq=3`、`map_seq=2`
+- [x] 完成 c5m1 上下半场并进入 c5m2，确认同一 Run、同一 Session、`round_seq=3`、`map_seq=2`
 - [ ] 在真实多人服务器完成双方真人、换队、Tank 交接、重连和中途加入测试（转移至 v0.7.0）
 
 #### Acceptance Criteria
@@ -334,7 +334,7 @@ v0.6.0 不新增迁移：三数据库 `0001_initial.sql` 已预留两张对抗�
 
 ### v0.6.2 - Infected Class Breakdown
 
-**Status:** Planned
+**Status:** Implementation complete; local validation pending
 
 **Scope:** User-facing / Data model / Testing
 
@@ -348,16 +348,21 @@ v0.6.0 不新增迁移：三数据库 `0001_initial.sql` 已预留两张对抗�
 
 #### Tasks
 
-- [ ] 设计固定职业字段或子表契约并评估三数据库迁移
-- [ ] 按职业拆分真人感染者出生、伤害、倒地和击杀
-- [ ] 保留现有感染者总计作为可直接查询的权威快照
-- [ ] 增加职业总和与总计一致性检查
+- [x] 设计固定七职业子表并完成三数据库等价 DDL
+- [x] 按职业拆分真人感染者出生、伤害、倒地和击杀，并保留真人/Bot 目标口径
+- [x] 保留现有感染者总计作为可直接查询的权威快照
+- [x] 增加职业总和与总计一致性检查和 SQLite 绝对快照测试
+- [ ] 按 [v0.6.2 本地测试清单](v0.6.2-test-checklist.md) 验证真实职业行与总计一致
 
 #### Acceptance Criteria
 
 - 未知职业不会创建动态列或无限增长的名称维度
 - 职业明细能够无歧义聚合回现有感染者总计
 - 不记录 Bot 自己的个人统计
+
+#### Notes
+
+插件尚未公开发布，v0.6.2 继续重写 `0001_initial.sql`，不保留测试数据库升级包袱。测试前必须备份后清空旧数据库，由插件按当前 13 表、8 索引结构重新建立。
 
 ---
 

@@ -3,7 +3,7 @@
 #endif
 #define _l4d2_player_stats_definitions_included
 
-#define LPS_VERSION "0.6.0"
+#define LPS_VERSION "0.6.2"
 #define LPS_SCHEMA_VERSION 1
 #define LPS_MIGRATION_NAME "initial_schema"
 #define LPS_STATS_VERSION 1
@@ -251,5 +251,20 @@ enum LPSVersusInfectedStat
 	LPSVersusInfectedStat_HumanSurvivorIncaps,
 	LPSVersusInfectedStat_BotSurvivorIncaps,
 	LPSVersusInfectedStat_HumanSurvivorKills,
-	LPSVersusInfectedStat_BotSurvivorKills
+	LPSVersusInfectedStat_BotSurvivorKills,
+	LPSVersusInfectedStat_Count
+};
+
+// Stable bounded indexes for the seven playable infected classes. Database
+// rows persist the engine zombie-class values (1-6 and 8), never these indexes.
+enum LPSVersusInfectedClass
+{
+	LPSVersusInfectedClass_Smoker = 0,
+	LPSVersusInfectedClass_Boomer,
+	LPSVersusInfectedClass_Hunter,
+	LPSVersusInfectedClass_Spitter,
+	LPSVersusInfectedClass_Jockey,
+	LPSVersusInfectedClass_Charger,
+	LPSVersusInfectedClass_Tank,
+	LPSVersusInfectedClass_Count
 };

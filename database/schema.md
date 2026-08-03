@@ -353,6 +353,39 @@ bot_survivor_kills
 revision
 ```
 
+### 4.13 `lps_versus_infected_class_stats`
+
+复合主键为 `(segment_id, infected_class)`。每个感染者 Segment 最多产生七行，
+并包含：
+
+```text
+stats_version
+last_saved_at
+spawn_count
+damage_to_human_survivors
+damage_to_bot_survivors
+human_survivor_incaps
+bot_survivor_incaps
+human_survivor_kills
+bot_survivor_kills
+revision
+```
+
+`infected_class` 使用游戏稳定职业编号：
+
+| ID | 职业 |
+|---:|---|
+| 1 | Smoker |
+| 2 | Boomer |
+| 3 | Hunter |
+| 4 | Spitter |
+| 5 | Jockey |
+| 6 | Charger |
+| 8 | Tank |
+
+未知职业不创建行。职业行是同一绝对快照的有界明细，其各项合计必须分别等于
+`lps_versus_infected_stats` 中对应总计。
+
 ## 5. 逻辑关联和外键
 
 第一阶段只定义逻辑外键，不要求数据库建立物理`FOREIGN KEY`约束。
@@ -374,6 +407,7 @@ lps_rounds(run_id, round_seq)
 lps_player_segments(round_id, steam_id)
 lps_player_segments(steam_id, started_at)
 lps_pve_segment_equipment_stats(equipment_id, segment_id)
+lps_versus_infected_class_stats(infected_class, segment_id)
 ```
 
 不同数据库允许使用不同建索引语法，但索引语义必须一致。
