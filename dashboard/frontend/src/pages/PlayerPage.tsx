@@ -52,13 +52,13 @@ export function PlayerPage() {
   const copy = zh ? {
     activity: '活跃趋势', serverShare: '服务器分布', overview: '生涯概览', combat: '战斗', survival: '生存与承伤', teamwork: '团队与补给', progress: '章节成绩', skills: '技巧与互动', classes: '特殊感染者明细', equipment: '武器与装备',
     pveTab: 'PvE', versusSurvivor: '对抗 · 幸存者', versusInfected: '对抗 · 感染者', history: '最近记录', activeRatio: '实际操作占比', firstSeen: '首次出现', activeTime: '实际操作',
-    connected: '连接', sessions: '会话', kills: '击杀', damage: '伤害', controlled: '受控次数', controlTime: '受控时长', saves: '解救', actions: '使用/动作', headshots: '爆头击杀', human: '真人', bot: 'Bot', received: '获救次数', supplies: '治疗与补给', encounters: '遭遇与参与', abilityHits: '技能命中', abilityDamage: '技能伤害',
-    noActivity: '该时间范围内没有活跃记录', sessionHistory: 'Session', chapterHistory: '章节参与', mode: '模式', side: '阵营', status: '状态', time: '时间', server: '服务器', bossDamage: 'Boss 伤害', infectedDamage: '感染者承伤', friendlyFireDealt: '造成友伤', friendlyFireTaken: '受到友伤', downEdge: '倒地 / 挂边', ledgeRescue: '挂边救援', defib: '电击复活', medkitOthers: '对队友打包', healingOthers: '对队友治疗量', blackWhite: '恢复黑白队友', survived: '存活通关', deadCompletion: '死亡通关', ammo: '补充弹药', objective: '目标互动', tongue: '断舌自救', rocks: '击碎 Tank 石块', witchOneShot: '秒杀 Witch', witchSolo: '单杀 Witch', tankParticipation: 'Tank 击杀参与', witchParticipation: 'Witch 击杀参与', humanSI: '真人特感击杀', botSI: 'Bot 特感击杀', humanTank: '真人 Tank 击杀', botTank: 'Bot Tank 击杀', throwables: '投掷物', spawns: '出生',
+    connected: '连接', sessions: '会话', kills: '击杀', damage: '伤害', controlled: '受控次数', controlTime: '受控时长', saves: '解救', actions: '使用/动作', headshots: '爆头击杀', received: '获救次数', supplies: '治疗与补给', encounters: '遭遇与参与', abilityHits: '技能命中', abilityDamage: '技能伤害', humanKills: '击杀真人', botKills: '击杀 Bot', humanDamage: '对真人造成伤害', botDamage: '对 Bot 造成伤害', humanIncaps: '击倒真人幸存者', botIncaps: '击倒 Bot 幸存者', humanSurvivorKills: '击杀真人幸存者', botSurvivorKills: '击杀 Bot 幸存者', humanControls: '控制真人幸存者', botControls: '控制 Bot 幸存者',
+    noActivity: '该时间范围内没有活跃记录', sessionHistory: 'Session', chapterHistory: '章节参与', mode: '模式', side: '阵营', status: '状态', time: '时间', server: '服务器', bossDamage: 'Boss 伤害', infectedDamage: '感染者承伤', friendlyFireDealt: '造成友伤', friendlyFireTaken: '受到友伤', downEdge: '倒地 / 挂边', ledgeRescue: '挂边救援', defib: '电击复活', medkitOthers: '对队友打包', healingOthers: '对队友治疗量', blackWhite: '恢复黑白队友', survived: '存活通关', deadCompletion: '死亡通关', ammo: '补充弹药', objective: '机关互动', tongue: '断舌自救', rocks: '击碎 Tank 石块', witchOneShot: '秒杀 Witch', witchSolo: '单杀 Witch', tankParticipation: 'Tank 击杀参与', witchParticipation: 'Witch 击杀参与', humanSI: '击杀真人特感', botSI: '击杀 Bot 特感', humanTank: '击杀真人 Tank', botTank: '击杀 Bot Tank', throwables: '投掷物', spawns: '复活',
   } : {
     activity: 'Activity trend', serverShare: 'Server distribution', overview: 'Career overview', combat: 'Combat', survival: 'Survival and damage', teamwork: 'Teamwork and supplies', progress: 'Chapter results', skills: 'Skills and interactions', classes: 'Special infected detail', equipment: 'Weapons and equipment',
     pveTab: 'PvE', versusSurvivor: 'Versus · Survivor', versusInfected: 'Versus · Infected', history: 'Recent records', activeRatio: 'Active ratio', firstSeen: 'First seen', activeTime: 'Active time',
-    connected: 'Connected', sessions: 'Sessions', kills: 'Kills', damage: 'Damage', controlled: 'Controls received', controlTime: 'Control time', saves: 'Saves', actions: 'Actions', headshots: 'Headshot kills', human: 'Human', bot: 'Bot', received: 'Rescues received', supplies: 'Healing and supplies', encounters: 'Encounters and participation', abilityHits: 'Ability hits', abilityDamage: 'Ability damage',
-    noActivity: 'No activity in this range', sessionHistory: 'Sessions', chapterHistory: 'Chapters', mode: 'Mode', side: 'Side', status: 'Status', time: 'Time', server: 'Server', bossDamage: 'Boss damage', infectedDamage: 'Damage from infected', friendlyFireDealt: 'Friendly fire dealt', friendlyFireTaken: 'Friendly fire taken', downEdge: 'Incapacitated / ledge', ledgeRescue: 'Ledge rescues', defib: 'Defibrillator revives', medkitOthers: 'Medkits used on teammates', healingOthers: 'Healing teammates', blackWhite: 'Black-and-white restored', survived: 'Completed alive', deadCompletion: 'Completed dead', ammo: 'Ammo pile uses', objective: 'Objective interactions', tongue: 'Self tongue cuts', rocks: 'Tank rocks destroyed', witchOneShot: 'Witch one-shots', witchSolo: 'Witch solo kills', tankParticipation: 'Tank kill participations', witchParticipation: 'Witch kill participations', humanSI: 'Human SI kills', botSI: 'Bot SI kills', humanTank: 'Human Tank kills', botTank: 'Bot Tank kills', throwables: 'Throwables', spawns: 'Spawns',
+    connected: 'Connected', sessions: 'Sessions', kills: 'Kills', damage: 'Damage', controlled: 'Controls received', controlTime: 'Control time', saves: 'Saves', actions: 'Actions', headshots: 'Headshot kills', received: 'Rescues received', supplies: 'Healing and supplies', encounters: 'Encounters and participation', abilityHits: 'Ability hits', abilityDamage: 'Ability damage', humanKills: 'Human kills', botKills: 'Bot kills', humanDamage: 'Damage to humans', botDamage: 'Damage to bots', humanIncaps: 'Human survivor incaps', botIncaps: 'Bot survivor incaps', humanSurvivorKills: 'Human survivor kills', botSurvivorKills: 'Bot survivor kills', humanControls: 'Human survivor controls', botControls: 'Bot survivor controls',
+    noActivity: 'No activity in this range', sessionHistory: 'Sessions', chapterHistory: 'Chapters', mode: 'Mode', side: 'Side', status: 'Status', time: 'Time', server: 'Server', bossDamage: 'Boss damage', infectedDamage: 'Damage from infected', friendlyFireDealt: 'Friendly fire dealt', friendlyFireTaken: 'Friendly fire taken', downEdge: 'Incapacitated / ledge', ledgeRescue: 'Ledge rescues', defib: 'Defibrillator revives', medkitOthers: 'Medkits used on teammates', healingOthers: 'Healing teammates', blackWhite: 'Black-and-white restored', survived: 'Completed alive', deadCompletion: 'Completed dead', ammo: 'Ammo pile uses', objective: 'Objective interactions', tongue: 'Self tongue cuts', rocks: 'Tank rocks destroyed', witchOneShot: 'Witch one-shots', witchSolo: 'Witch solo kills', tankParticipation: 'Tank kill participations', witchParticipation: 'Witch kill participations', humanSI: 'Human SI kills', botSI: 'Bot SI kills', humanTank: 'Human Tank kills', botTank: 'Bot Tank kills', throwables: 'Throwables', spawns: 'Respawns',
   }
 
   const site = useQuery({ queryKey: ['site'], queryFn: api.site, staleTime: 300_000 })
@@ -146,22 +146,22 @@ export function PlayerPage() {
   ]
   const survivorClassColumns = [
     { title: zh ? '类型' : 'Class', key: 'class', render: (_: unknown, item: VersusSurvivorClass) => infectedNames[item.class_id - 1] ?? `#${item.class_id}` },
-    { title: `${copy.human} ${copy.kills}`, dataIndex: 'human_controller_kills', key: 'humanKills' },
-    { title: `${copy.bot} ${copy.kills}`, dataIndex: 'bot_controller_kills', key: 'botKills' },
-    { title: `${copy.human} ${copy.damage}`, dataIndex: 'damage_to_human_controllers', key: 'humanDamage' },
-    { title: `${copy.bot} ${copy.damage}`, dataIndex: 'damage_to_bot_controllers', key: 'botDamage' },
+    { title: copy.humanKills, dataIndex: 'human_controller_kills', key: 'humanKills' },
+    { title: copy.botKills, dataIndex: 'bot_controller_kills', key: 'botKills' },
+    { title: copy.humanDamage, dataIndex: 'damage_to_human_controllers', key: 'humanDamage' },
+    { title: copy.botDamage, dataIndex: 'damage_to_bot_controllers', key: 'botDamage' },
   ]
   const infectedClassColumns = [
     { title: zh ? '类型' : 'Class', key: 'class', render: (_: unknown, item: VersusInfectedClass) => infectedNames[item.class_id - 1] ?? `#${item.class_id}` },
     { title: copy.spawns, dataIndex: 'spawns', key: 'spawns' },
-    { title: `${copy.human} ${copy.damage}`, dataIndex: 'damage_to_human_survivors', key: 'humanDamage' },
-    { title: `${copy.bot} ${copy.damage}`, dataIndex: 'damage_to_bot_survivors', key: 'botDamage' },
-    { title: `${copy.human} ${t('incaps')}`, dataIndex: 'human_survivor_incaps', key: 'humanIncaps' },
-    { title: `${copy.bot} ${t('incaps')}`, dataIndex: 'bot_survivor_incaps', key: 'botIncaps' },
-    { title: `${copy.human} ${t('kills')}`, dataIndex: 'human_survivor_kills', key: 'humanKills' },
-    { title: `${copy.bot} ${t('kills')}`, dataIndex: 'bot_survivor_kills', key: 'botKills' },
-    { title: `${copy.human} ${t('controls')}`, dataIndex: 'human_survivor_controls', key: 'humanControls' },
-    { title: `${copy.bot} ${t('controls')}`, dataIndex: 'bot_survivor_controls', key: 'botControls' },
+    { title: copy.humanDamage, dataIndex: 'damage_to_human_survivors', key: 'humanDamage' },
+    { title: copy.botDamage, dataIndex: 'damage_to_bot_survivors', key: 'botDamage' },
+    { title: copy.humanIncaps, dataIndex: 'human_survivor_incaps', key: 'humanIncaps' },
+    { title: copy.botIncaps, dataIndex: 'bot_survivor_incaps', key: 'botIncaps' },
+    { title: copy.humanSurvivorKills, dataIndex: 'human_survivor_kills', key: 'humanKills' },
+    { title: copy.botSurvivorKills, dataIndex: 'bot_survivor_kills', key: 'botKills' },
+    { title: copy.humanControls, dataIndex: 'human_survivor_controls', key: 'humanControls' },
+    { title: copy.botControls, dataIndex: 'bot_survivor_controls', key: 'botControls' },
     { title: copy.abilityHits, key: 'abilityHits', render: (_: unknown, item: VersusInfectedClass) => number.format(item.human_survivor_ability_hits + item.bot_survivor_ability_hits) },
     { title: copy.abilityDamage, key: 'abilityDamage', render: (_: unknown, item: VersusInfectedClass) => number.format(item.human_survivor_ability_damage + item.bot_survivor_ability_damage) },
   ]
@@ -211,7 +211,7 @@ export function PlayerPage() {
           <Section title={copy.classes} wide><Table<VersusSurvivorClass> className={styles.embeddedTable} columns={survivorClassColumns} dataSource={versus.data.survivor_classes} rowKey="class_id" pagination={false} size="small" scroll={{ x: 720 }} /></Section>
         </div> },
         { key: 'versus-infected', label: copy.versusInfected, children: versus.isLoading ? <Spin /> : versus.data && <div className={styles.sectionGrid}>
-          <Section title={copy.overview}><MetricList items={[[t('infectedSpawns'), versus.data.infected_spawns], [`${copy.human} ${copy.damage}`, versus.data.damage_to_human_survivors], [`${copy.bot} ${copy.damage}`, versus.data.damage_to_bot_survivors], [`${copy.human} ${t('incaps')}`, versus.data.human_survivor_incaps], [`${copy.bot} ${t('incaps')}`, versus.data.bot_survivor_incaps], [`${copy.human} ${t('kills')}`, versus.data.human_survivor_kills], [`${copy.bot} ${t('kills')}`, versus.data.bot_survivor_kills], [t('controls'), versus.data.human_survivor_controls], [t('controlTime'), duration(versus.data.human_survivor_control_seconds)]]} /></Section>
+          <Section title={copy.overview}><MetricList items={[[t('infectedSpawns'), versus.data.infected_spawns], [copy.humanDamage, versus.data.damage_to_human_survivors], [copy.botDamage, versus.data.damage_to_bot_survivors], [copy.humanIncaps, versus.data.human_survivor_incaps], [copy.botIncaps, versus.data.bot_survivor_incaps], [copy.humanSurvivorKills, versus.data.human_survivor_kills], [copy.botSurvivorKills, versus.data.bot_survivor_kills], [t('controls'), versus.data.human_survivor_controls], [t('controlTime'), duration(versus.data.human_survivor_control_seconds)]]} /></Section>
         </div> },
         { key: 'versus-infected-details', label: zh ? '对抗感染者明细' : 'Versus infected details', children: versus.isLoading ? <Spin /> : versus.data && <div className={styles.sectionGrid}>
           <Section title={copy.classes} wide><EChart ariaLabel={copy.classes} className={styles.largeChart} option={versusClassOption} /></Section>

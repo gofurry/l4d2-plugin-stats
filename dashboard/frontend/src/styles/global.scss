@@ -276,3 +276,9 @@ a { color: inherit; }
 :root[data-theme='dark'] :where(.ant-input, .ant-input-affix-wrapper, .ant-select-selector, .ant-input-number) {
   background: rgba(255, 255, 255, .055) !important;
 }
+
+// Password fields and inputs with a character counter use an outer Ant Design
+// wrapper. Only the wrapper should draw the acrylic surface in dark mode.
+:root[data-theme='dark'] .ant-input-affix-wrapper > :where(input.ant-input, textarea.ant-input) {
+  background: transparent !important;
+}
