@@ -45,7 +45,8 @@ func TestSQLiteOverviewUsesFrozenModeAndVersionBoundaries(t *testing.T) {
 		 VALUES ('sp',1,1,100,12,2,1,2,3,4)`,
 		`INSERT INTO lps_versus_run_results (run_id, stats_version, last_saved_at, result_status, finalized_at) VALUES ('versus',1,1,'completed',1)`,
 		`INSERT INTO lps_versus_round_results (round_id, stats_version, last_saved_at, result_status, finalized_at) VALUES ('rv',1,1,'completed',1)`,
-		`INSERT INTO lps_versus_survivor_stats (segment_id, stats_version, last_saved_at, human_special_kills, human_tank_kills) VALUES ('sv',1,1,7,2)`,
+		`INSERT INTO lps_versus_survivor_stats (segment_id, stats_version, last_saved_at, common_kills, human_special_kills, bot_special_kills, human_tank_kills, bot_tank_kills, damage_to_human_special, damage_to_bot_special, damage_to_human_tank, damage_to_bot_tank, deaths, incap_revives, ledge_rescues, defib_revives) VALUES ('sv',1,1,40,7,3,2,1,100,50,200,75,4,2,1,1)`,
+		`INSERT INTO lps_versus_infected_stats (segment_id, stats_version, last_saved_at, spawn_count, damage_to_human_survivors, human_survivor_incaps, human_survivor_kills) VALUES ('si',1,1,6,450,3,1)`,
 		`INSERT INTO lps_versus_infected_class_stats (segment_id, infected_class, stats_version, last_saved_at, human_survivor_controls) VALUES ('si',3,1,1,11)`,
 	}
 	for _, statement := range statements {
@@ -84,6 +85,30 @@ func TestSQLiteOverviewUsesFrozenModeAndVersionBoundaries(t *testing.T) {
 	}
 	if overview.Versus != (VersusOverview{CompletedMatches: 1, CompletedHalves: 1, HumanControlledKills: 9, HumanSurvivorControls: 11}) {
 		t.Fatalf("versus = %#v", overview.Versus)
+	}
+	summary, err := stats.PlayerSummary(ctx, "1")
+	if err != nil || summary == nil || summary.LastName != "Alice" || summary.SessionCount != 1 || summary.ActiveSeconds != 300 {
+		t.Fatalf("player summary = %#v, %v", summary, err)
+	}
+	missing, err := stats.PlayerSummary(ctx, "404")
+	if err != nil || missing != nil {
+		t.Fatalf("missing player = %#v, %v", missing, err)
+	}
+	pve, err := stats.PlayerPVE(ctx, "1", 0)
+	if err != nil || pve.CommonKills != 100 || pve.SpecialKills != 12 || pve.Revives != 9 {
+		t.Fatalf("player pve = %#v, %v", pve, err)
+	}
+	versus, err := stats.PlayerVersus(ctx, "1", 0)
+	if err != nil || versus.SurvivorCommonKills != 40 || versus.HumanSpecialKills != 7 || versus.SurvivorDamage != 425 || versus.InfectedSpawns != 6 || versus.HumanSurvivorControls != 11 {
+		t.Fatalf("player versus = %#v, %v", versus, err)
+	}
+	sessions, err := stats.PlayerSessions(ctx, "1", 0, "", 20)
+	if err != nil || len(sessions) != 1 || sessions[0].ServerKey != "one" {
+		t.Fatalf("player sessions = %#v, %v", sessions, err)
+	}
+	chapters, err := stats.PlayerChapters(ctx, "1", 0, "", 20)
+	if err != nil || len(chapters) != 3 {
+		t.Fatalf("player chapters = %#v, %v", chapters, err)
 	}
 }
 

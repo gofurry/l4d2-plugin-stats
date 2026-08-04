@@ -1,91 +1,112 @@
-import { GlobalOutlined, PlayCircleOutlined, ReloadOutlined } from '@ant-design/icons'
+import { PlayCircleOutlined, ReloadOutlined, RightOutlined } from '@ant-design/icons'
 import { useQuery } from '@tanstack/react-query'
-import { Alert, Button, Card, Col, Layout, Row, Skeleton, Space, Statistic, Tag, Typography } from 'antd'
+import { Alert, Button, Empty, Layout, Skeleton } from 'antd'
+import { useState } from 'react'
 import { useTranslation } from 'react-i18next'
 import { api, type Overview, type ServerStatus } from '../api'
-import { toggleLanguage } from '../i18n'
+import { FloatingNav } from '../components/FloatingNav'
 import { SiteFooter } from '../components/SiteFooter'
 import styles from './HomePage.module.scss'
 
-const { Header, Content } = Layout
-
+const { Content } = Layout
 const integer = new Intl.NumberFormat()
 
-function MetricCard({ title, value, suffix }: { title: string; value: number | string; suffix?: string }) {
-  return <Card className={styles.metricCard}><Statistic title={title} value={value} suffix={suffix} /></Card>
+function Metric({ title, value, suffix, details }: { title: string; value: number | string; suffix?: string; details?: string }) {
+  return <div className={styles.metric}>
+    <span>{title}</span>
+    <div className={styles.metricValue}><strong>{value}</strong>{suffix && <small>{suffix}</small>}{details && <small>{details}</small>}</div>
+  </div>
 }
 
-function ServerCard({ status, loading, failed }: { status: ServerStatus | null | undefined; loading: boolean; failed: boolean }) {
+function ServerRow({ status }: { status: ServerStatus }) {
   const { t } = useTranslation()
-  if (loading) return <Card className={styles.serverCard}><Skeleton active paragraph={{ rows: 3 }} /></Card>
-  if (failed) return <Card className={styles.serverCard}><Alert type="warning" showIcon title={t('serverUnavailable')} /></Card>
-  if (!status) return <Card className={styles.serverCard}><Typography.Text type="secondary">{t('notConfigured')}</Typography.Text></Card>
-  const tag = status.online ? <Tag color="green">{t('online')}</Tag> : <Tag color={status.stale ? 'orange' : 'red'}>{status.stale ? t('stale') : t('offline')}</Tag>
-  return <Card className={styles.serverCard}>
-    <div className={`${styles.serverTop} flex items-start justify-between`}>
-      <div><Typography.Text className={styles.eyebrow}>{t('serverStatus')}</Typography.Text><Typography.Title level={2}>{status.name || status.configured_name}</Typography.Title></div>
-      {tag}
+  const [expanded, setExpanded] = useState(false)
+  const state = status.stale ? 'stale' : status.online ? 'online' : 'offline'
+  const players = status.player_list ?? []
+  const toggle = () => setExpanded(value => !value)
+
+  return <article className={`${styles.serverItem} ${expanded ? styles.expanded : ''}`}>
+    <div className={styles.serverRow} role="button" tabIndex={0} aria-expanded={expanded} onClick={toggle}
+      onKeyDown={event => { if (event.key === 'Enter' || event.key === ' ') { event.preventDefault(); toggle() } }}>
+      <div className={styles.serverIdentity}>
+        <div className={styles.serverNameLine}>
+          <i className={`${styles.statusDot} ${styles[`statusDot_${state}`]}`} aria-label={t(state)} title={t(state)} />
+          <strong>{status.name || status.display_name}</strong>
+        </div>
+        {status.name && status.name !== status.display_name && <span>{status.display_name}</span>}
+      </div>
+      <div className={styles.serverFacts}>
+        <div><span>{t('map')}</span><strong>{status.map || '—'}</strong></div>
+        <div><span>{t('players')}</span><strong>{status.players} / {status.max_players}</strong></div>
+        <div><span>{t('latency')}</span><strong>{status.latency_ms == null ? '—' : `${status.latency_ms} ms`}</strong></div>
+      </div>
+      <Button type="primary" icon={<PlayCircleOutlined />} href={`steam://connect/${status.address}`}
+        onClick={event => event.stopPropagation()}>{t('join')}</Button>
+      <RightOutlined className={styles.expandIcon} aria-hidden="true" />
     </div>
-    <Row gutter={[16, 16]} className={styles.serverDetails}>
-      <Col xs={12} md={6}><span>{t('map')}</span><strong>{status.map || '—'}</strong></Col>
-      <Col xs={12} md={6}><span>{t('players')}</span><strong>{status.players} / {status.max_players}</strong></Col>
-      <Col xs={12} md={6}><span>{t('bots')}</span><strong>{status.bots}</strong></Col>
-      <Col xs={12} md={6}><span>{t('latency')}</span><strong>{status.latency_ms == null ? '—' : `${status.latency_ms} ms`}</strong></Col>
-    </Row>
-    <Space wrap>
-      <Button type="primary" icon={<PlayCircleOutlined />} href={`steam://connect/${status.connect_address}`}>{t('join')}</Button>
-      {status.last_success_at && <Typography.Text type="secondary">{t('lastSuccess')}: {new Date(status.last_success_at).toLocaleString()}</Typography.Text>}
-    </Space>
-  </Card>
+    <div className={`${styles.playerExpandRegion} ${expanded ? styles.open : ''}`}><div className={styles.playerExpandInner}>
+      {expanded && <div className={styles.playerPanel}>
+        {!status.online && <span className={styles.playerNotice}>{t('playerDetailsUnavailable')}</span>}
+        {status.online && players.length === 0 && <span className={styles.playerNotice}>{status.players === 0 ? t('noOnlinePlayers') : t('noPlayerDetails')}</span>}
+        {players.length > 0 && <div className={styles.playerList}>
+          <div className={styles.playerListHeader}><span>{t('playerName')}</span><span>{t('score')}</span><span>{t('onlineDuration')}</span></div>
+          {players.map((player, index) => <div className={styles.playerEntry} key={`${player.name}-${index}`}>
+            <strong>{player.name || t('unnamedPlayer')}</strong><span>{player.score}</span><span>{formatDuration(player.duration_seconds)}</span>
+          </div>)}
+        </div>}
+      </div>}
+    </div></div>
+  </article>
+}
+
+function formatDuration(seconds: number) {
+  if (seconds < 60) return `${Math.max(0, seconds)}s`
+  const minutes = Math.floor(seconds / 60)
+  return minutes < 60 ? `${minutes}m` : `${Math.floor(minutes / 60)}h ${minutes % 60}m`
+}
+
+function ServerList({ data, loading, failed }: { data?: ServerStatus[]; loading: boolean; failed: boolean }) {
+  const { t } = useTranslation()
+  return <section className={styles.section}>
+    {loading && <div className={styles.loadingRow}><Skeleton active paragraph={{ rows: 2 }} /></div>}
+    {failed && <Alert className={styles.serverAlert} type="warning" showIcon title={t('serverUnavailable')} />}
+    {!loading && !failed && data?.length === 0 && <div className={styles.empty}><Empty image={Empty.PRESENTED_IMAGE_SIMPLE} description={t('notConfigured')} /></div>}
+    <div className={styles.serverList}>{data?.map(status => <ServerRow key={status.server_id} status={status} />)}</div>
+  </section>
 }
 
 function OverviewContent({ data }: { data: Overview }) {
   const { t } = useTranslation()
   const completed = data.core.completed_pve_runs + data.core.completed_versus_runs
   const empty = data.core.total_players === 0 && data.core.total_active_play_seconds === 0
-  return <>
-    <Typography.Title level={2} className={styles.sectionTitle}>{t('overview')}</Typography.Title>
+  return <section className={`${styles.section} ${styles.overviewSection}`}>
     {empty && <Alert className={styles.alert} type="info" showIcon title={t('noData')} />}
-    <Row gutter={[16, 16]}>
-      <Col xs={12} lg={6}><MetricCard title={t('totalPlayers')} value={integer.format(data.core.total_players)} /></Col>
-      <Col xs={12} lg={6}><MetricCard title={t('active7d')} value={integer.format(data.core.active_players_7d)} /></Col>
-      <Col xs={12} lg={6}><MetricCard title={t('playTime')} value={integer.format(Math.round(data.core.total_active_play_seconds / 3600))} suffix={t('hours')} /></Col>
-      <Col xs={12} lg={6}><MetricCard title={t('completedRuns')} value={integer.format(completed)} suffix={`${t('pveRuns')} ${data.core.completed_pve_runs} / ${t('versusRuns')} ${data.core.completed_versus_runs}`} /></Col>
-    </Row>
-    <Row gutter={[20, 20]} className={styles.modeGrid}>
-      <Col xs={24} xl={12}><Card title={t('pve')} className={styles.modeCard}><Row gutter={[12, 20]}>
-        <Col span={12}><Statistic title={t('commonKills')} value={data.pve.common_kills} /></Col>
-        <Col span={12}><Statistic title={t('specialKills')} value={data.pve.special_kills} /></Col>
-        <Col span={12}><Statistic title={t('bossKills')} value={data.pve.tank_kills + data.pve.witch_kills} /></Col>
-        <Col span={12}><Statistic title={t('rescues')} value={data.pve.rescues} /></Col>
-      </Row></Card></Col>
-      <Col xs={24} xl={12}><Card title={t('versus')} className={styles.modeCard}><Row gutter={[12, 20]}>
-        <Col span={12}><Statistic title={t('matches')} value={data.versus.completed_matches} /></Col>
-        <Col span={12}><Statistic title={t('halves')} value={data.versus.completed_halves} /></Col>
-        <Col span={12}><Statistic title={t('humanSIKills')} value={data.versus.human_controlled_infected_kills} /></Col>
-        <Col span={12}><Statistic title={t('controls')} value={data.versus.human_survivor_controls} /></Col>
-      </Row></Card></Col>
-    </Row>
-  </>
+    <div className={styles.metrics}>
+      <Metric title={t('totalPlayers')} value={integer.format(data.core.total_players)} />
+      <Metric title={t('active7d')} value={integer.format(data.core.active_players_7d)} />
+      <Metric title={t('playTime')} value={integer.format(Math.round(data.core.total_active_play_seconds / 3600))} suffix={t('hours')} />
+      <Metric title={t('completedRuns')} value={integer.format(completed)}
+        details={`${t('pveRuns')} ${integer.format(data.core.completed_pve_runs)} · ${t('versusRuns')} ${integer.format(data.core.completed_versus_runs)}`} />
+    </div>
+  </section>
 }
 
 export function HomePage() {
   const { t } = useTranslation()
   const site = useQuery({ queryKey: ['site'], queryFn: api.site, staleTime: 5 * 60_000 })
   const overview = useQuery({ queryKey: ['overview'], queryFn: api.overview, staleTime: 60_000, retry: 1 })
-  const status = useQuery({ queryKey: ['primary-server'], queryFn: api.primaryServer, refetchInterval: 30_000, retry: 1 })
+  const statusRefreshMS = (site.data?.a2s_refresh_seconds ?? 30) * 1000
+  const statuses = useQuery({ queryKey: ['server-statuses'], queryFn: api.serverStatuses, refetchInterval: statusRefreshMS, retry: 1 })
+
   return <Layout className={styles.layout}>
-    <Header className={`${styles.header} flex items-center justify-between`}>
-      <div><Typography.Title level={3}>{site.data?.title ?? 'L4D2 Stats'}</Typography.Title><Typography.Text>{t('subtitle')}</Typography.Text></div>
-      <Button type="text" icon={<GlobalOutlined />} onClick={toggleLanguage}>{t('language')}</Button>
-    </Header>
-    <Content className={`${styles.content} mx-auto`}>
+    <FloatingNav />
+    <Content className={styles.content}>
       {site.isError && <Alert className={styles.alert} type="warning" showIcon title={t('siteUnavailable')} />}
-      <ServerCard status={status.data} loading={status.isLoading} failed={status.isError} />
       {overview.isLoading && <div className={styles.loading}><Skeleton active paragraph={{ rows: 7 }} /></div>}
       {overview.isError && <Alert className={styles.alert} type="warning" showIcon title={t('statsUnavailable')}
         action={<Button icon={<ReloadOutlined />} onClick={() => void overview.refetch()}>{t('retry')}</Button>} />}
       {overview.data && <OverviewContent data={overview.data} />}
+      <ServerList data={statuses.data} loading={statuses.isLoading} failed={statuses.isError} />
       <SiteFooter site={site.data} />
     </Content>
   </Layout>

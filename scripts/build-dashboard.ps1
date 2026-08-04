@@ -5,7 +5,7 @@ $dashboardRoot = Join-Path $repoRoot "dashboard"
 $frontendRoot = Join-Path $dashboardRoot "frontend"
 $outputDirectory = Join-Path $repoRoot "dist"
 $outputFile = Join-Path $outputDirectory "l4d2-stats.exe"
-$version = if ($env:L4D2_STATS_VERSION) { $env:L4D2_STATS_VERSION } else { "0.8.1-dev" }
+$version = if ($env:L4D2_STATS_VERSION) { $env:L4D2_STATS_VERSION } else { "0.8.3-dev" }
 
 Push-Location $frontendRoot
 try {
@@ -23,6 +23,10 @@ try {
     go tool sqlc generate
     go test ./...
     New-Item -ItemType Directory -Path $outputDirectory -Force | Out-Null
+    $distConfig = Join-Path $outputDirectory "config.yaml"
+    if (-not (Test-Path $distConfig)) {
+        Copy-Item (Join-Path $dashboardRoot "config.example.yaml") $distConfig
+    }
     $previousCgo = $env:CGO_ENABLED
     $env:CGO_ENABLED = "0"
     try {
@@ -39,3 +43,4 @@ try {
 }
 
 Write-Host "Dashboard build completed: $outputFile"
+Write-Host "Dashboard test config: $(Join-Path $outputDirectory 'config.yaml')"

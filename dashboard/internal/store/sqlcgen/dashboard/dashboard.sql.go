@@ -9,6 +9,44 @@ import (
 	"context"
 )
 
+const completeAggregateBuild = `-- name: CompleteAggregateBuild :exec
+UPDATE aggregate_state SET state = 'ready', last_finished_at = ?1,
+  source_rows = ?2, aggregate_rows = ?3, last_error = '' WHERE id = 1
+`
+
+type CompleteAggregateBuildParams struct {
+	LastFinishedAt int64 `json:"last_finished_at"`
+	SourceRows     int64 `json:"source_rows"`
+	AggregateRows  int64 `json:"aggregate_rows"`
+}
+
+func (q *Queries) CompleteAggregateBuild(ctx context.Context, arg CompleteAggregateBuildParams) error {
+	_, err := q.db.ExecContext(ctx, completeAggregateBuild, arg.LastFinishedAt, arg.SourceRows, arg.AggregateRows)
+	return err
+}
+
+const countAdminAccounts = `-- name: CountAdminAccounts :one
+SELECT COUNT(*) FROM admin_account
+`
+
+func (q *Queries) CountAdminAccounts(ctx context.Context) (int64, error) {
+	row := q.db.QueryRowContext(ctx, countAdminAccounts)
+	var count int64
+	err := row.Scan(&count)
+	return count, err
+}
+
+const countAnnouncements = `-- name: CountAnnouncements :one
+SELECT COUNT(*) FROM announcements
+`
+
+func (q *Queries) CountAnnouncements(ctx context.Context) (int64, error) {
+	row := q.db.QueryRowContext(ctx, countAnnouncements)
+	var count int64
+	err := row.Scan(&count)
+	return count, err
+}
+
 const countGameServers = `-- name: CountGameServers :one
 SELECT COUNT(*) FROM game_servers
 `
@@ -31,29 +69,74 @@ func (q *Queries) CountSiteSettings(ctx context.Context) (int64, error) {
 	return count, err
 }
 
+const createAdminAccount = `-- name: CreateAdminAccount :exec
+INSERT INTO admin_account (
+  id, username, password_hash, jwt_secret, token_version,
+  created_at, updated_at, password_changed_at
+) VALUES (1, ?1, ?2, ?3, 1, ?4, ?4, ?4)
+`
+
+type CreateAdminAccountParams struct {
+	Username     string `json:"username"`
+	PasswordHash string `json:"password_hash"`
+	JwtSecret    string `json:"jwt_secret"`
+	CreatedAt    int64  `json:"created_at"`
+}
+
+func (q *Queries) CreateAdminAccount(ctx context.Context, arg CreateAdminAccountParams) error {
+	_, err := q.db.ExecContext(ctx, createAdminAccount,
+		arg.Username,
+		arg.PasswordHash,
+		arg.JwtSecret,
+		arg.CreatedAt,
+	)
+	return err
+}
+
+const createAnnouncement = `-- name: CreateAnnouncement :exec
+INSERT INTO announcements (
+  id, title, content_markdown, created_at, updated_at
+) VALUES (?1, ?2, ?3, ?4, ?4)
+`
+
+type CreateAnnouncementParams struct {
+	ID              string `json:"id"`
+	Title           string `json:"title"`
+	ContentMarkdown string `json:"content_markdown"`
+	CreatedAt       int64  `json:"created_at"`
+}
+
+func (q *Queries) CreateAnnouncement(ctx context.Context, arg CreateAnnouncementParams) error {
+	_, err := q.db.ExecContext(ctx, createAnnouncement,
+		arg.ID,
+		arg.Title,
+		arg.ContentMarkdown,
+		arg.CreatedAt,
+	)
+	return err
+}
+
 const createFooterLink = `-- name: CreateFooterLink :exec
 INSERT INTO footer_links (
-  label, url, sort_order, open_new_tab, enabled, created_at, updated_at
-) VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7)
+  id, label, url, sort_order, created_at, updated_at
+) VALUES (?1, ?2, ?3, ?4, ?5, ?6)
 `
 
 type CreateFooterLinkParams struct {
-	Label      string `json:"label"`
-	Url        string `json:"url"`
-	SortOrder  int64  `json:"sort_order"`
-	OpenNewTab int64  `json:"open_new_tab"`
-	Enabled    int64  `json:"enabled"`
-	CreatedAt  int64  `json:"created_at"`
-	UpdatedAt  int64  `json:"updated_at"`
+	ID        string `json:"id"`
+	Label     string `json:"label"`
+	Url       string `json:"url"`
+	SortOrder int64  `json:"sort_order"`
+	CreatedAt int64  `json:"created_at"`
+	UpdatedAt int64  `json:"updated_at"`
 }
 
 func (q *Queries) CreateFooterLink(ctx context.Context, arg CreateFooterLinkParams) error {
 	_, err := q.db.ExecContext(ctx, createFooterLink,
+		arg.ID,
 		arg.Label,
 		arg.Url,
 		arg.SortOrder,
-		arg.OpenNewTab,
-		arg.Enabled,
 		arg.CreatedAt,
 		arg.UpdatedAt,
 	)
@@ -62,36 +145,48 @@ func (q *Queries) CreateFooterLink(ctx context.Context, arg CreateFooterLinkPara
 
 const createGameServer = `-- name: CreateGameServer :exec
 INSERT INTO game_servers (
-  server_key, display_name, connect_address, query_address,
-  is_primary, enabled, sort_order, created_at, updated_at
-) VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9)
+  id, display_name, address, enabled, sort_order, created_at, updated_at
+) VALUES (?1, ?2, ?3, 1, ?4, ?5, ?5)
 `
 
 type CreateGameServerParams struct {
-	ServerKey      string `json:"server_key"`
-	DisplayName    string `json:"display_name"`
-	ConnectAddress string `json:"connect_address"`
-	QueryAddress   string `json:"query_address"`
-	IsPrimary      int64  `json:"is_primary"`
-	Enabled        int64  `json:"enabled"`
-	SortOrder      int64  `json:"sort_order"`
-	CreatedAt      int64  `json:"created_at"`
-	UpdatedAt      int64  `json:"updated_at"`
+	ID          string `json:"id"`
+	DisplayName string `json:"display_name"`
+	Address     string `json:"address"`
+	SortOrder   int64  `json:"sort_order"`
+	CreatedAt   int64  `json:"created_at"`
 }
 
 func (q *Queries) CreateGameServer(ctx context.Context, arg CreateGameServerParams) error {
 	_, err := q.db.ExecContext(ctx, createGameServer,
-		arg.ServerKey,
+		arg.ID,
 		arg.DisplayName,
-		arg.ConnectAddress,
-		arg.QueryAddress,
-		arg.IsPrimary,
-		arg.Enabled,
+		arg.Address,
 		arg.SortOrder,
 		arg.CreatedAt,
-		arg.UpdatedAt,
 	)
 	return err
+}
+
+const deleteAggregateRows = `-- name: DeleteAggregateRows :exec
+DELETE FROM aggregate_rows
+`
+
+func (q *Queries) DeleteAggregateRows(ctx context.Context) error {
+	_, err := q.db.ExecContext(ctx, deleteAggregateRows)
+	return err
+}
+
+const deleteAnnouncement = `-- name: DeleteAnnouncement :execrows
+DELETE FROM announcements WHERE id = ?1
+`
+
+func (q *Queries) DeleteAnnouncement(ctx context.Context, id string) (int64, error) {
+	result, err := q.db.ExecContext(ctx, deleteAnnouncement, id)
+	if err != nil {
+		return 0, err
+	}
+	return result.RowsAffected()
 }
 
 const deleteFooterLinks = `-- name: DeleteFooterLinks :exec
@@ -103,6 +198,18 @@ func (q *Queries) DeleteFooterLinks(ctx context.Context) error {
 	return err
 }
 
+const deleteGameServer = `-- name: DeleteGameServer :execrows
+DELETE FROM game_servers WHERE id = ?1
+`
+
+func (q *Queries) DeleteGameServer(ctx context.Context, id string) (int64, error) {
+	result, err := q.db.ExecContext(ctx, deleteGameServer, id)
+	if err != nil {
+		return 0, err
+	}
+	return result.RowsAffected()
+}
+
 const deleteGameServers = `-- name: DeleteGameServers :exec
 DELETE FROM game_servers
 `
@@ -110,6 +217,114 @@ DELETE FROM game_servers
 func (q *Queries) DeleteGameServers(ctx context.Context) error {
 	_, err := q.db.ExecContext(ctx, deleteGameServers)
 	return err
+}
+
+const getAdminAccount = `-- name: GetAdminAccount :one
+SELECT
+  username, password_hash, jwt_secret, token_version,
+  created_at, updated_at, password_changed_at
+FROM admin_account
+WHERE id = 1
+`
+
+type GetAdminAccountRow struct {
+	Username          string `json:"username"`
+	PasswordHash      string `json:"password_hash"`
+	JwtSecret         string `json:"jwt_secret"`
+	TokenVersion      int64  `json:"token_version"`
+	CreatedAt         int64  `json:"created_at"`
+	UpdatedAt         int64  `json:"updated_at"`
+	PasswordChangedAt int64  `json:"password_changed_at"`
+}
+
+func (q *Queries) GetAdminAccount(ctx context.Context) (GetAdminAccountRow, error) {
+	row := q.db.QueryRowContext(ctx, getAdminAccount)
+	var i GetAdminAccountRow
+	err := row.Scan(
+		&i.Username,
+		&i.PasswordHash,
+		&i.JwtSecret,
+		&i.TokenVersion,
+		&i.CreatedAt,
+		&i.UpdatedAt,
+		&i.PasswordChangedAt,
+	)
+	return i, err
+}
+
+const getAggregateStatus = `-- name: GetAggregateStatus :one
+SELECT state, last_started_at, last_finished_at, source_rows, aggregate_rows, last_error
+FROM aggregate_state WHERE id = 1
+`
+
+type GetAggregateStatusRow struct {
+	State          string `json:"state"`
+	LastStartedAt  int64  `json:"last_started_at"`
+	LastFinishedAt int64  `json:"last_finished_at"`
+	SourceRows     int64  `json:"source_rows"`
+	AggregateRows  int64  `json:"aggregate_rows"`
+	LastError      string `json:"last_error"`
+}
+
+func (q *Queries) GetAggregateStatus(ctx context.Context) (GetAggregateStatusRow, error) {
+	row := q.db.QueryRowContext(ctx, getAggregateStatus)
+	var i GetAggregateStatusRow
+	err := row.Scan(
+		&i.State,
+		&i.LastStartedAt,
+		&i.LastFinishedAt,
+		&i.SourceRows,
+		&i.AggregateRows,
+		&i.LastError,
+	)
+	return i, err
+}
+
+const getAnnouncement = `-- name: GetAnnouncement :one
+SELECT id, title, content_markdown, created_at, updated_at
+FROM announcements
+WHERE id = ?1
+`
+
+func (q *Queries) GetAnnouncement(ctx context.Context, id string) (Announcement, error) {
+	row := q.db.QueryRowContext(ctx, getAnnouncement, id)
+	var i Announcement
+	err := row.Scan(
+		&i.ID,
+		&i.Title,
+		&i.ContentMarkdown,
+		&i.CreatedAt,
+		&i.UpdatedAt,
+	)
+	return i, err
+}
+
+const getGameServer = `-- name: GetGameServer :one
+SELECT
+  id, display_name, address, enabled, sort_order
+FROM game_servers
+WHERE id = ?1
+`
+
+type GetGameServerRow struct {
+	ID          string `json:"id"`
+	DisplayName string `json:"display_name"`
+	Address     string `json:"address"`
+	Enabled     int64  `json:"enabled"`
+	SortOrder   int64  `json:"sort_order"`
+}
+
+func (q *Queries) GetGameServer(ctx context.Context, id string) (GetGameServerRow, error) {
+	row := q.db.QueryRowContext(ctx, getGameServer, id)
+	var i GetGameServerRow
+	err := row.Scan(
+		&i.ID,
+		&i.DisplayName,
+		&i.Address,
+		&i.Enabled,
+		&i.SortOrder,
+	)
+	return i, err
 }
 
 const getMetadata = `-- name: GetMetadata :one
@@ -123,84 +338,115 @@ func (q *Queries) GetMetadata(ctx context.Context, key string) (string, error) {
 	return value, err
 }
 
-const getPrimaryServer = `-- name: GetPrimaryServer :one
-SELECT
-  id, server_key, display_name, connect_address, query_address,
-  is_primary, enabled, sort_order
-FROM game_servers
-WHERE is_primary = 1 AND enabled = 1
-LIMIT 1
-`
-
-type GetPrimaryServerRow struct {
-	ID             int64  `json:"id"`
-	ServerKey      string `json:"server_key"`
-	DisplayName    string `json:"display_name"`
-	ConnectAddress string `json:"connect_address"`
-	QueryAddress   string `json:"query_address"`
-	IsPrimary      int64  `json:"is_primary"`
-	Enabled        int64  `json:"enabled"`
-	SortOrder      int64  `json:"sort_order"`
-}
-
-func (q *Queries) GetPrimaryServer(ctx context.Context) (GetPrimaryServerRow, error) {
-	row := q.db.QueryRowContext(ctx, getPrimaryServer)
-	var i GetPrimaryServerRow
-	err := row.Scan(
-		&i.ID,
-		&i.ServerKey,
-		&i.DisplayName,
-		&i.ConnectAddress,
-		&i.QueryAddress,
-		&i.IsPrimary,
-		&i.Enabled,
-		&i.SortOrder,
-	)
-	return i, err
-}
-
 const getSiteSettings = `-- name: GetSiteSettings :one
-SELECT title, footer_text, updated_at
+SELECT language, footer_enabled, background_image_url, public_origin, steam_openid_enabled,
+       browser_title, theme, a2s_refresh_seconds, a2s_jitter_seconds, a2s_retry_count, updated_at
 FROM site_settings
 WHERE id = 1
 `
 
 type GetSiteSettingsRow struct {
-	Title      string `json:"title"`
-	FooterText string `json:"footer_text"`
-	UpdatedAt  int64  `json:"updated_at"`
+	Language           string `json:"language"`
+	FooterEnabled      int64  `json:"footer_enabled"`
+	BackgroundImageUrl string `json:"background_image_url"`
+	PublicOrigin       string `json:"public_origin"`
+	SteamOpenidEnabled int64  `json:"steam_openid_enabled"`
+	BrowserTitle       string `json:"browser_title"`
+	Theme              string `json:"theme"`
+	A2sRefreshSeconds  int64  `json:"a2s_refresh_seconds"`
+	A2sJitterSeconds   int64  `json:"a2s_jitter_seconds"`
+	A2sRetryCount      int64  `json:"a2s_retry_count"`
+	UpdatedAt          int64  `json:"updated_at"`
 }
 
 func (q *Queries) GetSiteSettings(ctx context.Context) (GetSiteSettingsRow, error) {
 	row := q.db.QueryRowContext(ctx, getSiteSettings)
 	var i GetSiteSettingsRow
-	err := row.Scan(&i.Title, &i.FooterText, &i.UpdatedAt)
+	err := row.Scan(
+		&i.Language,
+		&i.FooterEnabled,
+		&i.BackgroundImageUrl,
+		&i.PublicOrigin,
+		&i.SteamOpenidEnabled,
+		&i.BrowserTitle,
+		&i.Theme,
+		&i.A2sRefreshSeconds,
+		&i.A2sJitterSeconds,
+		&i.A2sRetryCount,
+		&i.UpdatedAt,
+	)
 	return i, err
 }
 
-const listEnabledFooterLinks = `-- name: ListEnabledFooterLinks :many
-SELECT label, url, open_new_tab
-FROM footer_links
-WHERE enabled = 1
-ORDER BY sort_order, id
+const insertAggregateRow = `-- name: InsertAggregateRow :exec
+INSERT INTO aggregate_rows (
+  kind, day, server_key, steam_id, mode, dimension, metrics_json
+) VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7)
 `
 
-type ListEnabledFooterLinksRow struct {
-	Label      string `json:"label"`
-	Url        string `json:"url"`
-	OpenNewTab int64  `json:"open_new_tab"`
+type InsertAggregateRowParams struct {
+	Kind        string `json:"kind"`
+	Day         int64  `json:"day"`
+	ServerKey   string `json:"server_key"`
+	SteamID     string `json:"steam_id"`
+	Mode        string `json:"mode"`
+	Dimension   string `json:"dimension"`
+	MetricsJson string `json:"metrics_json"`
 }
 
-func (q *Queries) ListEnabledFooterLinks(ctx context.Context) ([]ListEnabledFooterLinksRow, error) {
-	rows, err := q.db.QueryContext(ctx, listEnabledFooterLinks)
+func (q *Queries) InsertAggregateRow(ctx context.Context, arg InsertAggregateRowParams) error {
+	_, err := q.db.ExecContext(ctx, insertAggregateRow,
+		arg.Kind,
+		arg.Day,
+		arg.ServerKey,
+		arg.SteamID,
+		arg.Mode,
+		arg.Dimension,
+		arg.MetricsJson,
+	)
+	return err
+}
+
+const listAggregateRows = `-- name: ListAggregateRows :many
+SELECT kind, day, server_key, steam_id, mode, dimension, metrics_json
+FROM aggregate_rows
+WHERE (?1 = '' OR steam_id = ?1)
+  AND (?2 = '' OR server_key = ?2)
+  AND (?3 = '' OR mode = ?3)
+  AND (?4 = 0 OR day >= ?4)
+ORDER BY day, kind, server_key, steam_id, mode, dimension
+`
+
+type ListAggregateRowsParams struct {
+	Column1 interface{} `json:"column_1"`
+	Column2 interface{} `json:"column_2"`
+	Column3 interface{} `json:"column_3"`
+	Column4 interface{} `json:"column_4"`
+}
+
+func (q *Queries) ListAggregateRows(ctx context.Context, arg ListAggregateRowsParams) ([]AggregateRow, error) {
+	rows, err := q.db.QueryContext(ctx, listAggregateRows,
+		arg.Column1,
+		arg.Column2,
+		arg.Column3,
+		arg.Column4,
+	)
 	if err != nil {
 		return nil, err
 	}
 	defer rows.Close()
-	items := []ListEnabledFooterLinksRow{}
+	items := []AggregateRow{}
 	for rows.Next() {
-		var i ListEnabledFooterLinksRow
-		if err := rows.Scan(&i.Label, &i.Url, &i.OpenNewTab); err != nil {
+		var i AggregateRow
+		if err := rows.Scan(
+			&i.Kind,
+			&i.Day,
+			&i.ServerKey,
+			&i.SteamID,
+			&i.Mode,
+			&i.Dimension,
+			&i.MetricsJson,
+		); err != nil {
 			return nil, err
 		}
 		items = append(items, i)
@@ -212,6 +458,314 @@ func (q *Queries) ListEnabledFooterLinks(ctx context.Context) ([]ListEnabledFoot
 		return nil, err
 	}
 	return items, nil
+}
+
+const listAnnouncements = `-- name: ListAnnouncements :many
+SELECT id, title, content_markdown, created_at, updated_at
+FROM announcements
+ORDER BY created_at DESC, id DESC
+LIMIT ?1 OFFSET ?2
+`
+
+type ListAnnouncementsParams struct {
+	Limit  int64 `json:"limit"`
+	Offset int64 `json:"offset"`
+}
+
+func (q *Queries) ListAnnouncements(ctx context.Context, arg ListAnnouncementsParams) ([]Announcement, error) {
+	rows, err := q.db.QueryContext(ctx, listAnnouncements, arg.Limit, arg.Offset)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	items := []Announcement{}
+	for rows.Next() {
+		var i Announcement
+		if err := rows.Scan(
+			&i.ID,
+			&i.Title,
+			&i.ContentMarkdown,
+			&i.CreatedAt,
+			&i.UpdatedAt,
+		); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Close(); err != nil {
+		return nil, err
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
+const listFooterLinks = `-- name: ListFooterLinks :many
+SELECT id, label, url
+FROM footer_links
+ORDER BY sort_order, id
+`
+
+type ListFooterLinksRow struct {
+	ID    string `json:"id"`
+	Label string `json:"label"`
+	Url   string `json:"url"`
+}
+
+func (q *Queries) ListFooterLinks(ctx context.Context) ([]ListFooterLinksRow, error) {
+	rows, err := q.db.QueryContext(ctx, listFooterLinks)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	items := []ListFooterLinksRow{}
+	for rows.Next() {
+		var i ListFooterLinksRow
+		if err := rows.Scan(&i.ID, &i.Label, &i.Url); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Close(); err != nil {
+		return nil, err
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
+const listGameServers = `-- name: ListGameServers :many
+SELECT
+  id, display_name, address, enabled, sort_order
+FROM game_servers
+ORDER BY sort_order, id
+`
+
+type ListGameServersRow struct {
+	ID          string `json:"id"`
+	DisplayName string `json:"display_name"`
+	Address     string `json:"address"`
+	Enabled     int64  `json:"enabled"`
+	SortOrder   int64  `json:"sort_order"`
+}
+
+func (q *Queries) ListGameServers(ctx context.Context) ([]ListGameServersRow, error) {
+	rows, err := q.db.QueryContext(ctx, listGameServers)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	items := []ListGameServersRow{}
+	for rows.Next() {
+		var i ListGameServersRow
+		if err := rows.Scan(
+			&i.ID,
+			&i.DisplayName,
+			&i.Address,
+			&i.Enabled,
+			&i.SortOrder,
+		); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Close(); err != nil {
+		return nil, err
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
+const listPublicFooterLinks = `-- name: ListPublicFooterLinks :many
+SELECT label, url
+FROM footer_links
+ORDER BY sort_order, id
+`
+
+type ListPublicFooterLinksRow struct {
+	Label string `json:"label"`
+	Url   string `json:"url"`
+}
+
+func (q *Queries) ListPublicFooterLinks(ctx context.Context) ([]ListPublicFooterLinksRow, error) {
+	rows, err := q.db.QueryContext(ctx, listPublicFooterLinks)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	items := []ListPublicFooterLinksRow{}
+	for rows.Next() {
+		var i ListPublicFooterLinksRow
+		if err := rows.Scan(&i.Label, &i.Url); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Close(); err != nil {
+		return nil, err
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
+const markAggregateFailed = `-- name: MarkAggregateFailed :exec
+UPDATE aggregate_state SET state = 'failed', last_error = ?1 WHERE id = 1
+`
+
+func (q *Queries) MarkAggregateFailed(ctx context.Context, lastError string) error {
+	_, err := q.db.ExecContext(ctx, markAggregateFailed, lastError)
+	return err
+}
+
+const markAggregateStarted = `-- name: MarkAggregateStarted :exec
+UPDATE aggregate_state SET state = 'building', last_started_at = ?1, last_error = '' WHERE id = 1
+`
+
+func (q *Queries) MarkAggregateStarted(ctx context.Context, lastStartedAt int64) error {
+	_, err := q.db.ExecContext(ctx, markAggregateStarted, lastStartedAt)
+	return err
+}
+
+const nextGameServerSortOrder = `-- name: NextGameServerSortOrder :one
+SELECT COALESCE(MAX(sort_order), -1) + 1 FROM game_servers
+`
+
+func (q *Queries) NextGameServerSortOrder(ctx context.Context) (int64, error) {
+	row := q.db.QueryRowContext(ctx, nextGameServerSortOrder)
+	var column_1 int64
+	err := row.Scan(&column_1)
+	return column_1, err
+}
+
+const setGameServerEnabled = `-- name: SetGameServerEnabled :execrows
+UPDATE game_servers SET enabled = ?2, updated_at = ?3 WHERE id = ?1
+`
+
+type SetGameServerEnabledParams struct {
+	ID        string `json:"id"`
+	Enabled   int64  `json:"enabled"`
+	UpdatedAt int64  `json:"updated_at"`
+}
+
+func (q *Queries) SetGameServerEnabled(ctx context.Context, arg SetGameServerEnabledParams) (int64, error) {
+	result, err := q.db.ExecContext(ctx, setGameServerEnabled, arg.ID, arg.Enabled, arg.UpdatedAt)
+	if err != nil {
+		return 0, err
+	}
+	return result.RowsAffected()
+}
+
+const setGameServerSortOrder = `-- name: SetGameServerSortOrder :execrows
+UPDATE game_servers SET sort_order = ?2, updated_at = ?3 WHERE id = ?1
+`
+
+type SetGameServerSortOrderParams struct {
+	ID        string `json:"id"`
+	SortOrder int64  `json:"sort_order"`
+	UpdatedAt int64  `json:"updated_at"`
+}
+
+func (q *Queries) SetGameServerSortOrder(ctx context.Context, arg SetGameServerSortOrderParams) (int64, error) {
+	result, err := q.db.ExecContext(ctx, setGameServerSortOrder, arg.ID, arg.SortOrder, arg.UpdatedAt)
+	if err != nil {
+		return 0, err
+	}
+	return result.RowsAffected()
+}
+
+const updateAdminPassword = `-- name: UpdateAdminPassword :exec
+UPDATE admin_account SET
+  password_hash = ?1,
+  token_version = token_version + 1,
+  updated_at = ?2,
+  password_changed_at = ?2
+WHERE id = 1
+`
+
+type UpdateAdminPasswordParams struct {
+	PasswordHash string `json:"password_hash"`
+	UpdatedAt    int64  `json:"updated_at"`
+}
+
+func (q *Queries) UpdateAdminPassword(ctx context.Context, arg UpdateAdminPasswordParams) error {
+	_, err := q.db.ExecContext(ctx, updateAdminPassword, arg.PasswordHash, arg.UpdatedAt)
+	return err
+}
+
+const updateAdminUsername = `-- name: UpdateAdminUsername :exec
+UPDATE admin_account SET username = ?1, updated_at = ?2 WHERE id = 1
+`
+
+type UpdateAdminUsernameParams struct {
+	Username  string `json:"username"`
+	UpdatedAt int64  `json:"updated_at"`
+}
+
+func (q *Queries) UpdateAdminUsername(ctx context.Context, arg UpdateAdminUsernameParams) error {
+	_, err := q.db.ExecContext(ctx, updateAdminUsername, arg.Username, arg.UpdatedAt)
+	return err
+}
+
+const updateAnnouncement = `-- name: UpdateAnnouncement :execrows
+UPDATE announcements SET
+  title = ?2,
+  content_markdown = ?3,
+  updated_at = ?4
+WHERE id = ?1
+`
+
+type UpdateAnnouncementParams struct {
+	ID              string `json:"id"`
+	Title           string `json:"title"`
+	ContentMarkdown string `json:"content_markdown"`
+	UpdatedAt       int64  `json:"updated_at"`
+}
+
+func (q *Queries) UpdateAnnouncement(ctx context.Context, arg UpdateAnnouncementParams) (int64, error) {
+	result, err := q.db.ExecContext(ctx, updateAnnouncement,
+		arg.ID,
+		arg.Title,
+		arg.ContentMarkdown,
+		arg.UpdatedAt,
+	)
+	if err != nil {
+		return 0, err
+	}
+	return result.RowsAffected()
+}
+
+const updateGameServer = `-- name: UpdateGameServer :execrows
+UPDATE game_servers SET
+  display_name = ?2,
+  address = ?3,
+  updated_at = ?4
+WHERE id = ?1
+`
+
+type UpdateGameServerParams struct {
+	ID          string `json:"id"`
+	DisplayName string `json:"display_name"`
+	Address     string `json:"address"`
+	UpdatedAt   int64  `json:"updated_at"`
+}
+
+func (q *Queries) UpdateGameServer(ctx context.Context, arg UpdateGameServerParams) (int64, error) {
+	result, err := q.db.ExecContext(ctx, updateGameServer,
+		arg.ID,
+		arg.DisplayName,
+		arg.Address,
+		arg.UpdatedAt,
+	)
+	if err != nil {
+		return 0, err
+	}
+	return result.RowsAffected()
 }
 
 const upsertMetadata = `-- name: UpsertMetadata :exec
@@ -231,21 +785,52 @@ func (q *Queries) UpsertMetadata(ctx context.Context, arg UpsertMetadataParams) 
 }
 
 const upsertSiteSettings = `-- name: UpsertSiteSettings :exec
-INSERT INTO site_settings (id, title, footer_text, updated_at)
-VALUES (1, ?1, ?2, ?3)
+INSERT INTO site_settings (
+  id, language, footer_enabled, background_image_url, public_origin, steam_openid_enabled,
+  browser_title, theme, a2s_refresh_seconds, a2s_jitter_seconds, a2s_retry_count, updated_at
+)
+VALUES (1, ?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9, ?10, ?11)
 ON CONFLICT(id) DO UPDATE SET
-  title = excluded.title,
-  footer_text = excluded.footer_text,
+  language = excluded.language,
+  footer_enabled = excluded.footer_enabled,
+  background_image_url = excluded.background_image_url,
+  public_origin = excluded.public_origin,
+  steam_openid_enabled = excluded.steam_openid_enabled,
+  browser_title = excluded.browser_title,
+  theme = excluded.theme,
+  a2s_refresh_seconds = excluded.a2s_refresh_seconds,
+  a2s_jitter_seconds = excluded.a2s_jitter_seconds,
+  a2s_retry_count = excluded.a2s_retry_count,
   updated_at = excluded.updated_at
 `
 
 type UpsertSiteSettingsParams struct {
-	Title      string `json:"title"`
-	FooterText string `json:"footer_text"`
-	UpdatedAt  int64  `json:"updated_at"`
+	Language           string `json:"language"`
+	FooterEnabled      int64  `json:"footer_enabled"`
+	BackgroundImageUrl string `json:"background_image_url"`
+	PublicOrigin       string `json:"public_origin"`
+	SteamOpenidEnabled int64  `json:"steam_openid_enabled"`
+	BrowserTitle       string `json:"browser_title"`
+	Theme              string `json:"theme"`
+	A2sRefreshSeconds  int64  `json:"a2s_refresh_seconds"`
+	A2sJitterSeconds   int64  `json:"a2s_jitter_seconds"`
+	A2sRetryCount      int64  `json:"a2s_retry_count"`
+	UpdatedAt          int64  `json:"updated_at"`
 }
 
 func (q *Queries) UpsertSiteSettings(ctx context.Context, arg UpsertSiteSettingsParams) error {
-	_, err := q.db.ExecContext(ctx, upsertSiteSettings, arg.Title, arg.FooterText, arg.UpdatedAt)
+	_, err := q.db.ExecContext(ctx, upsertSiteSettings,
+		arg.Language,
+		arg.FooterEnabled,
+		arg.BackgroundImageUrl,
+		arg.PublicOrigin,
+		arg.SteamOpenidEnabled,
+		arg.BrowserTitle,
+		arg.Theme,
+		arg.A2sRefreshSeconds,
+		arg.A2sJitterSeconds,
+		arg.A2sRetryCount,
+		arg.UpdatedAt,
+	)
 	return err
 }

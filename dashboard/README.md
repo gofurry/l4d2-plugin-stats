@@ -1,103 +1,91 @@
 # L4D2 Stats Dashboard
 
-`dashboard/` 是统计系统的只读展示端。它使用 Go + Fiber 提供 API，并把 React 首页嵌入同一个二进制；Dashboard 自己的站点设置保存在独立 SQLite 中，不会迁移或修改 SourceMod 采集器的 Stats DB。
+`dashboard/` 是统计系统的只读展示端。Go + Fiber 提供 API，React 页面嵌入同一个二进制。Dashboard 自己的管理员、站点和服务器设置保存在独立的纯 Go SQLite 数据库中；采集器的 Stats DB 始终只读。
 
 ## 已实现
 
-- Go 1.26、Fiber v3、Cobra、Zap 与 Lumberjack 日志轮转；
-- React 19、TypeScript、Vite、Ant Design 6、Tailwind 4 与 SCSS Modules；
-- Stats DB 只读支持 SQLite、MySQL、PostgreSQL；
-- Dashboard DB 使用纯 Go SQLite，Goose 自动迁移；
-- sqlc 为四种存储目标生成类型安全查询；
-- 首页展示全服历史指标、唯一主服务器 A2S 状态和自定义页脚；
-- API 60 秒聚合缓存、A2S 30 秒缓存/5 分钟最后成功结果回退；
-- systemd 安装、诊断、Bootstrap 重置和单二进制生产运行。
-
-Steam OpenID、个人中心、JWT 管理后台不属于 v0.8.0–v0.8.1，见[路线图](../docs/roadmap.md)。
+- Go 1.26、Fiber v3、Cobra、Zap/Lumberjack、Goose、sqlc；
+- React 19、TypeScript、Vite、Ant Design 6、Tailwind 4、SCSS Modules；
+- Stats DB 只读支持 SQLite、MySQL 和 PostgreSQL；
+- 首页历史指标、同优先级多服务器 A2S 状态列表和可选自定义页脚；
+- Steam OpenID 或手动 SteamID64 个人查询，支持时间、服务器、PvE 模式和游标分页；
+- ECharts 个人趋势、PvE/装备/Versus 全量明细和独立的全服排行榜；
+- 可重建的 UTC 日聚合读模型、10 分钟刷新、手动重建和只读保留预估；
+- 网页首次设置、easyhash bcrypt、8 小时 HS256 JWT、Fiber CSRF 和登录限流；
+- 全局界面语言、背景图片、页脚链接、Steam 登录、服务器目录和账号安全后台；
+- 仅管理员可访问的轻量运行监控，展示 Dashboard 进程、Go Runtime、宿主机资源和 HTTP 请求状态；
+- systemd 安装、诊断、日志轮转和单二进制生产运行。
 
 ## 目录
 
 ```text
 dashboard/
 ├─ cmd/l4d2-stats/              CLI 入口
-├─ internal/                    配置、服务、存储、A2S、HTTP、systemd
-├─ database/dashboard/          Dashboard SQLite 迁移与查询
+├─ internal/                    认证、服务、存储、A2S、HTTP、systemd
+├─ database/dashboard/          Dashboard SQLite 初始结构与查询
 ├─ database/stats/              三种 Stats DB 方言的只读查询
 ├─ frontend/                    React 源码
-├─ web/dist/                    生产前端产物，由 Go 嵌入
+├─ web/dist/                    前端生产产物，由 Go 嵌入
 ├─ config.example.yaml
 ├─ go.mod
 └─ sqlc.yaml
 ```
 
-`internal/store/sqlcgen/` 是生成代码，只能通过 `go tool sqlc generate` 更新，不能手工编辑。
+`internal/store/sqlcgen/` 是 `go tool sqlc generate` 生成的代码，不能手工修改。
 
-## 本地开发
-
-1. 将 `config.example.yaml` 复制为 `config.yaml`，填写现有 Stats DB 路径和主服务器地址。
-2. 在 `frontend/` 执行 `pnpm install --frozen-lockfile`。
-3. 后端执行 `go run ./cmd/l4d2-stats serve --config ./config.yaml`，监听 `127.0.0.1:18848`。
-4. 前端执行 `pnpm dev`，访问 `http://127.0.0.1:10086`；Vite 会代理 `/api`。
-
-VS Code 中可直接运行 `Dashboard: API Dev`、`Dashboard: Frontend Dev` 和 `Dashboard: Verify and Build`。
-
-## Stats DB 配置
-
-SQLite 路径相对于 `config.yaml`，应用会自动以 `mode=ro` 打开：
+## 最小配置
 
 ```yaml
+server:
+  listen: "127.0.0.1:18848"
+
+dashboard_database:
+  path: "./dashboard.db"
+
 stats_database:
   driver: "sqlite"
   dsn: "./l4d2_player_stats.sq3"
+
+logging:
+  file: "./logs/l4d2-stats.log"
+
+monitor:
+  enabled: true
 ```
 
-MySQL 应使用只有 `SELECT` 权限的账号：
+相对路径以 `config.yaml` 所在目录为基准。超时、连接池和日志轮转参数均有安全默认值，可按 `config.example.yaml` 的注释选择性覆盖。
 
-```yaml
-stats_database:
-  driver: "mysql"
-  dsn: "lps_reader:password@tcp(127.0.0.1:3306)/l4d2_stats?parseTime=true"
-```
+SQLite Stats DB 会以只读模式打开。MySQL/PostgreSQL 应使用只有 `SELECT` 权限的专用账号。服务只检查 `lps_schema_migrations`，不会迁移或写入 Stats DB；公开查询不会读取 Session IP。
 
-PostgreSQL 同样使用只读账号：
+## 首次设置
 
-```yaml
-stats_database:
-  driver: "pgsql"
-  dsn: "postgres://lps_reader:password@127.0.0.1:5432/l4d2_stats?sslmode=disable"
-```
+第一次启动且没有管理员时，程序会把 30 分钟有效的一次性令牌输出到 stderr；systemd 部署可通过 `journalctl -u l4d2-stats -n 100 --no-pager` 查看。打开 `/admin/setup`，填写令牌、管理员用户名和至少 12 字节的密码。
 
-服务启动时只检查 `lps_schema_migrations` 兼容性，不会对 Stats DB 执行 Goose 或任何写查询。公开查询也不会选择 Session 中的 IP 地址。
+完成后登录 `/admin`：
 
-## Bootstrap
+- 在“站点设置”管理全局界面语言、在线背景图片、默认关闭的页脚链接和 Steam 登录；
+- 在“服务器管理”只填写展示名称和 `host:port` 地址；系统自动生成 UUID，并在列表中完成启停、上下排序、编辑和删除；
+- 在“安全设置”修改管理员用户名和密码。修改密码会让旧 JWT 立即失效。
+- 通过“运行监控”在新标签页查看当前 Dashboard 和宿主机的短期实时状态。
 
-首次启动时，如果 Dashboard DB 尚无站点或服务器记录，会导入 `bootstrap`。后续编辑配置不会默默覆盖数据库。
+启用 Steam 登录后，需要填写玩家实际访问 Dashboard 时使用的完整地址，例如 `https://stats.example.com` 或 `http://203.0.113.10:18848`，供 Steam 验证后返回本站；不支持子路径。没有域名或不启用 Steam 登录都不影响手动 SteamID64 查询。
 
-需要在管理后台完成前显式重置时执行：
+> 项目尚未发布，v0.9.1 直接采用新的初始 Dashboard 结构。测试旧版后请先停止程序并删除旧 `dashboard.db`、`dashboard.db-shm`、`dashboard.db-wal`，再启动新版本。Stats DB 不要删除。
 
-```text
-l4d2-stats bootstrap apply --replace --config ./config.yaml
-```
+Dashboard 服务器 UUID 只标识网页中的实时服务器目录，不需要管理员填写。采集器的 `sm_lps_server_key` 仍是 Stats DB 中的数据来源标识，两者边界独立。L4D2 的加入链接和 A2S 状态查询统一使用同一个服务器地址。
 
-页脚只接受纯文本和 `http/https` 链接，不渲染 HTML 或 Markdown。
+## 本地开发
+
+1. 复制 `config.example.yaml` 为 `config.yaml` 并填写 Stats DB 路径。
+2. 在 `frontend/` 执行 `pnpm install --frozen-lockfile`。
+3. 后端执行 `go run ./cmd/l4d2-stats serve --config ./config.yaml`。
+4. 前端执行 `pnpm dev`，访问 `http://127.0.0.1:10086`；Vite 代理 `/api/v1` 到 `18848`。
 
 ## 构建与验证
 
-Windows：
+Windows：`./scripts/build-dashboard.ps1`。Linux：`sh ./scripts/build-dashboard.sh`。
 
-```powershell
-.\scripts\build-dashboard.ps1
-```
-
-Linux：
-
-```sh
-sh ./scripts/build-dashboard.sh
-```
-
-脚本依次完成前端测试/检查/构建、sqlc 生成、Go 测试和单二进制编译。产物为 `dist/l4d2-stats(.exe)`。生产环境只需该二进制和 `config.yaml`；首次运行会在配置文件目录生成 `dashboard.db`、SQLite sidecar 与轮转日志。
-
-详细部署、Nginx、健康检查和回滚步骤见[Dashboard 部署指南](../docs/dashboard-deployment.md)。
+脚本依次执行前端测试、类型检查、Lint、生产构建、sqlc 生成和 Go 测试，然后输出 `dist/l4d2-stats(.exe)`。若 `dist/config.yaml` 不存在，脚本也会放入一份最小测试配置。
 
 ## CLI
 
@@ -108,19 +96,20 @@ l4d2-stats uninstall
 l4d2-stats doctor
 l4d2-stats version
 l4d2-stats migrate status
-l4d2-stats bootstrap apply --replace
+l4d2-stats aggregate status
+l4d2-stats aggregate rebuild
+l4d2-stats retention plan
 ```
 
-所有命令均接受 `--config ./config.yaml`。
+`aggregate rebuild` 从只读 Stats DB 事务性重建 Dashboard 日聚合。`retention plan` 只报告候选数量，当前始终显示 `deletion_enabled: false`，不会删除任何采集记录。
 
-## 公开 API
+统计读模型、永久保留范围和未来清理硬条件见[Dashboard 数据生命周期](../docs/dashboard-data-lifecycle.md)。
 
-```text
-GET /api/v1/health/live
-GET /api/v1/health/ready
-GET /api/v1/site
-GET /api/v1/dashboard/overview
-GET /api/v1/servers/primary/status
-```
+所有命令均接受 `--config ./config.yaml`。详细部署步骤见[Dashboard 部署指南](../docs/dashboard-deployment.md)。
 
-API 统一返回 `data` 与 `request_id`；错误返回 `error` 与 `request_id`。不存在的 API 路由始终是 JSON 404，不会回退到 React 页面。
+## API 边界
+
+- 公开：健康检查、站点、首页、服务器状态列表、Steam OpenID、玩家摘要/活动/PvE/Versus/Session/章节和排行榜；
+- 首次设置：仅没有管理员时可用，并要求进程内一次性令牌；
+- 管理：JWT Cookie + Fiber CSRF，覆盖站点、服务器和管理员账号；监控页面及其 JSON 快照同样要求管理员 JWT；
+- 所有 `/api/v1/*` 错误保持 JSON，不会回退到 React HTML。

@@ -1,0 +1,12 @@
+import { useMutation, useQuery } from '@tanstack/react-query'
+import { Alert, Button, Form, Input, Layout, Typography, message } from 'antd'
+import { Navigate, useNavigate } from 'react-router-dom'
+import { useTranslation } from 'react-i18next'
+import { api } from '../api'
+import { FloatingNav } from '../components/FloatingNav'
+import styles from './Portal.module.scss'
+
+interface SetupValues { setup_token:string; username:string; password:string; confirm:string }
+export function AdminSetupPage(){const{t}=useTranslation();const navigate=useNavigate();const status=useQuery({queryKey:['setup-status'],queryFn:api.setupStatus,retry:false});const mutation=useMutation({mutationFn:(values:SetupValues)=>api.setupAdmin(values),onSuccess:()=>{void message.success(t('setupDone'));navigate('/admin/login')}})
+  if(status.data&&!status.data.required)return <Navigate to="/admin/login" replace/>
+  return <Layout className={styles.layout}><FloatingNav mode="auth"/><main className={styles.auth}><section className={styles.authPanel}><div className={styles.authHeading}><Typography.Title level={2}>{t('initialSetup')}</Typography.Title><Typography.Paragraph type="secondary">{t('setupHint')}</Typography.Paragraph></div>{mutation.isError&&<Alert type="error" showIcon title={mutation.error.message} style={{marginBottom:16}}/>}<Form<SetupValues> layout="vertical" onFinish={values=>mutation.mutate(values)}><Form.Item name="setup_token" label={t('setupToken')} rules={[{required:true,message:t('setupTokenRequired')}]}><Input.Password autoComplete="off"/></Form.Item><Form.Item name="username" label={t('username')} rules={[{required:true,message:t('usernameRequired')},{min:3,max:64,message:t('usernameLength')}]}><Input autoComplete="username"/></Form.Item><Form.Item name="password" label={t('password')} rules={[{required:true,message:t('passwordRequired')},{min:12,max:72,message:t('passwordLength')}]}><Input.Password autoComplete="new-password"/></Form.Item><Form.Item name="confirm" label={t('confirmPassword')} dependencies={['password']} rules={[{required:true,message:t('confirmPasswordRequired')},({getFieldValue})=>({validator:(_,value)=>!value||getFieldValue('password')===value?Promise.resolve():Promise.reject(new Error(t('passwordMismatch')))})]}><Input.Password autoComplete="new-password"/></Form.Item><Button htmlType="submit" type="primary" block loading={mutation.isPending}>{t('createAdmin')}</Button></Form></section></main></Layout>}

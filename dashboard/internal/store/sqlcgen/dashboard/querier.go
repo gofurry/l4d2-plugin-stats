@@ -9,16 +9,41 @@ import (
 )
 
 type Querier interface {
+	CompleteAggregateBuild(ctx context.Context, arg CompleteAggregateBuildParams) error
+	CountAdminAccounts(ctx context.Context) (int64, error)
+	CountAnnouncements(ctx context.Context) (int64, error)
 	CountGameServers(ctx context.Context) (int64, error)
 	CountSiteSettings(ctx context.Context) (int64, error)
+	CreateAdminAccount(ctx context.Context, arg CreateAdminAccountParams) error
+	CreateAnnouncement(ctx context.Context, arg CreateAnnouncementParams) error
 	CreateFooterLink(ctx context.Context, arg CreateFooterLinkParams) error
 	CreateGameServer(ctx context.Context, arg CreateGameServerParams) error
+	DeleteAggregateRows(ctx context.Context) error
+	DeleteAnnouncement(ctx context.Context, id string) (int64, error)
 	DeleteFooterLinks(ctx context.Context) error
+	DeleteGameServer(ctx context.Context, id string) (int64, error)
 	DeleteGameServers(ctx context.Context) error
+	GetAdminAccount(ctx context.Context) (GetAdminAccountRow, error)
+	GetAggregateStatus(ctx context.Context) (GetAggregateStatusRow, error)
+	GetAnnouncement(ctx context.Context, id string) (Announcement, error)
+	GetGameServer(ctx context.Context, id string) (GetGameServerRow, error)
 	GetMetadata(ctx context.Context, key string) (string, error)
-	GetPrimaryServer(ctx context.Context) (GetPrimaryServerRow, error)
 	GetSiteSettings(ctx context.Context) (GetSiteSettingsRow, error)
-	ListEnabledFooterLinks(ctx context.Context) ([]ListEnabledFooterLinksRow, error)
+	InsertAggregateRow(ctx context.Context, arg InsertAggregateRowParams) error
+	ListAggregateRows(ctx context.Context, arg ListAggregateRowsParams) ([]AggregateRow, error)
+	ListAnnouncements(ctx context.Context, arg ListAnnouncementsParams) ([]Announcement, error)
+	ListFooterLinks(ctx context.Context) ([]ListFooterLinksRow, error)
+	ListGameServers(ctx context.Context) ([]ListGameServersRow, error)
+	ListPublicFooterLinks(ctx context.Context) ([]ListPublicFooterLinksRow, error)
+	MarkAggregateFailed(ctx context.Context, lastError string) error
+	MarkAggregateStarted(ctx context.Context, lastStartedAt int64) error
+	NextGameServerSortOrder(ctx context.Context) (int64, error)
+	SetGameServerEnabled(ctx context.Context, arg SetGameServerEnabledParams) (int64, error)
+	SetGameServerSortOrder(ctx context.Context, arg SetGameServerSortOrderParams) (int64, error)
+	UpdateAdminPassword(ctx context.Context, arg UpdateAdminPasswordParams) error
+	UpdateAdminUsername(ctx context.Context, arg UpdateAdminUsernameParams) error
+	UpdateAnnouncement(ctx context.Context, arg UpdateAnnouncementParams) (int64, error)
+	UpdateGameServer(ctx context.Context, arg UpdateGameServerParams) (int64, error)
 	UpsertMetadata(ctx context.Context, arg UpsertMetadataParams) error
 	UpsertSiteSettings(ctx context.Context, arg UpsertSiteSettingsParams) error
 }

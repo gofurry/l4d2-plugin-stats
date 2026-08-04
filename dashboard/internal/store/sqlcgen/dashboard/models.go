@@ -4,38 +4,80 @@
 
 package dashsql
 
+type AdminAccount struct {
+	ID                int64  `json:"id"`
+	Username          string `json:"username"`
+	PasswordHash      string `json:"password_hash"`
+	JwtSecret         string `json:"jwt_secret"`
+	TokenVersion      int64  `json:"token_version"`
+	CreatedAt         int64  `json:"created_at"`
+	UpdatedAt         int64  `json:"updated_at"`
+	PasswordChangedAt int64  `json:"password_changed_at"`
+}
+
+type AggregateRow struct {
+	Kind        string `json:"kind"`
+	Day         int64  `json:"day"`
+	ServerKey   string `json:"server_key"`
+	SteamID     string `json:"steam_id"`
+	Mode        string `json:"mode"`
+	Dimension   string `json:"dimension"`
+	MetricsJson string `json:"metrics_json"`
+}
+
+type AggregateState struct {
+	ID             int64  `json:"id"`
+	State          string `json:"state"`
+	LastStartedAt  int64  `json:"last_started_at"`
+	LastFinishedAt int64  `json:"last_finished_at"`
+	SourceRows     int64  `json:"source_rows"`
+	AggregateRows  int64  `json:"aggregate_rows"`
+	LastError      string `json:"last_error"`
+}
+
+type Announcement struct {
+	ID              string `json:"id"`
+	Title           string `json:"title"`
+	ContentMarkdown string `json:"content_markdown"`
+	CreatedAt       int64  `json:"created_at"`
+	UpdatedAt       int64  `json:"updated_at"`
+}
+
 type DashboardMetadatum struct {
 	Key   string `json:"key"`
 	Value string `json:"value"`
 }
 
 type FooterLink struct {
-	ID         int64  `json:"id"`
-	Label      string `json:"label"`
-	Url        string `json:"url"`
-	SortOrder  int64  `json:"sort_order"`
-	OpenNewTab int64  `json:"open_new_tab"`
-	Enabled    int64  `json:"enabled"`
-	CreatedAt  int64  `json:"created_at"`
-	UpdatedAt  int64  `json:"updated_at"`
+	ID        string `json:"id"`
+	Label     string `json:"label"`
+	Url       string `json:"url"`
+	SortOrder int64  `json:"sort_order"`
+	CreatedAt int64  `json:"created_at"`
+	UpdatedAt int64  `json:"updated_at"`
 }
 
 type GameServer struct {
-	ID             int64  `json:"id"`
-	ServerKey      string `json:"server_key"`
-	DisplayName    string `json:"display_name"`
-	ConnectAddress string `json:"connect_address"`
-	QueryAddress   string `json:"query_address"`
-	IsPrimary      int64  `json:"is_primary"`
-	Enabled        int64  `json:"enabled"`
-	SortOrder      int64  `json:"sort_order"`
-	CreatedAt      int64  `json:"created_at"`
-	UpdatedAt      int64  `json:"updated_at"`
+	ID          string `json:"id"`
+	DisplayName string `json:"display_name"`
+	Address     string `json:"address"`
+	Enabled     int64  `json:"enabled"`
+	SortOrder   int64  `json:"sort_order"`
+	CreatedAt   int64  `json:"created_at"`
+	UpdatedAt   int64  `json:"updated_at"`
 }
 
 type SiteSetting struct {
-	ID         int64  `json:"id"`
-	Title      string `json:"title"`
-	FooterText string `json:"footer_text"`
-	UpdatedAt  int64  `json:"updated_at"`
+	ID                 int64  `json:"id"`
+	Language           string `json:"language"`
+	FooterEnabled      int64  `json:"footer_enabled"`
+	BackgroundImageUrl string `json:"background_image_url"`
+	PublicOrigin       string `json:"public_origin"`
+	SteamOpenidEnabled int64  `json:"steam_openid_enabled"`
+	UpdatedAt          int64  `json:"updated_at"`
+	BrowserTitle       string `json:"browser_title"`
+	A2sRefreshSeconds  int64  `json:"a2s_refresh_seconds"`
+	A2sJitterSeconds   int64  `json:"a2s_jitter_seconds"`
+	A2sRetryCount      int64  `json:"a2s_retry_count"`
+	Theme              string `json:"theme"`
 }

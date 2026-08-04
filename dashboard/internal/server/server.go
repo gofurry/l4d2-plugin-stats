@@ -12,7 +12,7 @@ import (
 	"github.com/gofiber/fiber/v3/middleware/helmet"
 	recoverer "github.com/gofiber/fiber/v3/middleware/recover"
 	"github.com/gofiber/fiber/v3/middleware/requestid"
-	"github.com/gofurry/l4d2-plugin-stats/dashboard/internal/a2s"
+	"github.com/gofurry/l4d2-plugin-stats/dashboard/internal/auth"
 	"github.com/gofurry/l4d2-plugin-stats/dashboard/internal/config"
 	"github.com/gofurry/l4d2-plugin-stats/dashboard/internal/service"
 	"github.com/gofurry/l4d2-plugin-stats/dashboard/internal/store"
@@ -26,6 +26,9 @@ type Dependencies struct {
 	Stats     store.StatsStore
 	Overview  *service.OverviewService
 	Status    store.ServerStatusProvider
+	Players   *service.PlayerService
+	Rankings  *service.RankingService
+	Auth      *auth.Service
 	Logger    *zap.Logger
 	Assets    fs.FS
 }
@@ -45,10 +48,22 @@ func New(cfg *config.Config, deps Dependencies) *fiber.App {
 		},
 	})
 	app.Use(requestid.New())
+	runtimeMonitor := newRuntimeMonitor(cfg.Monitor, deps.Dashboard)
+	if runtimeMonitor != nil {
+		app.Use(runtimeMonitor.observe)
+		app.Hooks().OnPreShutdown(runtimeMonitor.stop)
+	}
 	app.Use(recoverer.New())
-	app.Use(helmet.New(helmet.Config{ContentSecurityPolicy: "default-src 'self'; style-src 'self' 'unsafe-inline'; img-src 'self' data:; connect-src 'self'; object-src 'none'; base-uri 'self'; frame-ancestors 'none'"}))
+	app.Use(helmet.New(helmet.Config{
+		ContentSecurityPolicy:     "default-src 'self'; style-src 'self' 'unsafe-inline'; img-src 'self' data: http: https:; connect-src 'self'; object-src 'none'; base-uri 'self'; frame-ancestors 'none'",
+		CrossOriginEmbedderPolicy: "unsafe-none",
+		CrossOriginResourcePolicy: "cross-origin",
+	}))
 	app.Use(compress.New())
 	app.Use(func(c fiber.Ctx) error {
+		if c.Path() == adminMonitorPath {
+			return c.Next()
+		}
 		started := time.Now()
 		err := c.Next()
 		deps.Logger.Info("http request", zap.String("request_id", c.RequestID()), zap.String("method", c.Method()), zap.String("path", c.Path()), zap.Int("status", c.Response().StatusCode()), zap.Duration("duration", time.Since(started)))
@@ -88,16 +103,18 @@ func New(cfg *config.Config, deps Dependencies) *fiber.App {
 		}
 		return sendData(c, fiber.StatusOK, overview)
 	})
-	api.Get("/servers/primary/status", func(c fiber.Ctx) error {
-		status, err := deps.Status.PrimaryStatus(c.Context())
-		if errors.Is(err, a2s.ErrNoPrimaryServer) {
-			return sendData(c, fiber.StatusOK, nil)
-		}
+	api.Get("/servers/status", func(c fiber.Ctx) error {
+		statuses, err := deps.Status.Statuses(c.Context())
 		if err != nil {
 			return sendError(c, fiber.StatusServiceUnavailable, "server_status_unavailable", "server status is temporarily unavailable")
 		}
-		return sendData(c, fiber.StatusOK, status)
+		return sendData(c, fiber.StatusOK, statuses)
 	})
+	registerPlayerRoutes(api, deps.Players)
+	registerRankingRoutes(api, deps.Rankings)
+	registerAnnouncementRoutes(api, deps.Dashboard)
+	registerSteamRoutes(api, deps.Dashboard, deps.Auth)
+	registerAdminRoutes(api, deps.Dashboard, deps.Status, deps.Auth, deps.Logger, runtimeMonitor)
 	api.All("/*", func(c fiber.Ctx) error {
 		return sendError(c, fiber.StatusNotFound, "not_found", "API route not found")
 	})

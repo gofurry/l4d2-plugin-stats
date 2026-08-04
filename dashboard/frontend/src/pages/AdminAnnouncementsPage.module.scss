@@ -1,0 +1,50 @@
+.page { width: 100%; padding: 30px 36px 38px; border: 1px solid rgba(103, 72, 55, .13); border-radius: 24px; background: rgba(247, 241, 232, .84); box-shadow: 0 16px 44px rgba(71, 47, 34, .12); backdrop-filter: blur(20px) saturate(1.08); -webkit-backdrop-filter: blur(20px) saturate(1.08); }
+.toolbar { display: flex; align-items: flex-end; justify-content: space-between; gap: 22px; margin-bottom: 22px; }
+.toolbar :global(h2.ant-typography) { margin: 0 0 4px; color: #4f392f; }
+.list { overflow: hidden; border-radius: 15px; }
+.item { color: #5d493f; background: rgba(255, 250, 243, .34); }
+.item:nth-child(even) { background: rgba(201, 181, 162, .2); }
+.item + .item { border-top: 1px solid rgba(103, 72, 55, .1); }
+.itemRow { min-height: 76px; display: grid; grid-template-columns: minmax(0, 1fr) auto; align-items: center; gap: 14px; padding: 13px 14px 13px 22px; transition: background .16s ease; }
+.itemRow:hover { background: rgba(220, 139, 78, .06); }
+.itemToggle { min-width: 0; display: flex; align-items: center; justify-content: space-between; gap: 18px; padding: 0; border: 0; color: inherit; text-align: left; cursor: pointer; background: transparent; }
+.itemToggle > span { min-width: 0; }
+.itemToggle h3 { margin: 0 0 4px; overflow: hidden; color: #523b30; font-size: 17px; text-overflow: ellipsis; white-space: nowrap; }
+.itemToggle time { color: #948074; font-size: 12px; }
+.itemToggle:focus-visible { border-radius: 6px; outline: 0; box-shadow: inset 3px 0 rgba(200, 117, 63, .72); }
+.expandIcon { flex: 0 0 auto; color: #b5a399; font-size: 11px; transition: transform .2s ease; }
+.expanded .expandIcon { transform: rotate(90deg); }
+.actions { display: flex; flex: 0 0 auto; gap: 2px; }
+.previewRegion { display: grid; grid-template-rows: 0fr; opacity: 0; transition: grid-template-rows .25s ease, opacity .18s ease; }
+.previewRegion.open { grid-template-rows: 1fr; opacity: 1; }
+.previewInner { min-height: 0; overflow: hidden; }
+.preview { padding: 22px 56px 26px; border-top: 1px solid rgba(103, 72, 55, .1); background: rgba(255, 250, 243, .22); }
+.state { display: grid; min-height: 220px; place-items: center; }
+.pagination { justify-content: center; margin-top: 20px; }
+.editorWorkspace { min-height: 430px; overflow: hidden; border: 1px solid var(--border-soft); border-radius: 12px; background: var(--editor-bg); }
+.editorModal :global(.w-md-editor) { width: 100%; border: 0; border-radius: 0; background: var(--editor-bg); box-shadow: none; }
+.editorModal :global(.w-md-editor-toolbar) { border-bottom-color: rgba(108, 76, 59, .14); background: #f4ecdf; }
+.editorModal :global(.w-md-editor-content) { background: var(--editor-bg); }
+.editorModal :global(.wmde-markdown) { background: var(--editor-preview-bg); }
+.editorModal :global(.wmde-markdown h1), .editorModal :global(.wmde-markdown h2) { border-bottom: 0; }
+.editorModal :global(.w-md-editor-text-pre > code), .editorModal :global(.w-md-editor-text-input) { font-size: 14px !important; line-height: 1.7 !important; }
+
+@media (max-width: 720px) {
+  .page { padding: 22px 16px; border-radius: 18px; }
+  .toolbar { align-items: flex-start; flex-direction: column; }
+  .itemRow { min-height: 70px; padding: 11px 8px 11px 14px; }
+  .preview { padding: 18px 18px 22px; }
+  .editorModal :global(.w-md-editor-content) { display: block; }
+  .editorModal :global(.w-md-editor-preview) { display: none; }
+}
+
+:global(html[data-theme='dark']) {
+  .page { border-color: var(--border-soft); background: var(--surface); box-shadow: var(--panel-shadow); }
+  .toolbar :global(h2.ant-typography), .itemToggle h3 { color: var(--text-primary); }
+  .item, .preview { color: var(--text-secondary); background: var(--surface-row); }
+  .item:nth-child(even) { background: var(--surface-row-alt); }
+  .item + .item, .preview { border-color: var(--border-soft); }
+  .itemRow:hover { background: var(--surface-hover); }
+  .itemToggle time, .expandIcon { color: var(--text-muted); }
+  .editorModal :global(.w-md-editor-toolbar) { border-bottom-color: var(--border-soft); background: #202326; }
+}

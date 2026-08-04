@@ -1,0 +1,66 @@
+.layout { min-height: 100vh; background: transparent; }
+.content { width: min(1120px, calc(100% - 300px)); margin-right: max(88px, calc((100% - 1120px) / 2)); margin-left: max(180px, calc((100% - 1120px) / 2)); padding: 42px 0 54px; }
+.modeTabs { margin-bottom: 18px; }
+.modeTabs :global(.ant-tabs-nav) { margin: 0; padding: 0 16px; overflow: hidden; border: 1px solid rgba(103, 72, 55, .12); border-radius: 16px; background: rgba(247, 241, 232, .86); box-shadow: 0 12px 34px rgba(71, 47, 34, .09); backdrop-filter: blur(18px) saturate(1.08); -webkit-backdrop-filter: blur(18px) saturate(1.08); }
+.modeTabs :global(.ant-tabs-nav::before) { border-bottom: 0 !important; }
+.modeTabs :global(.ant-tabs-nav-wrap) { overflow-x: auto; scrollbar-width: none; }
+.modeTabs :global(.ant-tabs-nav-wrap::-webkit-scrollbar) { display: none; }
+.modeTabs :global(.ant-tabs-nav-list) { min-width: max-content; margin: 0 auto; }
+.modeTabs :global(.ant-tabs-tab) { color: #604d42; font-size: 15px; }
+.modeTabs :global(.ant-tabs-tab:hover), .modeTabs :global(.ant-tabs-tab-active .ant-tabs-tab-btn) { color: #b86032 !important; }
+.modeTabs :global(.ant-tabs-content-holder) { display: none; }
+.chartPanel, .tablePanel, .statePanel { overflow: hidden; margin-top: 14px; border-radius: 22px; background: rgba(247, 241, 232, .84); box-shadow: 0 16px 44px rgba(71, 47, 34, .12); backdrop-filter: blur(20px) saturate(1.08); -webkit-backdrop-filter: blur(20px) saturate(1.08); }
+.chartPanel { padding: 22px 24px; }
+.tablePanel { padding: 0; }
+.panelHeading { display: flex; align-items: baseline; justify-content: space-between; gap: 14px; }
+.panelHeading h3 { margin: 0; color: #594236; font-size: 16px; }
+.panelHeading span { color: #9a8679; font-size: 12px; }
+.chart { width: 100%; height: 400px; }
+.statePanel { display: grid; min-height: 390px; place-items: center; padding: 34px; text-align: center; }
+.stateActions { display: flex; justify-content: center; gap: 10px; margin-top: 16px; }
+.rankingList, .rankingList :global(.ant-table), .rankingList :global(.ant-table-container), .rankingList :global(.ant-table-content) { background: transparent !important; }
+.rankingList :global(.ant-table-thead > tr > th) { color: #4d392f; border-bottom: 0; background: rgba(201, 181, 162, .26) !important; }
+.rankingList :global(.ant-table-thead > tr > th::before) { display: none !important; }
+.rankingList :global(.ant-table-tbody > tr > td) { color: #59473d; border-bottom: 0; background: rgba(255, 250, 243, .34) !important; }
+.rankingList :global(.ant-table-tbody > tr:nth-child(even) > td) { background: rgba(201, 181, 162, .2) !important; }
+.rankingList :global(.ant-table-tbody > tr:hover > td) { background: rgba(211, 145, 96, .2) !important; }
+.rankingList :global(.ant-pagination) { margin: 16px 18px !important; }
+.playerLink { display: flex; flex-direction: column; padding: 0; border: 0; color: #5b4032; text-align: left; cursor: pointer; background: transparent; }
+.playerLink:hover { color: #b86231; }
+.playerLink small { color: #8e796c; font-family: Consolas, monospace; }
+.myRankCard { display: grid; grid-template-columns: auto minmax(180px, 1fr) minmax(130px, auto) minmax(130px, auto); align-items: center; gap: 22px; margin-top: 14px; padding: 17px 22px; border: 1px solid rgba(103, 72, 55, .13); border-radius: 18px; background: rgba(247, 241, 232, .86); box-shadow: 0 12px 34px rgba(71, 47, 34, .1); backdrop-filter: blur(18px) saturate(1.08); -webkit-backdrop-filter: blur(18px) saturate(1.08); }
+.myRankNumber { min-width: 64px; color: #c66c37; font-size: 24px; font-weight: 750; font-variant-numeric: tabular-nums; }
+.myRankIdentity { display: flex; min-width: 0; flex-direction: column; gap: 3px; padding: 0; border: 0; color: #553e32; text-align: left; cursor: pointer; background: transparent; }
+.myRankIdentity:hover { color: #b86231; }
+.myRankIdentity strong, .myRankIdentity small { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.myRankIdentity small { color: #8e796c; font-family: Consolas, monospace; }
+.myRankCard > div { display: flex; flex-direction: column; align-items: flex-end; gap: 3px; color: #8a7568; font-size: 12px; }
+.myRankCard > div strong { color: #604338; font-size: 16px; font-variant-numeric: tabular-nums; }
+.filterModal { display: grid; gap: 18px; padding-top: 8px; }
+.filterModal label { display: grid; gap: 7px; }
+.filterModal label > span { color: #6d584c; font-size: 13px; }
+.filterModal :global(.ant-select) { width: 100%; }
+
+@media (max-width: 920px) { .content { width: calc(100% - 250px); margin-right: 76px; } }
+@media (max-width: 720px) {
+  .content { width: calc(100% - 78px); margin: 0 64px 0 14px; padding: 24px 0 96px; }
+  .modeTabs :global(.ant-tabs-nav) { padding: 0 8px; }
+  .modeTabs :global(.ant-tabs-nav-list) { margin: 0; }
+  .chartPanel { padding: 18px 14px; border-radius: 18px; }
+  .tablePanel { border-radius: 18px; }
+  .chart { height: 330px; }
+  .statePanel { min-height: 320px; border-radius: 18px; }
+  .myRankCard { grid-template-columns: auto minmax(0, 1fr); gap: 12px 16px; padding: 15px 16px; }
+  .myRankCard > div { align-items: flex-start; }
+}
+
+:global(html[data-theme='dark']) {
+  .modeTabs :global(.ant-tabs-nav), .chartPanel, .tablePanel, .statePanel, .myRankCard { border-color: var(--border-soft); background: var(--surface); box-shadow: var(--panel-shadow); }
+  .modeTabs :global(.ant-tabs-tab), .panelHeading span, .playerLink small, .myRankIdentity small, .myRankCard > div, .filterModal label > span { color: var(--text-secondary); }
+  .panelHeading h3, .playerLink, .myRankIdentity, .myRankCard > div strong { color: var(--text-primary); }
+  .rankingList :global(.ant-table-thead > tr > th) { color: var(--text-primary); background: rgba(255, 255, 255, .1) !important; }
+  .rankingList :global(.ant-table-tbody > tr > td) { color: var(--text-secondary); background: var(--surface-row) !important; }
+  .rankingList :global(.ant-table-tbody > tr:nth-child(even) > td) { background: var(--surface-row-alt) !important; }
+  .rankingList :global(.ant-table-tbody > tr:hover > td) { background: var(--surface-hover) !important; }
+  .myRankNumber { color: #f09a62; }
+}

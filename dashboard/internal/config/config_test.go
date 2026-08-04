@@ -25,12 +25,11 @@ logging:
   max_size_mb: 25
   max_backups: 4
   max_age_days: 7
-bootstrap:
-  site:
-    title: "Test Stats"
-  servers: []
-admin:
-  enabled: false
+monitor:
+  enabled: true
+  refresh: "3s"
+  disk_paths:
+    - "./data"
 `
 	if err := os.WriteFile(path, []byte(content), 0o600); err != nil {
 		t.Fatal(err)
@@ -51,6 +50,12 @@ admin:
 	if got := cfg.StatsDatabase.QueryTimeout.Value().String(); got != "5s" {
 		t.Fatalf("default query timeout = %q", got)
 	}
+	if !cfg.Monitor.Enabled || cfg.Monitor.Refresh.Value().String() != "3s" {
+		t.Fatalf("monitor config = %#v", cfg.Monitor)
+	}
+	if got, want := cfg.Monitor.DiskPaths[0], filepath.Join(dir, "data"); got != want {
+		t.Fatalf("monitor disk path = %q, want %q", got, want)
+	}
 }
 
 func TestLoadRejectsUnknownFields(t *testing.T) {
@@ -62,9 +67,6 @@ server:
 stats_database:
   driver: "sqlite"
   dsn: "./stats.sq3"
-bootstrap:
-  site:
-    title: "Test"
 `
 	if err := os.WriteFile(path, []byte(content), 0o600); err != nil {
 		t.Fatal(err)
@@ -72,15 +74,6 @@ bootstrap:
 	_, err := Load(path)
 	if err == nil || !strings.Contains(err.Error(), "field surprise not found") {
 		t.Fatalf("Load() error = %v, want unknown-field failure", err)
-	}
-}
-
-func TestValidateRejectsUnsafeFooterURL(t *testing.T) {
-	cfg := Default()
-	cfg.StatsDatabase.DSN = "stats.sq3"
-	cfg.Bootstrap.Site.FooterLinks = []BootstrapLinkConfig{{Label: "bad", URL: "javascript:alert(1)"}}
-	if err := cfg.Validate(); err == nil || !strings.Contains(err.Error(), "url must use http or https") {
-		t.Fatalf("Validate() error = %v", err)
 	}
 }
 

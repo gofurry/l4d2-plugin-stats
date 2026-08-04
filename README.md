@@ -2,17 +2,23 @@
 
 一个面向《求生之路 2》服务器的玩家身份、会话和玩法统计系统。
 
-项目采用 monorepo。v0.6.6 SourceMod 采集器已经覆盖真人身份、生命周期、PvE 与 Versus 统计并冻结对抗 v1 契约；当前同时实现了 v0.8.0–v0.8.1 Go + 内嵌 React Dashboard，可只读连接三种统计数据库并展示首页历史指标和主服务器 A2S 状态。
+项目采用 monorepo。v0.6.6 SourceMod 采集器已经覆盖真人身份、生命周期、PvE 与 Versus 统计并冻结对抗 v1 契约；当前 Go + 内嵌 React Dashboard 已推进到 v0.9.1-dev，包含公开首页、Steam/手动个人查询、完整个人统计、全服排行榜、日聚合读模型和单管理员后台。
 
 ## 当前状态
 
 当前已实现：
 
 - 一个 Go 1.26 + Fiber v3 Dashboard 子模块，生产环境由单二进制同时提供 API 和 React 页面；
-- Dashboard 自有纯 Go SQLite、Goose 自动迁移和配置首次 Bootstrap；
+- Dashboard 自有纯 Go SQLite、Goose 初始结构和网页首次设置；
 - Stats DB 只读支持 SQLite、MySQL 和 PostgreSQL，首页查询按 PvE/Versus 契约隔离；
-- 主服务器 A2S 状态、全服历史总览、自定义页脚、限时缓存与故障降级；
+- 多服务器 A2S 状态列表、全服历史总览、可选自定义页脚、限时缓存与故障降级；
+- Steam OpenID、手动 SteamID64、个人 PvE/Versus/Session/章节查询；
+- ECharts 个人趋势、完整 PvE/装备/Versus 明细、全服排行榜与效率样本门槛；
+- Dashboard DB 日聚合、定期刷新、手动重建和不会删除数据的保留预估；
+- easyhash bcrypt、JWT Cookie、Fiber CSRF、单管理员站点与服务器后台；
 - Cobra CLI、Zap/Lumberjack 限量日志、systemd 安装和部署诊断；
+
+Dashboard 的聚合、永久保留范围和未来清理边界见[数据生命周期](docs/dashboard-data-lifecycle.md)，版本安排见[Roadmap](docs/roadmap.md)。
 
 - 一个模块化 SourcePawn 插件，最终编译为 `l4d2_player_stats.smx`；
 - SQLite、MySQL 和 PostgreSQL 三套等价迁移；

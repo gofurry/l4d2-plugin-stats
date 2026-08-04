@@ -3,6 +3,7 @@ package store
 import (
 	"context"
 	"database/sql"
+	"encoding/json"
 	"errors"
 	"fmt"
 	"os"
@@ -10,21 +11,25 @@ import (
 	"time"
 
 	dashboarddb "github.com/gofurry/l4d2-plugin-stats/dashboard/database/dashboard"
-	"github.com/gofurry/l4d2-plugin-stats/dashboard/internal/config"
 	dashsql "github.com/gofurry/l4d2-plugin-stats/dashboard/internal/store/sqlcgen/dashboard"
+	"github.com/google/uuid"
 	"github.com/pressly/goose/v3"
 	_ "modernc.org/sqlite"
 )
+
+const defaultSiteLanguage = "zh-CN"
+const defaultBrowserTitle = "L4D2 Stats"
 
 type dashboardStore struct {
 	db *sql.DB
 	q  *dashsql.Queries
 }
 
-func OpenDashboard(ctx context.Context, path string) (DashboardStore, error) {
+func OpenDashboard(ctx context.Context, path string) (DashboardDatabase, error) {
 	if err := os.MkdirAll(filepath.Dir(path), 0o750); err != nil {
 		return nil, fmt.Errorf("create dashboard database directory: %w", err)
 	}
+	_, statErr := os.Stat(path)
 	dsn := "file:" + filepath.ToSlash(path) + "?_pragma=busy_timeout(5000)&_pragma=journal_mode(WAL)&_pragma=foreign_keys(1)"
 	db, err := sql.Open("sqlite", dsn)
 	if err != nil {
@@ -35,6 +40,9 @@ func OpenDashboard(ctx context.Context, path string) (DashboardStore, error) {
 	if err := db.PingContext(ctx); err != nil {
 		db.Close()
 		return nil, fmt.Errorf("ping dashboard database: %w", err)
+	}
+	if errors.Is(statErr, os.ErrNotExist) {
+		_ = os.Chmod(path, 0o600)
 	}
 	goose.SetBaseFS(dashboarddb.Migrations)
 	if err := goose.SetDialect("sqlite3"); err != nil {
@@ -51,114 +59,407 @@ func OpenDashboard(ctx context.Context, path string) (DashboardStore, error) {
 func (s *dashboardStore) Ping(ctx context.Context) error { return s.db.PingContext(ctx) }
 
 func (s *dashboardStore) MigrationVersion(ctx context.Context) (int64, error) {
-	version, err := goose.GetDBVersionContext(ctx, s.db)
-	return version, err
+	return goose.GetDBVersionContext(ctx, s.db)
 }
 
-func (s *dashboardStore) Bootstrap(ctx context.Context, bootstrap config.BootstrapConfig, replace bool) (bool, error) {
+func (s *dashboardStore) AggregateStatus(ctx context.Context) (AggregateStatus, error) {
+	row, err := s.q.GetAggregateStatus(ctx)
+	if err != nil {
+		return AggregateStatus{}, fmt.Errorf("get aggregate status: %w", err)
+	}
+	return AggregateStatus{
+		State: row.State, LastStartedAt: row.LastStartedAt, LastFinishedAt: row.LastFinishedAt,
+		SourceRows: row.SourceRows, AggregateRows: row.AggregateRows, LastError: row.LastError,
+	}, nil
+}
+
+func (s *dashboardStore) ReplaceAggregateRows(ctx context.Context, rows []AggregateRow, sourceRows int64) error {
+	started := time.Now().Unix()
+	if err := s.q.MarkAggregateStarted(ctx, started); err != nil {
+		return fmt.Errorf("mark aggregate build started: %w", err)
+	}
+	fail := func(err error) error {
+		_ = s.q.MarkAggregateFailed(context.Background(), err.Error())
+		return err
+	}
 	tx, err := s.db.BeginTx(ctx, nil)
 	if err != nil {
-		return false, fmt.Errorf("begin bootstrap transaction: %w", err)
+		return fail(fmt.Errorf("begin aggregate transaction: %w", err))
 	}
 	defer tx.Rollback()
 	q := s.q.WithTx(tx)
-	if !replace {
-		if _, err := q.GetMetadata(ctx, "bootstrap_applied"); err == nil {
-			return false, nil
-		} else if !errors.Is(err, sql.ErrNoRows) {
-			return false, fmt.Errorf("read bootstrap marker: %w", err)
+	if err := q.DeleteAggregateRows(ctx); err != nil {
+		return fail(fmt.Errorf("clear aggregate rows: %w", err))
+	}
+	for _, row := range rows {
+		metrics, err := json.Marshal(row.Metrics)
+		if err != nil {
+			return fail(fmt.Errorf("encode aggregate metrics: %w", err))
 		}
-	}
-	siteCount, err := q.CountSiteSettings(ctx)
-	if err != nil {
-		return false, fmt.Errorf("count site settings: %w", err)
-	}
-	serverCount, err := q.CountGameServers(ctx)
-	if err != nil {
-		return false, fmt.Errorf("count game servers: %w", err)
-	}
-	if !replace && (siteCount > 0 || serverCount > 0) {
-		if err := q.UpsertMetadata(ctx, dashsql.UpsertMetadataParams{Key: "bootstrap_applied", Value: "existing"}); err != nil {
-			return false, fmt.Errorf("write bootstrap marker: %w", err)
-		}
-		if err := tx.Commit(); err != nil {
-			return false, fmt.Errorf("commit bootstrap marker: %w", err)
-		}
-		return false, nil
-	}
-	now := time.Now().Unix()
-	{
-		if err := q.UpsertSiteSettings(ctx, dashsql.UpsertSiteSettingsParams{
-			Title: bootstrap.Site.Title, FooterText: bootstrap.Site.FooterText, UpdatedAt: now,
+		if err := q.InsertAggregateRow(ctx, dashsql.InsertAggregateRowParams{
+			Kind: row.Kind, Day: row.Day, ServerKey: row.ServerKey, SteamID: row.SteamID,
+			Mode: row.Mode, Dimension: row.Dimension, MetricsJson: string(metrics),
 		}); err != nil {
-			return false, fmt.Errorf("write site settings: %w", err)
-		}
-		if err := q.DeleteFooterLinks(ctx); err != nil {
-			return false, fmt.Errorf("clear footer links: %w", err)
-		}
-		for i, link := range bootstrap.Site.FooterLinks {
-			if err := q.CreateFooterLink(ctx, dashsql.CreateFooterLinkParams{
-				Label: link.Label, Url: link.URL, SortOrder: int64(i),
-				OpenNewTab: boolInt(link.OpenNewTab), Enabled: boolInt(link.Enabled),
-				CreatedAt: now, UpdatedAt: now,
-			}); err != nil {
-				return false, fmt.Errorf("write footer link %d: %w", i, err)
-			}
+			return fail(fmt.Errorf("insert aggregate row: %w", err))
 		}
 	}
-	{
-		if err := q.DeleteGameServers(ctx); err != nil {
-			return false, fmt.Errorf("clear game servers: %w", err)
-		}
-		for i, server := range bootstrap.Servers {
-			if err := q.CreateGameServer(ctx, dashsql.CreateGameServerParams{
-				ServerKey: server.ServerKey, DisplayName: server.DisplayName,
-				ConnectAddress: server.ConnectAddress, QueryAddress: server.QueryAddress,
-				IsPrimary: boolInt(server.Primary), Enabled: boolInt(server.Enabled),
-				SortOrder: int64(server.SortOrder), CreatedAt: now, UpdatedAt: now,
-			}); err != nil {
-				return false, fmt.Errorf("write game server %d: %w", i, err)
-			}
-		}
-	}
-	if err := q.UpsertMetadata(ctx, dashsql.UpsertMetadataParams{Key: "bootstrap_applied", Value: fmt.Sprintf("%d", now)}); err != nil {
-		return false, fmt.Errorf("write bootstrap marker: %w", err)
+	if err := q.CompleteAggregateBuild(ctx, dashsql.CompleteAggregateBuildParams{
+		LastFinishedAt: time.Now().Unix(), SourceRows: sourceRows, AggregateRows: int64(len(rows)),
+	}); err != nil {
+		return fail(fmt.Errorf("complete aggregate build: %w", err))
 	}
 	if err := tx.Commit(); err != nil {
-		return false, fmt.Errorf("commit bootstrap transaction: %w", err)
+		return fail(fmt.Errorf("commit aggregate build: %w", err))
 	}
-	return true, nil
+	return nil
+}
+
+func (s *dashboardStore) ListAggregateRows(ctx context.Context, filter AggregateFilter) ([]AggregateRow, error) {
+	rows, err := s.q.ListAggregateRows(ctx, dashsql.ListAggregateRowsParams{
+		Column1: filter.SteamID, Column2: filter.ServerKey, Column3: filter.Mode, Column4: filter.CutoffDay,
+	})
+	if err != nil {
+		return nil, fmt.Errorf("list aggregate rows: %w", err)
+	}
+	kinds := make(map[string]struct{}, len(filter.Kinds))
+	for _, kind := range filter.Kinds {
+		kinds[kind] = struct{}{}
+	}
+	result := make([]AggregateRow, 0, len(rows))
+	for _, row := range rows {
+		if len(kinds) > 0 {
+			if _, ok := kinds[row.Kind]; !ok {
+				continue
+			}
+		}
+		metrics := make(map[string]int64)
+		if err := json.Unmarshal([]byte(row.MetricsJson), &metrics); err != nil {
+			return nil, fmt.Errorf("decode aggregate row %s/%d/%s: %w", row.Kind, row.Day, row.SteamID, err)
+		}
+		result = append(result, AggregateRow{
+			Kind: row.Kind, Day: row.Day, ServerKey: row.ServerKey, SteamID: row.SteamID,
+			Mode: row.Mode, Dimension: row.Dimension, Metrics: metrics,
+		})
+	}
+	return result, nil
 }
 
 func (s *dashboardStore) Site(ctx context.Context) (Site, error) {
 	row, err := s.q.GetSiteSettings(ctx)
+	if errors.Is(err, sql.ErrNoRows) {
+		return Site{Language: defaultSiteLanguage, BrowserTitle: defaultBrowserTitle, Theme: "light", A2SRefreshSeconds: 30, Links: []FooterLink{}, Configured: false}, nil
+	}
 	if err != nil {
 		return Site{}, fmt.Errorf("get site settings: %w", err)
 	}
-	rows, err := s.q.ListEnabledFooterLinks(ctx)
+	rows, err := s.q.ListPublicFooterLinks(ctx)
 	if err != nil {
 		return Site{}, fmt.Errorf("list footer links: %w", err)
 	}
 	links := make([]FooterLink, 0, len(rows))
 	for _, link := range rows {
-		links = append(links, FooterLink{Label: link.Label, URL: link.Url, OpenNewTab: link.OpenNewTab == 1})
+		links = append(links, FooterLink{Label: link.Label, URL: link.Url})
 	}
-	return Site{Title: row.Title, FooterText: row.FooterText, Links: links}, nil
+	return Site{
+		Language: row.Language, BrowserTitle: row.BrowserTitle, Theme: row.Theme, FooterEnabled: row.FooterEnabled == 1,
+		BackgroundImageURL: row.BackgroundImageUrl, Links: links,
+		SteamOpenIDEnabled: row.SteamOpenidEnabled == 1 && row.PublicOrigin != "",
+		A2SRefreshSeconds:  row.A2sRefreshSeconds, Configured: true,
+	}, nil
 }
 
-func (s *dashboardStore) PrimaryServer(ctx context.Context) (*GameServer, error) {
-	row, err := s.q.GetPrimaryServer(ctx)
+func (s *dashboardStore) SiteSettings(ctx context.Context) (SiteSettings, error) {
+	settings := SiteSettings{Language: defaultSiteLanguage, BrowserTitle: defaultBrowserTitle, Theme: "light", A2SRefreshSeconds: 30, A2SJitterSeconds: 2, A2SRetryCount: 1, Links: []FooterLink{}}
+	row, err := s.q.GetSiteSettings(ctx)
+	if err != nil && !errors.Is(err, sql.ErrNoRows) {
+		return SiteSettings{}, fmt.Errorf("get site settings: %w", err)
+	}
+	if err == nil {
+		settings.Language = row.Language
+		settings.BrowserTitle = row.BrowserTitle
+		settings.Theme = row.Theme
+		settings.FooterEnabled = row.FooterEnabled == 1
+		settings.BackgroundImageURL = row.BackgroundImageUrl
+		settings.PublicOrigin = row.PublicOrigin
+		settings.SteamOpenIDEnabled = row.SteamOpenidEnabled == 1
+		settings.A2SRefreshSeconds = row.A2sRefreshSeconds
+		settings.A2SJitterSeconds = row.A2sJitterSeconds
+		settings.A2SRetryCount = row.A2sRetryCount
+	}
+	links, err := s.q.ListFooterLinks(ctx)
+	if err != nil {
+		return SiteSettings{}, fmt.Errorf("list footer links: %w", err)
+	}
+	for _, link := range links {
+		settings.Links = append(settings.Links, FooterLink{ID: link.ID, Label: link.Label, URL: link.Url})
+	}
+	return settings, nil
+}
+
+func (s *dashboardStore) UpdateSite(ctx context.Context, settings SiteSettings) error {
+	tx, err := s.db.BeginTx(ctx, nil)
+	if err != nil {
+		return fmt.Errorf("begin site transaction: %w", err)
+	}
+	defer tx.Rollback()
+	q := s.q.WithTx(tx)
+	now := time.Now().Unix()
+	if err := q.UpsertSiteSettings(ctx, dashsql.UpsertSiteSettingsParams{
+		Language: settings.Language, FooterEnabled: boolInt(settings.FooterEnabled), BackgroundImageUrl: settings.BackgroundImageURL, PublicOrigin: settings.PublicOrigin,
+		SteamOpenidEnabled: boolInt(settings.SteamOpenIDEnabled), BrowserTitle: settings.BrowserTitle, Theme: settings.Theme,
+		A2sRefreshSeconds: settings.A2SRefreshSeconds, A2sJitterSeconds: settings.A2SJitterSeconds,
+		A2sRetryCount: settings.A2SRetryCount, UpdatedAt: now,
+	}); err != nil {
+		return fmt.Errorf("update site settings: %w", err)
+	}
+	if err := q.DeleteFooterLinks(ctx); err != nil {
+		return fmt.Errorf("clear footer links: %w", err)
+	}
+	for i, link := range settings.Links {
+		if err := q.CreateFooterLink(ctx, dashsql.CreateFooterLinkParams{
+			ID: uuid.NewString(), Label: link.Label, Url: link.URL, SortOrder: int64(i), CreatedAt: now, UpdatedAt: now,
+		}); err != nil {
+			return fmt.Errorf("create footer link %d: %w", i, err)
+		}
+	}
+	if err := tx.Commit(); err != nil {
+		return fmt.Errorf("commit site transaction: %w", err)
+	}
+	return nil
+}
+
+func (s *dashboardStore) ListServers(ctx context.Context) ([]GameServer, error) {
+	rows, err := s.q.ListGameServers(ctx)
+	if err != nil {
+		return nil, fmt.Errorf("list game servers: %w", err)
+	}
+	servers := make([]GameServer, 0, len(rows))
+	for _, row := range rows {
+		servers = append(servers, gameServer(row.ID, row.DisplayName, row.Address, row.Enabled, row.SortOrder))
+	}
+	return servers, nil
+}
+
+func (s *dashboardStore) CreateServer(ctx context.Context, server GameServer) (GameServer, error) {
+	tx, err := s.db.BeginTx(ctx, nil)
+	if err != nil {
+		return GameServer{}, fmt.Errorf("begin game server transaction: %w", err)
+	}
+	defer tx.Rollback()
+	q := s.q.WithTx(tx)
+	sortOrder, err := q.NextGameServerSortOrder(ctx)
+	if err != nil {
+		return GameServer{}, fmt.Errorf("get next game server order: %w", err)
+	}
+	now := time.Now().Unix()
+	server.ID = uuid.NewString()
+	server.Enabled = true
+	server.SortOrder = sortOrder
+	if err := q.CreateGameServer(ctx, dashsql.CreateGameServerParams{
+		ID: server.ID, DisplayName: server.DisplayName, Address: server.Address,
+		SortOrder: sortOrder, CreatedAt: now,
+	}); err != nil {
+		return GameServer{}, fmt.Errorf("create game server: %w", err)
+	}
+	if err := tx.Commit(); err != nil {
+		return GameServer{}, fmt.Errorf("commit game server transaction: %w", err)
+	}
+	return server, nil
+}
+
+func (s *dashboardStore) UpdateServer(ctx context.Context, server GameServer) error {
+	now := time.Now().Unix()
+	rows, err := s.q.UpdateGameServer(ctx, dashsql.UpdateGameServerParams{
+		ID: server.ID, DisplayName: server.DisplayName, Address: server.Address, UpdatedAt: now,
+	})
+	if err != nil {
+		return fmt.Errorf("update game server: %w", err)
+	}
+	if rows == 0 {
+		return sql.ErrNoRows
+	}
+	return nil
+}
+
+func (s *dashboardStore) SetServerEnabled(ctx context.Context, id string, enabled bool) error {
+	rows, err := s.q.SetGameServerEnabled(ctx, dashsql.SetGameServerEnabledParams{ID: id, Enabled: boolInt(enabled), UpdatedAt: time.Now().Unix()})
+	if err != nil {
+		return fmt.Errorf("set game server enabled: %w", err)
+	}
+	if rows == 0 {
+		return sql.ErrNoRows
+	}
+	return nil
+}
+
+func (s *dashboardStore) MoveServer(ctx context.Context, id, direction string) error {
+	tx, err := s.db.BeginTx(ctx, nil)
+	if err != nil {
+		return fmt.Errorf("begin game server move: %w", err)
+	}
+	defer tx.Rollback()
+	q := s.q.WithTx(tx)
+	rows, err := q.ListGameServers(ctx)
+	if err != nil {
+		return fmt.Errorf("list game servers for move: %w", err)
+	}
+	index := -1
+	for i := range rows {
+		if rows[i].ID == id {
+			index = i
+			break
+		}
+	}
+	if index < 0 {
+		return sql.ErrNoRows
+	}
+	target := index - 1
+	if direction == "down" {
+		target = index + 1
+	}
+	if target < 0 || target >= len(rows) {
+		return nil
+	}
+	now := time.Now().Unix()
+	if _, err := q.SetGameServerSortOrder(ctx, dashsql.SetGameServerSortOrderParams{ID: rows[index].ID, SortOrder: rows[target].SortOrder, UpdatedAt: now}); err != nil {
+		return fmt.Errorf("move game server: %w", err)
+	}
+	if _, err := q.SetGameServerSortOrder(ctx, dashsql.SetGameServerSortOrderParams{ID: rows[target].ID, SortOrder: rows[index].SortOrder, UpdatedAt: now}); err != nil {
+		return fmt.Errorf("move adjacent game server: %w", err)
+	}
+	if err := tx.Commit(); err != nil {
+		return fmt.Errorf("commit game server move: %w", err)
+	}
+	return nil
+}
+
+func (s *dashboardStore) DeleteServer(ctx context.Context, id string) error {
+	rows, err := s.q.DeleteGameServer(ctx, id)
+	if err != nil {
+		return fmt.Errorf("delete game server: %w", err)
+	}
+	if rows == 0 {
+		return sql.ErrNoRows
+	}
+	return nil
+}
+
+func (s *dashboardStore) AdminConfigured(ctx context.Context) (bool, error) {
+	count, err := s.q.CountAdminAccounts(ctx)
+	return count > 0, err
+}
+
+func (s *dashboardStore) CreateAdmin(ctx context.Context, username, passwordHash, jwtSecret string) error {
+	tx, err := s.db.BeginTx(ctx, nil)
+	if err != nil {
+		return err
+	}
+	defer tx.Rollback()
+	q := s.q.WithTx(tx)
+	count, err := q.CountAdminAccounts(ctx)
+	if err != nil {
+		return err
+	}
+	if count > 0 {
+		return errors.New("administrator is already configured")
+	}
+	now := time.Now().Unix()
+	if err := q.CreateAdminAccount(ctx, dashsql.CreateAdminAccountParams{
+		Username: username, PasswordHash: passwordHash, JwtSecret: jwtSecret, CreatedAt: now,
+	}); err != nil {
+		return fmt.Errorf("create administrator: %w", err)
+	}
+	return tx.Commit()
+}
+
+func (s *dashboardStore) Admin(ctx context.Context) (*AdminAccount, error) {
+	row, err := s.q.GetAdminAccount(ctx)
 	if errors.Is(err, sql.ErrNoRows) {
 		return nil, nil
 	}
 	if err != nil {
-		return nil, fmt.Errorf("get primary server: %w", err)
+		return nil, err
 	}
-	return &GameServer{
-		ID: row.ID, ServerKey: row.ServerKey, DisplayName: row.DisplayName,
-		ConnectAddress: row.ConnectAddress, QueryAddress: row.QueryAddress,
-		Primary: row.IsPrimary == 1, Enabled: row.Enabled == 1, SortOrder: row.SortOrder,
+	return &AdminAccount{
+		Username: row.Username, PasswordHash: row.PasswordHash, JWTSecret: row.JwtSecret,
+		TokenVersion: row.TokenVersion, CreatedAt: row.CreatedAt, UpdatedAt: row.UpdatedAt,
+		PasswordChangedAt: row.PasswordChangedAt,
 	}, nil
+}
+
+func (s *dashboardStore) UpdateAdminUsername(ctx context.Context, username string) error {
+	return s.q.UpdateAdminUsername(ctx, dashsql.UpdateAdminUsernameParams{Username: username, UpdatedAt: time.Now().Unix()})
+}
+
+func (s *dashboardStore) UpdateAdminPassword(ctx context.Context, passwordHash string) error {
+	now := time.Now().Unix()
+	return s.q.UpdateAdminPassword(ctx, dashsql.UpdateAdminPasswordParams{PasswordHash: passwordHash, UpdatedAt: now})
+}
+
+func (s *dashboardStore) ListAnnouncements(ctx context.Context, limit, offset int32) (AnnouncementPage, error) {
+	rows, err := s.q.ListAnnouncements(ctx, dashsql.ListAnnouncementsParams{Limit: int64(limit), Offset: int64(offset)})
+	if err != nil {
+		return AnnouncementPage{}, fmt.Errorf("list announcements: %w", err)
+	}
+	total, err := s.q.CountAnnouncements(ctx)
+	if err != nil {
+		return AnnouncementPage{}, fmt.Errorf("count announcements: %w", err)
+	}
+	items := make([]Announcement, 0, len(rows))
+	for _, row := range rows {
+		items = append(items, announcement(row))
+	}
+	page := 1
+	if limit > 0 {
+		page = int(offset/limit) + 1
+	}
+	return AnnouncementPage{Items: items, Total: total, Page: page, Limit: int(limit)}, nil
+}
+
+func (s *dashboardStore) GetAnnouncement(ctx context.Context, id string) (Announcement, error) {
+	row, err := s.q.GetAnnouncement(ctx, id)
+	if err != nil {
+		return Announcement{}, err
+	}
+	return announcement(row), nil
+}
+
+func (s *dashboardStore) CreateAnnouncement(ctx context.Context, value Announcement) (Announcement, error) {
+	now := time.Now().Unix()
+	value.ID = uuid.NewString()
+	value.CreatedAt = now
+	value.UpdatedAt = now
+	if err := s.q.CreateAnnouncement(ctx, dashsql.CreateAnnouncementParams{
+		ID: value.ID, Title: value.Title, ContentMarkdown: value.ContentMarkdown, CreatedAt: now,
+	}); err != nil {
+		return Announcement{}, fmt.Errorf("create announcement: %w", err)
+	}
+	return value, nil
+}
+
+func (s *dashboardStore) UpdateAnnouncement(ctx context.Context, value Announcement) (Announcement, error) {
+	now := time.Now().Unix()
+	rows, err := s.q.UpdateAnnouncement(ctx, dashsql.UpdateAnnouncementParams{
+		ID: value.ID, Title: value.Title, ContentMarkdown: value.ContentMarkdown, UpdatedAt: now,
+	})
+	if err != nil {
+		return Announcement{}, fmt.Errorf("update announcement: %w", err)
+	}
+	if rows == 0 {
+		return Announcement{}, sql.ErrNoRows
+	}
+	return s.GetAnnouncement(ctx, value.ID)
+}
+
+func (s *dashboardStore) DeleteAnnouncement(ctx context.Context, id string) error {
+	rows, err := s.q.DeleteAnnouncement(ctx, id)
+	if err != nil {
+		return fmt.Errorf("delete announcement: %w", err)
+	}
+	if rows == 0 {
+		return sql.ErrNoRows
+	}
+	return nil
 }
 
 func (s *dashboardStore) Close() error { return s.db.Close() }
@@ -168,4 +469,15 @@ func boolInt(value bool) int64 {
 		return 1
 	}
 	return 0
+}
+
+func gameServer(id, name, address string, enabled, sort int64) GameServer {
+	return GameServer{ID: id, DisplayName: name, Address: address, Enabled: enabled == 1, SortOrder: sort}
+}
+
+func announcement(row dashsql.Announcement) Announcement {
+	return Announcement{
+		ID: row.ID, Title: row.Title, ContentMarkdown: row.ContentMarkdown,
+		CreatedAt: row.CreatedAt, UpdatedAt: row.UpdatedAt,
+	}
 }

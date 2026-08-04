@@ -4,96 +4,126 @@ import (
 	"context"
 	"path/filepath"
 	"testing"
-
-	"github.com/gofurry/l4d2-plugin-stats/dashboard/internal/config"
 )
 
-func TestDashboardMigrateAndBootstrapIsIdempotent(t *testing.T) {
+func TestDashboardInitialSchemaAndManagement(t *testing.T) {
 	ctx := context.Background()
-	databasePath := filepath.Join(t.TempDir(), "dashboard.db")
-	dashboard, err := OpenDashboard(ctx, databasePath)
+	path := filepath.Join(t.TempDir(), "dashboard.db")
+	dashboard, err := OpenDashboard(ctx, path)
 	if err != nil {
 		t.Fatal(err)
 	}
 	defer dashboard.Close()
-
 	version, err := dashboard.MigrationVersion(ctx)
-	if err != nil || version != 1 {
-		t.Fatalf("migration version = %d, err = %v", version, err)
-	}
-	first := config.BootstrapConfig{
-		Site: config.BootstrapSiteConfig{
-			Title: "First", FooterText: "line one\nline two",
-			FooterLinks: []config.BootstrapLinkConfig{{Label: "ICP", URL: "https://example.com", Enabled: true}},
-		},
-		Servers: []config.BootstrapServerConfig{{
-			ServerKey: "main", DisplayName: "Main", ConnectAddress: "127.0.0.1:27015",
-			QueryAddress: "127.0.0.1:27015", Primary: true, Enabled: true,
-		}},
-	}
-	applied, err := dashboard.Bootstrap(ctx, first, false)
-	if err != nil || !applied {
-		t.Fatalf("first Bootstrap() = %v, %v", applied, err)
-	}
-
-	second := first
-	second.Site.Title = "Second"
-	applied, err = dashboard.Bootstrap(ctx, second, false)
-	if err != nil || applied {
-		t.Fatalf("second Bootstrap() = %v, %v; want skipped", applied, err)
+	if err != nil || version != 4 {
+		t.Fatalf("migration version=%d err=%v", version, err)
 	}
 	site, err := dashboard.Site(ctx)
-	if err != nil || site.Title != "First" || len(site.Links) != 1 {
-		t.Fatalf("Site() = %#v, %v", site, err)
+	if err != nil || site.Language != "zh-CN" || site.Theme != "light" || site.Configured || site.FooterEnabled {
+		t.Fatalf("default Site()=%#v err=%v", site, err)
 	}
-
-	applied, err = dashboard.Bootstrap(ctx, second, true)
-	if err != nil || !applied {
-		t.Fatalf("replace Bootstrap() = %v, %v", applied, err)
-	}
-	site, err = dashboard.Site(ctx)
-	if err != nil || site.Title != "Second" {
-		t.Fatalf("replaced Site() = %#v, %v", site, err)
-	}
-	primary, err := dashboard.PrimaryServer(ctx)
-	if err != nil || primary == nil || primary.ServerKey != "main" {
-		t.Fatalf("PrimaryServer() = %#v, %v", primary, err)
-	}
-
-	if err := dashboard.Close(); err != nil {
+	settings := SiteSettings{Language: "en", BrowserTitle: "My Stats", Theme: "dark", FooterEnabled: true, BackgroundImageURL: "https://example.com/background.jpg", PublicOrigin: "https://example.com", SteamOpenIDEnabled: true, A2SRefreshSeconds: 10, A2SJitterSeconds: 5, A2SRetryCount: 2, Links: []FooterLink{{Label: "ICP", URL: "https://example.com/icp"}}}
+	if err := dashboard.UpdateSite(ctx, settings); err != nil {
 		t.Fatal(err)
 	}
-	reopened, err := OpenDashboard(ctx, databasePath)
-	if err != nil {
-		t.Fatalf("reopen dashboard: %v", err)
+	site, err = dashboard.Site(ctx)
+	if err != nil || site.Language != "en" || site.BrowserTitle != "My Stats" || site.Theme != "dark" || site.A2SRefreshSeconds != 10 || !site.Configured || !site.FooterEnabled || !site.SteamOpenIDEnabled || site.BackgroundImageURL == "" || len(site.Links) != 1 {
+		t.Fatalf("updated Site()=%#v err=%v", site, err)
 	}
-	defer reopened.Close()
-	version, err = reopened.MigrationVersion(ctx)
-	if err != nil || version != 1 {
-		t.Fatalf("reopened migration version = %d, err = %v", version, err)
+	savedSettings, err := dashboard.SiteSettings(ctx)
+	if err != nil || savedSettings.Theme != "dark" || savedSettings.A2SJitterSeconds != 5 || savedSettings.A2SRetryCount != 2 {
+		t.Fatalf("updated SiteSettings()=%#v err=%v", savedSettings, err)
+	}
+	created, err := dashboard.CreateServer(ctx, GameServer{DisplayName: "Main", Address: "127.0.0.1:27015"})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if created.ID == "" || !created.Enabled || created.SortOrder != 0 {
+		t.Fatalf("created server=%#v", created)
+	}
+	second, err := dashboard.CreateServer(ctx, GameServer{DisplayName: "Second", Address: "127.0.0.1:27016"})
+	if err != nil || second.SortOrder != 1 {
+		t.Fatalf("second server=%#v err=%v", second, err)
+	}
+	servers, err := dashboard.ListServers(ctx)
+	if err != nil || len(servers) != 2 || servers[0].ID != created.ID || servers[1].ID != second.ID {
+		t.Fatalf("ListServers()=%#v err=%v", servers, err)
+	}
+	created.DisplayName = "Main updated"
+	if err := dashboard.UpdateServer(ctx, created); err != nil {
+		t.Fatal(err)
+	}
+	if err := dashboard.SetServerEnabled(ctx, created.ID, false); err != nil {
+		t.Fatal(err)
+	}
+	servers, err = dashboard.ListServers(ctx)
+	if err != nil || len(servers) != 2 || servers[0].Enabled || servers[0].DisplayName != "Main updated" {
+		t.Fatalf("updated servers=%#v err=%v", servers, err)
+	}
+	if err := dashboard.MoveServer(ctx, second.ID, "up"); err != nil {
+		t.Fatal(err)
+	}
+	servers, err = dashboard.ListServers(ctx)
+	if err != nil || servers[0].ID != second.ID || servers[1].ID != created.ID {
+		t.Fatalf("moved servers=%#v err=%v", servers, err)
 	}
 }
 
-func TestDashboardBootstrapWithNoServersStillRunsOnlyOnce(t *testing.T) {
+func TestDashboardSingleAdministrator(t *testing.T) {
 	ctx := context.Background()
 	dashboard, err := OpenDashboard(ctx, filepath.Join(t.TempDir(), "dashboard.db"))
 	if err != nil {
 		t.Fatal(err)
 	}
 	defer dashboard.Close()
-	bootstrap := config.BootstrapConfig{Site: config.BootstrapSiteConfig{Title: "Empty directory"}}
-	if applied, err := dashboard.Bootstrap(ctx, bootstrap, false); err != nil || !applied {
-		t.Fatalf("first Bootstrap() = %v, %v", applied, err)
+	configured, err := dashboard.AdminConfigured(ctx)
+	if err != nil || configured {
+		t.Fatalf("configured=%v err=%v", configured, err)
 	}
-	bootstrap.Servers = []config.BootstrapServerConfig{{
-		ServerKey: "late", DisplayName: "Late", ConnectAddress: "127.0.0.1:27015",
-		QueryAddress: "127.0.0.1:27015", Primary: true, Enabled: true,
-	}}
-	if applied, err := dashboard.Bootstrap(ctx, bootstrap, false); err != nil || applied {
-		t.Fatalf("second Bootstrap() = %v, %v; marker should prevent an implicit overwrite", applied, err)
+	if err := dashboard.CreateAdmin(ctx, "admin", "hash", "secret"); err != nil {
+		t.Fatal(err)
 	}
-	primary, err := dashboard.PrimaryServer(ctx)
-	if err != nil || primary != nil {
-		t.Fatalf("PrimaryServer() = %#v, %v", primary, err)
+	if err := dashboard.CreateAdmin(ctx, "other", "hash", "secret"); err == nil {
+		t.Fatal("second administrator should fail")
+	}
+	admin, err := dashboard.Admin(ctx)
+	if err != nil || admin == nil || admin.Username != "admin" || admin.TokenVersion != 1 {
+		t.Fatalf("Admin()=%#v err=%v", admin, err)
+	}
+	if err := dashboard.UpdateAdminPassword(ctx, "new-hash"); err != nil {
+		t.Fatal(err)
+	}
+	admin, _ = dashboard.Admin(ctx)
+	if admin.TokenVersion != 2 {
+		t.Fatalf("token version=%d", admin.TokenVersion)
+	}
+}
+
+func TestDashboardAnnouncementLifecycle(t *testing.T) {
+	ctx := context.Background()
+	dashboard, err := OpenDashboard(ctx, filepath.Join(t.TempDir(), "dashboard.db"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer dashboard.Close()
+	created, err := dashboard.CreateAnnouncement(ctx, Announcement{Title: "Update", ContentMarkdown: "**Ready**"})
+	if err != nil || created.ID == "" || created.CreatedAt == 0 {
+		t.Fatalf("created=%#v err=%v", created, err)
+	}
+	page, err := dashboard.ListAnnouncements(ctx, 20, 0)
+	if err != nil || page.Total != 1 || len(page.Items) != 1 || page.Items[0].ID != created.ID {
+		t.Fatalf("page=%#v err=%v", page, err)
+	}
+	created.Title = "Updated"
+	updated, err := dashboard.UpdateAnnouncement(ctx, created)
+	if err != nil || updated.Title != "Updated" {
+		t.Fatalf("updated=%#v err=%v", updated, err)
+	}
+	if err := dashboard.DeleteAnnouncement(ctx, created.ID); err != nil {
+		t.Fatal(err)
+	}
+	page, err = dashboard.ListAnnouncements(ctx, 20, 0)
+	if err != nil || page.Total != 0 || len(page.Items) != 0 {
+		t.Fatalf("empty page=%#v err=%v", page, err)
 	}
 }

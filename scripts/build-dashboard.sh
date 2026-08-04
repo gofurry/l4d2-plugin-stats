@@ -5,7 +5,7 @@ SCRIPT_DIR=$(CDPATH= cd -- "$(dirname -- "$0")" && pwd)
 REPO_ROOT=$(CDPATH= cd -- "$SCRIPT_DIR/.." && pwd)
 DASHBOARD_ROOT="$REPO_ROOT/dashboard"
 OUTPUT_DIR="$REPO_ROOT/dist"
-VERSION=${L4D2_STATS_VERSION:-0.8.1-dev}
+VERSION=${L4D2_STATS_VERSION:-0.8.3-dev}
 
 cd "$DASHBOARD_ROOT/frontend"
 pnpm install --frozen-lockfile
@@ -18,6 +18,9 @@ cd "$DASHBOARD_ROOT"
 go tool sqlc generate
 go test ./...
 mkdir -p "$OUTPUT_DIR"
+if [ ! -f "$OUTPUT_DIR/config.yaml" ]; then
+  cp "$DASHBOARD_ROOT/config.example.yaml" "$OUTPUT_DIR/config.yaml"
+fi
 CGO_ENABLED=0 go build -trimpath \
   -ldflags "-s -w -X github.com/gofurry/l4d2-plugin-stats/dashboard/internal/cli.Version=$VERSION" \
   -o "$OUTPUT_DIR/l4d2-stats" \

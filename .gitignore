@@ -1,4 +1,6 @@
 /dist/
+/.artifacts/
+/.tmp-*.png
 /scripts/config.local.ps1
 .vscode/settings.json
 *.smx

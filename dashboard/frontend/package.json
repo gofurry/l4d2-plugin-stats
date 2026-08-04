@@ -1,7 +1,7 @@
 {
   "name": "@gofurry/l4d2-stats-dashboard",
   "private": true,
-  "version": "0.8.1",
+  "version": "0.9.1-dev",
   "type": "module",
   "packageManager": "pnpm@10.11.0",
   "scripts": {
@@ -14,12 +14,17 @@
   "dependencies": {
     "@ant-design/icons": "latest",
     "@tanstack/react-query": "latest",
+    "@uiw/react-markdown-preview": "^5.2.1",
+    "@uiw/react-md-editor": "^4.1.1",
     "antd": "^6.0.0",
+    "echarts": "^6.1.0",
     "i18next": "latest",
     "react": "^19.0.0",
     "react-dom": "^19.0.0",
     "react-i18next": "latest",
-    "react-router-dom": "latest"
+    "react-markdown": "^10.1.0",
+    "react-router-dom": "latest",
+    "remark-gfm": "^4.0.1"
   },
   "devDependencies": {
     "@eslint/js": "latest",

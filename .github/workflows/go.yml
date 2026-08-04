@@ -1,0 +1,49 @@
+name: Go
+
+on:
+  push:
+    paths:
+      - 'dashboard/**/*.go'
+      - 'dashboard/go.mod'
+      - 'dashboard/go.sum'
+      - 'dashboard/sqlc.yaml'
+      - 'dashboard/database/**'
+      - '.github/workflows/go.yml'
+  pull_request:
+    paths:
+      - 'dashboard/**/*.go'
+      - 'dashboard/go.mod'
+      - 'dashboard/go.sum'
+      - 'dashboard/sqlc.yaml'
+      - 'dashboard/database/**'
+      - '.github/workflows/go.yml'
+
+permissions:
+  contents: read
+
+concurrency:
+  group: go-${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: dashboard
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-go@v6
+        with:
+          go-version-file: dashboard/go.mod
+          cache-dependency-path: dashboard/go.sum
+      - name: Generate sqlc code
+        run: go tool sqlc generate
+      - name: Verify generated code is committed
+        run: git diff --exit-code -- internal/store/sqlcgen
+      - name: Format check
+        run: test -z "$(gofmt -l .)"
+      - name: Vet
+        run: go vet ./...
+      - name: Test
+        run: go test ./...

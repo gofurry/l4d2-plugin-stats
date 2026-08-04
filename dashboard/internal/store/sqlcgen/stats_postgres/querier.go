@@ -11,8 +11,14 @@ import (
 type Querier interface {
 	GetCoreOverview(ctx context.Context, lastSavedAt int64) (GetCoreOverviewRow, error)
 	GetPVEOverview(ctx context.Context) (GetPVEOverviewRow, error)
+	GetPlayerPVE(ctx context.Context, arg GetPlayerPVEParams) (GetPlayerPVERow, error)
+	GetPlayerSummary(ctx context.Context, steamID string) (GetPlayerSummaryRow, error)
+	GetPlayerVersus(ctx context.Context, arg GetPlayerVersusParams) (GetPlayerVersusRow, error)
 	GetSchemaVersion(ctx context.Context) (int64, error)
 	GetVersusOverview(ctx context.Context) (GetVersusOverviewRow, error)
+	ListPlayerChapters(ctx context.Context, arg ListPlayerChaptersParams) ([]ListPlayerChaptersRow, error)
+	ListPlayerSessions(ctx context.Context, arg ListPlayerSessionsParams) ([]ListPlayerSessionsRow, error)
+	SearchPlayers(ctx context.Context, arg SearchPlayersParams) ([]SearchPlayersRow, error)
 }
 
 var _ Querier = (*Queries)(nil)

@@ -13,16 +13,28 @@ VALUES (?1, ?2)
 ON CONFLICT(key) DO UPDATE SET value = excluded.value;
 
 -- name: GetSiteSettings :one
-SELECT title, footer_text, updated_at
+SELECT language, footer_enabled, background_image_url, public_origin, steam_openid_enabled,
+       browser_title, theme, a2s_refresh_seconds, a2s_jitter_seconds, a2s_retry_count, updated_at
 FROM site_settings
 WHERE id = 1;
 
 -- name: UpsertSiteSettings :exec
-INSERT INTO site_settings (id, title, footer_text, updated_at)
-VALUES (1, ?1, ?2, ?3)
+INSERT INTO site_settings (
+  id, language, footer_enabled, background_image_url, public_origin, steam_openid_enabled,
+  browser_title, theme, a2s_refresh_seconds, a2s_jitter_seconds, a2s_retry_count, updated_at
+)
+VALUES (1, ?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9, ?10, ?11)
 ON CONFLICT(id) DO UPDATE SET
-  title = excluded.title,
-  footer_text = excluded.footer_text,
+  language = excluded.language,
+  footer_enabled = excluded.footer_enabled,
+  background_image_url = excluded.background_image_url,
+  public_origin = excluded.public_origin,
+  steam_openid_enabled = excluded.steam_openid_enabled,
+  browser_title = excluded.browser_title,
+  theme = excluded.theme,
+  a2s_refresh_seconds = excluded.a2s_refresh_seconds,
+  a2s_jitter_seconds = excluded.a2s_jitter_seconds,
+  a2s_retry_count = excluded.a2s_retry_count,
   updated_at = excluded.updated_at;
 
 -- name: DeleteFooterLinks :exec
@@ -30,13 +42,17 @@ DELETE FROM footer_links;
 
 -- name: CreateFooterLink :exec
 INSERT INTO footer_links (
-  label, url, sort_order, open_new_tab, enabled, created_at, updated_at
-) VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7);
+  id, label, url, sort_order, created_at, updated_at
+) VALUES (?1, ?2, ?3, ?4, ?5, ?6);
 
--- name: ListEnabledFooterLinks :many
-SELECT label, url, open_new_tab
+-- name: ListPublicFooterLinks :many
+SELECT label, url
 FROM footer_links
-WHERE enabled = 1
+ORDER BY sort_order, id;
+
+-- name: ListFooterLinks :many
+SELECT id, label, url
+FROM footer_links
 ORDER BY sort_order, id;
 
 -- name: DeleteGameServers :exec
@@ -44,14 +60,123 @@ DELETE FROM game_servers;
 
 -- name: CreateGameServer :exec
 INSERT INTO game_servers (
-  server_key, display_name, connect_address, query_address,
-  is_primary, enabled, sort_order, created_at, updated_at
-) VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9);
+  id, display_name, address, enabled, sort_order, created_at, updated_at
+) VALUES (?1, ?2, ?3, 1, ?4, ?5, ?5);
 
--- name: GetPrimaryServer :one
+-- name: ListGameServers :many
 SELECT
-  id, server_key, display_name, connect_address, query_address,
-  is_primary, enabled, sort_order
+  id, display_name, address, enabled, sort_order
 FROM game_servers
-WHERE is_primary = 1 AND enabled = 1
-LIMIT 1;
+ORDER BY sort_order, id;
+
+-- name: GetGameServer :one
+SELECT
+  id, display_name, address, enabled, sort_order
+FROM game_servers
+WHERE id = ?1;
+
+-- name: NextGameServerSortOrder :one
+SELECT COALESCE(MAX(sort_order), -1) + 1 FROM game_servers;
+
+-- name: UpdateGameServer :execrows
+UPDATE game_servers SET
+  display_name = ?2,
+  address = ?3,
+  updated_at = ?4
+WHERE id = ?1;
+
+-- name: SetGameServerEnabled :execrows
+UPDATE game_servers SET enabled = ?2, updated_at = ?3 WHERE id = ?1;
+
+-- name: SetGameServerSortOrder :execrows
+UPDATE game_servers SET sort_order = ?2, updated_at = ?3 WHERE id = ?1;
+
+-- name: DeleteGameServer :execrows
+DELETE FROM game_servers WHERE id = ?1;
+
+-- name: CountAdminAccounts :one
+SELECT COUNT(*) FROM admin_account;
+
+-- name: CreateAdminAccount :exec
+INSERT INTO admin_account (
+  id, username, password_hash, jwt_secret, token_version,
+  created_at, updated_at, password_changed_at
+) VALUES (1, ?1, ?2, ?3, 1, ?4, ?4, ?4);
+
+-- name: GetAdminAccount :one
+SELECT
+  username, password_hash, jwt_secret, token_version,
+  created_at, updated_at, password_changed_at
+FROM admin_account
+WHERE id = 1;
+
+-- name: UpdateAdminUsername :exec
+UPDATE admin_account SET username = ?1, updated_at = ?2 WHERE id = 1;
+
+-- name: UpdateAdminPassword :exec
+UPDATE admin_account SET
+  password_hash = ?1,
+  token_version = token_version + 1,
+  updated_at = ?2,
+  password_changed_at = ?2
+WHERE id = 1;
+
+-- name: CountAnnouncements :one
+SELECT COUNT(*) FROM announcements;
+
+-- name: ListAnnouncements :many
+SELECT id, title, content_markdown, created_at, updated_at
+FROM announcements
+ORDER BY created_at DESC, id DESC
+LIMIT ?1 OFFSET ?2;
+
+-- name: GetAnnouncement :one
+SELECT id, title, content_markdown, created_at, updated_at
+FROM announcements
+WHERE id = ?1;
+
+-- name: CreateAnnouncement :exec
+INSERT INTO announcements (
+  id, title, content_markdown, created_at, updated_at
+) VALUES (?1, ?2, ?3, ?4, ?4);
+
+-- name: UpdateAnnouncement :execrows
+UPDATE announcements SET
+  title = ?2,
+  content_markdown = ?3,
+  updated_at = ?4
+WHERE id = ?1;
+
+-- name: DeleteAnnouncement :execrows
+DELETE FROM announcements WHERE id = ?1;
+
+-- name: GetAggregateStatus :one
+SELECT state, last_started_at, last_finished_at, source_rows, aggregate_rows, last_error
+FROM aggregate_state WHERE id = 1;
+
+-- name: MarkAggregateStarted :exec
+UPDATE aggregate_state SET state = 'building', last_started_at = ?1, last_error = '' WHERE id = 1;
+
+-- name: MarkAggregateFailed :exec
+UPDATE aggregate_state SET state = 'failed', last_error = ?1 WHERE id = 1;
+
+-- name: CompleteAggregateBuild :exec
+UPDATE aggregate_state SET state = 'ready', last_finished_at = ?1,
+  source_rows = ?2, aggregate_rows = ?3, last_error = '' WHERE id = 1;
+
+-- name: DeleteAggregateRows :exec
+DELETE FROM aggregate_rows;
+
+-- name: InsertAggregateRow :exec
+INSERT INTO aggregate_rows (
+  kind, day, server_key, steam_id, mode, dimension, metrics_json
+) VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7);
+
+-- name: ListAggregateRows :many
+SELECT kind, day, server_key, steam_id, mode, dimension, metrics_json
+FROM aggregate_rows
+WHERE (?1 = '' OR steam_id = ?1)
+  AND (?2 = '' OR server_key = ?2)
+  AND (?3 = '' OR mode = ?3)
+  AND (?4 = 0 OR day >= ?4)
+ORDER BY day, kind, server_key, steam_id, mode, dimension;

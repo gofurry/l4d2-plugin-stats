@@ -2,6 +2,7 @@ package cli
 
 import (
 	"context"
+	"encoding/json"
 	"errors"
 	"fmt"
 	"io/fs"
@@ -13,6 +14,7 @@ import (
 
 	"github.com/gofiber/fiber/v3"
 	"github.com/gofurry/l4d2-plugin-stats/dashboard/internal/a2s"
+	"github.com/gofurry/l4d2-plugin-stats/dashboard/internal/auth"
 	"github.com/gofurry/l4d2-plugin-stats/dashboard/internal/config"
 	"github.com/gofurry/l4d2-plugin-stats/dashboard/internal/logging"
 	"github.com/gofurry/l4d2-plugin-stats/dashboard/internal/server"
@@ -24,7 +26,7 @@ import (
 	"go.uber.org/zap"
 )
 
-var Version = "0.8.1-dev"
+var Version = "0.9.1-dev"
 
 type rootOptions struct{ configPath string }
 
@@ -32,7 +34,7 @@ func Execute() error {
 	options := &rootOptions{}
 	root := &cobra.Command{Use: "l4d2-stats", Short: "L4D2 player statistics dashboard", SilenceUsage: true, SilenceErrors: true}
 	root.PersistentFlags().StringVar(&options.configPath, "config", "./config.yaml", "path to config.yaml")
-	root.AddCommand(serveCommand(options), doctorCommand(options), versionCommand(), installCommand(options), uninstallCommand(), migrateCommand(options), bootstrapCommand(options))
+	root.AddCommand(serveCommand(options), doctorCommand(options), versionCommand(), installCommand(options), uninstallCommand(), migrateCommand(options), aggregateCommand(options), retentionCommand(options))
 	return root.Execute()
 }
 
@@ -54,10 +56,12 @@ func serveCommand(options *rootOptions) *cobra.Command {
 			return err
 		}
 		defer dashboard.Close()
-		if applied, err := dashboard.Bootstrap(ctx, cfg.Bootstrap, false); err != nil {
-			return err
-		} else if applied {
-			logger.Info("dashboard bootstrap applied")
+		authService, setupToken, err := auth.New(ctx, dashboard)
+		if err != nil {
+			return fmt.Errorf("initialize administrator authentication: %w", err)
+		}
+		if setupToken != "" {
+			fmt.Fprintf(cmd.ErrOrStderr(), "\nAdministrator setup is required.\nOpen /admin/setup and enter this one-time token (valid for 30 minutes):\n%s\n\n", setupToken)
 		}
 		stats, err := store.OpenStats(ctx, cfg.StatsDatabase)
 		if err != nil {
@@ -76,8 +80,15 @@ func serveCommand(options *rootOptions) *cobra.Command {
 			return fmt.Errorf("open embedded frontend: %w", err)
 		}
 		overview := service.NewOverviewService(stats, 60*time.Second)
-		status := a2s.NewProvider(dashboard, a2s.SteamClient{})
-		app := server.New(cfg, server.Dependencies{Dashboard: dashboard, Stats: stats, Overview: overview, Status: status, Logger: logger, Assets: assets})
+		players := service.NewPlayerService(stats)
+		aggregates := service.NewAggregateService(dashboard, stats, logger)
+		rankings := service.NewRankingService(dashboard, stats)
+		runCtx, stopBackground := context.WithCancel(context.Background())
+		defer stopBackground()
+		aggregates.Start(runCtx)
+		a2sClient := a2s.SteamClient{}
+		status := a2s.NewProvider(dashboard, a2sClient)
+		app := server.New(cfg, server.Dependencies{Dashboard: dashboard, Stats: stats, Overview: overview, Status: status, Players: players, Rankings: rankings, Auth: authService, Logger: logger, Assets: assets})
 		logger.Info("dashboard starting", zap.String("listen", cfg.Server.Listen), zap.String("config", cfg.Path))
 		errCh := make(chan error, 1)
 		go func() { errCh <- app.Listen(cfg.Server.Listen, fiber.ListenConfig{DisableStartupMessage: true}) }()
@@ -91,6 +102,99 @@ func serveCommand(options *rootOptions) *cobra.Command {
 			return err
 		}
 	}}
+}
+
+func aggregateCommand(options *rootOptions) *cobra.Command {
+	aggregate := &cobra.Command{Use: "aggregate", Short: "manage the Dashboard aggregate read model"}
+	aggregate.AddCommand(
+		&cobra.Command{Use: "status", Short: "show aggregate status", RunE: func(cmd *cobra.Command, args []string) error {
+			cfg, err := config.Load(options.configPath)
+			if err != nil {
+				return err
+			}
+			ctx, cancel := context.WithTimeout(context.Background(), 15*time.Second)
+			defer cancel()
+			dashboard, err := store.OpenDashboard(ctx, cfg.DashboardDatabase.Path)
+			if err != nil {
+				return err
+			}
+			defer dashboard.Close()
+			status, err := dashboard.AggregateStatus(ctx)
+			if err != nil {
+				return err
+			}
+			return writeJSON(cmd, status)
+		}},
+		&cobra.Command{Use: "rebuild", Short: "rebuild all daily aggregates from the read-only Stats DB", RunE: func(cmd *cobra.Command, args []string) error {
+			cfg, err := config.Load(options.configPath)
+			if err != nil {
+				return err
+			}
+			ctx, cancel := context.WithTimeout(context.Background(), 10*time.Minute)
+			defer cancel()
+			dashboard, err := store.OpenDashboard(ctx, cfg.DashboardDatabase.Path)
+			if err != nil {
+				return err
+			}
+			defer dashboard.Close()
+			stats, err := store.OpenStats(ctx, cfg.StatsDatabase)
+			if err != nil {
+				return err
+			}
+			defer stats.Close()
+			service := service.NewAggregateService(dashboard, stats, zap.NewNop())
+			if err := service.Rebuild(ctx); err != nil {
+				return err
+			}
+			status, err := dashboard.AggregateStatus(ctx)
+			if err != nil {
+				return err
+			}
+			return writeJSON(cmd, status)
+		}},
+	)
+	return aggregate
+}
+
+func retentionCommand(options *rootOptions) *cobra.Command {
+	retention := &cobra.Command{Use: "retention", Short: "inspect the non-destructive raw-data retention plan"}
+	retention.AddCommand(&cobra.Command{Use: "plan", Short: "show rows that would be eligible; never deletes data", RunE: func(cmd *cobra.Command, args []string) error {
+		cfg, err := config.Load(options.configPath)
+		if err != nil {
+			return err
+		}
+		ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
+		defer cancel()
+		dashboard, err := store.OpenDashboard(ctx, cfg.DashboardDatabase.Path)
+		if err != nil {
+			return err
+		}
+		defer dashboard.Close()
+		stats, err := store.OpenStats(ctx, cfg.StatsDatabase)
+		if err != nil {
+			return err
+		}
+		defer stats.Close()
+		now := time.Now()
+		plan, err := stats.RetentionPlan(ctx, now.AddDate(0, 0, -180).Unix(), now.AddDate(-1, 0, 0).Unix())
+		if err != nil {
+			return err
+		}
+		status, err := dashboard.AggregateStatus(ctx)
+		if err != nil {
+			return err
+		}
+		plan.AggregateCoverageReady = status.State == "ready" && status.LastFinishedAt > 0
+		plan.DeletionEnabled = false
+		return writeJSON(cmd, plan)
+	}})
+	return retention
+}
+
+func writeJSON(cmd *cobra.Command, value any) error {
+	encoder := json.NewEncoder(cmd.OutOrStdout())
+	encoder.SetIndent("", "  ")
+	return encoder.Encode(value)
 }
 
 func doctorCommand(options *rootOptions) *cobra.Command {
@@ -119,7 +223,29 @@ func doctorCommand(options *rootOptions) *cobra.Command {
 		if err != nil {
 			return err
 		}
-		fmt.Fprintf(cmd.OutOrStdout(), "config: ok\ndashboard database: ok (schema %d)\nstats database: ok (schema %d)\n", dashboardVersion, version)
+		adminConfigured, err := dashboard.AdminConfigured(ctx)
+		if err != nil {
+			return err
+		}
+		site, err := dashboard.Site(ctx)
+		if err != nil {
+			return err
+		}
+		servers, err := dashboard.ListServers(ctx)
+		if err != nil {
+			return err
+		}
+		enabledServers := 0
+		for _, server := range servers {
+			if server.Enabled {
+				enabledServers++
+			}
+		}
+		settings, err := dashboard.SiteSettings(ctx)
+		if err != nil {
+			return err
+		}
+		fmt.Fprintf(cmd.OutOrStdout(), "config: ok\ndashboard database: ok (schema %d)\nstats database: ok (schema %d)\nadministrator: %t\nsite configured: %t\nenabled servers: %d\nSteam OpenID ready: %t\nruntime monitor: %t\n", dashboardVersion, version, adminConfigured, site.Configured, enabledServers, settings.SteamOpenIDEnabled && settings.PublicOrigin != "", cfg.Monitor.Enabled)
 		return nil
 	}}
 }
@@ -150,37 +276,6 @@ func migrateCommand(options *rootOptions) *cobra.Command {
 		return nil
 	}})
 	return migrate
-}
-
-func bootstrapCommand(options *rootOptions) *cobra.Command {
-	bootstrap := &cobra.Command{Use: "bootstrap", Short: "dashboard bootstrap commands"}
-	var replace bool
-	apply := &cobra.Command{Use: "apply", Short: "apply site and server bootstrap configuration", RunE: func(cmd *cobra.Command, args []string) error {
-		cfg, err := config.Load(options.configPath)
-		if err != nil {
-			return err
-		}
-		ctx, cancel := context.WithTimeout(context.Background(), 15*time.Second)
-		defer cancel()
-		dashboard, err := store.OpenDashboard(ctx, cfg.DashboardDatabase.Path)
-		if err != nil {
-			return err
-		}
-		defer dashboard.Close()
-		applied, err := dashboard.Bootstrap(ctx, cfg.Bootstrap, replace)
-		if err != nil {
-			return err
-		}
-		if !applied {
-			fmt.Fprintln(cmd.OutOrStdout(), "bootstrap skipped: dashboard data already exists")
-		} else {
-			fmt.Fprintln(cmd.OutOrStdout(), "bootstrap applied")
-		}
-		return nil
-	}}
-	apply.Flags().BoolVar(&replace, "replace", false, "replace existing site and server settings")
-	bootstrap.AddCommand(apply)
-	return bootstrap
 }
 
 func installCommand(options *rootOptions) *cobra.Command {
