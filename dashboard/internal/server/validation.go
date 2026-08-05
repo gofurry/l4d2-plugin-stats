@@ -144,8 +144,20 @@ func validateSite(settings *store.SiteSettings) error {
 		return err
 	}
 	settings.BackgroundImageURL = backgroundURL
-	if settings.SteamOpenIDEnabled && origin == "" {
-		return errors.New("public_origin is required when Steam OpenID is enabled")
+	settings.SEODescription = strings.TrimSpace(settings.SEODescription)
+	if utf8.RuneCountInString(settings.SEODescription) > 200 {
+		return errors.New("seo_description must not exceed 200 characters")
+	}
+	seoImageURL, err := normalizeHTTPURL(settings.SEOImageURL, "seo_image_url")
+	if err != nil {
+		return err
+	}
+	settings.SEOImageURL = seoImageURL
+	if (settings.SteamOpenIDEnabled || settings.SEOEnabled) && origin == "" {
+		return errors.New("public_origin is required when Steam OpenID or SEO is enabled")
+	}
+	if settings.SEOEnabled && settings.SEODescription == "" {
+		return errors.New("seo_description is required when SEO is enabled")
 	}
 	for i := range settings.Links {
 		link := &settings.Links[i]
@@ -158,6 +170,21 @@ func validateSite(settings *store.SiteSettings) error {
 		if err != nil || u.Host == "" || (u.Scheme != "http" && u.Scheme != "https") {
 			return fmt.Errorf("footer link %d URL must use http or https", i+1)
 		}
+	}
+	return nil
+}
+
+func validateSiteDocument(document *store.SiteDocument) error {
+	document.Key = strings.TrimSpace(document.Key)
+	if document.Key != "introduction" && document.Key != "commands" && document.Key != "resources" {
+		return errors.New("site document key is invalid")
+	}
+	document.ContentMarkdown = strings.TrimSpace(document.ContentMarkdown)
+	if len(document.ContentMarkdown) > 100*1024 {
+		return errors.New("content_markdown must not exceed 102400 bytes")
+	}
+	if document.Enabled && document.ContentMarkdown == "" {
+		return errors.New("content_markdown is required when the site document is enabled")
 	}
 	return nil
 }

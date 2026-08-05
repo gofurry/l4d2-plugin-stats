@@ -147,7 +147,7 @@ func (s *dashboardStore) ListAggregateRows(ctx context.Context, filter Aggregate
 func (s *dashboardStore) Site(ctx context.Context) (Site, error) {
 	row, err := s.q.GetSiteSettings(ctx)
 	if errors.Is(err, sql.ErrNoRows) {
-		return Site{Language: defaultSiteLanguage, BrowserTitle: defaultBrowserTitle, Theme: "light", A2SRefreshSeconds: 30, Links: []FooterLink{}, Configured: false}, nil
+		return Site{Language: defaultSiteLanguage, BrowserTitle: defaultBrowserTitle, Theme: "light", A2SRefreshSeconds: 30, Links: []FooterLink{}, Documents: []string{}, Configured: false}, nil
 	}
 	if err != nil {
 		return Site{}, fmt.Errorf("get site settings: %w", err)
@@ -160,11 +160,19 @@ func (s *dashboardStore) Site(ctx context.Context) (Site, error) {
 	for _, link := range rows {
 		links = append(links, FooterLink{Label: link.Label, URL: link.Url})
 	}
+	documentRows, err := s.q.ListPublicSiteDocuments(ctx)
+	if err != nil {
+		return Site{}, fmt.Errorf("list public site documents: %w", err)
+	}
+	documents := make([]string, 0, len(documentRows))
+	for _, document := range documentRows {
+		documents = append(documents, document)
+	}
 	return Site{
 		Language: row.Language, BrowserTitle: row.BrowserTitle, Theme: row.Theme, FooterEnabled: row.FooterEnabled == 1,
 		BackgroundImageURL: row.BackgroundImageUrl, Links: links,
 		SteamOpenIDEnabled: row.SteamOpenidEnabled == 1 && row.PublicOrigin != "",
-		A2SRefreshSeconds:  row.A2sRefreshSeconds, Configured: true,
+		A2SRefreshSeconds:  row.A2sRefreshSeconds, Documents: documents, Configured: true,
 	}, nil
 }
 
@@ -185,6 +193,15 @@ func (s *dashboardStore) SiteSettings(ctx context.Context) (SiteSettings, error)
 		settings.A2SRefreshSeconds = row.A2sRefreshSeconds
 		settings.A2SJitterSeconds = row.A2sJitterSeconds
 		settings.A2SRetryCount = row.A2sRetryCount
+	}
+	seo, err := s.q.GetSEOSettings(ctx)
+	if err != nil && !errors.Is(err, sql.ErrNoRows) {
+		return SiteSettings{}, fmt.Errorf("get SEO settings: %w", err)
+	}
+	if err == nil {
+		settings.SEOEnabled = seo.Enabled == 1
+		settings.SEODescription = seo.Description
+		settings.SEOImageURL = seo.ImageUrl
 	}
 	links, err := s.q.ListFooterLinks(ctx)
 	if err != nil {
@@ -212,6 +229,12 @@ func (s *dashboardStore) UpdateSite(ctx context.Context, settings SiteSettings) 
 	}); err != nil {
 		return fmt.Errorf("update site settings: %w", err)
 	}
+	if err := q.UpsertSEOSettings(ctx, dashsql.UpsertSEOSettingsParams{
+		Enabled: boolInt(settings.SEOEnabled), Description: settings.SEODescription,
+		ImageUrl: settings.SEOImageURL, UpdatedAt: now,
+	}); err != nil {
+		return fmt.Errorf("update SEO settings: %w", err)
+	}
 	if err := q.DeleteFooterLinks(ctx); err != nil {
 		return fmt.Errorf("clear footer links: %w", err)
 	}
@@ -226,6 +249,61 @@ func (s *dashboardStore) UpdateSite(ctx context.Context, settings SiteSettings) 
 		return fmt.Errorf("commit site transaction: %w", err)
 	}
 	return nil
+}
+
+func (s *dashboardStore) ListSiteDocuments(ctx context.Context, publicOnly bool) ([]SiteDocument, error) {
+	if publicOnly {
+		rows, err := s.q.ListPublicSiteDocuments(ctx)
+		if err != nil {
+			return nil, fmt.Errorf("list public site documents: %w", err)
+		}
+		result := make([]SiteDocument, 0, len(rows))
+		for _, key := range rows {
+			document, err := s.GetSiteDocument(ctx, key, true)
+			if err != nil {
+				return nil, err
+			}
+			result = append(result, document)
+		}
+		return result, nil
+	}
+	rows, err := s.q.ListSiteDocuments(ctx)
+	if err != nil {
+		return nil, fmt.Errorf("list site documents: %w", err)
+	}
+	result := make([]SiteDocument, 0, len(rows))
+	for _, row := range rows {
+		result = append(result, SiteDocument{Key: row.Key, Enabled: row.Enabled == 1, ContentMarkdown: row.ContentMarkdown, UpdatedAt: row.UpdatedAt})
+	}
+	return result, nil
+}
+
+func (s *dashboardStore) GetSiteDocument(ctx context.Context, key string, publicOnly bool) (SiteDocument, error) {
+	if publicOnly {
+		row, err := s.q.GetPublicSiteDocument(ctx, key)
+		if err != nil {
+			return SiteDocument{}, err
+		}
+		return SiteDocument{Key: row.Key, Enabled: row.Enabled == 1, ContentMarkdown: row.ContentMarkdown, UpdatedAt: row.UpdatedAt}, nil
+	}
+	row, err := s.q.GetSiteDocument(ctx, key)
+	if err != nil {
+		return SiteDocument{}, err
+	}
+	return SiteDocument{Key: row.Key, Enabled: row.Enabled == 1, ContentMarkdown: row.ContentMarkdown, UpdatedAt: row.UpdatedAt}, nil
+}
+
+func (s *dashboardStore) UpdateSiteDocument(ctx context.Context, document SiteDocument) (SiteDocument, error) {
+	rows, err := s.q.UpdateSiteDocument(ctx, dashsql.UpdateSiteDocumentParams{
+		Key: document.Key, Enabled: boolInt(document.Enabled), ContentMarkdown: document.ContentMarkdown, UpdatedAt: time.Now().Unix(),
+	})
+	if err != nil {
+		return SiteDocument{}, fmt.Errorf("update site document: %w", err)
+	}
+	if rows == 0 {
+		return SiteDocument{}, sql.ErrNoRows
+	}
+	return s.GetSiteDocument(ctx, document.Key, false)
 }
 
 func (s *dashboardStore) ListServers(ctx context.Context) ([]GameServer, error) {
@@ -396,12 +474,15 @@ func (s *dashboardStore) UpdateAdminPassword(ctx context.Context, passwordHash s
 	return s.q.UpdateAdminPassword(ctx, dashsql.UpdateAdminPasswordParams{PasswordHash: passwordHash, UpdatedAt: now})
 }
 
-func (s *dashboardStore) ListAnnouncements(ctx context.Context, limit, offset int32) (AnnouncementPage, error) {
-	rows, err := s.q.ListAnnouncements(ctx, dashsql.ListAnnouncementsParams{Limit: int64(limit), Offset: int64(offset)})
+func (s *dashboardStore) ListAnnouncements(ctx context.Context, filter AnnouncementFilter) (AnnouncementPage, error) {
+	rows, err := s.q.ListAnnouncements(ctx, dashsql.ListAnnouncementsParams{
+		TitleFilter: filter.Title, YearFilter: filter.Year,
+		RowLimit: int64(filter.Limit), RowOffset: int64(filter.Offset),
+	})
 	if err != nil {
 		return AnnouncementPage{}, fmt.Errorf("list announcements: %w", err)
 	}
-	total, err := s.q.CountAnnouncements(ctx)
+	total, err := s.q.CountAnnouncements(ctx, dashsql.CountAnnouncementsParams{TitleFilter: filter.Title, YearFilter: filter.Year})
 	if err != nil {
 		return AnnouncementPage{}, fmt.Errorf("count announcements: %w", err)
 	}
@@ -410,10 +491,22 @@ func (s *dashboardStore) ListAnnouncements(ctx context.Context, limit, offset in
 		items = append(items, announcement(row))
 	}
 	page := 1
-	if limit > 0 {
-		page = int(offset/limit) + 1
+	if filter.Limit > 0 {
+		page = int(filter.Offset/filter.Limit) + 1
 	}
-	return AnnouncementPage{Items: items, Total: total, Page: page, Limit: int(limit)}, nil
+	return AnnouncementPage{Items: items, Total: total, Page: page, Limit: int(filter.Limit)}, nil
+}
+
+func (s *dashboardStore) ListAnnouncementYears(ctx context.Context) ([]int, error) {
+	rows, err := s.q.ListAnnouncementYears(ctx)
+	if err != nil {
+		return nil, fmt.Errorf("list announcement years: %w", err)
+	}
+	years := make([]int, 0, len(rows))
+	for _, year := range rows {
+		years = append(years, int(year))
+	}
+	return years, nil
 }
 
 func (s *dashboardStore) GetAnnouncement(ctx context.Context, id string) (Announcement, error) {

@@ -14,15 +14,22 @@ import (
 
 func registerAnnouncementRoutes(api fiber.Router, dashboard store.DashboardStore) {
 	api.Get("/announcements", func(c fiber.Ctx) error {
-		page, limit, err := announcementPage(c)
+		filter, _, err := announcementFilter(c)
 		if err != nil {
 			return sendError(c, 400, "invalid_page", err.Error())
 		}
-		result, err := dashboard.ListAnnouncements(c.Context(), limit, int32(page-1)*limit)
+		result, err := dashboard.ListAnnouncements(c.Context(), filter)
 		if err != nil {
 			return sendError(c, 503, "announcements_unavailable", "announcements are temporarily unavailable")
 		}
 		return sendData(c, 200, result)
+	})
+	api.Get("/announcements/years", func(c fiber.Ctx) error {
+		years, err := dashboard.ListAnnouncementYears(c.Context())
+		if err != nil {
+			return sendError(c, 503, "announcement_years_unavailable", "announcement years are temporarily unavailable")
+		}
+		return sendData(c, 200, years)
 	})
 }
 
@@ -38,12 +45,31 @@ func announcementPage(c fiber.Ctx) (int, int32, error) {
 	return page, limit, nil
 }
 
-func (r *adminRoutes) listAnnouncements(c fiber.Ctx) error {
+func announcementFilter(c fiber.Ctx) (store.AnnouncementFilter, int, error) {
 	page, limit, err := announcementPage(c)
+	if err != nil {
+		return store.AnnouncementFilter{}, 0, err
+	}
+	title := strings.TrimSpace(c.Query("title"))
+	if len([]rune(title)) > 120 {
+		return store.AnnouncementFilter{}, 0, errors.New("title must not exceed 120 characters")
+	}
+	year := 0
+	if rawYear := strings.TrimSpace(c.Query("year")); rawYear != "" {
+		year, err = strconv.Atoi(rawYear)
+		if err != nil || year < 1970 || year > 3000 {
+			return store.AnnouncementFilter{}, 0, errors.New("year is invalid")
+		}
+	}
+	return store.AnnouncementFilter{Title: title, Year: year, Limit: limit, Offset: int32(page-1) * limit}, page, nil
+}
+
+func (r *adminRoutes) listAnnouncements(c fiber.Ctx) error {
+	filter, _, err := announcementFilter(c)
 	if err != nil {
 		return sendError(c, 400, "invalid_page", err.Error())
 	}
-	result, err := r.dashboard.ListAnnouncements(c.Context(), limit, int32(page-1)*limit)
+	result, err := r.dashboard.ListAnnouncements(c.Context(), filter)
 	if err != nil {
 		return sendError(c, 503, "announcements_unavailable", "announcements are temporarily unavailable")
 	}

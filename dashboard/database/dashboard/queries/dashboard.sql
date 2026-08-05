@@ -40,6 +40,45 @@ ON CONFLICT(id) DO UPDATE SET
 -- name: DeleteFooterLinks :exec
 DELETE FROM footer_links;
 
+-- name: GetSEOSettings :one
+SELECT enabled, description, image_url, updated_at
+FROM site_seo_settings
+WHERE id = 1;
+
+-- name: UpsertSEOSettings :exec
+INSERT INTO site_seo_settings (id, enabled, description, image_url, updated_at)
+VALUES (1, ?1, ?2, ?3, ?4)
+ON CONFLICT(id) DO UPDATE SET
+  enabled = excluded.enabled,
+  description = excluded.description,
+  image_url = excluded.image_url,
+  updated_at = excluded.updated_at;
+
+-- name: ListPublicSiteDocuments :many
+SELECT key
+FROM site_documents
+WHERE enabled = 1 AND content_markdown <> ''
+ORDER BY CASE key WHEN 'introduction' THEN 1 WHEN 'commands' THEN 2 ELSE 3 END;
+
+-- name: ListSiteDocuments :many
+SELECT key, enabled, content_markdown, updated_at
+FROM site_documents
+ORDER BY CASE key WHEN 'introduction' THEN 1 WHEN 'commands' THEN 2 ELSE 3 END;
+
+-- name: GetPublicSiteDocument :one
+SELECT key, enabled, content_markdown, updated_at
+FROM site_documents
+WHERE key = ?1 AND enabled = 1 AND content_markdown <> '';
+
+-- name: GetSiteDocument :one
+SELECT key, enabled, content_markdown, updated_at
+FROM site_documents
+WHERE key = ?1;
+
+-- name: UpdateSiteDocument :execrows
+UPDATE site_documents SET enabled = ?2, content_markdown = ?3, updated_at = ?4
+WHERE key = ?1;
+
 -- name: CreateFooterLink :exec
 INSERT INTO footer_links (
   id, label, url, sort_order, created_at, updated_at
@@ -122,13 +161,22 @@ UPDATE admin_account SET
 WHERE id = 1;
 
 -- name: CountAnnouncements :one
-SELECT COUNT(*) FROM announcements;
+SELECT COUNT(*) FROM announcements
+WHERE (sqlc.arg(title_filter) = '' OR instr(lower(title), lower(sqlc.arg(title_filter))) > 0)
+  AND (sqlc.arg(year_filter) = 0 OR CAST(strftime('%Y', updated_at, 'unixepoch') AS INTEGER) = sqlc.arg(year_filter));
 
 -- name: ListAnnouncements :many
 SELECT id, title, content_markdown, created_at, updated_at
 FROM announcements
+WHERE (sqlc.arg(title_filter) = '' OR instr(lower(title), lower(sqlc.arg(title_filter))) > 0)
+  AND (sqlc.arg(year_filter) = 0 OR CAST(strftime('%Y', updated_at, 'unixepoch') AS INTEGER) = sqlc.arg(year_filter))
 ORDER BY created_at DESC, id DESC
-LIMIT ?1 OFFSET ?2;
+LIMIT sqlc.arg(row_limit) OFFSET sqlc.arg(row_offset);
+
+-- name: ListAnnouncementYears :many
+SELECT DISTINCT CAST(strftime('%Y', updated_at, 'unixepoch') AS INTEGER) AS year
+FROM announcements
+ORDER BY year DESC;
 
 -- name: GetAnnouncement :one
 SELECT id, title, content_markdown, created_at, updated_at

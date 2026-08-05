@@ -67,6 +67,21 @@ type GameServer struct {
 	UpdatedAt   int64  `json:"updated_at"`
 }
 
+type SiteDocument struct {
+	Key             string `json:"key"`
+	Enabled         int64  `json:"enabled"`
+	ContentMarkdown string `json:"content_markdown"`
+	UpdatedAt       int64  `json:"updated_at"`
+}
+
+type SiteSeoSetting struct {
+	ID          int64  `json:"id"`
+	Enabled     int64  `json:"enabled"`
+	Description string `json:"description"`
+	ImageUrl    string `json:"image_url"`
+	UpdatedAt   int64  `json:"updated_at"`
+}
+
 type SiteSetting struct {
 	ID                 int64  `json:"id"`
 	Language           string `json:"language"`

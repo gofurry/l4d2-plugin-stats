@@ -38,10 +38,17 @@ func (q *Queries) CountAdminAccounts(ctx context.Context) (int64, error) {
 
 const countAnnouncements = `-- name: CountAnnouncements :one
 SELECT COUNT(*) FROM announcements
+WHERE (?1 = '' OR instr(lower(title), lower(?1)) > 0)
+  AND (?2 = 0 OR CAST(strftime('%Y', updated_at, 'unixepoch') AS INTEGER) = ?2)
 `
 
-func (q *Queries) CountAnnouncements(ctx context.Context) (int64, error) {
-	row := q.db.QueryRowContext(ctx, countAnnouncements)
+type CountAnnouncementsParams struct {
+	TitleFilter interface{} `json:"title_filter"`
+	YearFilter  interface{} `json:"year_filter"`
+}
+
+func (q *Queries) CountAnnouncements(ctx context.Context, arg CountAnnouncementsParams) (int64, error) {
+	row := q.db.QueryRowContext(ctx, countAnnouncements, arg.TitleFilter, arg.YearFilter)
 	var count int64
 	err := row.Scan(&count)
 	return count, err
@@ -338,6 +345,67 @@ func (q *Queries) GetMetadata(ctx context.Context, key string) (string, error) {
 	return value, err
 }
 
+const getPublicSiteDocument = `-- name: GetPublicSiteDocument :one
+SELECT key, enabled, content_markdown, updated_at
+FROM site_documents
+WHERE key = ?1 AND enabled = 1 AND content_markdown <> ''
+`
+
+func (q *Queries) GetPublicSiteDocument(ctx context.Context, key string) (SiteDocument, error) {
+	row := q.db.QueryRowContext(ctx, getPublicSiteDocument, key)
+	var i SiteDocument
+	err := row.Scan(
+		&i.Key,
+		&i.Enabled,
+		&i.ContentMarkdown,
+		&i.UpdatedAt,
+	)
+	return i, err
+}
+
+const getSEOSettings = `-- name: GetSEOSettings :one
+SELECT enabled, description, image_url, updated_at
+FROM site_seo_settings
+WHERE id = 1
+`
+
+type GetSEOSettingsRow struct {
+	Enabled     int64  `json:"enabled"`
+	Description string `json:"description"`
+	ImageUrl    string `json:"image_url"`
+	UpdatedAt   int64  `json:"updated_at"`
+}
+
+func (q *Queries) GetSEOSettings(ctx context.Context) (GetSEOSettingsRow, error) {
+	row := q.db.QueryRowContext(ctx, getSEOSettings)
+	var i GetSEOSettingsRow
+	err := row.Scan(
+		&i.Enabled,
+		&i.Description,
+		&i.ImageUrl,
+		&i.UpdatedAt,
+	)
+	return i, err
+}
+
+const getSiteDocument = `-- name: GetSiteDocument :one
+SELECT key, enabled, content_markdown, updated_at
+FROM site_documents
+WHERE key = ?1
+`
+
+func (q *Queries) GetSiteDocument(ctx context.Context, key string) (SiteDocument, error) {
+	row := q.db.QueryRowContext(ctx, getSiteDocument, key)
+	var i SiteDocument
+	err := row.Scan(
+		&i.Key,
+		&i.Enabled,
+		&i.ContentMarkdown,
+		&i.UpdatedAt,
+	)
+	return i, err
+}
+
 const getSiteSettings = `-- name: GetSiteSettings :one
 SELECT language, footer_enabled, background_image_url, public_origin, steam_openid_enabled,
        browser_title, theme, a2s_refresh_seconds, a2s_jitter_seconds, a2s_retry_count, updated_at
@@ -460,20 +528,58 @@ func (q *Queries) ListAggregateRows(ctx context.Context, arg ListAggregateRowsPa
 	return items, nil
 }
 
+const listAnnouncementYears = `-- name: ListAnnouncementYears :many
+SELECT DISTINCT CAST(strftime('%Y', updated_at, 'unixepoch') AS INTEGER) AS year
+FROM announcements
+ORDER BY year DESC
+`
+
+func (q *Queries) ListAnnouncementYears(ctx context.Context) ([]int64, error) {
+	rows, err := q.db.QueryContext(ctx, listAnnouncementYears)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	items := []int64{}
+	for rows.Next() {
+		var year int64
+		if err := rows.Scan(&year); err != nil {
+			return nil, err
+		}
+		items = append(items, year)
+	}
+	if err := rows.Close(); err != nil {
+		return nil, err
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
 const listAnnouncements = `-- name: ListAnnouncements :many
 SELECT id, title, content_markdown, created_at, updated_at
 FROM announcements
+WHERE (?1 = '' OR instr(lower(title), lower(?1)) > 0)
+  AND (?2 = 0 OR CAST(strftime('%Y', updated_at, 'unixepoch') AS INTEGER) = ?2)
 ORDER BY created_at DESC, id DESC
-LIMIT ?1 OFFSET ?2
+LIMIT ?4 OFFSET ?3
 `
 
 type ListAnnouncementsParams struct {
-	Limit  int64 `json:"limit"`
-	Offset int64 `json:"offset"`
+	TitleFilter interface{} `json:"title_filter"`
+	YearFilter  interface{} `json:"year_filter"`
+	RowOffset   int64       `json:"row_offset"`
+	RowLimit    int64       `json:"row_limit"`
 }
 
 func (q *Queries) ListAnnouncements(ctx context.Context, arg ListAnnouncementsParams) ([]Announcement, error) {
-	rows, err := q.db.QueryContext(ctx, listAnnouncements, arg.Limit, arg.Offset)
+	rows, err := q.db.QueryContext(ctx, listAnnouncements,
+		arg.TitleFilter,
+		arg.YearFilter,
+		arg.RowOffset,
+		arg.RowLimit,
+	)
 	if err != nil {
 		return nil, err
 	}
@@ -601,6 +707,70 @@ func (q *Queries) ListPublicFooterLinks(ctx context.Context) ([]ListPublicFooter
 	for rows.Next() {
 		var i ListPublicFooterLinksRow
 		if err := rows.Scan(&i.Label, &i.Url); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Close(); err != nil {
+		return nil, err
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
+const listPublicSiteDocuments = `-- name: ListPublicSiteDocuments :many
+SELECT key
+FROM site_documents
+WHERE enabled = 1 AND content_markdown <> ''
+ORDER BY CASE key WHEN 'introduction' THEN 1 WHEN 'commands' THEN 2 ELSE 3 END
+`
+
+func (q *Queries) ListPublicSiteDocuments(ctx context.Context) ([]string, error) {
+	rows, err := q.db.QueryContext(ctx, listPublicSiteDocuments)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	items := []string{}
+	for rows.Next() {
+		var key string
+		if err := rows.Scan(&key); err != nil {
+			return nil, err
+		}
+		items = append(items, key)
+	}
+	if err := rows.Close(); err != nil {
+		return nil, err
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
+const listSiteDocuments = `-- name: ListSiteDocuments :many
+SELECT key, enabled, content_markdown, updated_at
+FROM site_documents
+ORDER BY CASE key WHEN 'introduction' THEN 1 WHEN 'commands' THEN 2 ELSE 3 END
+`
+
+func (q *Queries) ListSiteDocuments(ctx context.Context) ([]SiteDocument, error) {
+	rows, err := q.db.QueryContext(ctx, listSiteDocuments)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	items := []SiteDocument{}
+	for rows.Next() {
+		var i SiteDocument
+		if err := rows.Scan(
+			&i.Key,
+			&i.Enabled,
+			&i.ContentMarkdown,
+			&i.UpdatedAt,
+		); err != nil {
 			return nil, err
 		}
 		items = append(items, i)
@@ -768,6 +938,31 @@ func (q *Queries) UpdateGameServer(ctx context.Context, arg UpdateGameServerPara
 	return result.RowsAffected()
 }
 
+const updateSiteDocument = `-- name: UpdateSiteDocument :execrows
+UPDATE site_documents SET enabled = ?2, content_markdown = ?3, updated_at = ?4
+WHERE key = ?1
+`
+
+type UpdateSiteDocumentParams struct {
+	Key             string `json:"key"`
+	Enabled         int64  `json:"enabled"`
+	ContentMarkdown string `json:"content_markdown"`
+	UpdatedAt       int64  `json:"updated_at"`
+}
+
+func (q *Queries) UpdateSiteDocument(ctx context.Context, arg UpdateSiteDocumentParams) (int64, error) {
+	result, err := q.db.ExecContext(ctx, updateSiteDocument,
+		arg.Key,
+		arg.Enabled,
+		arg.ContentMarkdown,
+		arg.UpdatedAt,
+	)
+	if err != nil {
+		return 0, err
+	}
+	return result.RowsAffected()
+}
+
 const upsertMetadata = `-- name: UpsertMetadata :exec
 INSERT INTO dashboard_metadata (key, value)
 VALUES (?1, ?2)
@@ -781,6 +976,33 @@ type UpsertMetadataParams struct {
 
 func (q *Queries) UpsertMetadata(ctx context.Context, arg UpsertMetadataParams) error {
 	_, err := q.db.ExecContext(ctx, upsertMetadata, arg.Key, arg.Value)
+	return err
+}
+
+const upsertSEOSettings = `-- name: UpsertSEOSettings :exec
+INSERT INTO site_seo_settings (id, enabled, description, image_url, updated_at)
+VALUES (1, ?1, ?2, ?3, ?4)
+ON CONFLICT(id) DO UPDATE SET
+  enabled = excluded.enabled,
+  description = excluded.description,
+  image_url = excluded.image_url,
+  updated_at = excluded.updated_at
+`
+
+type UpsertSEOSettingsParams struct {
+	Enabled     int64  `json:"enabled"`
+	Description string `json:"description"`
+	ImageUrl    string `json:"image_url"`
+	UpdatedAt   int64  `json:"updated_at"`
+}
+
+func (q *Queries) UpsertSEOSettings(ctx context.Context, arg UpsertSEOSettingsParams) error {
+	_, err := q.db.ExecContext(ctx, upsertSEOSettings,
+		arg.Enabled,
+		arg.Description,
+		arg.ImageUrl,
+		arg.UpdatedAt,
+	)
 	return err
 }
 

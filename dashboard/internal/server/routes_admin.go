@@ -65,6 +65,8 @@ func registerAdminRoutes(api fiber.Router, dashboard store.DashboardStore, statu
 	admin.Post("/announcements", r.createAnnouncement)
 	admin.Put("/announcements/:id", r.updateAnnouncement)
 	admin.Delete("/announcements/:id", r.deleteAnnouncement)
+	admin.Get("/site-documents", r.listSiteDocuments)
+	admin.Put("/site-documents/:key", r.updateSiteDocument)
 }
 
 func (r *adminRoutes) setupStatus(c fiber.Ctx) error {

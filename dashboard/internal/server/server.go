@@ -113,13 +113,15 @@ func New(cfg *config.Config, deps Dependencies) *fiber.App {
 	registerPlayerRoutes(api, deps.Players)
 	registerRankingRoutes(api, deps.Rankings)
 	registerAnnouncementRoutes(api, deps.Dashboard)
+	registerSiteDocumentRoutes(api, deps.Dashboard)
 	registerSteamRoutes(api, deps.Dashboard, deps.Auth)
 	registerAdminRoutes(api, deps.Dashboard, deps.Status, deps.Auth, deps.Logger, runtimeMonitor)
 	api.All("/*", func(c fiber.Ctx) error {
 		return sendError(c, fiber.StatusNotFound, "not_found", "API route not found")
 	})
 
-	assets := staticHandler(deps.Assets)
+	registerSEORoutes(app, deps.Dashboard)
+	assets := staticHandler(deps.Assets, deps.Dashboard)
 	app.Get("/", assets)
 	app.Get("/*", assets)
 	return app

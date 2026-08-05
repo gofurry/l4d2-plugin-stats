@@ -23,6 +23,7 @@ type Site struct {
 	Links              []FooterLink `json:"footer_links"`
 	SteamOpenIDEnabled bool         `json:"steam_openid_enabled"`
 	A2SRefreshSeconds  int64        `json:"a2s_refresh_seconds"`
+	Documents          []string     `json:"site_documents"`
 	Configured         bool         `json:"configured"`
 }
 
@@ -37,7 +38,17 @@ type SiteSettings struct {
 	A2SRefreshSeconds  int64        `json:"a2s_refresh_seconds"`
 	A2SJitterSeconds   int64        `json:"a2s_jitter_seconds"`
 	A2SRetryCount      int64        `json:"a2s_retry_count"`
+	SEOEnabled         bool         `json:"seo_enabled"`
+	SEODescription     string       `json:"seo_description"`
+	SEOImageURL        string       `json:"seo_image_url"`
 	Links              []FooterLink `json:"footer_links"`
+}
+
+type SiteDocument struct {
+	Key             string `json:"key"`
+	Enabled         bool   `json:"enabled"`
+	ContentMarkdown string `json:"content_markdown"`
+	UpdatedAt       int64  `json:"updated_at"`
 }
 
 type GameServer struct {
@@ -71,6 +82,13 @@ type AnnouncementPage struct {
 	Total int64          `json:"total"`
 	Page  int            `json:"page"`
 	Limit int            `json:"limit"`
+}
+
+type AnnouncementFilter struct {
+	Title  string
+	Year   int
+	Limit  int32
+	Offset int32
 }
 
 type PlayerSummary struct {
@@ -404,6 +422,9 @@ type DashboardStore interface {
 	Site(context.Context) (Site, error)
 	SiteSettings(context.Context) (SiteSettings, error)
 	UpdateSite(context.Context, SiteSettings) error
+	ListSiteDocuments(context.Context, bool) ([]SiteDocument, error)
+	GetSiteDocument(context.Context, string, bool) (SiteDocument, error)
+	UpdateSiteDocument(context.Context, SiteDocument) (SiteDocument, error)
 	ListServers(context.Context) ([]GameServer, error)
 	CreateServer(context.Context, GameServer) (GameServer, error)
 	UpdateServer(context.Context, GameServer) error
@@ -415,7 +436,8 @@ type DashboardStore interface {
 	Admin(context.Context) (*AdminAccount, error)
 	UpdateAdminUsername(context.Context, string) error
 	UpdateAdminPassword(context.Context, string) error
-	ListAnnouncements(context.Context, int32, int32) (AnnouncementPage, error)
+	ListAnnouncements(context.Context, AnnouncementFilter) (AnnouncementPage, error)
+	ListAnnouncementYears(context.Context) ([]int, error)
 	GetAnnouncement(context.Context, string) (Announcement, error)
 	CreateAnnouncement(context.Context, Announcement) (Announcement, error)
 	UpdateAnnouncement(context.Context, Announcement) (Announcement, error)

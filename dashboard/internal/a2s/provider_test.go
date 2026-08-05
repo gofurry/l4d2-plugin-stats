@@ -22,6 +22,15 @@ func (f *fakeDashboard) SiteSettings(context.Context) (store.SiteSettings, error
 	return f.settings, nil
 }
 func (f *fakeDashboard) UpdateSite(context.Context, store.SiteSettings) error { return nil }
+func (f *fakeDashboard) ListSiteDocuments(context.Context, bool) ([]store.SiteDocument, error) {
+	return []store.SiteDocument{}, nil
+}
+func (f *fakeDashboard) GetSiteDocument(context.Context, string, bool) (store.SiteDocument, error) {
+	return store.SiteDocument{}, nil
+}
+func (f *fakeDashboard) UpdateSiteDocument(_ context.Context, document store.SiteDocument) (store.SiteDocument, error) {
+	return document, nil
+}
 func (f *fakeDashboard) ListServers(context.Context) ([]store.GameServer, error) {
 	return f.servers, nil
 }
@@ -37,9 +46,10 @@ func (f *fakeDashboard) CreateAdmin(context.Context, string, string, string) err
 func (f *fakeDashboard) Admin(context.Context) (*store.AdminAccount, error)        { return nil, nil }
 func (f *fakeDashboard) UpdateAdminUsername(context.Context, string) error         { return nil }
 func (f *fakeDashboard) UpdateAdminPassword(context.Context, string) error         { return nil }
-func (f *fakeDashboard) ListAnnouncements(context.Context, int32, int32) (store.AnnouncementPage, error) {
+func (f *fakeDashboard) ListAnnouncements(context.Context, store.AnnouncementFilter) (store.AnnouncementPage, error) {
 	return store.AnnouncementPage{Items: []store.Announcement{}}, nil
 }
+func (f *fakeDashboard) ListAnnouncementYears(context.Context) ([]int, error) { return []int{}, nil }
 func (f *fakeDashboard) GetAnnouncement(context.Context, string) (store.Announcement, error) {
 	return store.Announcement{}, nil
 }

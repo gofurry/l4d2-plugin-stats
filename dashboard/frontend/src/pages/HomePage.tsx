@@ -1,10 +1,12 @@
-import { PlayCircleOutlined, ReloadOutlined, RightOutlined } from '@ant-design/icons'
+import { BookOutlined, CodeOutlined, InfoCircleOutlined, PlayCircleOutlined, ReloadOutlined, RightOutlined } from '@ant-design/icons'
 import { useQuery } from '@tanstack/react-query'
-import { Alert, Button, Empty, Layout, Skeleton } from 'antd'
+import { Alert, Button, Empty, Layout, Modal, Skeleton, Spin } from 'antd'
 import { useState } from 'react'
 import { useTranslation } from 'react-i18next'
-import { api, type Overview, type ServerStatus } from '../api'
+import { api, type Overview, type ServerStatus, type SiteDocumentKey } from '../api'
 import { FloatingNav } from '../components/FloatingNav'
+import { FloatingToolbar } from '../components/FloatingToolbar'
+import { MarkdownContent } from '../components/MarkdownContent'
 import { SiteFooter } from '../components/SiteFooter'
 import styles from './HomePage.module.scss'
 
@@ -93,13 +95,34 @@ function OverviewContent({ data }: { data: Overview }) {
 
 export function HomePage() {
   const { t } = useTranslation()
+  const [selectedDocument, setSelectedDocument] = useState<SiteDocumentKey | null>(null)
   const site = useQuery({ queryKey: ['site'], queryFn: api.site, staleTime: 5 * 60_000 })
   const overview = useQuery({ queryKey: ['overview'], queryFn: api.overview, staleTime: 60_000, retry: 1 })
   const statusRefreshMS = (site.data?.a2s_refresh_seconds ?? 30) * 1000
   const statuses = useQuery({ queryKey: ['server-statuses'], queryFn: api.serverStatuses, refetchInterval: statusRefreshMS, retry: 1 })
+  const document = useQuery({
+    queryKey: ['site-document', selectedDocument],
+    queryFn: () => api.siteDocument(selectedDocument!),
+    enabled: selectedDocument !== null,
+    staleTime: 5 * 60_000,
+    retry: 1,
+  })
+  const documentLabels: Record<SiteDocumentKey, string> = {
+    introduction: t('serverIntroduction'),
+    commands: t('serverCommands'),
+    resources: t('serverResources'),
+  }
+  const documentIcons = { introduction: <InfoCircleOutlined />, commands: <CodeOutlined />, resources: <BookOutlined /> }
+  const documentItems = (site.data?.site_documents ?? []).map(key => ({
+    key,
+    label: documentLabels[key],
+    icon: documentIcons[key],
+    onClick: () => setSelectedDocument(key),
+  }))
 
   return <Layout className={styles.layout}>
     <FloatingNav />
+    {documentItems.length > 0 && <FloatingToolbar ariaLabel={t('homeTools')} items={documentItems} />}
     <Content className={styles.content}>
       {site.isError && <Alert className={styles.alert} type="warning" showIcon title={t('siteUnavailable')} />}
       {overview.isLoading && <div className={styles.loading}><Skeleton active paragraph={{ rows: 7 }} /></div>}
@@ -109,5 +132,13 @@ export function HomePage() {
       <ServerList data={statuses.data} loading={statuses.isLoading} failed={statuses.isError} />
       <SiteFooter site={site.data} />
     </Content>
+    <Modal className={styles.siteDocumentModal} open={selectedDocument !== null} title={selectedDocument ? documentLabels[selectedDocument] : ''}
+      footer={null} onCancel={() => setSelectedDocument(null)} destroyOnHidden>
+      <div className={styles.siteDocumentBody}>
+        {document.isLoading && <Spin />}
+        {document.isError && <Alert type="warning" showIcon title={t('contentUnavailable')} />}
+        {document.data && <MarkdownContent source={document.data.content_markdown} />}
+      </div>
+    </Modal>
   </Layout>
 }

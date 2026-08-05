@@ -11,7 +11,7 @@ import (
 type Querier interface {
 	CompleteAggregateBuild(ctx context.Context, arg CompleteAggregateBuildParams) error
 	CountAdminAccounts(ctx context.Context) (int64, error)
-	CountAnnouncements(ctx context.Context) (int64, error)
+	CountAnnouncements(ctx context.Context, arg CountAnnouncementsParams) (int64, error)
 	CountGameServers(ctx context.Context) (int64, error)
 	CountSiteSettings(ctx context.Context) (int64, error)
 	CreateAdminAccount(ctx context.Context, arg CreateAdminAccountParams) error
@@ -28,13 +28,19 @@ type Querier interface {
 	GetAnnouncement(ctx context.Context, id string) (Announcement, error)
 	GetGameServer(ctx context.Context, id string) (GetGameServerRow, error)
 	GetMetadata(ctx context.Context, key string) (string, error)
+	GetPublicSiteDocument(ctx context.Context, key string) (SiteDocument, error)
+	GetSEOSettings(ctx context.Context) (GetSEOSettingsRow, error)
+	GetSiteDocument(ctx context.Context, key string) (SiteDocument, error)
 	GetSiteSettings(ctx context.Context) (GetSiteSettingsRow, error)
 	InsertAggregateRow(ctx context.Context, arg InsertAggregateRowParams) error
 	ListAggregateRows(ctx context.Context, arg ListAggregateRowsParams) ([]AggregateRow, error)
+	ListAnnouncementYears(ctx context.Context) ([]int64, error)
 	ListAnnouncements(ctx context.Context, arg ListAnnouncementsParams) ([]Announcement, error)
 	ListFooterLinks(ctx context.Context) ([]ListFooterLinksRow, error)
 	ListGameServers(ctx context.Context) ([]ListGameServersRow, error)
 	ListPublicFooterLinks(ctx context.Context) ([]ListPublicFooterLinksRow, error)
+	ListPublicSiteDocuments(ctx context.Context) ([]string, error)
+	ListSiteDocuments(ctx context.Context) ([]SiteDocument, error)
 	MarkAggregateFailed(ctx context.Context, lastError string) error
 	MarkAggregateStarted(ctx context.Context, lastStartedAt int64) error
 	NextGameServerSortOrder(ctx context.Context) (int64, error)
@@ -44,7 +50,9 @@ type Querier interface {
 	UpdateAdminUsername(ctx context.Context, arg UpdateAdminUsernameParams) error
 	UpdateAnnouncement(ctx context.Context, arg UpdateAnnouncementParams) (int64, error)
 	UpdateGameServer(ctx context.Context, arg UpdateGameServerParams) (int64, error)
+	UpdateSiteDocument(ctx context.Context, arg UpdateSiteDocumentParams) (int64, error)
 	UpsertMetadata(ctx context.Context, arg UpsertMetadataParams) error
+	UpsertSEOSettings(ctx context.Context, arg UpsertSEOSettingsParams) error
 	UpsertSiteSettings(ctx context.Context, arg UpsertSiteSettingsParams) error
 }
 

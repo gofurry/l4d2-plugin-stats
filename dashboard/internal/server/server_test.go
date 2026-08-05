@@ -2,6 +2,7 @@ package server
 
 import (
 	"context"
+	"database/sql"
 	"encoding/json"
 	"io"
 	"net/http"
@@ -22,7 +23,7 @@ import (
 type testDashboardStore struct{}
 
 func (testDashboardStore) Ping(context.Context) error                      { return nil }
-func (testDashboardStore) MigrationVersion(context.Context) (int64, error) { return 4, nil }
+func (testDashboardStore) MigrationVersion(context.Context) (int64, error) { return 5, nil }
 func (testDashboardStore) Site(context.Context) (store.Site, error) {
 	return store.Site{Language: "zh-CN", Links: []store.FooterLink{}}, nil
 }
@@ -151,6 +152,15 @@ func (testDashboardStore) SiteSettings(context.Context) (store.SiteSettings, err
 	return store.SiteSettings{Language: "zh-CN", BrowserTitle: "L4D2 Stats", Theme: "light", A2SRefreshSeconds: 30, A2SJitterSeconds: 2, A2SRetryCount: 1}, nil
 }
 func (testDashboardStore) UpdateSite(context.Context, store.SiteSettings) error { return nil }
+func (testDashboardStore) ListSiteDocuments(context.Context, bool) ([]store.SiteDocument, error) {
+	return []store.SiteDocument{}, nil
+}
+func (testDashboardStore) GetSiteDocument(context.Context, string, bool) (store.SiteDocument, error) {
+	return store.SiteDocument{}, sql.ErrNoRows
+}
+func (testDashboardStore) UpdateSiteDocument(_ context.Context, document store.SiteDocument) (store.SiteDocument, error) {
+	return document, nil
+}
 func (testDashboardStore) ListServers(context.Context) ([]store.GameServer, error) {
 	return []store.GameServer{}, nil
 }
@@ -166,9 +176,10 @@ func (testDashboardStore) CreateAdmin(context.Context, string, string, string) e
 func (testDashboardStore) Admin(context.Context) (*store.AdminAccount, error)        { return nil, nil }
 func (testDashboardStore) UpdateAdminUsername(context.Context, string) error         { return nil }
 func (testDashboardStore) UpdateAdminPassword(context.Context, string) error         { return nil }
-func (testDashboardStore) ListAnnouncements(context.Context, int32, int32) (store.AnnouncementPage, error) {
+func (testDashboardStore) ListAnnouncements(context.Context, store.AnnouncementFilter) (store.AnnouncementPage, error) {
 	return store.AnnouncementPage{Items: []store.Announcement{}}, nil
 }
+func (testDashboardStore) ListAnnouncementYears(context.Context) ([]int, error) { return []int{}, nil }
 func (testDashboardStore) GetAnnouncement(context.Context, string) (store.Announcement, error) {
 	return store.Announcement{}, nil
 }
