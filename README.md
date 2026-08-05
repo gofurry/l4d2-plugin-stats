@@ -61,8 +61,6 @@ l4d2-plugin-stats-*.zip
 │  ├─ linux-amd64/l4d2-stats
 │  └─ config.example.yaml
 ├─ examples/databases.cfg.example
-├─ contracts/
-├─ docs/
 ├─ README.md
 └─ LICENSE
 ```

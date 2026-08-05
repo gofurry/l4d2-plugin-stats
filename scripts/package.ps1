@@ -95,17 +95,17 @@ $examplesDestination = Join-Path $stagingRoot "examples"
 New-Item -ItemType Directory -Path $examplesDestination -Force | Out-Null
 Copy-Item -LiteralPath (Join-Path $projectRoot "config\databases.cfg.example") -Destination $examplesDestination -Force
 
-$docsDestination = Join-Path $stagingRoot "docs"
-New-Item -ItemType Directory -Path $docsDestination -Force | Out-Null
-Copy-Item -LiteralPath (Join-Path $projectRoot "docs\database-foundation.md") -Destination $docsDestination -Force
-Copy-Item -LiteralPath (Join-Path $projectRoot "docs\dashboard-deployment.md") -Destination $docsDestination -Force
-Copy-Item -LiteralPath (Join-Path $projectRoot "docs\dashboard-data-lifecycle.md") -Destination $docsDestination -Force
-
-$contractsDestination = Join-Path $stagingRoot "contracts"
-New-Item -ItemType Directory -Path $contractsDestination -Force | Out-Null
-Copy-Item -LiteralPath (Join-Path $projectRoot "contracts\statistics.md") -Destination $contractsDestination -Force
-Copy-Item -LiteralPath (Join-Path $projectRoot "contracts\versus-v1.md") -Destination $contractsDestination -Force
-Copy-Item -LiteralPath (Join-Path $projectRoot "README.md") -Destination $stagingRoot -Force
+$packageReadme = Join-Path $stagingRoot "README.md"
+Copy-Item -LiteralPath (Join-Path $projectRoot "README.md") -Destination $packageReadme -Force
+$readmeContent = Get-Content -LiteralPath $packageReadme -Raw
+$readmeContent = $readmeContent.Replace(
+    "(contracts/",
+    "(https://github.com/gofurry/l4d2-plugin-stats/blob/main/contracts/"
+).Replace(
+    "(docs/",
+    "(https://github.com/gofurry/l4d2-plugin-stats/blob/main/docs/"
+)
+Set-Content -LiteralPath $packageReadme -Value $readmeContent -Encoding utf8
 Copy-Item -LiteralPath (Join-Path $projectRoot "LICENSE") -Destination $stagingRoot -Force
 
 Compress-Archive -Path (Join-Path $stagingRoot "*") -DestinationPath $archivePath -Force
