@@ -16,7 +16,7 @@ func TestDashboardInitialSchemaAndManagement(t *testing.T) {
 	}
 	defer dashboard.Close()
 	version, err := dashboard.MigrationVersion(ctx)
-	if err != nil || version != 5 {
+	if err != nil || version != 6 {
 		t.Fatalf("migration version=%d err=%v", version, err)
 	}
 	site, err := dashboard.Site(ctx)

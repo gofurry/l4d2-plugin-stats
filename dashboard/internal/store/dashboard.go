@@ -21,8 +21,9 @@ const defaultSiteLanguage = "zh-CN"
 const defaultBrowserTitle = "L4D2 Stats"
 
 type dashboardStore struct {
-	db *sql.DB
-	q  *dashsql.Queries
+	db   *sql.DB
+	q    *dashsql.Queries
+	path string
 }
 
 func OpenDashboard(ctx context.Context, path string) (DashboardDatabase, error) {
@@ -53,7 +54,7 @@ func OpenDashboard(ctx context.Context, path string) (DashboardDatabase, error) 
 		db.Close()
 		return nil, fmt.Errorf("migrate dashboard database: %w", err)
 	}
-	return &dashboardStore{db: db, q: dashsql.New(db)}, nil
+	return &dashboardStore{db: db, q: dashsql.New(db), path: path}, nil
 }
 
 func (s *dashboardStore) Ping(ctx context.Context) error { return s.db.PingContext(ctx) }
@@ -70,11 +71,20 @@ func (s *dashboardStore) AggregateStatus(ctx context.Context) (AggregateStatus, 
 	return AggregateStatus{
 		State: row.State, LastStartedAt: row.LastStartedAt, LastFinishedAt: row.LastFinishedAt,
 		SourceRows: row.SourceRows, AggregateRows: row.AggregateRows, LastError: row.LastError,
+		SourceWatermark: row.SourceWatermark, LastDurationMS: row.LastDurationMs,
+		LastChangedDays: row.LastChangedDays, LastBuildMode: row.LastBuildMode,
 	}, nil
 }
 
 func (s *dashboardStore) ReplaceAggregateRows(ctx context.Context, rows []AggregateRow, sourceRows int64) error {
-	started := time.Now().Unix()
+	return s.ApplyAggregateChanges(ctx, AggregateChangeSet{
+		Rows: rows, SourceRows: sourceRows, SourceWatermark: time.Now().Unix(), Full: true,
+	})
+}
+
+func (s *dashboardStore) ApplyAggregateChanges(ctx context.Context, change AggregateChangeSet) error {
+	startedAt := time.Now()
+	started := startedAt.Unix()
 	if err := s.q.MarkAggregateStarted(ctx, started); err != nil {
 		return fmt.Errorf("mark aggregate build started: %w", err)
 	}
@@ -88,10 +98,18 @@ func (s *dashboardStore) ReplaceAggregateRows(ctx context.Context, rows []Aggreg
 	}
 	defer tx.Rollback()
 	q := s.q.WithTx(tx)
-	if err := q.DeleteAggregateRows(ctx); err != nil {
-		return fail(fmt.Errorf("clear aggregate rows: %w", err))
+	if change.Full {
+		if err := q.DeleteAggregateRows(ctx); err != nil {
+			return fail(fmt.Errorf("clear aggregate rows: %w", err))
+		}
+	} else {
+		for _, day := range change.Days {
+			if err := q.DeleteAggregateRowsForDay(ctx, day); err != nil {
+				return fail(fmt.Errorf("clear aggregate day %d: %w", day, err))
+			}
+		}
 	}
-	for _, row := range rows {
+	for _, row := range change.Rows {
 		metrics, err := json.Marshal(row.Metrics)
 		if err != nil {
 			return fail(fmt.Errorf("encode aggregate metrics: %w", err))
@@ -103,8 +121,18 @@ func (s *dashboardStore) ReplaceAggregateRows(ctx context.Context, rows []Aggreg
 			return fail(fmt.Errorf("insert aggregate row: %w", err))
 		}
 	}
+	aggregateRows, err := q.CountAggregateRows(ctx)
+	if err != nil {
+		return fail(fmt.Errorf("count aggregate rows: %w", err))
+	}
+	mode := "incremental"
+	if change.Full {
+		mode = "full"
+	}
 	if err := q.CompleteAggregateBuild(ctx, dashsql.CompleteAggregateBuildParams{
-		LastFinishedAt: time.Now().Unix(), SourceRows: sourceRows, AggregateRows: int64(len(rows)),
+		LastFinishedAt: time.Now().Unix(), SourceRows: change.SourceRows, AggregateRows: aggregateRows,
+		SourceWatermark: change.SourceWatermark, LastDurationMs: time.Since(startedAt).Milliseconds(),
+		LastChangedDays: int64(len(change.Days)), LastBuildMode: mode,
 	}); err != nil {
 		return fail(fmt.Errorf("complete aggregate build: %w", err))
 	}
@@ -112,6 +140,60 @@ func (s *dashboardStore) ReplaceAggregateRows(ctx context.Context, rows []Aggreg
 		return fail(fmt.Errorf("commit aggregate build: %w", err))
 	}
 	return nil
+}
+
+func (s *dashboardStore) DataMaintenanceSettings(ctx context.Context) (DataMaintenanceSettings, error) {
+	row, err := s.q.GetDataMaintenanceSettings(ctx)
+	if err != nil {
+		return DataMaintenanceSettings{}, fmt.Errorf("get data maintenance settings: %w", err)
+	}
+	return DataMaintenanceSettings{
+		AggregateIntervalMinutes: row.AggregateIntervalMinutes,
+		DetailRetentionDays:      row.DetailRetentionDays,
+		SessionRetentionDays:     row.SessionRetentionDays,
+		ResultRetentionDays:      row.ResultRetentionDays,
+		UpdatedAt:                row.UpdatedAt,
+	}, nil
+}
+
+func (s *dashboardStore) UpdateDataMaintenanceSettings(ctx context.Context, value DataMaintenanceSettings) error {
+	value.UpdatedAt = time.Now().Unix()
+	return s.q.UpdateDataMaintenanceSettings(ctx, dashsql.UpdateDataMaintenanceSettingsParams{
+		AggregateIntervalMinutes: value.AggregateIntervalMinutes,
+		DetailRetentionDays:      value.DetailRetentionDays,
+		SessionRetentionDays:     value.SessionRetentionDays,
+		ResultRetentionDays:      value.ResultRetentionDays,
+		UpdatedAt:                value.UpdatedAt,
+	})
+}
+
+func (s *dashboardStore) DatabaseUsage(ctx context.Context) (DatabaseUsage, error) {
+	var pageCount, pageSize int64
+	if err := s.db.QueryRowContext(ctx, "PRAGMA page_count").Scan(&pageCount); err != nil {
+		return DatabaseUsage{}, err
+	}
+	if err := s.db.QueryRowContext(ctx, "PRAGMA page_size").Scan(&pageSize); err != nil {
+		return DatabaseUsage{}, err
+	}
+	var walBytes int64
+	if info, err := os.Stat(s.path + "-wal"); err == nil {
+		walBytes = info.Size()
+	}
+	return DatabaseUsage{Driver: "sqlite", Bytes: pageCount * pageSize, WALBytes: walBytes}, nil
+}
+
+func (s *dashboardStore) RecordRetentionRun(ctx context.Context, plan RetentionPlan, result RetentionResult) error {
+	return s.q.CreateRetentionRun(ctx, dashsql.CreateRetentionRunParams{
+		ID: result.RunID, ExecutedAt: result.ExecutedAt, SourceWatermark: plan.SourceWatermark,
+		DetailCutoff: plan.DetailCutoff, SessionCutoff: plan.SessionCutoff, ResultCutoff: plan.ResultCutoff,
+		EquipmentRows: result.EquipmentRows, VersusClassRows: result.VersusClassRows,
+		SessionRows: result.SessionRows, VersusRoundResultRows: result.VersusRoundResultRows,
+		VersusRunResultRows: result.VersusRunResultRows,
+	})
+}
+
+func (s *dashboardStore) RetentionRunCount(ctx context.Context) (int64, error) {
+	return s.q.CountRetentionRuns(ctx)
 }
 
 func (s *dashboardStore) ListAggregateRows(ctx context.Context, filter AggregateFilter) ([]AggregateRow, error) {

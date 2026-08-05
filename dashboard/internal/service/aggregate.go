@@ -13,22 +13,37 @@ import (
 	"golang.org/x/sync/singleflight"
 )
 
-const aggregateRefreshInterval = 10 * time.Minute
 const rankingCacheCapacity = 128
 
 type AggregateService struct {
-	dashboard store.DashboardAggregateStore
-	stats     store.StatsAggregateStore
-	logger    *zap.Logger
-	mu        sync.Mutex
-	running   bool
+	dashboard  store.DashboardAggregateStore
+	stats      store.StatsAggregateStore
+	logger     *zap.Logger
+	mu         sync.Mutex
+	running    bool
+	reschedule chan struct{}
 }
 
 func NewAggregateService(dashboard store.DashboardAggregateStore, stats store.StatsAggregateStore, logger *zap.Logger) *AggregateService {
-	return &AggregateService{dashboard: dashboard, stats: stats, logger: logger}
+	return &AggregateService{dashboard: dashboard, stats: stats, logger: logger, reschedule: make(chan struct{}, 1)}
 }
 
 func (s *AggregateService) Rebuild(ctx context.Context) error {
+	retentionRuns, err := s.dashboard.RetentionRunCount(ctx)
+	if err != nil {
+		return fmt.Errorf("read retention history: %w", err)
+	}
+	if retentionRuns > 0 {
+		return fmt.Errorf("full aggregate rebuild is unavailable after raw data cleanup; use incremental aggregation")
+	}
+	return s.run(ctx, true)
+}
+
+func (s *AggregateService) Sync(ctx context.Context) error {
+	return s.run(ctx, false)
+}
+
+func (s *AggregateService) run(ctx context.Context, full bool) error {
 	s.mu.Lock()
 	if s.running {
 		s.mu.Unlock()
@@ -42,40 +57,66 @@ func (s *AggregateService) Rebuild(ctx context.Context) error {
 		s.mu.Unlock()
 	}()
 	started := time.Now()
-	rows, err := s.stats.AggregateRows(ctx)
+	after := int64(0)
+	if !full {
+		status, err := s.dashboard.AggregateStatus(ctx)
+		if err != nil {
+			return fmt.Errorf("read aggregate status: %w", err)
+		}
+		after = status.SourceWatermark
+	}
+	change, err := s.stats.AggregateChanges(ctx, after)
 	if err != nil {
 		return fmt.Errorf("read aggregate source: %w", err)
 	}
-	if err := s.dashboard.ReplaceAggregateRows(ctx, rows, int64(len(rows))); err != nil {
-		return fmt.Errorf("replace aggregate snapshot: %w", err)
+	if full {
+		change.Full = true
+	}
+	if err := s.dashboard.ApplyAggregateChanges(ctx, change); err != nil {
+		return fmt.Errorf("apply aggregate changes: %w", err)
 	}
 	if s.logger != nil {
-		s.logger.Info("statistics aggregate rebuilt", zap.Int("rows", len(rows)), zap.Duration("duration", time.Since(started)))
+		s.logger.Info("statistics aggregate updated", zap.Bool("full", change.Full), zap.Int("rows", len(change.Rows)), zap.Int("days", len(change.Days)), zap.Duration("duration", time.Since(started)))
 	}
 	return nil
 }
 
 func (s *AggregateService) Start(ctx context.Context) {
 	go func() {
-		s.rebuildLogged(ctx)
-		ticker := time.NewTicker(aggregateRefreshInterval)
-		defer ticker.Stop()
+		s.syncLogged(ctx)
 		for {
+			interval := 30 * time.Minute
+			if settings, err := s.dashboard.DataMaintenanceSettings(ctx); err == nil && settings.AggregateIntervalMinutes > 0 {
+				interval = time.Duration(settings.AggregateIntervalMinutes) * time.Minute
+			}
+			timer := time.NewTimer(interval)
 			select {
 			case <-ctx.Done():
+				timer.Stop()
 				return
-			case <-ticker.C:
-				s.rebuildLogged(ctx)
+			case <-s.reschedule:
+				if !timer.Stop() {
+					<-timer.C
+				}
+			case <-timer.C:
+				s.syncLogged(ctx)
 			}
 		}
 	}()
 }
 
-func (s *AggregateService) rebuildLogged(ctx context.Context) {
+func (s *AggregateService) Reschedule() {
+	select {
+	case s.reschedule <- struct{}{}:
+	default:
+	}
+}
+
+func (s *AggregateService) syncLogged(ctx context.Context) {
 	rebuildCtx, cancel := context.WithTimeout(ctx, 3*time.Minute)
 	defer cancel()
-	if err := s.Rebuild(rebuildCtx); err != nil && s.logger != nil && ctx.Err() == nil {
-		s.logger.Warn("statistics aggregate rebuild failed", zap.Error(err))
+	if err := s.Sync(rebuildCtx); err != nil && s.logger != nil && ctx.Err() == nil {
+		s.logger.Warn("statistics aggregate update failed", zap.Error(err))
 	}
 }
 

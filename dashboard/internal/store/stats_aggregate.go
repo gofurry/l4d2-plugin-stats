@@ -6,6 +6,8 @@ import (
 	"strconv"
 	"strings"
 	"time"
+
+	"github.com/google/uuid"
 )
 
 var pveCombatMetrics = []string{
@@ -62,39 +64,48 @@ var versusInfectedClassMetrics = []string{
 	"human_survivor_ability_hits", "bot_survivor_ability_hits", "human_survivor_ability_damage", "bot_survivor_ability_damage",
 }
 
+var runResultMetrics = []string{"run_count", "completed_runs"}
+var versusResultMetrics = []string{"completed_results", "score_available"}
+
 // AggregateRows creates a complete, rebuildable daily snapshot. The source
 // database remains read-only; the caller persists the snapshot in Dashboard DB.
 func (s *statsStore) AggregateRows(ctx context.Context) ([]AggregateRow, error) {
 	queryCtx, cancel := context.WithTimeout(ctx, maxDuration(s.timeout, 2*time.Minute))
 	defer cancel()
+	return s.aggregateRowsRange(queryCtx, 0, 0)
+}
+
+func (s *statsStore) aggregateRowsRange(ctx context.Context, start, end int64) ([]AggregateRow, error) {
 	rows := make([]AggregateRow, 0, 1024)
 	steps := []func(context.Context) ([]AggregateRow, error){
-		s.aggregateActivity,
-		s.aggregateModeActivity,
+		func(ctx context.Context) ([]AggregateRow, error) { return s.aggregateActivity(ctx, start, end) },
+		func(ctx context.Context) ([]AggregateRow, error) { return s.aggregateModeActivity(ctx, start, end) },
+		func(ctx context.Context) ([]AggregateRow, error) { return s.aggregateRuns(ctx, start, end) },
+		func(ctx context.Context) ([]AggregateRow, error) { return s.aggregateVersusResults(ctx, start, end) },
 		func(ctx context.Context) ([]AggregateRow, error) {
-			return s.aggregateSegmentTable(ctx, "pve_combat", "lps_pve_segment_stats", "p", pveCombatMetrics, "", "s.side='survivor' AND p.stats_version=1 AND r.mode_family='pve' AND r.game_mode IN ('coop','realism')")
+			return s.aggregateSegmentTable(ctx, "pve_combat", "lps_pve_segment_stats", "p", pveCombatMetrics, "", "s.side='survivor' AND p.stats_version=1 AND r.mode_family='pve' AND r.game_mode IN ('coop','realism')", start, end)
 		},
 		func(ctx context.Context) ([]AggregateRow, error) {
-			return s.aggregateSegmentTable(ctx, "pve_detail", "lps_pve_segment_stats", "p", pveDetailMetrics, "", "s.side='survivor' AND p.stats_version=1 AND r.mode_family='pve' AND r.game_mode IN ('coop','realism')")
+			return s.aggregateSegmentTable(ctx, "pve_detail", "lps_pve_segment_stats", "p", pveDetailMetrics, "", "s.side='survivor' AND p.stats_version=1 AND r.mode_family='pve' AND r.game_mode IN ('coop','realism')", start, end)
 		},
 		func(ctx context.Context) ([]AggregateRow, error) {
-			return s.aggregateSegmentTable(ctx, "pve_equipment", "lps_pve_segment_equipment_stats", "p", equipmentMetrics, "p.equipment_id", "s.side='survivor' AND p.stats_version=1 AND r.mode_family='pve' AND r.game_mode IN ('coop','realism')")
+			return s.aggregateSegmentTable(ctx, "pve_equipment", "lps_pve_segment_equipment_stats", "p", equipmentMetrics, "p.equipment_id", "s.side='survivor' AND p.stats_version=1 AND r.mode_family='pve' AND r.game_mode IN ('coop','realism')", start, end)
 		},
 		func(ctx context.Context) ([]AggregateRow, error) {
-			return s.aggregateSegmentTable(ctx, "versus_survivor", "lps_versus_survivor_stats", "p", versusSurvivorMetrics, "", "s.side='survivor' AND p.stats_version=1 AND r.mode_family='versus' AND r.game_mode='versus'")
+			return s.aggregateSegmentTable(ctx, "versus_survivor", "lps_versus_survivor_stats", "p", versusSurvivorMetrics, "", "s.side='survivor' AND p.stats_version=1 AND r.mode_family='versus' AND r.game_mode='versus'", start, end)
 		},
 		func(ctx context.Context) ([]AggregateRow, error) {
-			return s.aggregateSegmentTable(ctx, "versus_survivor_class", "lps_versus_survivor_infected_class_stats", "p", versusSurvivorClassMetrics, "p.infected_class", "s.side='survivor' AND p.stats_version=1 AND r.mode_family='versus' AND r.game_mode='versus'")
+			return s.aggregateSegmentTable(ctx, "versus_survivor_class", "lps_versus_survivor_infected_class_stats", "p", versusSurvivorClassMetrics, "p.infected_class", "s.side='survivor' AND p.stats_version=1 AND r.mode_family='versus' AND r.game_mode='versus'", start, end)
 		},
 		func(ctx context.Context) ([]AggregateRow, error) {
-			return s.aggregateSegmentTable(ctx, "versus_infected", "lps_versus_infected_stats", "p", versusInfectedMetrics, "", "s.side='infected' AND p.stats_version=1 AND r.mode_family='versus' AND r.game_mode='versus'")
+			return s.aggregateSegmentTable(ctx, "versus_infected", "lps_versus_infected_stats", "p", versusInfectedMetrics, "", "s.side='infected' AND p.stats_version=1 AND r.mode_family='versus' AND r.game_mode='versus'", start, end)
 		},
 		func(ctx context.Context) ([]AggregateRow, error) {
-			return s.aggregateSegmentTable(ctx, "versus_infected_class", "lps_versus_infected_class_stats", "p", versusInfectedClassMetrics, "p.infected_class", "s.side='infected' AND p.stats_version=1 AND r.mode_family='versus' AND r.game_mode='versus'")
+			return s.aggregateSegmentTable(ctx, "versus_infected_class", "lps_versus_infected_class_stats", "p", versusInfectedClassMetrics, "p.infected_class", "s.side='infected' AND p.stats_version=1 AND r.mode_family='versus' AND r.game_mode='versus'", start, end)
 		},
 	}
 	for _, step := range steps {
-		part, err := step(queryCtx)
+		part, err := step(ctx)
 		if err != nil {
 			return nil, err
 		}
@@ -103,14 +114,45 @@ func (s *statsStore) AggregateRows(ctx context.Context) ([]AggregateRow, error) 
 	return rows, nil
 }
 
-func (s *statsStore) aggregateModeActivity(ctx context.Context) ([]AggregateRow, error) {
+func (s *statsStore) AggregateChanges(ctx context.Context, after int64) (AggregateChangeSet, error) {
+	queryCtx, cancel := context.WithTimeout(ctx, maxDuration(s.timeout, 2*time.Minute))
+	defer cancel()
+	watermark, err := s.sourceWatermark(queryCtx)
+	if err != nil {
+		return AggregateChangeSet{}, err
+	}
+	threshold := after
+	if threshold > 0 {
+		threshold--
+	}
+	days, sourceRows, err := s.changedDays(queryCtx, threshold)
+	if err != nil {
+		return AggregateChangeSet{}, err
+	}
+	if after == 0 {
+		rows, err := s.aggregateRowsRange(queryCtx, 0, 0)
+		return AggregateChangeSet{Rows: rows, Days: days, SourceWatermark: watermark, SourceRows: sourceRows, Full: true}, err
+	}
+	rows := make([]AggregateRow, 0, len(days)*64)
+	for _, day := range days {
+		part, err := s.aggregateRowsRange(queryCtx, day*86400, (day+1)*86400)
+		if err != nil {
+			return AggregateChangeSet{}, err
+		}
+		rows = append(rows, part...)
+	}
+	return AggregateChangeSet{Rows: rows, Days: days, SourceWatermark: watermark, SourceRows: sourceRows}, nil
+}
+
+func (s *statsStore) aggregateModeActivity(ctx context.Context, start, end int64) ([]AggregateRow, error) {
 	day := s.dayExpression("s.started_at")
+	rangeSQL := timeRangeSQL("s.started_at", start, end)
 	query := fmt.Sprintf(`SELECT %s AS day, s.server_key, s.steam_id, r.game_mode, s.side,
 COUNT(*) AS chapter_count, COALESCE(SUM(s.active_play_seconds),0) AS active_play_seconds
 FROM lps_player_segments s JOIN lps_runs r ON r.run_id=s.run_id
-WHERE (r.mode_family='pve' AND r.game_mode IN ('coop','realism') AND s.side='survivor')
-   OR (r.mode_family='versus' AND r.game_mode='versus' AND s.side IN ('survivor','infected'))
-GROUP BY %s, s.server_key, s.steam_id, r.game_mode, s.side`, day, day)
+WHERE ((r.mode_family='pve' AND r.game_mode IN ('coop','realism') AND s.side='survivor')
+   OR (r.mode_family='versus' AND r.game_mode='versus' AND s.side IN ('survivor','infected')))%s
+GROUP BY %s, s.server_key, s.steam_id, r.game_mode, s.side`, day, rangeSQL, day)
 	result, err := s.queryAggregate(ctx, query, "mode_activity", "mode", "dimension", []string{"chapter_count", "active_play_seconds"})
 	if err != nil {
 		return nil, fmt.Errorf("aggregate mode activity: %w", err)
@@ -118,12 +160,13 @@ GROUP BY %s, s.server_key, s.steam_id, r.game_mode, s.side`, day, day)
 	return result, nil
 }
 
-func (s *statsStore) aggregateActivity(ctx context.Context) ([]AggregateRow, error) {
+func (s *statsStore) aggregateActivity(ctx context.Context, start, end int64) ([]AggregateRow, error) {
 	day := s.dayExpression("started_at")
+	rangeSQL := timeRangeSQL("started_at", start, end)
 	query := fmt.Sprintf(`SELECT %s AS day, server_key, steam_id,
 COUNT(*) AS session_count, COALESCE(SUM(connected_seconds),0) AS connected_seconds,
 COALESCE(SUM(active_play_seconds),0) AS active_play_seconds
-FROM lps_sessions GROUP BY %s, server_key, steam_id`, day, day)
+FROM lps_sessions WHERE 1=1%s GROUP BY %s, server_key, steam_id`, day, rangeSQL, day)
 	result, err := s.queryAggregate(ctx, query, "activity", "", "", []string{"session_count", "connected_seconds", "active_play_seconds"})
 	if err != nil {
 		return nil, fmt.Errorf("aggregate activity: %w", err)
@@ -131,7 +174,7 @@ FROM lps_sessions GROUP BY %s, server_key, steam_id`, day, day)
 	return result, nil
 }
 
-func (s *statsStore) aggregateSegmentTable(ctx context.Context, kind, table, alias string, metrics []string, dimension, where string) ([]AggregateRow, error) {
+func (s *statsStore) aggregateSegmentTable(ctx context.Context, kind, table, alias string, metrics []string, dimension, where string, start, end int64) ([]AggregateRow, error) {
 	day := s.dayExpression("s.started_at")
 	selects := make([]string, 0, len(metrics))
 	for _, metric := range metrics {
@@ -147,13 +190,109 @@ func (s *statsStore) aggregateSegmentTable(ctx context.Context, kind, table, ali
 FROM %s %s
 JOIN lps_player_segments s ON s.segment_id=%s.segment_id
 JOIN lps_runs r ON r.run_id=s.run_id
-WHERE %s
-GROUP BY %s, s.server_key, s.steam_id, r.game_mode%s`, day, dimensionSelect, strings.Join(selects, ", "), table, alias, alias, where, day, groupDimension)
+WHERE %s%s
+GROUP BY %s, s.server_key, s.steam_id, r.game_mode%s`, day, dimensionSelect, strings.Join(selects, ", "), table, alias, alias, where, timeRangeSQL("s.started_at", start, end), day, groupDimension)
 	result, err := s.queryAggregate(ctx, query, kind, "mode", "dimension", metrics)
 	if err != nil {
 		return nil, fmt.Errorf("aggregate %s: %w", kind, err)
 	}
 	return result, nil
+}
+
+func (s *statsStore) aggregateRuns(ctx context.Context, start, end int64) ([]AggregateRow, error) {
+	day := s.dayExpression("started_at")
+	query := fmt.Sprintf(`SELECT %s AS day, server_key, '' AS steam_id, game_mode, mode_family,
+COUNT(*) AS run_count, COALESCE(SUM(CASE WHEN status='completed' THEN 1 ELSE 0 END),0) AS completed_runs
+FROM lps_runs WHERE ((mode_family='pve' AND game_mode IN ('coop','realism')) OR (mode_family='versus' AND game_mode='versus'))%s
+GROUP BY %s, server_key, game_mode, mode_family`, day, timeRangeSQL("started_at", start, end), day)
+	rows, err := s.queryAggregate(ctx, query, "run_result", "mode", "dimension", runResultMetrics)
+	if err != nil {
+		return nil, fmt.Errorf("aggregate runs: %w", err)
+	}
+	return rows, nil
+}
+
+func (s *statsStore) aggregateVersusResults(ctx context.Context, start, end int64) ([]AggregateRow, error) {
+	day := s.dayExpression("r.started_at")
+	roundQuery := fmt.Sprintf(`SELECT %s AS day, r.server_key, '' AS steam_id, 'versus' AS mode, 'round' AS dimension,
+COUNT(*) AS completed_results, COALESCE(SUM(v.score_available),0) AS score_available
+FROM lps_versus_round_results v JOIN lps_rounds r ON r.round_id=v.round_id
+WHERE v.stats_version=1%s GROUP BY %s, r.server_key`, day, timeRangeSQL("r.started_at", start, end), day)
+	roundRows, err := s.queryAggregate(ctx, roundQuery, "versus_result", "mode", "dimension", versusResultMetrics)
+	if err != nil {
+		return nil, fmt.Errorf("aggregate versus round results: %w", err)
+	}
+	runDay := s.dayExpression("r.started_at")
+	runQuery := fmt.Sprintf(`SELECT %s AS day, r.server_key, '' AS steam_id, 'versus' AS mode, 'run' AS dimension,
+COUNT(*) AS completed_results, COALESCE(SUM(v.score_available),0) AS score_available
+FROM lps_versus_run_results v JOIN lps_runs r ON r.run_id=v.run_id
+WHERE v.stats_version=1 AND v.finalized_at IS NOT NULL%s GROUP BY %s, r.server_key`, runDay, timeRangeSQL("r.started_at", start, end), runDay)
+	runRows, err := s.queryAggregate(ctx, runQuery, "versus_result", "mode", "dimension", versusResultMetrics)
+	if err != nil {
+		return nil, fmt.Errorf("aggregate versus run results: %w", err)
+	}
+	return append(roundRows, runRows...), nil
+}
+
+func timeRangeSQL(column string, start, end int64) string {
+	if start <= 0 || end <= start {
+		return ""
+	}
+	return fmt.Sprintf(" AND %s >= %d AND %s < %d", column, start, column, end)
+}
+
+func (s *statsStore) sourceWatermark(ctx context.Context) (int64, error) {
+	query := `SELECT COALESCE(MAX(saved_at),0) FROM (
+SELECT last_saved_at AS saved_at FROM lps_sessions UNION ALL SELECT last_saved_at FROM lps_runs
+UNION ALL SELECT last_saved_at FROM lps_rounds UNION ALL SELECT last_saved_at FROM lps_versus_round_results
+UNION ALL SELECT last_saved_at FROM lps_versus_run_results UNION ALL SELECT last_saved_at FROM lps_player_segments
+UNION ALL SELECT last_saved_at FROM lps_pve_segment_stats UNION ALL SELECT last_saved_at FROM lps_pve_segment_equipment_stats
+UNION ALL SELECT last_saved_at FROM lps_versus_survivor_stats UNION ALL SELECT last_saved_at FROM lps_versus_survivor_infected_class_stats
+UNION ALL SELECT last_saved_at FROM lps_versus_infected_stats UNION ALL SELECT last_saved_at FROM lps_versus_infected_class_stats
+) source_rows`
+	var value int64
+	if err := s.db.QueryRowContext(ctx, query).Scan(&value); err != nil {
+		return 0, fmt.Errorf("read stats source watermark: %w", err)
+	}
+	return value, nil
+}
+
+func (s *statsStore) changedDays(ctx context.Context, after int64) ([]int64, int64, error) {
+	query := `SELECT day, COUNT(*) FROM (
+SELECT {{plain}} AS day FROM lps_sessions WHERE last_saved_at >= {{after}}
+UNION ALL SELECT {{plain}} FROM lps_runs WHERE last_saved_at >= {{after}}
+UNION ALL SELECT {{plain}} FROM lps_player_segments WHERE last_saved_at >= {{after}}
+UNION ALL SELECT {{joined}} FROM lps_pve_segment_stats p JOIN lps_player_segments s ON s.segment_id=p.segment_id WHERE p.last_saved_at >= {{after}}
+UNION ALL SELECT {{joined}} FROM lps_pve_segment_equipment_stats p JOIN lps_player_segments s ON s.segment_id=p.segment_id WHERE p.last_saved_at >= {{after}}
+UNION ALL SELECT {{joined}} FROM lps_versus_survivor_stats p JOIN lps_player_segments s ON s.segment_id=p.segment_id WHERE p.last_saved_at >= {{after}}
+UNION ALL SELECT {{joined}} FROM lps_versus_survivor_infected_class_stats p JOIN lps_player_segments s ON s.segment_id=p.segment_id WHERE p.last_saved_at >= {{after}}
+UNION ALL SELECT {{joined}} FROM lps_versus_infected_stats p JOIN lps_player_segments s ON s.segment_id=p.segment_id WHERE p.last_saved_at >= {{after}}
+UNION ALL SELECT {{joined}} FROM lps_versus_infected_class_stats p JOIN lps_player_segments s ON s.segment_id=p.segment_id WHERE p.last_saved_at >= {{after}}
+UNION ALL SELECT {{round}} FROM lps_versus_round_results v JOIN lps_rounds r ON r.round_id=v.round_id WHERE v.last_saved_at >= {{after}}
+UNION ALL SELECT {{round}} FROM lps_versus_run_results v JOIN lps_runs r ON r.run_id=v.run_id WHERE v.last_saved_at >= {{after}}
+) changed GROUP BY day ORDER BY day`
+	query = strings.NewReplacer(
+		"{{plain}}", s.dayExpression("started_at"),
+		"{{joined}}", s.dayExpression("s.started_at"),
+		"{{round}}", s.dayExpression("r.started_at"),
+		"{{after}}", strconv.FormatInt(after, 10),
+	).Replace(query)
+	rows, err := s.db.QueryContext(ctx, query)
+	if err != nil {
+		return nil, 0, fmt.Errorf("find changed aggregate days: %w", err)
+	}
+	defer rows.Close()
+	var days []int64
+	var total int64
+	for rows.Next() {
+		var day, count int64
+		if err := rows.Scan(&day, &count); err != nil {
+			return nil, 0, err
+		}
+		days = append(days, day)
+		total += count
+	}
+	return days, total, rows.Err()
 }
 
 func (s *statsStore) queryAggregate(ctx context.Context, query, kind, modeColumn, dimensionColumn string, metrics []string) ([]AggregateRow, error) {
@@ -194,33 +333,92 @@ func (s *statsStore) queryAggregate(ctx context.Context, query, kind, modeColumn
 func (s *statsStore) dayExpression(column string) string {
 	switch s.driver {
 	case "mysql":
-		return "CAST(" + column + " / 86400 AS SIGNED)"
+		return "CAST(FLOOR(" + column + " / 86400) AS SIGNED)"
 	default:
-		return "CAST(" + column + " / 86400 AS BIGINT)"
+		return "CAST(FLOOR(" + column + " / 86400) AS BIGINT)"
 	}
 }
 
-func (s *statsStore) RetentionPlan(ctx context.Context, detailCutoff, segmentCutoff int64) (RetentionPlan, error) {
+func (s *statsStore) RetentionPlan(ctx context.Context, detailCutoff, sessionCutoff, resultCutoff int64) (RetentionPlan, error) {
 	queryCtx, cancel := context.WithTimeout(ctx, s.timeout)
 	defer cancel()
-	placeholder1, placeholder2 := "?", "?"
+	placeholder1, placeholder2, placeholder3 := "?", "?", "?"
 	if s.driver == "postgres" {
-		placeholder1, placeholder2 = "$1", "$2"
+		placeholder1, placeholder2, placeholder3 = "$1", "$2", "$3"
 	}
 	query := fmt.Sprintf(`SELECT
   (SELECT COUNT(*) FROM lps_pve_segment_equipment_stats e JOIN lps_player_segments s ON s.segment_id=e.segment_id WHERE s.ended_at IS NOT NULL AND s.ended_at < %s),
   ((SELECT COUNT(*) FROM lps_versus_survivor_infected_class_stats c JOIN lps_player_segments s ON s.segment_id=c.segment_id WHERE s.ended_at IS NOT NULL AND s.ended_at < %s) +
    (SELECT COUNT(*) FROM lps_versus_infected_class_stats c JOIN lps_player_segments s ON s.segment_id=c.segment_id WHERE s.ended_at IS NOT NULL AND s.ended_at < %s)),
-  (SELECT COUNT(*) FROM lps_player_segments WHERE ended_at IS NOT NULL AND ended_at < %s)`, placeholder1, placeholder1, placeholder1, placeholder2)
-	var equipment, classes, segments int64
-	args := []any{detailCutoff, segmentCutoff}
+	(SELECT COUNT(*) FROM lps_sessions WHERE ended_at IS NOT NULL AND ended_at < %s),
+	(SELECT COUNT(*) FROM lps_versus_round_results WHERE finalized_at < %s),
+	(SELECT COUNT(*) FROM lps_versus_run_results WHERE finalized_at IS NOT NULL AND finalized_at < %s)`, placeholder1, placeholder1, placeholder1, placeholder2, placeholder3, placeholder3)
+	var equipment, classes, sessions, roundResults, runResults int64
+	args := []any{detailCutoff, sessionCutoff, resultCutoff}
 	if s.driver != "postgres" {
-		args = []any{detailCutoff, detailCutoff, detailCutoff, segmentCutoff}
+		args = []any{detailCutoff, detailCutoff, detailCutoff, sessionCutoff, resultCutoff, resultCutoff}
 	}
-	if err := s.db.QueryRowContext(queryCtx, query, args...).Scan(&equipment, &classes, &segments); err != nil {
+	if err := s.db.QueryRowContext(queryCtx, query, args...).Scan(&equipment, &classes, &sessions, &roundResults, &runResults); err != nil {
 		return RetentionPlan{}, err
 	}
-	return RetentionPlan{GeneratedAt: time.Now().Unix(), DetailCutoff: detailCutoff, SegmentCutoff: segmentCutoff, EquipmentRowsEligible: equipment, VersusClassRowsEligible: classes, SegmentRowsEligible: segments, DeletionEnabled: false}, nil
+	watermark, err := s.sourceWatermark(queryCtx)
+	if err != nil {
+		return RetentionPlan{}, err
+	}
+	return RetentionPlan{GeneratedAt: time.Now().Unix(), DetailCutoff: detailCutoff, SessionCutoff: sessionCutoff, ResultCutoff: resultCutoff, EquipmentRowsEligible: equipment, VersusClassRowsEligible: classes, SessionRowsEligible: sessions, VersusRoundResultsEligible: roundResults, VersusRunResultsEligible: runResults, SourceWatermark: watermark}, nil
+}
+
+func (s *statsStore) ApplyRetention(ctx context.Context, plan RetentionPlan) (RetentionResult, error) {
+	queryCtx, cancel := context.WithTimeout(ctx, maxDuration(s.timeout, 2*time.Minute))
+	defer cancel()
+	tx, err := s.db.BeginTx(queryCtx, nil)
+	if err != nil {
+		return RetentionResult{}, fmt.Errorf("begin stats retention: %w", err)
+	}
+	defer tx.Rollback()
+	placeholder := "?"
+	if s.driver == "postgres" {
+		placeholder = "$1"
+	}
+	execDelete := func(query string, cutoff int64) (int64, error) {
+		result, err := tx.ExecContext(queryCtx, query, cutoff)
+		if err != nil {
+			return 0, err
+		}
+		return result.RowsAffected()
+	}
+	equipment, err := execDelete(fmt.Sprintf(`DELETE FROM lps_pve_segment_equipment_stats WHERE segment_id IN (SELECT segment_id FROM lps_player_segments WHERE ended_at IS NOT NULL AND ended_at < %s)`, placeholder), plan.DetailCutoff)
+	if err != nil {
+		return RetentionResult{}, fmt.Errorf("delete equipment detail: %w", err)
+	}
+	survivorClasses, err := execDelete(fmt.Sprintf(`DELETE FROM lps_versus_survivor_infected_class_stats WHERE segment_id IN (SELECT segment_id FROM lps_player_segments WHERE ended_at IS NOT NULL AND ended_at < %s)`, placeholder), plan.DetailCutoff)
+	if err != nil {
+		return RetentionResult{}, fmt.Errorf("delete versus survivor class detail: %w", err)
+	}
+	infectedClasses, err := execDelete(fmt.Sprintf(`DELETE FROM lps_versus_infected_class_stats WHERE segment_id IN (SELECT segment_id FROM lps_player_segments WHERE ended_at IS NOT NULL AND ended_at < %s)`, placeholder), plan.DetailCutoff)
+	if err != nil {
+		return RetentionResult{}, fmt.Errorf("delete versus infected class detail: %w", err)
+	}
+	sessions, err := execDelete(fmt.Sprintf(`DELETE FROM lps_sessions WHERE ended_at IS NOT NULL AND ended_at < %s`, placeholder), plan.SessionCutoff)
+	if err != nil {
+		return RetentionResult{}, fmt.Errorf("delete closed sessions: %w", err)
+	}
+	roundResults, err := execDelete(fmt.Sprintf(`DELETE FROM lps_versus_round_results WHERE finalized_at < %s`, placeholder), plan.ResultCutoff)
+	if err != nil {
+		return RetentionResult{}, fmt.Errorf("delete versus round results: %w", err)
+	}
+	runResults, err := execDelete(fmt.Sprintf(`DELETE FROM lps_versus_run_results WHERE finalized_at IS NOT NULL AND finalized_at < %s`, placeholder), plan.ResultCutoff)
+	if err != nil {
+		return RetentionResult{}, fmt.Errorf("delete versus run results: %w", err)
+	}
+	if err := tx.Commit(); err != nil {
+		return RetentionResult{}, fmt.Errorf("commit stats retention: %w", err)
+	}
+	return RetentionResult{
+		RunID: uuid.NewString(), ExecutedAt: time.Now().Unix(), EquipmentRows: equipment,
+		VersusClassRows: survivorClasses + infectedClasses, SessionRows: sessions,
+		VersusRoundResultRows: roundResults, VersusRunResultRows: runResults,
+	}, nil
 }
 
 func maxDuration(a, b time.Duration) time.Duration {

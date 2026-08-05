@@ -11,14 +11,18 @@ import (
 type Querier interface {
 	CompleteAggregateBuild(ctx context.Context, arg CompleteAggregateBuildParams) error
 	CountAdminAccounts(ctx context.Context) (int64, error)
+	CountAggregateRows(ctx context.Context) (int64, error)
 	CountAnnouncements(ctx context.Context, arg CountAnnouncementsParams) (int64, error)
 	CountGameServers(ctx context.Context) (int64, error)
+	CountRetentionRuns(ctx context.Context) (int64, error)
 	CountSiteSettings(ctx context.Context) (int64, error)
 	CreateAdminAccount(ctx context.Context, arg CreateAdminAccountParams) error
 	CreateAnnouncement(ctx context.Context, arg CreateAnnouncementParams) error
 	CreateFooterLink(ctx context.Context, arg CreateFooterLinkParams) error
 	CreateGameServer(ctx context.Context, arg CreateGameServerParams) error
+	CreateRetentionRun(ctx context.Context, arg CreateRetentionRunParams) error
 	DeleteAggregateRows(ctx context.Context) error
+	DeleteAggregateRowsForDay(ctx context.Context, day int64) error
 	DeleteAnnouncement(ctx context.Context, id string) (int64, error)
 	DeleteFooterLinks(ctx context.Context) error
 	DeleteGameServer(ctx context.Context, id string) (int64, error)
@@ -26,6 +30,7 @@ type Querier interface {
 	GetAdminAccount(ctx context.Context) (GetAdminAccountRow, error)
 	GetAggregateStatus(ctx context.Context) (GetAggregateStatusRow, error)
 	GetAnnouncement(ctx context.Context, id string) (Announcement, error)
+	GetDataMaintenanceSettings(ctx context.Context) (GetDataMaintenanceSettingsRow, error)
 	GetGameServer(ctx context.Context, id string) (GetGameServerRow, error)
 	GetMetadata(ctx context.Context, key string) (string, error)
 	GetPublicSiteDocument(ctx context.Context, key string) (SiteDocument, error)
@@ -49,6 +54,7 @@ type Querier interface {
 	UpdateAdminPassword(ctx context.Context, arg UpdateAdminPasswordParams) error
 	UpdateAdminUsername(ctx context.Context, arg UpdateAdminUsernameParams) error
 	UpdateAnnouncement(ctx context.Context, arg UpdateAnnouncementParams) (int64, error)
+	UpdateDataMaintenanceSettings(ctx context.Context, arg UpdateDataMaintenanceSettingsParams) error
 	UpdateGameServer(ctx context.Context, arg UpdateGameServerParams) (int64, error)
 	UpdateSiteDocument(ctx context.Context, arg UpdateSiteDocumentParams) (int64, error)
 	UpsertMetadata(ctx context.Context, arg UpsertMetadataParams) error

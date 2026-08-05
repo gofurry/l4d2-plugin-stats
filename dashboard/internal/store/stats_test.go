@@ -3,6 +3,7 @@ package store
 import (
 	"context"
 	"database/sql"
+	"fmt"
 	"os"
 	"path/filepath"
 	"runtime"
@@ -109,6 +110,93 @@ func TestSQLiteOverviewUsesFrozenModeAndVersionBoundaries(t *testing.T) {
 	chapters, err := stats.PlayerChapters(ctx, "1", 0, "", 20)
 	if err != nil || len(chapters) != 3 {
 		t.Fatalf("player chapters = %#v, %v", chapters, err)
+	}
+}
+
+func TestSQLiteIncrementalAggregationAndRetention(t *testing.T) {
+	ctx := context.Background()
+	databasePath := filepath.Join(t.TempDir(), "retention.sq3")
+	db, err := sql.Open("sqlite", databasePath)
+	if err != nil {
+		t.Fatal(err)
+	}
+	applyCollectorSchema(t, db)
+	old := time.Now().AddDate(-2, 0, 0).Unix()
+	saved := time.Now().Add(-time.Minute).Unix()
+	statements := []string{
+		`INSERT INTO lps_schema_migrations VALUES (1,'initial',1)`,
+		`INSERT INTO lps_players VALUES ('1','Alice',1,1)`,
+		fmt.Sprintf(`INSERT INTO lps_sessions (session_id,boot_id,server_key,steam_id,player_name,ip_address,started_at,ended_at,last_saved_at,connected_seconds,active_play_seconds,status) VALUES ('s','b','one','1','Alice','127.0.0.1',%d,%d,%d,100,80,'closed')`, old, old+100, saved),
+		fmt.Sprintf(`INSERT INTO lps_runs (run_id,boot_id,server_key,mode_family,game_mode,started_at,ended_at,last_saved_at,status) VALUES ('p','b','one','pve','coop',%d,%d,%d,'completed'),('v','b','one','versus','versus',%d,%d,%d,'completed')`, old, old+100, saved, old, old+100, saved),
+		fmt.Sprintf(`INSERT INTO lps_rounds (round_id,run_id,server_key,mode_family,map_name,round_seq,map_seq,attempt_no,started_at,ended_at,last_saved_at,status) VALUES ('rp','p','one','pve','map',1,1,1,%d,%d,%d,'completed'),('rv','v','one','versus','map',1,1,1,%d,%d,%d,'completed')`, old, old+100, saved, old, old+100, saved),
+		fmt.Sprintf(`INSERT INTO lps_player_segments (segment_id,session_id,run_id,round_id,server_key,steam_id,side,started_at,ended_at,last_saved_at,status) VALUES ('sp','s','p','rp','one','1','survivor',%d,%d,%d,'closed'),('sv','s','v','rv','one','1','survivor',%d,%d,%d,'closed'),('si','s','v','rv','one','1','infected',%d,%d,%d,'closed')`, old, old+100, saved, old, old+100, saved, old, old+100, saved),
+		fmt.Sprintf(`INSERT INTO lps_pve_segment_stats (segment_id,stats_version,last_saved_at,common_kills) VALUES ('sp',1,%d,10)`, saved),
+		fmt.Sprintf(`INSERT INTO lps_pve_segment_equipment_stats (segment_id,equipment_id,stats_version,last_saved_at,actions) VALUES ('sp',1,1,%d,3)`, saved),
+		fmt.Sprintf(`INSERT INTO lps_versus_survivor_infected_class_stats (segment_id,infected_class,stats_version,last_saved_at,human_controller_kills) VALUES ('sv',1,1,%d,2)`, saved),
+		fmt.Sprintf(`INSERT INTO lps_versus_infected_class_stats (segment_id,infected_class,stats_version,last_saved_at,spawn_count) VALUES ('si',1,1,%d,4)`, saved),
+		fmt.Sprintf(`INSERT INTO lps_versus_round_results (round_id,stats_version,last_saved_at,result_status,finalized_at) VALUES ('rv',1,%d,'completed',%d)`, saved, old+100),
+		fmt.Sprintf(`INSERT INTO lps_versus_run_results (run_id,stats_version,last_saved_at,result_status,finalized_at) VALUES ('v',1,%d,'completed',%d)`, saved, old+100),
+	}
+	for _, statement := range statements {
+		if _, err := db.ExecContext(ctx, statement); err != nil {
+			t.Fatalf("fixture: %v\n%s", err, statement)
+		}
+	}
+	if err := db.Close(); err != nil {
+		t.Fatal(err)
+	}
+	cfg := config.StatsDatabaseConfig{Driver: "sqlite", DSN: databasePath, QueryTimeout: config.Duration(5 * time.Second), MaxOpenConns: 2, MaxIdleConns: 1, ConnMaxLifetime: config.Duration(time.Minute)}
+	stats, err := OpenStats(ctx, cfg)
+	if err != nil {
+		t.Fatal(err)
+	}
+	change, err := stats.AggregateChanges(ctx, 0)
+	if err != nil {
+		t.Fatal(err)
+	}
+	kinds := map[string]bool{}
+	for _, row := range change.Rows {
+		kinds[row.Kind] = true
+	}
+	for _, kind := range []string{"activity", "pve_equipment", "versus_survivor_class", "versus_infected_class", "run_result", "versus_result"} {
+		if !kinds[kind] {
+			t.Fatalf("missing aggregate kind %s", kind)
+		}
+	}
+	plan, err := stats.RetentionPlan(ctx, time.Now().AddDate(0, 0, -180).Unix(), time.Now().AddDate(-1, 0, 0).Unix(), time.Now().AddDate(-1, 0, 0).Unix())
+	if err != nil {
+		t.Fatal(err)
+	}
+	if plan.EquipmentRowsEligible != 1 || plan.VersusClassRowsEligible != 2 || plan.SessionRowsEligible != 1 || plan.VersusRoundResultsEligible != 1 || plan.VersusRunResultsEligible != 1 {
+		t.Fatalf("plan=%+v", plan)
+	}
+	stats.Close()
+	maintenance, err := OpenStatsMaintenance(ctx, cfg)
+	if err != nil {
+		t.Fatal(err)
+	}
+	result, err := maintenance.ApplyRetention(ctx, plan)
+	if err != nil {
+		t.Fatal(err)
+	}
+	maintenance.Close()
+	if result.EquipmentRows != 1 || result.VersusClassRows != 2 || result.SessionRows != 1 || result.VersusRoundResultRows != 1 || result.VersusRunResultRows != 1 {
+		t.Fatalf("result=%+v", result)
+	}
+	verify, err := sql.Open("sqlite", databasePath)
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer verify.Close()
+	for _, table := range []string{"lps_pve_segment_equipment_stats", "lps_versus_survivor_infected_class_stats", "lps_versus_infected_class_stats", "lps_sessions", "lps_versus_round_results", "lps_versus_run_results"} {
+		var count int
+		if err := verify.QueryRow("SELECT COUNT(*) FROM " + table).Scan(&count); err != nil || count != 0 {
+			t.Fatalf("%s count=%d err=%v", table, count, err)
+		}
+	}
+	var coreCount int
+	if err := verify.QueryRow("SELECT COUNT(*) FROM lps_pve_segment_stats").Scan(&coreCount); err != nil || coreCount != 1 {
+		t.Fatalf("core stats count=%d err=%v", coreCount, err)
 	}
 }
 

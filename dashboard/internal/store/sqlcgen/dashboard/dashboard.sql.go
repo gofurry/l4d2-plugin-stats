@@ -11,17 +11,31 @@ import (
 
 const completeAggregateBuild = `-- name: CompleteAggregateBuild :exec
 UPDATE aggregate_state SET state = 'ready', last_finished_at = ?1,
-  source_rows = ?2, aggregate_rows = ?3, last_error = '' WHERE id = 1
+  source_rows = ?2, aggregate_rows = ?3, source_watermark = ?4,
+  last_duration_ms = ?5, last_changed_days = ?6, last_build_mode = ?7,
+  last_error = '' WHERE id = 1
 `
 
 type CompleteAggregateBuildParams struct {
-	LastFinishedAt int64 `json:"last_finished_at"`
-	SourceRows     int64 `json:"source_rows"`
-	AggregateRows  int64 `json:"aggregate_rows"`
+	LastFinishedAt  int64  `json:"last_finished_at"`
+	SourceRows      int64  `json:"source_rows"`
+	AggregateRows   int64  `json:"aggregate_rows"`
+	SourceWatermark int64  `json:"source_watermark"`
+	LastDurationMs  int64  `json:"last_duration_ms"`
+	LastChangedDays int64  `json:"last_changed_days"`
+	LastBuildMode   string `json:"last_build_mode"`
 }
 
 func (q *Queries) CompleteAggregateBuild(ctx context.Context, arg CompleteAggregateBuildParams) error {
-	_, err := q.db.ExecContext(ctx, completeAggregateBuild, arg.LastFinishedAt, arg.SourceRows, arg.AggregateRows)
+	_, err := q.db.ExecContext(ctx, completeAggregateBuild,
+		arg.LastFinishedAt,
+		arg.SourceRows,
+		arg.AggregateRows,
+		arg.SourceWatermark,
+		arg.LastDurationMs,
+		arg.LastChangedDays,
+		arg.LastBuildMode,
+	)
 	return err
 }
 
@@ -31,6 +45,17 @@ SELECT COUNT(*) FROM admin_account
 
 func (q *Queries) CountAdminAccounts(ctx context.Context) (int64, error) {
 	row := q.db.QueryRowContext(ctx, countAdminAccounts)
+	var count int64
+	err := row.Scan(&count)
+	return count, err
+}
+
+const countAggregateRows = `-- name: CountAggregateRows :one
+SELECT COUNT(*) FROM aggregate_rows
+`
+
+func (q *Queries) CountAggregateRows(ctx context.Context) (int64, error) {
+	row := q.db.QueryRowContext(ctx, countAggregateRows)
 	var count int64
 	err := row.Scan(&count)
 	return count, err
@@ -60,6 +85,17 @@ SELECT COUNT(*) FROM game_servers
 
 func (q *Queries) CountGameServers(ctx context.Context) (int64, error) {
 	row := q.db.QueryRowContext(ctx, countGameServers)
+	var count int64
+	err := row.Scan(&count)
+	return count, err
+}
+
+const countRetentionRuns = `-- name: CountRetentionRuns :one
+SELECT COUNT(*) FROM retention_runs
+`
+
+func (q *Queries) CountRetentionRuns(ctx context.Context) (int64, error) {
+	row := q.db.QueryRowContext(ctx, countRetentionRuns)
 	var count int64
 	err := row.Scan(&count)
 	return count, err
@@ -175,12 +211,60 @@ func (q *Queries) CreateGameServer(ctx context.Context, arg CreateGameServerPara
 	return err
 }
 
+const createRetentionRun = `-- name: CreateRetentionRun :exec
+INSERT INTO retention_runs (
+  id, executed_at, source_watermark, detail_cutoff, session_cutoff, result_cutoff,
+  equipment_rows, versus_class_rows, session_rows,
+  versus_round_result_rows, versus_run_result_rows
+) VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9, ?10, ?11)
+`
+
+type CreateRetentionRunParams struct {
+	ID                    string `json:"id"`
+	ExecutedAt            int64  `json:"executed_at"`
+	SourceWatermark       int64  `json:"source_watermark"`
+	DetailCutoff          int64  `json:"detail_cutoff"`
+	SessionCutoff         int64  `json:"session_cutoff"`
+	ResultCutoff          int64  `json:"result_cutoff"`
+	EquipmentRows         int64  `json:"equipment_rows"`
+	VersusClassRows       int64  `json:"versus_class_rows"`
+	SessionRows           int64  `json:"session_rows"`
+	VersusRoundResultRows int64  `json:"versus_round_result_rows"`
+	VersusRunResultRows   int64  `json:"versus_run_result_rows"`
+}
+
+func (q *Queries) CreateRetentionRun(ctx context.Context, arg CreateRetentionRunParams) error {
+	_, err := q.db.ExecContext(ctx, createRetentionRun,
+		arg.ID,
+		arg.ExecutedAt,
+		arg.SourceWatermark,
+		arg.DetailCutoff,
+		arg.SessionCutoff,
+		arg.ResultCutoff,
+		arg.EquipmentRows,
+		arg.VersusClassRows,
+		arg.SessionRows,
+		arg.VersusRoundResultRows,
+		arg.VersusRunResultRows,
+	)
+	return err
+}
+
 const deleteAggregateRows = `-- name: DeleteAggregateRows :exec
 DELETE FROM aggregate_rows
 `
 
 func (q *Queries) DeleteAggregateRows(ctx context.Context) error {
 	_, err := q.db.ExecContext(ctx, deleteAggregateRows)
+	return err
+}
+
+const deleteAggregateRowsForDay = `-- name: DeleteAggregateRowsForDay :exec
+DELETE FROM aggregate_rows WHERE day = ?1
+`
+
+func (q *Queries) DeleteAggregateRowsForDay(ctx context.Context, day int64) error {
+	_, err := q.db.ExecContext(ctx, deleteAggregateRowsForDay, day)
 	return err
 }
 
@@ -260,17 +344,22 @@ func (q *Queries) GetAdminAccount(ctx context.Context) (GetAdminAccountRow, erro
 }
 
 const getAggregateStatus = `-- name: GetAggregateStatus :one
-SELECT state, last_started_at, last_finished_at, source_rows, aggregate_rows, last_error
+SELECT state, last_started_at, last_finished_at, source_rows, aggregate_rows, last_error,
+       source_watermark, last_duration_ms, last_changed_days, last_build_mode
 FROM aggregate_state WHERE id = 1
 `
 
 type GetAggregateStatusRow struct {
-	State          string `json:"state"`
-	LastStartedAt  int64  `json:"last_started_at"`
-	LastFinishedAt int64  `json:"last_finished_at"`
-	SourceRows     int64  `json:"source_rows"`
-	AggregateRows  int64  `json:"aggregate_rows"`
-	LastError      string `json:"last_error"`
+	State           string `json:"state"`
+	LastStartedAt   int64  `json:"last_started_at"`
+	LastFinishedAt  int64  `json:"last_finished_at"`
+	SourceRows      int64  `json:"source_rows"`
+	AggregateRows   int64  `json:"aggregate_rows"`
+	LastError       string `json:"last_error"`
+	SourceWatermark int64  `json:"source_watermark"`
+	LastDurationMs  int64  `json:"last_duration_ms"`
+	LastChangedDays int64  `json:"last_changed_days"`
+	LastBuildMode   string `json:"last_build_mode"`
 }
 
 func (q *Queries) GetAggregateStatus(ctx context.Context) (GetAggregateStatusRow, error) {
@@ -283,6 +372,10 @@ func (q *Queries) GetAggregateStatus(ctx context.Context) (GetAggregateStatusRow
 		&i.SourceRows,
 		&i.AggregateRows,
 		&i.LastError,
+		&i.SourceWatermark,
+		&i.LastDurationMs,
+		&i.LastChangedDays,
+		&i.LastBuildMode,
 	)
 	return i, err
 }
@@ -301,6 +394,33 @@ func (q *Queries) GetAnnouncement(ctx context.Context, id string) (Announcement,
 		&i.Title,
 		&i.ContentMarkdown,
 		&i.CreatedAt,
+		&i.UpdatedAt,
+	)
+	return i, err
+}
+
+const getDataMaintenanceSettings = `-- name: GetDataMaintenanceSettings :one
+SELECT aggregate_interval_minutes, detail_retention_days,
+       session_retention_days, result_retention_days, updated_at
+FROM data_maintenance_settings WHERE id = 1
+`
+
+type GetDataMaintenanceSettingsRow struct {
+	AggregateIntervalMinutes int64 `json:"aggregate_interval_minutes"`
+	DetailRetentionDays      int64 `json:"detail_retention_days"`
+	SessionRetentionDays     int64 `json:"session_retention_days"`
+	ResultRetentionDays      int64 `json:"result_retention_days"`
+	UpdatedAt                int64 `json:"updated_at"`
+}
+
+func (q *Queries) GetDataMaintenanceSettings(ctx context.Context) (GetDataMaintenanceSettingsRow, error) {
+	row := q.db.QueryRowContext(ctx, getDataMaintenanceSettings)
+	var i GetDataMaintenanceSettingsRow
+	err := row.Scan(
+		&i.AggregateIntervalMinutes,
+		&i.DetailRetentionDays,
+		&i.SessionRetentionDays,
+		&i.ResultRetentionDays,
 		&i.UpdatedAt,
 	)
 	return i, err
@@ -908,6 +1028,35 @@ func (q *Queries) UpdateAnnouncement(ctx context.Context, arg UpdateAnnouncement
 		return 0, err
 	}
 	return result.RowsAffected()
+}
+
+const updateDataMaintenanceSettings = `-- name: UpdateDataMaintenanceSettings :exec
+UPDATE data_maintenance_settings SET
+  aggregate_interval_minutes = ?1,
+  detail_retention_days = ?2,
+  session_retention_days = ?3,
+  result_retention_days = ?4,
+  updated_at = ?5
+WHERE id = 1
+`
+
+type UpdateDataMaintenanceSettingsParams struct {
+	AggregateIntervalMinutes int64 `json:"aggregate_interval_minutes"`
+	DetailRetentionDays      int64 `json:"detail_retention_days"`
+	SessionRetentionDays     int64 `json:"session_retention_days"`
+	ResultRetentionDays      int64 `json:"result_retention_days"`
+	UpdatedAt                int64 `json:"updated_at"`
+}
+
+func (q *Queries) UpdateDataMaintenanceSettings(ctx context.Context, arg UpdateDataMaintenanceSettingsParams) error {
+	_, err := q.db.ExecContext(ctx, updateDataMaintenanceSettings,
+		arg.AggregateIntervalMinutes,
+		arg.DetailRetentionDays,
+		arg.SessionRetentionDays,
+		arg.ResultRetentionDays,
+		arg.UpdatedAt,
+	)
+	return err
 }
 
 const updateGameServer = `-- name: UpdateGameServer :execrows
