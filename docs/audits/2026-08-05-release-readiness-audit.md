@@ -9,10 +9,10 @@
 ## 执行摘要
 
 - 未发现 P0/P1 级发布阻断问题。
-- 本轮已修复 5 项确定问题：Stats DB 增量/清理索引缺失、Dashboard 聚合过滤未下推、按日重建缺少索引、排行榜第一页重复请求、反向代理后的登录限流地址识别。
+- 本轮已修复 Stats DB 索引、Dashboard 聚合过滤、重复请求、代理地址识别、全站限流、月度/终身汇总、分批清理和前端依赖版本漂移问题。
 - 当前索引适合首版目标负载。新建 SQLite 的关键查询计划已确认使用索引；MySQL/PostgreSQL 已通过结构与 sqlc 编译校验，但仍需真实数据库与真实多人负载验收。
 - 正常页面请求量合理：主页 3 个公开请求，个人中心首次查询约 6 个统计请求加共享站点配置，排行榜第一页已从 2 个同类排行请求降为 1 个。
-- 仍有 3 项 P2 级扩展风险：公开统计接口缺少独立限流、总览读取量会随日聚合历史线性增长、大批量清理使用单事务。它们不会阻止当前规模的首版试运行，但公网大规模传播前应继续加固。
+- 原 3 项 P2 容量风险均已处理；当前主要剩余边界是 MySQL/PostgreSQL 真实执行计划和并发验收。
 - Go 可达依赖漏洞为 0。npm 审计报告 1 个 React Router 高危公告，但公告明确只影响未使用的 unstable RSC API；当前项目是纯浏览器路由 SPA，不存在对应执行路径。
 
 ## 本轮已完成的优化
@@ -62,14 +62,14 @@
 
 ### Dashboard DB
 
-`aggregate_rows` 现有三条互补索引：
+`aggregate_rows` 日聚合及月度/终身汇总表均按玩家、类型、服务器和时间建立互补索引：
 
 - `aggregate_rows_player_day (steam_id, day, kind)`：个人中心。
 - `aggregate_rows_ranking (kind, mode, day, server_key)`：全服/玩法排行。
 - `aggregate_rows_kind_server_day (kind, server_key, day, mode, steam_id)`：指定服务器排行。
 - `aggregate_rows_day (day)`：增量重建时删除指定 UTC 日。
 
-SQLite 查询计划已确认个人查询、全服排行、指定服务器排行和按日删除分别选择对应索引。全服总览需要读取所有保留的日聚合，这是其业务语义决定的完整扫描，见 P2-02。
+SQLite 查询计划已确认个人查询、全服排行、指定服务器排行和按日删除分别选择对应索引。全服总览和全周期排行榜读取终身汇总，长期趋势读取月度汇总，有限日期范围仍读取日聚合。
 
 ## 接口与前端请求量
 
@@ -105,41 +105,36 @@ SQLite 查询计划已确认个人查询、全服排行、指定服务器排行�
 
 - 严重级别：P2
 - 置信度：高
-- 位置：`dashboard/internal/server/server.go:106-121`
-- 证据：总览、玩家和排行榜路由直接注册；限流当前只用于管理员登录和首次设置。
-- 影响：攻击者可以持续改变合法的 SteamID、筛选或页码来制造缓存未命中，消耗 Stats DB 连接和 CPU。连接池、缓存容量和 5 秒查询超时能限制资源上界，但无法阻止服务降速。
-- 建议：公网发布时先在 Nginx 对 `/api/v1/players/`、`/api/v1/rankings` 和 `/api/v1/dashboard/overview` 设置温和的 IP 限流；后续在应用内增加有界并发门和 429 响应。
-- 状态：开放；不阻断小规模首版试运行。
+- 位置：`dashboard/internal/server/rate_limit.go`
+- 修复：使用 Fiber 官方 limiter 的滑动窗口覆盖页面、静态资源和 API；每个可信客户端 IP 每分钟 300 次，API 超限返回统一 JSON 429。
+- 边界：内存状态随进程重启清空，单机部署不需要跨实例共享；额度刻意宽松，不替代高风险公网场景的边缘防护。
+- 状态：已修复；Fiber 官方滑动窗口中间件覆盖全站，每个可信客户端 IP 每分钟允许 300 次请求。
 
 ### P2-02：全服总览读取量随日聚合历史线性增长
 
 - 严重级别：P2
 - 置信度：高
-- 位置：`dashboard/internal/service/overview.go:69`
-- 证据：总览从 `aggregate_rows` 读取全部类型和全部日期，再在 Go 中汇总。
-- 影响：当前数据量和 60 秒缓存下成本很低；多年、多服和大量玩家后，单次缓存重建会解码大量 JSON 行，形成周期性延迟峰值。
-- 建议：数据增长监控中重点观察 Dashboard 聚合行数和总览耗时；达到几十万至百万行前增加 lifetime/monthly rollup 或专用 overview snapshot 表。
-- 状态：开放；属于容量扩展项。
+- 位置：`dashboard/database/dashboard/migrations/00008_aggregate_rollups.sql`、`dashboard/internal/store/aggregate_rollup.go`
+- 修复：新增月度和终身汇总；全服总览与全周期排行榜读取终身表，长期趋势读取月度表，最近范围仍读取日表。
+- 一致性：全量构建原子替换三层数据；增量构建先扣除旧日值再加入新日值，旧 Dashboard DB 升级时自动补建汇总。
+- 状态：已修复；新增月度和终身汇总表，增量聚合会差量修正受影响的汇总键。
 
 ### P2-03：大批量原始数据清理使用单事务
 
 - 严重级别：P2
 - 置信度：高
-- 位置：`dashboard/internal/store/stats_aggregate.go:371-415`
-- 证据：五类 DELETE 在同一事务内执行，最长允许 2 分钟。
-- 影响：首次清理积压很多行时，SQLite 写锁或 MySQL/PostgreSQL 长事务可能影响采集器保存，并导致 WAL/事务日志瞬时增长。
-- 建议：首版只在低峰期人工执行并先查看预览行数；后续按主键/时间窗口分批删除并报告批次进度。
-- 状态：开放；管理员显式操作，不是后台自动清理。
+- 位置：`dashboard/internal/store/stats_aggregate.go`
+- 修复：六类目标均先按主键读取最多 500 行，再在短事务中精确删除并提交，直至没有候选行。
+- 边界：完整清理仍可能持续较久，因此超时上限为 10 分钟，管理员仍应在低峰期执行。
+- 状态：已修复；各清理目标按 500 行短事务分批删除，仍只由管理员显式触发。
 
 ### P3-01：前端依赖声明包含 `latest`
 
 - 严重级别：P3
 - 置信度：高
-- 位置：`dashboard/frontend/package.json:15-48`
-- 证据：多个运行时和开发依赖使用 `latest`；当前 lockfile 和 CI 的 `--frozen-lockfile` 可以复现现有安装，但主动更新依赖时范围不够可控。
-- 影响：未来刷新 lockfile 可能一次跨越破坏性版本，增加不可预期回归。
-- 建议：首版 tag 前保留当前 lockfile；后续把直接运行时依赖固定到明确 semver 范围，并使用 Dependabot/Renovate 小批量升级。
-- 状态：开放；低风险维护项。
+- 位置：`dashboard/frontend/package.json`、`dashboard/frontend/pnpm-lock.yaml`
+- 修复：所有直接运行时和开发依赖均固定到当前已验证的精确版本；CI 继续使用 frozen lockfile。
+- 状态：已修复；所有直接前端依赖均固定到当前 lockfile 的精确版本。
 
 ### P3-02：npm 审计报告 React Router RSC 公告
 
@@ -206,5 +201,4 @@ SQLite 查询计划已确认个人查询、全服排行、指定服务器排行�
 1. 清空现有开发 Stats DB，让插件以最新初始迁移重新创建数据库并确认 31 个索引。
 2. 运行一次完整聚合，记录耗时、聚合行数、Stats DB 与 Dashboard DB 大小。
 3. 在低峰期用少量到期测试数据验证清理预览和删除，不要首次就清理大量历史数据。
-4. 公网 Nginx 增加公开统计 API 的温和限流。
-5. 综合服务器试运行 7–14 天后复查：采集保存耗时、聚合耗时、Dashboard p95、数据库增长和 A2S 失败率。
+4. 综合服务器试运行 7–14 天后复查：采集保存耗时、聚合耗时、Dashboard p95、数据库增长和 A2S 失败率。
