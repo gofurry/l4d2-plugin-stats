@@ -16,7 +16,7 @@ func TestDashboardInitialSchemaAndManagement(t *testing.T) {
 	}
 	defer dashboard.Close()
 	version, err := dashboard.MigrationVersion(ctx)
-	if err != nil || version != 7 {
+	if err != nil || version != 8 {
 		t.Fatalf("migration version=%d err=%v", version, err)
 	}
 	site, err := dashboard.Site(ctx)
@@ -169,5 +169,29 @@ func TestDashboardAggregateFiltersAreAppliedByStore(t *testing.T) {
 	}
 	if len(rows) != 1 || rows[0].Day != 20 || rows[0].ServerKey != "two" || rows[0].Kind != "activity" {
 		t.Fatalf("filtered aggregate rows=%#v", rows)
+	}
+	lifetime, err := dashboard.ListAggregateRows(ctx, AggregateFilter{Grain: AggregateGrainLifetime, Kinds: []string{"activity"}, SteamID: "a", ServerKey: "two"})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(lifetime) != 1 || lifetime[0].Day != 0 || lifetime[0].Metrics["active_play_seconds"] != 20 {
+		t.Fatalf("lifetime aggregate rows=%#v", lifetime)
+	}
+	monthly, err := dashboard.ListAggregateRows(ctx, AggregateFilter{Grain: AggregateGrainMonthly, Kinds: []string{"activity"}, SteamID: "a"})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(monthly) != 2 || monthly[0].Metrics["active_play_seconds"]+monthly[1].Metrics["active_play_seconds"] != 30 {
+		t.Fatalf("monthly aggregate rows=%#v", monthly)
+	}
+	if err := dashboard.ApplyAggregateChanges(ctx, AggregateChangeSet{
+		Days: []int64{20}, SourceRows: 3, SourceWatermark: 110,
+		Rows: []AggregateRow{{Kind: "activity", Day: 20, ServerKey: "two", SteamID: "a", Metrics: map[string]int64{"active_play_seconds": 25}}},
+	}); err != nil {
+		t.Fatal(err)
+	}
+	lifetime, err = dashboard.ListAggregateRows(ctx, AggregateFilter{Grain: AggregateGrainLifetime, Kinds: []string{"activity"}, SteamID: "a", ServerKey: "two"})
+	if err != nil || len(lifetime) != 1 || lifetime[0].Metrics["active_play_seconds"] != 25 {
+		t.Fatalf("adjusted lifetime aggregate rows=%#v err=%v", lifetime, err)
 	}
 }

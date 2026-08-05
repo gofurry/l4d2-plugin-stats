@@ -15,6 +15,25 @@ type AdminAccount struct {
 	PasswordChangedAt int64  `json:"password_changed_at"`
 }
 
+type AggregateLifetimeRow struct {
+	Kind        string `json:"kind"`
+	ServerKey   string `json:"server_key"`
+	SteamID     string `json:"steam_id"`
+	Mode        string `json:"mode"`
+	Dimension   string `json:"dimension"`
+	MetricsJson string `json:"metrics_json"`
+}
+
+type AggregateMonthlyRow struct {
+	Kind        string `json:"kind"`
+	Month       int64  `json:"month"`
+	ServerKey   string `json:"server_key"`
+	SteamID     string `json:"steam_id"`
+	Mode        string `json:"mode"`
+	Dimension   string `json:"dimension"`
+	MetricsJson string `json:"metrics_json"`
+}
+
 type AggregateRow struct {
 	Kind        string `json:"kind"`
 	Day         int64  `json:"day"`

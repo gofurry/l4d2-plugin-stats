@@ -193,7 +193,7 @@ func (s *RankingService) storeCache(key string, page store.RankingPage, now time
 }
 
 func (s *RankingService) Servers(ctx context.Context) ([]string, error) {
-	rows, err := s.dashboard.ListAggregateRows(ctx, store.AggregateFilter{Kinds: []string{"activity"}})
+	rows, err := s.dashboard.ListAggregateRows(ctx, store.AggregateFilter{Grain: store.AggregateGrainLifetime, Kinds: []string{"activity"}})
 	if err != nil {
 		return nil, err
 	}
@@ -229,7 +229,11 @@ func (s *RankingService) load(ctx context.Context, query store.RankingQuery) (st
 	if query.Cutoff > 0 {
 		cutoffDay = query.Cutoff / 86400
 	}
-	rows, err := s.dashboard.ListAggregateRows(ctx, store.AggregateFilter{Kinds: definition.kinds, ServerKey: query.ServerKey, CutoffDay: cutoffDay})
+	grain := store.AggregateGrainDaily
+	if cutoffDay == 0 {
+		grain = store.AggregateGrainLifetime
+	}
+	rows, err := s.dashboard.ListAggregateRows(ctx, store.AggregateFilter{Grain: grain, Kinds: definition.kinds, ServerKey: query.ServerKey, CutoffDay: cutoffDay})
 	if err != nil {
 		return store.RankingPage{}, err
 	}

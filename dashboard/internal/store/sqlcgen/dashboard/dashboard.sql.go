@@ -51,14 +51,17 @@ func (q *Queries) CountAdminAccounts(ctx context.Context) (int64, error) {
 }
 
 const countAggregateRows = `-- name: CountAggregateRows :one
-SELECT COUNT(*) FROM aggregate_rows
+SELECT
+  (SELECT COUNT(*) FROM aggregate_rows) +
+  (SELECT COUNT(*) FROM aggregate_monthly_rows) +
+  (SELECT COUNT(*) FROM aggregate_lifetime_rows)
 `
 
 func (q *Queries) CountAggregateRows(ctx context.Context) (int64, error) {
 	row := q.db.QueryRowContext(ctx, countAggregateRows)
-	var count int64
-	err := row.Scan(&count)
-	return count, err
+	var column_1 int64
+	err := row.Scan(&column_1)
+	return column_1, err
 }
 
 const countAnnouncements = `-- name: CountAnnouncements :one

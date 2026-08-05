@@ -66,14 +66,18 @@ func (s *OverviewService) load(ctx context.Context) (store.Overview, error) {
 	if err != nil || status.State != "ready" {
 		return s.store.Overview(ctx, time.Now().Add(-7*24*time.Hour))
 	}
-	rows, err := s.aggregates.ListAggregateRows(ctx, store.AggregateFilter{})
+	rows, err := s.aggregates.ListAggregateRows(ctx, store.AggregateFilter{Grain: store.AggregateGrainLifetime})
+	if err != nil {
+		return store.Overview{}, err
+	}
+	cutoffDay := time.Now().UTC().Add(-7*24*time.Hour).Unix() / 86400
+	recentActivity, err := s.aggregates.ListAggregateRows(ctx, store.AggregateFilter{Grain: store.AggregateGrainDaily, Kinds: []string{"activity"}, CutoffDay: cutoffDay})
 	if err != nil {
 		return store.Overview{}, err
 	}
 	result := store.Overview{Generated: time.Now().UTC()}
 	players := make(map[string]struct{})
 	active := make(map[string]struct{})
-	cutoffDay := time.Now().UTC().Add(-7*24*time.Hour).Unix() / 86400
 	for _, row := range rows {
 		switch row.Kind {
 		case "activity":
@@ -81,9 +85,6 @@ func (s *OverviewService) load(ctx context.Context) (store.Overview, error) {
 				players[row.SteamID] = struct{}{}
 			}
 			result.Core.TotalActivePlaySeconds += row.Metrics["active_play_seconds"]
-			if row.Day >= cutoffDay && row.Metrics["active_play_seconds"] > 0 {
-				active[row.SteamID] = struct{}{}
-			}
 		case "run_result":
 			if row.Dimension == "pve" {
 				result.Core.CompletedPVERuns += row.Metrics["completed_runs"]
@@ -106,6 +107,11 @@ func (s *OverviewService) load(ctx context.Context) (store.Overview, error) {
 			result.Versus.HumanControlledKills += row.Metrics["human_special_kills"] + row.Metrics["human_tank_kills"]
 		case "versus_infected_class":
 			result.Versus.HumanSurvivorControls += row.Metrics["human_survivor_controls"]
+		}
+	}
+	for _, row := range recentActivity {
+		if row.SteamID != "" && row.Metrics["active_play_seconds"] > 0 {
+			active[row.SteamID] = struct{}{}
 		}
 	}
 	result.Core.TotalPlayers = int64(len(players))

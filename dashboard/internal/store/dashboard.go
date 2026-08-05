@@ -55,7 +55,12 @@ func OpenDashboard(ctx context.Context, path string) (DashboardDatabase, error) 
 		db.Close()
 		return nil, fmt.Errorf("migrate dashboard database: %w", err)
 	}
-	return &dashboardStore{db: db, q: dashsql.New(db), path: path}, nil
+	store := &dashboardStore{db: db, q: dashsql.New(db), path: path}
+	if err := store.ensureAggregateRollups(ctx); err != nil {
+		db.Close()
+		return nil, fmt.Errorf("initialize aggregate rollups: %w", err)
+	}
+	return store, nil
 }
 
 func (s *dashboardStore) Ping(ctx context.Context) error { return s.db.PingContext(ctx) }
@@ -99,6 +104,13 @@ func (s *dashboardStore) ApplyAggregateChanges(ctx context.Context, change Aggre
 	}
 	defer tx.Rollback()
 	q := s.q.WithTx(tx)
+	var previousRows []AggregateRow
+	if !change.Full {
+		previousRows, err = readAggregateRowsForDays(ctx, tx, change.Days)
+		if err != nil {
+			return fail(err)
+		}
+	}
 	if change.Full {
 		if err := q.DeleteAggregateRows(ctx); err != nil {
 			return fail(fmt.Errorf("clear aggregate rows: %w", err))
@@ -120,6 +132,24 @@ func (s *dashboardStore) ApplyAggregateChanges(ctx context.Context, change Aggre
 			Mode: row.Mode, Dimension: row.Dimension, MetricsJson: string(metrics),
 		}); err != nil {
 			return fail(fmt.Errorf("insert aggregate row: %w", err))
+		}
+	}
+	if change.Full {
+		if err := replaceAggregateRollups(ctx, tx, change.Rows); err != nil {
+			return fail(fmt.Errorf("replace aggregate rollups: %w", err))
+		}
+	} else {
+		monthly := make(map[aggregateSummaryKey]map[string]int64)
+		lifetime := make(map[aggregateSummaryKey]map[string]int64)
+		accumulateAggregateRows(monthly, previousRows, true, -1)
+		accumulateAggregateRows(monthly, change.Rows, true, 1)
+		accumulateAggregateRows(lifetime, previousRows, false, -1)
+		accumulateAggregateRows(lifetime, change.Rows, false, 1)
+		if err := applyAggregateRollupDeltas(ctx, tx, "aggregate_monthly_rows", "month", monthly); err != nil {
+			return fail(fmt.Errorf("update monthly aggregate rollups: %w", err))
+		}
+		if err := applyAggregateRollupDeltas(ctx, tx, "aggregate_lifetime_rows", "", lifetime); err != nil {
+			return fail(fmt.Errorf("update lifetime aggregate rollups: %w", err))
 		}
 	}
 	aggregateRows, err := q.CountAggregateRows(ctx)
@@ -198,7 +228,17 @@ func (s *dashboardStore) RetentionRunCount(ctx context.Context) (int64, error) {
 }
 
 func (s *dashboardStore) ListAggregateRows(ctx context.Context, filter AggregateFilter) ([]AggregateRow, error) {
-	query := `SELECT kind, day, server_key, steam_id, mode, dimension, metrics_json FROM aggregate_rows WHERE 1=1`
+	table, period := "aggregate_rows", "day"
+	switch filter.Grain {
+	case "", AggregateGrainDaily:
+	case AggregateGrainMonthly:
+		table, period = "aggregate_monthly_rows", "month"
+	case AggregateGrainLifetime:
+		table, period = "aggregate_lifetime_rows", "0"
+	default:
+		return nil, fmt.Errorf("unsupported aggregate grain %q", filter.Grain)
+	}
+	query := `SELECT kind, ` + period + ` AS day, server_key, steam_id, mode, dimension, metrics_json FROM ` + table + ` WHERE 1=1`
 	args := make([]any, 0, 4+len(filter.Kinds))
 	if filter.SteamID != "" {
 		query += " AND steam_id = ?"
@@ -212,8 +252,8 @@ func (s *dashboardStore) ListAggregateRows(ctx context.Context, filter Aggregate
 		query += " AND mode = ?"
 		args = append(args, filter.Mode)
 	}
-	if filter.CutoffDay > 0 {
-		query += " AND day >= ?"
+	if filter.CutoffDay > 0 && filter.Grain != AggregateGrainLifetime {
+		query += " AND " + period + " >= ?"
 		args = append(args, filter.CutoffDay)
 	}
 	if len(filter.Kinds) > 0 {
@@ -223,27 +263,9 @@ func (s *dashboardStore) ListAggregateRows(ctx context.Context, filter Aggregate
 		}
 	}
 	query += " ORDER BY day, kind, server_key, steam_id, mode, dimension"
-	rows, err := s.db.QueryContext(ctx, query, args...)
+	result, err := scanAggregateRows(ctx, s.db, query, args...)
 	if err != nil {
 		return nil, fmt.Errorf("list aggregate rows: %w", err)
-	}
-	defer rows.Close()
-	result := make([]AggregateRow, 0)
-	for rows.Next() {
-		var row AggregateRow
-		var metricsJSON string
-		if err := rows.Scan(&row.Kind, &row.Day, &row.ServerKey, &row.SteamID, &row.Mode, &row.Dimension, &metricsJSON); err != nil {
-			return nil, fmt.Errorf("scan aggregate row: %w", err)
-		}
-		metrics := make(map[string]int64)
-		if err := json.Unmarshal([]byte(metricsJSON), &metrics); err != nil {
-			return nil, fmt.Errorf("decode aggregate row %s/%d/%s: %w", row.Kind, row.Day, row.SteamID, err)
-		}
-		row.Metrics = metrics
-		result = append(result, row)
-	}
-	if err := rows.Err(); err != nil {
-		return nil, fmt.Errorf("iterate aggregate rows: %w", err)
 	}
 	return result, nil
 }

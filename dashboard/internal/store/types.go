@@ -320,6 +320,14 @@ type AggregateStatus struct {
 	LastError       string `json:"last_error,omitempty"`
 }
 
+type AggregateGrain string
+
+const (
+	AggregateGrainDaily    AggregateGrain = "daily"
+	AggregateGrainMonthly  AggregateGrain = "monthly"
+	AggregateGrainLifetime AggregateGrain = "lifetime"
+)
+
 type RetentionPlan struct {
 	GeneratedAt                int64  `json:"generated_at"`
 	DetailCutoff               int64  `json:"detail_cutoff"`
@@ -506,6 +514,7 @@ type AggregateRow struct {
 }
 
 type AggregateFilter struct {
+	Grain     AggregateGrain
 	Kinds     []string
 	SteamID   string
 	ServerKey string

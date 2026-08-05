@@ -45,7 +45,7 @@ func (s *PlayerService) Summary(ctx context.Context, steamID string) (*store.Pla
 		if err != nil || summary == nil || s.aggregates == nil {
 			return summary, err
 		}
-		rows, err := s.aggregates.ListAggregateRows(ctx, store.AggregateFilter{Kinds: []string{"activity"}, SteamID: steamID})
+		rows, err := s.aggregates.ListAggregateRows(ctx, store.AggregateFilter{Grain: store.AggregateGrainLifetime, Kinds: []string{"activity"}, SteamID: steamID})
 		if err != nil {
 			return nil, err
 		}
@@ -236,10 +236,15 @@ func (s *PlayerService) ActivityFiltered(ctx context.Context, steamID string, fi
 
 func (s *PlayerService) aggregateRows(ctx context.Context, steamID string, filter store.PlayerFilter, kinds []string) ([]store.AggregateRow, error) {
 	cutoffDay := int64(0)
+	grain := store.AggregateGrainDaily
 	if filter.Cutoff > 0 {
 		cutoffDay = filter.Cutoff / 86400
+	} else if len(kinds) == 1 && kinds[0] == "activity" {
+		grain = store.AggregateGrainMonthly
+	} else {
+		grain = store.AggregateGrainLifetime
 	}
-	rows, err := s.aggregates.ListAggregateRows(ctx, store.AggregateFilter{Kinds: kinds, SteamID: steamID, ServerKey: filter.ServerKey, CutoffDay: cutoffDay})
+	rows, err := s.aggregates.ListAggregateRows(ctx, store.AggregateFilter{Grain: grain, Kinds: kinds, SteamID: steamID, ServerKey: filter.ServerKey, CutoffDay: cutoffDay})
 	if err != nil {
 		return nil, err
 	}

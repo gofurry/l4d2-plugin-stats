@@ -222,7 +222,10 @@ DELETE FROM aggregate_rows;
 DELETE FROM aggregate_rows WHERE day = ?1;
 
 -- name: CountAggregateRows :one
-SELECT COUNT(*) FROM aggregate_rows;
+SELECT
+  (SELECT COUNT(*) FROM aggregate_rows) +
+  (SELECT COUNT(*) FROM aggregate_monthly_rows) +
+  (SELECT COUNT(*) FROM aggregate_lifetime_rows);
 
 -- name: InsertAggregateRow :exec
 INSERT INTO aggregate_rows (
