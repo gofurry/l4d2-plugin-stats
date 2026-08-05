@@ -12,7 +12,7 @@
 └─ logs/
 ```
 
-Dashboard 对 Stats DB 只读。SQLite 文件及目录只需可读；MySQL/PostgreSQL 使用只有 `SELECT` 权限的专用账号。Dashboard DB 和日志目录必须对实际运行用户可写。
+Dashboard 的日常查询与聚合对 Stats DB 只读。只使用展示功能时，SQLite 文件及目录只需可读，MySQL/PostgreSQL 可使用只有 `SELECT` 权限的专用账号。若要在管理页执行原始数据清理，SQLite 文件及目录需要可写；MySQL/PostgreSQL 的同一 DSN 需要对清理目标表具备 `DELETE` 权限。Dashboard DB 和日志目录必须对实际运行用户可写。
 
 ## 最小配置
 
@@ -106,4 +106,4 @@ curl -fsS http://127.0.0.1:18848/api/v1/health/ready
 
 `ready` 检查两个数据库和 Stats schema；A2S 故障不影响 liveness。Lumberjack 按大小、份数和保留天数轮转应用日志，启动错误仍进入 journald。
 
-升级前停止服务并备份二进制、配置和 Dashboard DB。回滚时恢复匹配的旧二进制和 Dashboard DB；Stats DB 只读，不参与 Dashboard 回滚。
+升级前停止服务并备份二进制、配置和 Dashboard DB。首次执行清理前还应完整备份 Stats DB；清理后的旧逐条 Session/比赛结果不能通过回滚 Dashboard 二进制恢复。

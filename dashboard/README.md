@@ -1,6 +1,6 @@
 # L4D2 Stats Dashboard
 
-`dashboard/` 是统计系统的只读展示端。Go + Fiber 提供 API，React 页面嵌入同一个二进制。Dashboard 自己的管理员、站点和服务器设置保存在独立的纯 Go SQLite 数据库中；采集器的 Stats DB 始终只读。
+`dashboard/` 是统计系统的展示端。Go + Fiber 提供 API，React 页面嵌入同一个二进制。Dashboard 自己的管理员、站点和服务器设置保存在独立的纯 Go SQLite 数据库中；日常查询与聚合只读 Stats DB，只有管理员明确确认原始数据清理时才临时打开维护连接。
 
 ## 已实现
 
@@ -55,7 +55,7 @@ monitor:
 
 相对路径以 `config.yaml` 所在目录为基准。超时、连接池和日志轮转参数均有安全默认值，可按 `config.example.yaml` 的注释选择性覆盖。
 
-SQLite Stats DB 会以只读模式打开。MySQL/PostgreSQL 应使用只有 `SELECT` 权限的专用账号。服务只检查 `lps_schema_migrations`，不会迁移或写入 Stats DB；公开查询不会读取 Session IP。
+SQLite Stats DB 的常规连接会以只读模式打开。MySQL/PostgreSQL 若只使用展示与聚合，可继续使用只有 `SELECT` 权限的账号；若要从管理页执行清理，该 DSN 还需要对清理目标表具备 `DELETE` 权限。服务不会迁移 Stats DB；公开查询不会读取 Session IP。
 
 ## 首次设置
 
