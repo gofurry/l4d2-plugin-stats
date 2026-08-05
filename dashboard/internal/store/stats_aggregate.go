@@ -369,56 +369,134 @@ func (s *statsStore) RetentionPlan(ctx context.Context, detailCutoff, sessionCut
 }
 
 func (s *statsStore) ApplyRetention(ctx context.Context, plan RetentionPlan) (RetentionResult, error) {
-	queryCtx, cancel := context.WithTimeout(ctx, maxDuration(s.timeout, 2*time.Minute))
+	queryCtx, cancel := context.WithTimeout(ctx, maxDuration(s.timeout, 10*time.Minute))
 	defer cancel()
-	tx, err := s.db.BeginTx(queryCtx, nil)
-	if err != nil {
-		return RetentionResult{}, fmt.Errorf("begin stats retention: %w", err)
-	}
-	defer tx.Rollback()
-	placeholder := "?"
-	if s.driver == "postgres" {
-		placeholder = "$1"
-	}
-	execDelete := func(query string, cutoff int64) (int64, error) {
-		result, err := tx.ExecContext(queryCtx, query, cutoff)
-		if err != nil {
-			return 0, err
-		}
-		return result.RowsAffected()
-	}
-	equipment, err := execDelete(fmt.Sprintf(`DELETE FROM lps_pve_segment_equipment_stats WHERE segment_id IN (SELECT segment_id FROM lps_player_segments WHERE ended_at IS NOT NULL AND ended_at < %s)`, placeholder), plan.DetailCutoff)
+	equipment, err := s.deleteRetentionBatches(queryCtx, retentionDeleteTarget{
+		table: "lps_pve_segment_equipment_stats", columns: []string{"segment_id", "equipment_id"},
+		selectSQL: `SELECT e.segment_id, e.equipment_id FROM lps_pve_segment_equipment_stats e JOIN lps_player_segments s ON s.segment_id=e.segment_id WHERE s.ended_at IS NOT NULL AND s.ended_at < %s ORDER BY e.segment_id, e.equipment_id LIMIT 500`,
+	}, plan.DetailCutoff)
 	if err != nil {
 		return RetentionResult{}, fmt.Errorf("delete equipment detail: %w", err)
 	}
-	survivorClasses, err := execDelete(fmt.Sprintf(`DELETE FROM lps_versus_survivor_infected_class_stats WHERE segment_id IN (SELECT segment_id FROM lps_player_segments WHERE ended_at IS NOT NULL AND ended_at < %s)`, placeholder), plan.DetailCutoff)
+	survivorClasses, err := s.deleteRetentionBatches(queryCtx, retentionDeleteTarget{
+		table: "lps_versus_survivor_infected_class_stats", columns: []string{"segment_id", "infected_class"},
+		selectSQL: `SELECT c.segment_id, c.infected_class FROM lps_versus_survivor_infected_class_stats c JOIN lps_player_segments s ON s.segment_id=c.segment_id WHERE s.ended_at IS NOT NULL AND s.ended_at < %s ORDER BY c.segment_id, c.infected_class LIMIT 500`,
+	}, plan.DetailCutoff)
 	if err != nil {
 		return RetentionResult{}, fmt.Errorf("delete versus survivor class detail: %w", err)
 	}
-	infectedClasses, err := execDelete(fmt.Sprintf(`DELETE FROM lps_versus_infected_class_stats WHERE segment_id IN (SELECT segment_id FROM lps_player_segments WHERE ended_at IS NOT NULL AND ended_at < %s)`, placeholder), plan.DetailCutoff)
+	infectedClasses, err := s.deleteRetentionBatches(queryCtx, retentionDeleteTarget{
+		table: "lps_versus_infected_class_stats", columns: []string{"segment_id", "infected_class"},
+		selectSQL: `SELECT c.segment_id, c.infected_class FROM lps_versus_infected_class_stats c JOIN lps_player_segments s ON s.segment_id=c.segment_id WHERE s.ended_at IS NOT NULL AND s.ended_at < %s ORDER BY c.segment_id, c.infected_class LIMIT 500`,
+	}, plan.DetailCutoff)
 	if err != nil {
 		return RetentionResult{}, fmt.Errorf("delete versus infected class detail: %w", err)
 	}
-	sessions, err := execDelete(fmt.Sprintf(`DELETE FROM lps_sessions WHERE ended_at IS NOT NULL AND ended_at < %s`, placeholder), plan.SessionCutoff)
+	sessions, err := s.deleteRetentionBatches(queryCtx, retentionDeleteTarget{
+		table: "lps_sessions", columns: []string{"session_id"},
+		selectSQL: `SELECT session_id FROM lps_sessions WHERE ended_at IS NOT NULL AND ended_at < %s ORDER BY session_id LIMIT 500`,
+	}, plan.SessionCutoff)
 	if err != nil {
 		return RetentionResult{}, fmt.Errorf("delete closed sessions: %w", err)
 	}
-	roundResults, err := execDelete(fmt.Sprintf(`DELETE FROM lps_versus_round_results WHERE finalized_at < %s`, placeholder), plan.ResultCutoff)
+	roundResults, err := s.deleteRetentionBatches(queryCtx, retentionDeleteTarget{
+		table: "lps_versus_round_results", columns: []string{"round_id"},
+		selectSQL: `SELECT round_id FROM lps_versus_round_results WHERE finalized_at < %s ORDER BY round_id LIMIT 500`,
+	}, plan.ResultCutoff)
 	if err != nil {
 		return RetentionResult{}, fmt.Errorf("delete versus round results: %w", err)
 	}
-	runResults, err := execDelete(fmt.Sprintf(`DELETE FROM lps_versus_run_results WHERE finalized_at IS NOT NULL AND finalized_at < %s`, placeholder), plan.ResultCutoff)
+	runResults, err := s.deleteRetentionBatches(queryCtx, retentionDeleteTarget{
+		table: "lps_versus_run_results", columns: []string{"run_id"},
+		selectSQL: `SELECT run_id FROM lps_versus_run_results WHERE finalized_at IS NOT NULL AND finalized_at < %s ORDER BY run_id LIMIT 500`,
+	}, plan.ResultCutoff)
 	if err != nil {
 		return RetentionResult{}, fmt.Errorf("delete versus run results: %w", err)
-	}
-	if err := tx.Commit(); err != nil {
-		return RetentionResult{}, fmt.Errorf("commit stats retention: %w", err)
 	}
 	return RetentionResult{
 		RunID: uuid.NewString(), ExecutedAt: time.Now().Unix(), EquipmentRows: equipment,
 		VersusClassRows: survivorClasses + infectedClasses, SessionRows: sessions,
 		VersusRoundResultRows: roundResults, VersusRunResultRows: runResults,
 	}, nil
+}
+
+type retentionDeleteTarget struct {
+	table     string
+	columns   []string
+	selectSQL string
+}
+
+func (s *statsStore) deleteRetentionBatches(ctx context.Context, target retentionDeleteTarget, cutoff int64) (int64, error) {
+	var total int64
+	for {
+		tx, err := s.db.BeginTx(ctx, nil)
+		if err != nil {
+			return total, err
+		}
+		placeholder := "?"
+		if s.driver == "postgres" {
+			placeholder = "$1"
+		}
+		rows, err := tx.QueryContext(ctx, fmt.Sprintf(target.selectSQL, placeholder), cutoff)
+		if err != nil {
+			tx.Rollback()
+			return total, err
+		}
+		keys := make([][]any, 0, 500)
+		for rows.Next() {
+			values := make([]any, len(target.columns))
+			destinations := make([]any, len(values))
+			for index := range values {
+				destinations[index] = &values[index]
+			}
+			if err := rows.Scan(destinations...); err != nil {
+				rows.Close()
+				tx.Rollback()
+				return total, err
+			}
+			keys = append(keys, values)
+		}
+		if err := rows.Close(); err != nil {
+			tx.Rollback()
+			return total, err
+		}
+		if len(keys) == 0 {
+			if err := tx.Commit(); err != nil {
+				return total, err
+			}
+			return total, nil
+		}
+		conditions := make([]string, 0, len(keys))
+		args := make([]any, 0, len(keys)*len(target.columns))
+		position := 1
+		for _, key := range keys {
+			parts := make([]string, len(target.columns))
+			for index, column := range target.columns {
+				marker := "?"
+				if s.driver == "postgres" {
+					marker = "$" + strconv.Itoa(position)
+				}
+				parts[index] = column + " = " + marker
+				args = append(args, key[index])
+				position++
+			}
+			conditions = append(conditions, "("+strings.Join(parts, " AND ")+")")
+		}
+		result, err := tx.ExecContext(ctx, `DELETE FROM `+target.table+` WHERE `+strings.Join(conditions, " OR "), args...)
+		if err != nil {
+			tx.Rollback()
+			return total, err
+		}
+		deleted, err := result.RowsAffected()
+		if err != nil {
+			tx.Rollback()
+			return total, err
+		}
+		if err := tx.Commit(); err != nil {
+			return total, err
+		}
+		total += deleted
+	}
 }
 
 func maxDuration(a, b time.Duration) time.Duration {
