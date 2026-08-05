@@ -14,12 +14,14 @@ type playerCacheEntry struct {
 	value   any
 	expires time.Time
 	owner   string
+	usedAt  time.Time
 }
 
 type PlayerService struct {
 	stats    store.StatsStore
 	ttl      time.Duration
 	capacity int
+	entries  int
 	mu       sync.Mutex
 	cache    map[string]playerCacheEntry
 	players  map[string]time.Time
@@ -27,7 +29,7 @@ type PlayerService struct {
 }
 
 func NewPlayerService(stats store.StatsStore) *PlayerService {
-	return &PlayerService{stats: stats, ttl: 60 * time.Second, capacity: 256, cache: make(map[string]playerCacheEntry), players: make(map[string]time.Time)}
+	return &PlayerService{stats: stats, ttl: 60 * time.Second, capacity: 256, entries: 1024, cache: make(map[string]playerCacheEntry), players: make(map[string]time.Time)}
 }
 
 func (s *PlayerService) Summary(ctx context.Context, steamID string) (*store.PlayerSummary, error) {
@@ -103,6 +105,8 @@ func (s *PlayerService) cached(ctx context.Context, steamID, key string, load fu
 	s.mu.Lock()
 	entry, ok := s.cache[key]
 	if ok && now.Before(entry.expires) {
+		entry.usedAt = now
+		s.cache[key] = entry
 		s.players[steamID] = now
 	}
 	s.mu.Unlock()
@@ -155,6 +159,16 @@ func (s *PlayerService) put(key, steamID string, value any) {
 		}
 		delete(s.players, oldestPlayer)
 	}
+	for len(s.cache) >= s.entries {
+		oldestKey := ""
+		oldestAt := now
+		for cacheKey, entry := range s.cache {
+			if oldestKey == "" || entry.usedAt.Before(oldestAt) {
+				oldestKey, oldestAt = cacheKey, entry.usedAt
+			}
+		}
+		delete(s.cache, oldestKey)
+	}
 	s.players[steamID] = now
-	s.cache[key] = playerCacheEntry{value: value, expires: now.Add(s.ttl), owner: steamID}
+	s.cache[key] = playerCacheEntry{value: value, expires: now.Add(s.ttl), owner: steamID, usedAt: now}
 }

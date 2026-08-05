@@ -170,3 +170,25 @@ func TestProviderRetriesFailuresUsingConfiguredCount(t *testing.T) {
 		t.Fatalf("Statuses()=%#v err=%v calls=%d", statuses, err, client.calls)
 	}
 }
+
+func TestProviderPurgesRemovedAndChangedServerCacheEntries(t *testing.T) {
+	dashboard := &fakeDashboard{servers: []store.GameServer{{
+		ID: "main", DisplayName: "Main", Address: "127.0.0.1:27015", Enabled: true,
+	}}}
+	provider := NewProvider(dashboard, &fakeClient{})
+	if _, err := provider.Statuses(context.Background()); err != nil {
+		t.Fatal(err)
+	}
+	dashboard.servers[0].Address = "127.0.0.1:27016"
+	if _, err := provider.Statuses(context.Background()); err != nil {
+		t.Fatal(err)
+	}
+	provider.mu.RLock()
+	defer provider.mu.RUnlock()
+	if len(provider.entries) != 1 {
+		t.Fatalf("A2S cache entries = %d, want 1", len(provider.entries))
+	}
+	if _, exists := provider.entries["main\x00127.0.0.1:27015"]; exists {
+		t.Fatal("stale A2S cache entry was retained")
+	}
+}

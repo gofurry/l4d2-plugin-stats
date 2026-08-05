@@ -235,6 +235,7 @@ func (r *adminRoutes) updateServer(c fiber.Ctx) error {
 	} else if err != nil {
 		return sendError(c, 409, "server_update_failed", "server could not be updated")
 	}
+	r.status.InvalidateServer(id)
 	r.logger.Info("game server updated", zap.String("server_id", server.ID), zap.String("request_id", c.RequestID()))
 	return sendData(c, 200, server)
 }
@@ -320,6 +321,7 @@ func (r *adminRoutes) deleteServer(c fiber.Ctx) error {
 	} else if err != nil {
 		return sendError(c, 500, "server_delete_failed", "server could not be deleted")
 	}
+	r.status.InvalidateServer(id)
 	r.logger.Info("game server deleted", zap.String("server_id", id), zap.String("request_id", c.RequestID()))
 	return sendData(c, 200, fiber.Map{"deleted": true})
 }

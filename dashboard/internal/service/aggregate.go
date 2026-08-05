@@ -14,6 +14,7 @@ import (
 )
 
 const aggregateRefreshInterval = 10 * time.Minute
+const rankingCacheCapacity = 128
 
 type AggregateService struct {
 	dashboard store.DashboardAggregateStore
@@ -85,6 +86,7 @@ func (s *AggregateService) Status(ctx context.Context) (store.AggregateStatus, e
 type rankingCacheEntry struct {
 	value   store.RankingPage
 	expires time.Time
+	usedAt  time.Time
 }
 
 type RankingService struct {
@@ -106,6 +108,10 @@ func (s *RankingService) List(ctx context.Context, query store.RankingQuery) (st
 	now := time.Now()
 	s.mu.Lock()
 	cached, ok := s.cache[key]
+	if ok && now.Before(cached.expires) {
+		cached.usedAt = now
+		s.cache[key] = cached
+	}
 	s.mu.Unlock()
 	if ok && now.Before(cached.expires) {
 		return cached.value, nil
@@ -115,22 +121,34 @@ func (s *RankingService) List(ctx context.Context, query store.RankingQuery) (st
 		if err != nil {
 			return store.RankingPage{}, err
 		}
-		s.mu.Lock()
-		if len(s.cache) > 128 {
-			for cacheKey, entry := range s.cache {
-				if time.Now().After(entry.expires) {
-					delete(s.cache, cacheKey)
-				}
-			}
-		}
-		s.cache[key] = rankingCacheEntry{value: page, expires: time.Now().Add(60 * time.Second)}
-		s.mu.Unlock()
+		s.storeCache(key, page, time.Now())
 		return page, nil
 	})
 	if err != nil {
 		return store.RankingPage{}, err
 	}
 	return result.(store.RankingPage), nil
+}
+
+func (s *RankingService) storeCache(key string, page store.RankingPage, now time.Time) {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	for cacheKey, entry := range s.cache {
+		if now.After(entry.expires) {
+			delete(s.cache, cacheKey)
+		}
+	}
+	for len(s.cache) >= rankingCacheCapacity {
+		oldestKey := ""
+		oldestAt := now
+		for cacheKey, entry := range s.cache {
+			if oldestKey == "" || entry.usedAt.Before(oldestAt) {
+				oldestKey, oldestAt = cacheKey, entry.usedAt
+			}
+		}
+		delete(s.cache, oldestKey)
+	}
+	s.cache[key] = rankingCacheEntry{value: page, expires: now.Add(60 * time.Second), usedAt: now}
 }
 
 func (s *RankingService) Servers(ctx context.Context) ([]string, error) {

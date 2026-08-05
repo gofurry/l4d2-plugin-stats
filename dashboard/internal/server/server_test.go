@@ -233,6 +233,7 @@ func (testStatusProvider) LastStatus(context.Context, string) (store.ServerStatu
 func (testStatusProvider) RefreshStatus(context.Context, string) (store.ServerStatus, error) {
 	return store.ServerStatus{ServerID: "main", DisplayName: "Main", Address: "127.0.0.1:27015", Online: true}, nil
 }
+func (testStatusProvider) InvalidateServer(string) {}
 
 func TestAPIRoutesStayJSONAndSPAOnlyFallsBackForClientRoutes(t *testing.T) {
 	cfg := config.Default()

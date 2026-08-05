@@ -509,4 +509,5 @@ type ServerStatusProvider interface {
 	Statuses(context.Context) ([]ServerStatus, error)
 	LastStatus(context.Context, string) (ServerStatus, bool, error)
 	RefreshStatus(context.Context, string) (ServerStatus, error)
+	InvalidateServer(string)
 }
