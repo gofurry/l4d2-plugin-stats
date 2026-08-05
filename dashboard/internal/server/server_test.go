@@ -13,6 +13,7 @@ import (
 	"testing/fstest"
 	"time"
 
+	"github.com/gofiber/fiber/v3"
 	"github.com/gofurry/l4d2-plugin-stats/dashboard/internal/auth"
 	"github.com/gofurry/l4d2-plugin-stats/dashboard/internal/config"
 	"github.com/gofurry/l4d2-plugin-stats/dashboard/internal/service"
@@ -63,9 +64,12 @@ func TestAdminJWTAndFiberCSRFProtectWrites(t *testing.T) {
 	}
 	loginRequest := httptest.NewRequest(http.MethodPost, "/api/v1/admin/auth/login", strings.NewReader(`{"username":"admin","password":"correct horse battery staple"}`))
 	loginRequest.Header.Set("Content-Type", "application/json")
-	loginResponse, err := app.Test(loginRequest)
-	if err != nil || loginResponse.StatusCode != http.StatusOK {
-		t.Fatalf("login status=%d err=%v", loginResponse.StatusCode, err)
+	loginResponse, err := app.Test(loginRequest, fiber.TestConfig{Timeout: 15 * time.Second, FailOnTimeout: true})
+	if err != nil {
+		t.Fatalf("login request: %v", err)
+	}
+	if loginResponse.StatusCode != http.StatusOK {
+		t.Fatalf("login status=%d", loginResponse.StatusCode)
 	}
 	var adminAuthCookie *http.Cookie
 	for _, cookie := range loginResponse.Cookies() {

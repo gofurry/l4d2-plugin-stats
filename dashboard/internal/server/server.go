@@ -39,6 +39,12 @@ func New(cfg *config.Config, deps Dependencies) *fiber.App {
 		AppName: "L4D2 Stats", BodyLimit: 1024 * 1024,
 		ReadTimeout: cfg.Server.ReadTimeout.Value(), WriteTimeout: cfg.Server.WriteTimeout.Value(),
 		IdleTimeout: cfg.Server.IdleTimeout.Value(),
+		// The documented deployment keeps Fiber on loopback behind a local Nginx
+		// process. Trust X-Real-IP only from loopback so login/setup throttling sees
+		// the real client without allowing direct clients to spoof their address.
+		TrustProxy:       true,
+		ProxyHeader:      "X-Real-IP",
+		TrustProxyConfig: fiber.TrustProxyConfig{Loopback: true},
 		ErrorHandler: func(c fiber.Ctx, err error) error {
 			status := fiber.StatusInternalServerError
 			if fiberErr, ok := errors.AsType[*fiber.Error](err); ok {
