@@ -8,6 +8,7 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
+	"strings"
 	"time"
 
 	dashboarddb "github.com/gofurry/l4d2-plugin-stats/dashboard/database/dashboard"
@@ -197,31 +198,52 @@ func (s *dashboardStore) RetentionRunCount(ctx context.Context) (int64, error) {
 }
 
 func (s *dashboardStore) ListAggregateRows(ctx context.Context, filter AggregateFilter) ([]AggregateRow, error) {
-	rows, err := s.q.ListAggregateRows(ctx, dashsql.ListAggregateRowsParams{
-		Column1: filter.SteamID, Column2: filter.ServerKey, Column3: filter.Mode, Column4: filter.CutoffDay,
-	})
+	query := `SELECT kind, day, server_key, steam_id, mode, dimension, metrics_json FROM aggregate_rows WHERE 1=1`
+	args := make([]any, 0, 4+len(filter.Kinds))
+	if filter.SteamID != "" {
+		query += " AND steam_id = ?"
+		args = append(args, filter.SteamID)
+	}
+	if filter.ServerKey != "" {
+		query += " AND server_key = ?"
+		args = append(args, filter.ServerKey)
+	}
+	if filter.Mode != "" {
+		query += " AND mode = ?"
+		args = append(args, filter.Mode)
+	}
+	if filter.CutoffDay > 0 {
+		query += " AND day >= ?"
+		args = append(args, filter.CutoffDay)
+	}
+	if len(filter.Kinds) > 0 {
+		query += " AND kind IN (" + strings.TrimSuffix(strings.Repeat("?,", len(filter.Kinds)), ",") + ")"
+		for _, kind := range filter.Kinds {
+			args = append(args, kind)
+		}
+	}
+	query += " ORDER BY day, kind, server_key, steam_id, mode, dimension"
+	rows, err := s.db.QueryContext(ctx, query, args...)
 	if err != nil {
 		return nil, fmt.Errorf("list aggregate rows: %w", err)
 	}
-	kinds := make(map[string]struct{}, len(filter.Kinds))
-	for _, kind := range filter.Kinds {
-		kinds[kind] = struct{}{}
-	}
-	result := make([]AggregateRow, 0, len(rows))
-	for _, row := range rows {
-		if len(kinds) > 0 {
-			if _, ok := kinds[row.Kind]; !ok {
-				continue
-			}
+	defer rows.Close()
+	result := make([]AggregateRow, 0)
+	for rows.Next() {
+		var row AggregateRow
+		var metricsJSON string
+		if err := rows.Scan(&row.Kind, &row.Day, &row.ServerKey, &row.SteamID, &row.Mode, &row.Dimension, &metricsJSON); err != nil {
+			return nil, fmt.Errorf("scan aggregate row: %w", err)
 		}
 		metrics := make(map[string]int64)
-		if err := json.Unmarshal([]byte(row.MetricsJson), &metrics); err != nil {
+		if err := json.Unmarshal([]byte(metricsJSON), &metrics); err != nil {
 			return nil, fmt.Errorf("decode aggregate row %s/%d/%s: %w", row.Kind, row.Day, row.SteamID, err)
 		}
-		result = append(result, AggregateRow{
-			Kind: row.Kind, Day: row.Day, ServerKey: row.ServerKey, SteamID: row.SteamID,
-			Mode: row.Mode, Dimension: row.Dimension, Metrics: metrics,
-		})
+		row.Metrics = metrics
+		result = append(result, row)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, fmt.Errorf("iterate aggregate rows: %w", err)
 	}
 	return result, nil
 }

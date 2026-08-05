@@ -16,7 +16,7 @@ func TestDashboardInitialSchemaAndManagement(t *testing.T) {
 	}
 	defer dashboard.Close()
 	version, err := dashboard.MigrationVersion(ctx)
-	if err != nil || version != 6 {
+	if err != nil || version != 7 {
 		t.Fatalf("migration version=%d err=%v", version, err)
 	}
 	site, err := dashboard.Site(ctx)
@@ -142,5 +142,32 @@ func TestDashboardAnnouncementLifecycle(t *testing.T) {
 	page, err = dashboard.ListAnnouncements(ctx, AnnouncementFilter{Limit: 20})
 	if err != nil || page.Total != 0 || len(page.Items) != 0 {
 		t.Fatalf("empty page=%#v err=%v", page, err)
+	}
+}
+
+func TestDashboardAggregateFiltersAreAppliedByStore(t *testing.T) {
+	ctx := context.Background()
+	dashboard, err := OpenDashboard(ctx, filepath.Join(t.TempDir(), "dashboard.db"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer dashboard.Close()
+	change := AggregateChangeSet{
+		Full: true, SourceRows: 3, SourceWatermark: 100,
+		Rows: []AggregateRow{
+			{Kind: "activity", Day: 10, ServerKey: "one", SteamID: "a", Metrics: map[string]int64{"active_play_seconds": 10}},
+			{Kind: "activity", Day: 20, ServerKey: "two", SteamID: "a", Metrics: map[string]int64{"active_play_seconds": 20}},
+			{Kind: "pve_combat", Day: 20, ServerKey: "one", SteamID: "b", Mode: "coop", Metrics: map[string]int64{"common_kills": 30}},
+		},
+	}
+	if err := dashboard.ApplyAggregateChanges(ctx, change); err != nil {
+		t.Fatal(err)
+	}
+	rows, err := dashboard.ListAggregateRows(ctx, AggregateFilter{Kinds: []string{"activity"}, SteamID: "a", ServerKey: "two", CutoffDay: 15})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(rows) != 1 || rows[0].Day != 20 || rows[0].ServerKey != "two" || rows[0].Kind != "activity" {
+		t.Fatalf("filtered aggregate rows=%#v", rows)
 	}
 }

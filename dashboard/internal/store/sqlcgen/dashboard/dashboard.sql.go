@@ -595,59 +595,6 @@ func (q *Queries) InsertAggregateRow(ctx context.Context, arg InsertAggregateRow
 	return err
 }
 
-const listAggregateRows = `-- name: ListAggregateRows :many
-SELECT kind, day, server_key, steam_id, mode, dimension, metrics_json
-FROM aggregate_rows
-WHERE (?1 = '' OR steam_id = ?1)
-  AND (?2 = '' OR server_key = ?2)
-  AND (?3 = '' OR mode = ?3)
-  AND (?4 = 0 OR day >= ?4)
-ORDER BY day, kind, server_key, steam_id, mode, dimension
-`
-
-type ListAggregateRowsParams struct {
-	Column1 interface{} `json:"column_1"`
-	Column2 interface{} `json:"column_2"`
-	Column3 interface{} `json:"column_3"`
-	Column4 interface{} `json:"column_4"`
-}
-
-func (q *Queries) ListAggregateRows(ctx context.Context, arg ListAggregateRowsParams) ([]AggregateRow, error) {
-	rows, err := q.db.QueryContext(ctx, listAggregateRows,
-		arg.Column1,
-		arg.Column2,
-		arg.Column3,
-		arg.Column4,
-	)
-	if err != nil {
-		return nil, err
-	}
-	defer rows.Close()
-	items := []AggregateRow{}
-	for rows.Next() {
-		var i AggregateRow
-		if err := rows.Scan(
-			&i.Kind,
-			&i.Day,
-			&i.ServerKey,
-			&i.SteamID,
-			&i.Mode,
-			&i.Dimension,
-			&i.MetricsJson,
-		); err != nil {
-			return nil, err
-		}
-		items = append(items, i)
-	}
-	if err := rows.Close(); err != nil {
-		return nil, err
-	}
-	if err := rows.Err(); err != nil {
-		return nil, err
-	}
-	return items, nil
-}
-
 const listAnnouncementYears = `-- name: ListAnnouncementYears :many
 SELECT DISTINCT CAST(strftime('%Y', updated_at, 'unixepoch') AS INTEGER) AS year
 FROM announcements

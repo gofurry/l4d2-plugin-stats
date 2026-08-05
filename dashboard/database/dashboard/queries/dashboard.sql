@@ -229,15 +229,6 @@ INSERT INTO aggregate_rows (
   kind, day, server_key, steam_id, mode, dimension, metrics_json
 ) VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7);
 
--- name: ListAggregateRows :many
-SELECT kind, day, server_key, steam_id, mode, dimension, metrics_json
-FROM aggregate_rows
-WHERE (?1 = '' OR steam_id = ?1)
-  AND (?2 = '' OR server_key = ?2)
-  AND (?3 = '' OR mode = ?3)
-  AND (?4 = 0 OR day >= ?4)
-ORDER BY day, kind, server_key, steam_id, mode, dimension;
-
 -- name: GetDataMaintenanceSettings :one
 SELECT aggregate_interval_minutes, detail_retention_days,
        session_retention_days, result_retention_days, updated_at

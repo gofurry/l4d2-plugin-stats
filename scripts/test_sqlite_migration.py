@@ -639,7 +639,7 @@ def main() -> None:
         }
 
         assert len(tables) == 16, tables
-        assert len(indexes) == 9, indexes
+        assert len(indexes) == 31, indexes
         status = database.execute(
             "SELECT status FROM lps_server_boots WHERE boot_id = 'test-01:1:a'"
         ).fetchone()
