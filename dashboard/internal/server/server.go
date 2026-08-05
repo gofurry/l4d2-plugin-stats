@@ -76,6 +76,7 @@ func New(cfg *config.Config, deps Dependencies) *fiber.App {
 		deps.Logger.Info("http request", zap.String("request_id", c.RequestID()), zap.String("method", c.Method()), zap.String("path", c.Path()), zap.Int("status", c.Response().StatusCode()), zap.Duration("duration", time.Since(started)))
 		return err
 	})
+	app.Use(siteRateLimiter())
 
 	api := app.Group("/api/v1")
 	api.Get("/health/live", func(c fiber.Ctx) error {
