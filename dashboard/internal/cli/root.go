@@ -26,7 +26,7 @@ import (
 	"go.uber.org/zap"
 )
 
-var Version = "0.9.1-dev"
+var Version = "0.9.2-dev"
 
 type rootOptions struct{ configPath string }
 
@@ -79,16 +79,17 @@ func serveCommand(options *rootOptions) *cobra.Command {
 		if err != nil {
 			return fmt.Errorf("open embedded frontend: %w", err)
 		}
-		overview := service.NewOverviewService(stats, 60*time.Second)
-		players := service.NewPlayerService(stats)
+		overview := service.NewOverviewService(stats, 60*time.Second, dashboard)
+		players := service.NewPlayerService(stats, dashboard)
 		aggregates := service.NewAggregateService(dashboard, stats, logger)
+		dataMaintenance := service.NewDataMaintenanceService(dashboard, stats, aggregates, cfg.StatsDatabase, cfg.Logging.File, logger)
 		rankings := service.NewRankingService(dashboard, stats)
 		runCtx, stopBackground := context.WithCancel(context.Background())
 		defer stopBackground()
 		aggregates.Start(runCtx)
 		a2sClient := a2s.SteamClient{}
 		status := a2s.NewProvider(dashboard, a2sClient)
-		app := server.New(cfg, server.Dependencies{Dashboard: dashboard, Stats: stats, Overview: overview, Status: status, Players: players, Rankings: rankings, Auth: authService, Logger: logger, Assets: assets})
+		app := server.New(cfg, server.Dependencies{Dashboard: dashboard, Stats: stats, Overview: overview, Status: status, Players: players, Rankings: rankings, Data: dataMaintenance, Auth: authService, Logger: logger, Assets: assets})
 		logger.Info("dashboard starting", zap.String("listen", cfg.Server.Listen), zap.String("config", cfg.Path))
 		errCh := make(chan error, 1)
 		go func() { errCh <- app.Listen(cfg.Server.Listen, fiber.ListenConfig{DisableStartupMessage: true}) }()
@@ -176,7 +177,7 @@ func retentionCommand(options *rootOptions) *cobra.Command {
 		}
 		defer stats.Close()
 		now := time.Now()
-		plan, err := stats.RetentionPlan(ctx, now.AddDate(0, 0, -180).Unix(), now.AddDate(-1, 0, 0).Unix())
+		plan, err := stats.RetentionPlan(ctx, now.AddDate(0, 0, -180).Unix(), now.AddDate(-1, 0, 0).Unix(), now.AddDate(-1, 0, 0).Unix())
 		if err != nil {
 			return err
 		}

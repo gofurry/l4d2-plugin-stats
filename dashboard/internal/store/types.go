@@ -23,6 +23,7 @@ type Site struct {
 	Links              []FooterLink `json:"footer_links"`
 	SteamOpenIDEnabled bool         `json:"steam_openid_enabled"`
 	A2SRefreshSeconds  int64        `json:"a2s_refresh_seconds"`
+	Documents          []string     `json:"site_documents"`
 	Configured         bool         `json:"configured"`
 }
 
@@ -37,7 +38,17 @@ type SiteSettings struct {
 	A2SRefreshSeconds  int64        `json:"a2s_refresh_seconds"`
 	A2SJitterSeconds   int64        `json:"a2s_jitter_seconds"`
 	A2SRetryCount      int64        `json:"a2s_retry_count"`
+	SEOEnabled         bool         `json:"seo_enabled"`
+	SEODescription     string       `json:"seo_description"`
+	SEOImageURL        string       `json:"seo_image_url"`
 	Links              []FooterLink `json:"footer_links"`
+}
+
+type SiteDocument struct {
+	Key             string `json:"key"`
+	Enabled         bool   `json:"enabled"`
+	ContentMarkdown string `json:"content_markdown"`
+	UpdatedAt       int64  `json:"updated_at"`
 }
 
 type GameServer struct {
@@ -71,6 +82,13 @@ type AnnouncementPage struct {
 	Total int64          `json:"total"`
 	Page  int            `json:"page"`
 	Limit int            `json:"limit"`
+}
+
+type AnnouncementFilter struct {
+	Title  string
+	Year   int
+	Limit  int32
+	Offset int32
 }
 
 type PlayerSummary struct {
@@ -290,23 +308,64 @@ type RankingQuery struct {
 }
 
 type AggregateStatus struct {
-	State          string `json:"state"`
-	LastStartedAt  int64  `json:"last_started_at"`
-	LastFinishedAt int64  `json:"last_finished_at"`
-	SourceRows     int64  `json:"source_rows"`
-	AggregateRows  int64  `json:"aggregate_rows"`
-	LastError      string `json:"last_error,omitempty"`
+	State           string `json:"state"`
+	LastStartedAt   int64  `json:"last_started_at"`
+	LastFinishedAt  int64  `json:"last_finished_at"`
+	SourceRows      int64  `json:"source_rows"`
+	AggregateRows   int64  `json:"aggregate_rows"`
+	SourceWatermark int64  `json:"source_watermark"`
+	LastDurationMS  int64  `json:"last_duration_ms"`
+	LastChangedDays int64  `json:"last_changed_days"`
+	LastBuildMode   string `json:"last_build_mode"`
+	LastError       string `json:"last_error,omitempty"`
 }
 
+type AggregateGrain string
+
+const (
+	AggregateGrainDaily    AggregateGrain = "daily"
+	AggregateGrainMonthly  AggregateGrain = "monthly"
+	AggregateGrainLifetime AggregateGrain = "lifetime"
+)
+
 type RetentionPlan struct {
-	GeneratedAt             int64 `json:"generated_at"`
-	DetailCutoff            int64 `json:"detail_cutoff"`
-	SegmentCutoff           int64 `json:"segment_cutoff"`
-	EquipmentRowsEligible   int64 `json:"equipment_rows_eligible"`
-	VersusClassRowsEligible int64 `json:"versus_class_rows_eligible"`
-	SegmentRowsEligible     int64 `json:"segment_rows_eligible"`
-	DeletionEnabled         bool  `json:"deletion_enabled"`
-	AggregateCoverageReady  bool  `json:"aggregate_coverage_ready"`
+	GeneratedAt                int64  `json:"generated_at"`
+	DetailCutoff               int64  `json:"detail_cutoff"`
+	SessionCutoff              int64  `json:"session_cutoff"`
+	ResultCutoff               int64  `json:"result_cutoff"`
+	EquipmentRowsEligible      int64  `json:"equipment_rows_eligible"`
+	VersusClassRowsEligible    int64  `json:"versus_class_rows_eligible"`
+	SessionRowsEligible        int64  `json:"session_rows_eligible"`
+	VersusRoundResultsEligible int64  `json:"versus_round_results_eligible"`
+	VersusRunResultsEligible   int64  `json:"versus_run_results_eligible"`
+	SourceWatermark            int64  `json:"source_watermark"`
+	PlanID                     string `json:"plan_id"`
+	DeletionEnabled            bool   `json:"deletion_enabled"`
+	AggregateCoverageReady     bool   `json:"aggregate_coverage_ready"`
+}
+
+type RetentionResult struct {
+	RunID                 string `json:"run_id"`
+	ExecutedAt            int64  `json:"executed_at"`
+	EquipmentRows         int64  `json:"equipment_rows"`
+	VersusClassRows       int64  `json:"versus_class_rows"`
+	SessionRows           int64  `json:"session_rows"`
+	VersusRoundResultRows int64  `json:"versus_round_result_rows"`
+	VersusRunResultRows   int64  `json:"versus_run_result_rows"`
+}
+
+type DataMaintenanceSettings struct {
+	AggregateIntervalMinutes int64 `json:"aggregate_interval_minutes"`
+	DetailRetentionDays      int64 `json:"detail_retention_days"`
+	SessionRetentionDays     int64 `json:"session_retention_days"`
+	ResultRetentionDays      int64 `json:"result_retention_days"`
+	UpdatedAt                int64 `json:"updated_at"`
+}
+
+type DatabaseUsage struct {
+	Driver   string `json:"driver"`
+	Bytes    int64  `json:"bytes"`
+	WALBytes int64  `json:"wal_bytes,omitempty"`
 }
 
 type PlayerSession struct {
@@ -404,6 +463,9 @@ type DashboardStore interface {
 	Site(context.Context) (Site, error)
 	SiteSettings(context.Context) (SiteSettings, error)
 	UpdateSite(context.Context, SiteSettings) error
+	ListSiteDocuments(context.Context, bool) ([]SiteDocument, error)
+	GetSiteDocument(context.Context, string, bool) (SiteDocument, error)
+	UpdateSiteDocument(context.Context, SiteDocument) (SiteDocument, error)
 	ListServers(context.Context) ([]GameServer, error)
 	CreateServer(context.Context, GameServer) (GameServer, error)
 	UpdateServer(context.Context, GameServer) error
@@ -415,7 +477,8 @@ type DashboardStore interface {
 	Admin(context.Context) (*AdminAccount, error)
 	UpdateAdminUsername(context.Context, string) error
 	UpdateAdminPassword(context.Context, string) error
-	ListAnnouncements(context.Context, int32, int32) (AnnouncementPage, error)
+	ListAnnouncements(context.Context, AnnouncementFilter) (AnnouncementPage, error)
+	ListAnnouncementYears(context.Context) ([]int, error)
 	GetAnnouncement(context.Context, string) (Announcement, error)
 	CreateAnnouncement(context.Context, Announcement) (Announcement, error)
 	UpdateAnnouncement(context.Context, Announcement) (Announcement, error)
@@ -426,7 +489,13 @@ type DashboardStore interface {
 type DashboardAggregateStore interface {
 	AggregateStatus(context.Context) (AggregateStatus, error)
 	ReplaceAggregateRows(context.Context, []AggregateRow, int64) error
+	ApplyAggregateChanges(context.Context, AggregateChangeSet) error
 	ListAggregateRows(context.Context, AggregateFilter) ([]AggregateRow, error)
+	DataMaintenanceSettings(context.Context) (DataMaintenanceSettings, error)
+	UpdateDataMaintenanceSettings(context.Context, DataMaintenanceSettings) error
+	DatabaseUsage(context.Context) (DatabaseUsage, error)
+	RecordRetentionRun(context.Context, RetentionPlan, RetentionResult) error
+	RetentionRunCount(context.Context) (int64, error)
 }
 
 type DashboardDatabase interface {
@@ -445,6 +514,7 @@ type AggregateRow struct {
 }
 
 type AggregateFilter struct {
+	Grain     AggregateGrain
 	Kinds     []string
 	SteamID   string
 	ServerKey string
@@ -468,7 +538,23 @@ type StatsStore interface {
 
 type StatsAggregateStore interface {
 	AggregateRows(context.Context) ([]AggregateRow, error)
-	RetentionPlan(context.Context, int64, int64) (RetentionPlan, error)
+	AggregateChanges(context.Context, int64) (AggregateChangeSet, error)
+	RetentionPlan(context.Context, int64, int64, int64) (RetentionPlan, error)
+	DatabaseUsage(context.Context) (DatabaseUsage, error)
+}
+
+type AggregateChangeSet struct {
+	Rows            []AggregateRow
+	Days            []int64
+	SourceWatermark int64
+	SourceRows      int64
+	Full            bool
+}
+
+type StatsMaintenanceStore interface {
+	StatsAggregateStore
+	ApplyRetention(context.Context, RetentionPlan) (RetentionResult, error)
+	Close() error
 }
 
 type StatsFilteredStore interface {
@@ -487,4 +573,5 @@ type ServerStatusProvider interface {
 	Statuses(context.Context) ([]ServerStatus, error)
 	LastStatus(context.Context, string) (ServerStatus, bool, error)
 	RefreshStatus(context.Context, string) (ServerStatus, error)
+	InvalidateServer(string)
 }

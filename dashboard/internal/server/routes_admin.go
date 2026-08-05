@@ -11,6 +11,7 @@ import (
 	"github.com/gofiber/fiber/v3"
 	csrfmw "github.com/gofiber/fiber/v3/middleware/csrf"
 	"github.com/gofurry/l4d2-plugin-stats/dashboard/internal/auth"
+	"github.com/gofurry/l4d2-plugin-stats/dashboard/internal/service"
 	"github.com/gofurry/l4d2-plugin-stats/dashboard/internal/store"
 	"github.com/google/uuid"
 	"go.uber.org/zap"
@@ -26,10 +27,11 @@ type adminRoutes struct {
 	logger                     *zap.Logger
 	loginLimiter, setupLimiter *auth.Limiter
 	monitor                    *runtimeMonitor
+	data                       *service.DataMaintenanceService
 }
 
-func registerAdminRoutes(api fiber.Router, dashboard store.DashboardStore, status store.ServerStatusProvider, authService *auth.Service, logger *zap.Logger, runtimeMonitor *runtimeMonitor) {
-	r := &adminRoutes{dashboard: dashboard, status: status, auth: authService, logger: logger, monitor: runtimeMonitor, loginLimiter: auth.NewLimiter(5, 15*time.Minute, 1024), setupLimiter: auth.NewLimiter(10, 15*time.Minute, 256)}
+func registerAdminRoutes(api fiber.Router, dashboard store.DashboardStore, status store.ServerStatusProvider, authService *auth.Service, data *service.DataMaintenanceService, logger *zap.Logger, runtimeMonitor *runtimeMonitor) {
+	r := &adminRoutes{dashboard: dashboard, status: status, auth: authService, data: data, logger: logger, monitor: runtimeMonitor, loginLimiter: auth.NewLimiter(5, 15*time.Minute, 1024), setupLimiter: auth.NewLimiter(10, 15*time.Minute, 256)}
 	api.Get("/setup/status", r.setupStatus)
 	api.Post("/setup/admin", r.setupAdmin)
 	api.Post("/admin/auth/login", r.login)
@@ -65,6 +67,75 @@ func registerAdminRoutes(api fiber.Router, dashboard store.DashboardStore, statu
 	admin.Post("/announcements", r.createAnnouncement)
 	admin.Put("/announcements/:id", r.updateAnnouncement)
 	admin.Delete("/announcements/:id", r.deleteAnnouncement)
+	admin.Get("/site-documents", r.listSiteDocuments)
+	admin.Put("/site-documents/:key", r.updateSiteDocument)
+	if data != nil {
+		admin.Get("/data/status", r.dataStatus)
+		admin.Get("/data/settings", r.dataSettings)
+		admin.Put("/data/settings", r.updateDataSettings)
+		admin.Post("/data/aggregate", r.aggregateData)
+		admin.Get("/data/retention/plan", r.retentionPlan)
+		admin.Post("/data/retention/apply", r.applyRetention)
+	}
+}
+
+func (r *adminRoutes) dataStatus(c fiber.Ctx) error {
+	status, err := r.data.Status(c.Context())
+	if err != nil {
+		return sendError(c, 503, "data_status_unavailable", "data growth status is unavailable")
+	}
+	return sendData(c, 200, status)
+}
+
+func (r *adminRoutes) dataSettings(c fiber.Ctx) error {
+	settings, err := r.data.Settings(c.Context())
+	if err != nil {
+		return sendError(c, 503, "data_settings_unavailable", "data maintenance settings are unavailable")
+	}
+	return sendData(c, 200, settings)
+}
+
+func (r *adminRoutes) updateDataSettings(c fiber.Ctx) error {
+	var settings store.DataMaintenanceSettings
+	if err := c.Bind().Body(&settings); err != nil {
+		return sendError(c, 400, "invalid_body", "request body is invalid")
+	}
+	if err := r.data.UpdateSettings(c.Context(), settings); err != nil {
+		return sendError(c, 400, "invalid_data_settings", err.Error())
+	}
+	r.logger.Info("data maintenance settings updated", zap.String("request_id", c.RequestID()))
+	return sendData(c, 200, settings)
+}
+
+func (r *adminRoutes) aggregateData(c fiber.Ctx) error {
+	if err := r.data.AggregateNow(c.Context()); err != nil {
+		return sendError(c, 409, "aggregate_failed", err.Error())
+	}
+	status, _ := r.data.Status(c.Context())
+	return sendData(c, 200, status)
+}
+
+func (r *adminRoutes) retentionPlan(c fiber.Ctx) error {
+	plan, err := r.data.RetentionPlan(c.Context())
+	if err != nil {
+		return sendError(c, 503, "retention_plan_unavailable", "cleanup preview is unavailable")
+	}
+	return sendData(c, 200, plan)
+}
+
+func (r *adminRoutes) applyRetention(c fiber.Ctx) error {
+	var body struct {
+		PlanID string `json:"plan_id"`
+	}
+	if err := c.Bind().Body(&body); err != nil || body.PlanID == "" {
+		return sendError(c, 400, "invalid_body", "plan_id is required")
+	}
+	result, err := r.data.ApplyRetention(c.Context(), body.PlanID)
+	if err != nil {
+		return sendError(c, 409, "retention_failed", err.Error())
+	}
+	r.logger.Info("data cleanup requested", zap.String("retention_run_id", result.RunID), zap.String("request_id", c.RequestID()))
+	return sendData(c, 200, result)
 }
 
 func (r *adminRoutes) setupStatus(c fiber.Ctx) error {
@@ -233,6 +304,7 @@ func (r *adminRoutes) updateServer(c fiber.Ctx) error {
 	} else if err != nil {
 		return sendError(c, 409, "server_update_failed", "server could not be updated")
 	}
+	r.status.InvalidateServer(id)
 	r.logger.Info("game server updated", zap.String("server_id", server.ID), zap.String("request_id", c.RequestID()))
 	return sendData(c, 200, server)
 }
@@ -318,6 +390,7 @@ func (r *adminRoutes) deleteServer(c fiber.Ctx) error {
 	} else if err != nil {
 		return sendError(c, 500, "server_delete_failed", "server could not be deleted")
 	}
+	r.status.InvalidateServer(id)
 	r.logger.Info("game server deleted", zap.String("server_id", id), zap.String("request_id", c.RequestID()))
 	return sendData(c, 200, fiber.Map{"deleted": true})
 }

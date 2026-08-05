@@ -8,6 +8,7 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
+	"strings"
 	"time"
 
 	dashboarddb "github.com/gofurry/l4d2-plugin-stats/dashboard/database/dashboard"
@@ -21,8 +22,9 @@ const defaultSiteLanguage = "zh-CN"
 const defaultBrowserTitle = "L4D2 Stats"
 
 type dashboardStore struct {
-	db *sql.DB
-	q  *dashsql.Queries
+	db   *sql.DB
+	q    *dashsql.Queries
+	path string
 }
 
 func OpenDashboard(ctx context.Context, path string) (DashboardDatabase, error) {
@@ -53,7 +55,12 @@ func OpenDashboard(ctx context.Context, path string) (DashboardDatabase, error) 
 		db.Close()
 		return nil, fmt.Errorf("migrate dashboard database: %w", err)
 	}
-	return &dashboardStore{db: db, q: dashsql.New(db)}, nil
+	store := &dashboardStore{db: db, q: dashsql.New(db), path: path}
+	if err := store.ensureAggregateRollups(ctx); err != nil {
+		db.Close()
+		return nil, fmt.Errorf("initialize aggregate rollups: %w", err)
+	}
+	return store, nil
 }
 
 func (s *dashboardStore) Ping(ctx context.Context) error { return s.db.PingContext(ctx) }
@@ -70,11 +77,20 @@ func (s *dashboardStore) AggregateStatus(ctx context.Context) (AggregateStatus, 
 	return AggregateStatus{
 		State: row.State, LastStartedAt: row.LastStartedAt, LastFinishedAt: row.LastFinishedAt,
 		SourceRows: row.SourceRows, AggregateRows: row.AggregateRows, LastError: row.LastError,
+		SourceWatermark: row.SourceWatermark, LastDurationMS: row.LastDurationMs,
+		LastChangedDays: row.LastChangedDays, LastBuildMode: row.LastBuildMode,
 	}, nil
 }
 
 func (s *dashboardStore) ReplaceAggregateRows(ctx context.Context, rows []AggregateRow, sourceRows int64) error {
-	started := time.Now().Unix()
+	return s.ApplyAggregateChanges(ctx, AggregateChangeSet{
+		Rows: rows, SourceRows: sourceRows, SourceWatermark: time.Now().Unix(), Full: true,
+	})
+}
+
+func (s *dashboardStore) ApplyAggregateChanges(ctx context.Context, change AggregateChangeSet) error {
+	startedAt := time.Now()
+	started := startedAt.Unix()
 	if err := s.q.MarkAggregateStarted(ctx, started); err != nil {
 		return fmt.Errorf("mark aggregate build started: %w", err)
 	}
@@ -88,10 +104,25 @@ func (s *dashboardStore) ReplaceAggregateRows(ctx context.Context, rows []Aggreg
 	}
 	defer tx.Rollback()
 	q := s.q.WithTx(tx)
-	if err := q.DeleteAggregateRows(ctx); err != nil {
-		return fail(fmt.Errorf("clear aggregate rows: %w", err))
+	var previousRows []AggregateRow
+	if !change.Full {
+		previousRows, err = readAggregateRowsForDays(ctx, tx, change.Days)
+		if err != nil {
+			return fail(err)
+		}
 	}
-	for _, row := range rows {
+	if change.Full {
+		if err := q.DeleteAggregateRows(ctx); err != nil {
+			return fail(fmt.Errorf("clear aggregate rows: %w", err))
+		}
+	} else {
+		for _, day := range change.Days {
+			if err := q.DeleteAggregateRowsForDay(ctx, day); err != nil {
+				return fail(fmt.Errorf("clear aggregate day %d: %w", day, err))
+			}
+		}
+	}
+	for _, row := range change.Rows {
 		metrics, err := json.Marshal(row.Metrics)
 		if err != nil {
 			return fail(fmt.Errorf("encode aggregate metrics: %w", err))
@@ -103,8 +134,36 @@ func (s *dashboardStore) ReplaceAggregateRows(ctx context.Context, rows []Aggreg
 			return fail(fmt.Errorf("insert aggregate row: %w", err))
 		}
 	}
+	if change.Full {
+		if err := replaceAggregateRollups(ctx, tx, change.Rows); err != nil {
+			return fail(fmt.Errorf("replace aggregate rollups: %w", err))
+		}
+	} else {
+		monthly := make(map[aggregateSummaryKey]map[string]int64)
+		lifetime := make(map[aggregateSummaryKey]map[string]int64)
+		accumulateAggregateRows(monthly, previousRows, true, -1)
+		accumulateAggregateRows(monthly, change.Rows, true, 1)
+		accumulateAggregateRows(lifetime, previousRows, false, -1)
+		accumulateAggregateRows(lifetime, change.Rows, false, 1)
+		if err := applyAggregateRollupDeltas(ctx, tx, "aggregate_monthly_rows", "month", monthly); err != nil {
+			return fail(fmt.Errorf("update monthly aggregate rollups: %w", err))
+		}
+		if err := applyAggregateRollupDeltas(ctx, tx, "aggregate_lifetime_rows", "", lifetime); err != nil {
+			return fail(fmt.Errorf("update lifetime aggregate rollups: %w", err))
+		}
+	}
+	aggregateRows, err := q.CountAggregateRows(ctx)
+	if err != nil {
+		return fail(fmt.Errorf("count aggregate rows: %w", err))
+	}
+	mode := "incremental"
+	if change.Full {
+		mode = "full"
+	}
 	if err := q.CompleteAggregateBuild(ctx, dashsql.CompleteAggregateBuildParams{
-		LastFinishedAt: time.Now().Unix(), SourceRows: sourceRows, AggregateRows: int64(len(rows)),
+		LastFinishedAt: time.Now().Unix(), SourceRows: change.SourceRows, AggregateRows: aggregateRows,
+		SourceWatermark: change.SourceWatermark, LastDurationMs: time.Since(startedAt).Milliseconds(),
+		LastChangedDays: int64(len(change.Days)), LastBuildMode: mode,
 	}); err != nil {
 		return fail(fmt.Errorf("complete aggregate build: %w", err))
 	}
@@ -114,32 +173,99 @@ func (s *dashboardStore) ReplaceAggregateRows(ctx context.Context, rows []Aggreg
 	return nil
 }
 
-func (s *dashboardStore) ListAggregateRows(ctx context.Context, filter AggregateFilter) ([]AggregateRow, error) {
-	rows, err := s.q.ListAggregateRows(ctx, dashsql.ListAggregateRowsParams{
-		Column1: filter.SteamID, Column2: filter.ServerKey, Column3: filter.Mode, Column4: filter.CutoffDay,
+func (s *dashboardStore) DataMaintenanceSettings(ctx context.Context) (DataMaintenanceSettings, error) {
+	row, err := s.q.GetDataMaintenanceSettings(ctx)
+	if err != nil {
+		return DataMaintenanceSettings{}, fmt.Errorf("get data maintenance settings: %w", err)
+	}
+	return DataMaintenanceSettings{
+		AggregateIntervalMinutes: row.AggregateIntervalMinutes,
+		DetailRetentionDays:      row.DetailRetentionDays,
+		SessionRetentionDays:     row.SessionRetentionDays,
+		ResultRetentionDays:      row.ResultRetentionDays,
+		UpdatedAt:                row.UpdatedAt,
+	}, nil
+}
+
+func (s *dashboardStore) UpdateDataMaintenanceSettings(ctx context.Context, value DataMaintenanceSettings) error {
+	value.UpdatedAt = time.Now().Unix()
+	return s.q.UpdateDataMaintenanceSettings(ctx, dashsql.UpdateDataMaintenanceSettingsParams{
+		AggregateIntervalMinutes: value.AggregateIntervalMinutes,
+		DetailRetentionDays:      value.DetailRetentionDays,
+		SessionRetentionDays:     value.SessionRetentionDays,
+		ResultRetentionDays:      value.ResultRetentionDays,
+		UpdatedAt:                value.UpdatedAt,
 	})
+}
+
+func (s *dashboardStore) DatabaseUsage(ctx context.Context) (DatabaseUsage, error) {
+	var pageCount, pageSize int64
+	if err := s.db.QueryRowContext(ctx, "PRAGMA page_count").Scan(&pageCount); err != nil {
+		return DatabaseUsage{}, err
+	}
+	if err := s.db.QueryRowContext(ctx, "PRAGMA page_size").Scan(&pageSize); err != nil {
+		return DatabaseUsage{}, err
+	}
+	var walBytes int64
+	if info, err := os.Stat(s.path + "-wal"); err == nil {
+		walBytes = info.Size()
+	}
+	return DatabaseUsage{Driver: "sqlite", Bytes: pageCount * pageSize, WALBytes: walBytes}, nil
+}
+
+func (s *dashboardStore) RecordRetentionRun(ctx context.Context, plan RetentionPlan, result RetentionResult) error {
+	return s.q.CreateRetentionRun(ctx, dashsql.CreateRetentionRunParams{
+		ID: result.RunID, ExecutedAt: result.ExecutedAt, SourceWatermark: plan.SourceWatermark,
+		DetailCutoff: plan.DetailCutoff, SessionCutoff: plan.SessionCutoff, ResultCutoff: plan.ResultCutoff,
+		EquipmentRows: result.EquipmentRows, VersusClassRows: result.VersusClassRows,
+		SessionRows: result.SessionRows, VersusRoundResultRows: result.VersusRoundResultRows,
+		VersusRunResultRows: result.VersusRunResultRows,
+	})
+}
+
+func (s *dashboardStore) RetentionRunCount(ctx context.Context) (int64, error) {
+	return s.q.CountRetentionRuns(ctx)
+}
+
+func (s *dashboardStore) ListAggregateRows(ctx context.Context, filter AggregateFilter) ([]AggregateRow, error) {
+	table, period := "aggregate_rows", "day"
+	switch filter.Grain {
+	case "", AggregateGrainDaily:
+	case AggregateGrainMonthly:
+		table, period = "aggregate_monthly_rows", "month"
+	case AggregateGrainLifetime:
+		table, period = "aggregate_lifetime_rows", "0"
+	default:
+		return nil, fmt.Errorf("unsupported aggregate grain %q", filter.Grain)
+	}
+	query := `SELECT kind, ` + period + ` AS day, server_key, steam_id, mode, dimension, metrics_json FROM ` + table + ` WHERE 1=1`
+	args := make([]any, 0, 4+len(filter.Kinds))
+	if filter.SteamID != "" {
+		query += " AND steam_id = ?"
+		args = append(args, filter.SteamID)
+	}
+	if filter.ServerKey != "" {
+		query += " AND server_key = ?"
+		args = append(args, filter.ServerKey)
+	}
+	if filter.Mode != "" {
+		query += " AND mode = ?"
+		args = append(args, filter.Mode)
+	}
+	if filter.CutoffDay > 0 && filter.Grain != AggregateGrainLifetime {
+		query += " AND " + period + " >= ?"
+		args = append(args, filter.CutoffDay)
+	}
+	if len(filter.Kinds) > 0 {
+		query += " AND kind IN (" + strings.TrimSuffix(strings.Repeat("?,", len(filter.Kinds)), ",") + ")"
+		for _, kind := range filter.Kinds {
+			args = append(args, kind)
+		}
+	}
+	query += " ORDER BY day, kind, server_key, steam_id, mode, dimension"
+	result, err := scanAggregateRows(ctx, s.db, query, args...)
 	if err != nil {
 		return nil, fmt.Errorf("list aggregate rows: %w", err)
-	}
-	kinds := make(map[string]struct{}, len(filter.Kinds))
-	for _, kind := range filter.Kinds {
-		kinds[kind] = struct{}{}
-	}
-	result := make([]AggregateRow, 0, len(rows))
-	for _, row := range rows {
-		if len(kinds) > 0 {
-			if _, ok := kinds[row.Kind]; !ok {
-				continue
-			}
-		}
-		metrics := make(map[string]int64)
-		if err := json.Unmarshal([]byte(row.MetricsJson), &metrics); err != nil {
-			return nil, fmt.Errorf("decode aggregate row %s/%d/%s: %w", row.Kind, row.Day, row.SteamID, err)
-		}
-		result = append(result, AggregateRow{
-			Kind: row.Kind, Day: row.Day, ServerKey: row.ServerKey, SteamID: row.SteamID,
-			Mode: row.Mode, Dimension: row.Dimension, Metrics: metrics,
-		})
 	}
 	return result, nil
 }
@@ -147,7 +273,7 @@ func (s *dashboardStore) ListAggregateRows(ctx context.Context, filter Aggregate
 func (s *dashboardStore) Site(ctx context.Context) (Site, error) {
 	row, err := s.q.GetSiteSettings(ctx)
 	if errors.Is(err, sql.ErrNoRows) {
-		return Site{Language: defaultSiteLanguage, BrowserTitle: defaultBrowserTitle, Theme: "light", A2SRefreshSeconds: 30, Links: []FooterLink{}, Configured: false}, nil
+		return Site{Language: defaultSiteLanguage, BrowserTitle: defaultBrowserTitle, Theme: "light", A2SRefreshSeconds: 30, Links: []FooterLink{}, Documents: []string{}, Configured: false}, nil
 	}
 	if err != nil {
 		return Site{}, fmt.Errorf("get site settings: %w", err)
@@ -160,11 +286,19 @@ func (s *dashboardStore) Site(ctx context.Context) (Site, error) {
 	for _, link := range rows {
 		links = append(links, FooterLink{Label: link.Label, URL: link.Url})
 	}
+	documentRows, err := s.q.ListPublicSiteDocuments(ctx)
+	if err != nil {
+		return Site{}, fmt.Errorf("list public site documents: %w", err)
+	}
+	documents := make([]string, 0, len(documentRows))
+	for _, document := range documentRows {
+		documents = append(documents, document)
+	}
 	return Site{
 		Language: row.Language, BrowserTitle: row.BrowserTitle, Theme: row.Theme, FooterEnabled: row.FooterEnabled == 1,
 		BackgroundImageURL: row.BackgroundImageUrl, Links: links,
 		SteamOpenIDEnabled: row.SteamOpenidEnabled == 1 && row.PublicOrigin != "",
-		A2SRefreshSeconds:  row.A2sRefreshSeconds, Configured: true,
+		A2SRefreshSeconds:  row.A2sRefreshSeconds, Documents: documents, Configured: true,
 	}, nil
 }
 
@@ -185,6 +319,15 @@ func (s *dashboardStore) SiteSettings(ctx context.Context) (SiteSettings, error)
 		settings.A2SRefreshSeconds = row.A2sRefreshSeconds
 		settings.A2SJitterSeconds = row.A2sJitterSeconds
 		settings.A2SRetryCount = row.A2sRetryCount
+	}
+	seo, err := s.q.GetSEOSettings(ctx)
+	if err != nil && !errors.Is(err, sql.ErrNoRows) {
+		return SiteSettings{}, fmt.Errorf("get SEO settings: %w", err)
+	}
+	if err == nil {
+		settings.SEOEnabled = seo.Enabled == 1
+		settings.SEODescription = seo.Description
+		settings.SEOImageURL = seo.ImageUrl
 	}
 	links, err := s.q.ListFooterLinks(ctx)
 	if err != nil {
@@ -212,6 +355,12 @@ func (s *dashboardStore) UpdateSite(ctx context.Context, settings SiteSettings) 
 	}); err != nil {
 		return fmt.Errorf("update site settings: %w", err)
 	}
+	if err := q.UpsertSEOSettings(ctx, dashsql.UpsertSEOSettingsParams{
+		Enabled: boolInt(settings.SEOEnabled), Description: settings.SEODescription,
+		ImageUrl: settings.SEOImageURL, UpdatedAt: now,
+	}); err != nil {
+		return fmt.Errorf("update SEO settings: %w", err)
+	}
 	if err := q.DeleteFooterLinks(ctx); err != nil {
 		return fmt.Errorf("clear footer links: %w", err)
 	}
@@ -226,6 +375,61 @@ func (s *dashboardStore) UpdateSite(ctx context.Context, settings SiteSettings) 
 		return fmt.Errorf("commit site transaction: %w", err)
 	}
 	return nil
+}
+
+func (s *dashboardStore) ListSiteDocuments(ctx context.Context, publicOnly bool) ([]SiteDocument, error) {
+	if publicOnly {
+		rows, err := s.q.ListPublicSiteDocuments(ctx)
+		if err != nil {
+			return nil, fmt.Errorf("list public site documents: %w", err)
+		}
+		result := make([]SiteDocument, 0, len(rows))
+		for _, key := range rows {
+			document, err := s.GetSiteDocument(ctx, key, true)
+			if err != nil {
+				return nil, err
+			}
+			result = append(result, document)
+		}
+		return result, nil
+	}
+	rows, err := s.q.ListSiteDocuments(ctx)
+	if err != nil {
+		return nil, fmt.Errorf("list site documents: %w", err)
+	}
+	result := make([]SiteDocument, 0, len(rows))
+	for _, row := range rows {
+		result = append(result, SiteDocument{Key: row.Key, Enabled: row.Enabled == 1, ContentMarkdown: row.ContentMarkdown, UpdatedAt: row.UpdatedAt})
+	}
+	return result, nil
+}
+
+func (s *dashboardStore) GetSiteDocument(ctx context.Context, key string, publicOnly bool) (SiteDocument, error) {
+	if publicOnly {
+		row, err := s.q.GetPublicSiteDocument(ctx, key)
+		if err != nil {
+			return SiteDocument{}, err
+		}
+		return SiteDocument{Key: row.Key, Enabled: row.Enabled == 1, ContentMarkdown: row.ContentMarkdown, UpdatedAt: row.UpdatedAt}, nil
+	}
+	row, err := s.q.GetSiteDocument(ctx, key)
+	if err != nil {
+		return SiteDocument{}, err
+	}
+	return SiteDocument{Key: row.Key, Enabled: row.Enabled == 1, ContentMarkdown: row.ContentMarkdown, UpdatedAt: row.UpdatedAt}, nil
+}
+
+func (s *dashboardStore) UpdateSiteDocument(ctx context.Context, document SiteDocument) (SiteDocument, error) {
+	rows, err := s.q.UpdateSiteDocument(ctx, dashsql.UpdateSiteDocumentParams{
+		Key: document.Key, Enabled: boolInt(document.Enabled), ContentMarkdown: document.ContentMarkdown, UpdatedAt: time.Now().Unix(),
+	})
+	if err != nil {
+		return SiteDocument{}, fmt.Errorf("update site document: %w", err)
+	}
+	if rows == 0 {
+		return SiteDocument{}, sql.ErrNoRows
+	}
+	return s.GetSiteDocument(ctx, document.Key, false)
 }
 
 func (s *dashboardStore) ListServers(ctx context.Context) ([]GameServer, error) {
@@ -396,12 +600,15 @@ func (s *dashboardStore) UpdateAdminPassword(ctx context.Context, passwordHash s
 	return s.q.UpdateAdminPassword(ctx, dashsql.UpdateAdminPasswordParams{PasswordHash: passwordHash, UpdatedAt: now})
 }
 
-func (s *dashboardStore) ListAnnouncements(ctx context.Context, limit, offset int32) (AnnouncementPage, error) {
-	rows, err := s.q.ListAnnouncements(ctx, dashsql.ListAnnouncementsParams{Limit: int64(limit), Offset: int64(offset)})
+func (s *dashboardStore) ListAnnouncements(ctx context.Context, filter AnnouncementFilter) (AnnouncementPage, error) {
+	rows, err := s.q.ListAnnouncements(ctx, dashsql.ListAnnouncementsParams{
+		TitleFilter: filter.Title, YearFilter: filter.Year,
+		RowLimit: int64(filter.Limit), RowOffset: int64(filter.Offset),
+	})
 	if err != nil {
 		return AnnouncementPage{}, fmt.Errorf("list announcements: %w", err)
 	}
-	total, err := s.q.CountAnnouncements(ctx)
+	total, err := s.q.CountAnnouncements(ctx, dashsql.CountAnnouncementsParams{TitleFilter: filter.Title, YearFilter: filter.Year})
 	if err != nil {
 		return AnnouncementPage{}, fmt.Errorf("count announcements: %w", err)
 	}
@@ -410,10 +617,22 @@ func (s *dashboardStore) ListAnnouncements(ctx context.Context, limit, offset in
 		items = append(items, announcement(row))
 	}
 	page := 1
-	if limit > 0 {
-		page = int(offset/limit) + 1
+	if filter.Limit > 0 {
+		page = int(filter.Offset/filter.Limit) + 1
 	}
-	return AnnouncementPage{Items: items, Total: total, Page: page, Limit: int(limit)}, nil
+	return AnnouncementPage{Items: items, Total: total, Page: page, Limit: int(filter.Limit)}, nil
+}
+
+func (s *dashboardStore) ListAnnouncementYears(ctx context.Context) ([]int, error) {
+	rows, err := s.q.ListAnnouncementYears(ctx)
+	if err != nil {
+		return nil, fmt.Errorf("list announcement years: %w", err)
+	}
+	years := make([]int, 0, len(rows))
+	for _, year := range rows {
+		years = append(years, int(year))
+	}
+	return years, nil
 }
 
 func (s *dashboardStore) GetAnnouncement(ctx context.Context, id string) (Announcement, error) {

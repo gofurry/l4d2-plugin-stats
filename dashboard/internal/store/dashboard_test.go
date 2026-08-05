@@ -4,6 +4,7 @@ import (
 	"context"
 	"path/filepath"
 	"testing"
+	"time"
 )
 
 func TestDashboardInitialSchemaAndManagement(t *testing.T) {
@@ -15,14 +16,14 @@ func TestDashboardInitialSchemaAndManagement(t *testing.T) {
 	}
 	defer dashboard.Close()
 	version, err := dashboard.MigrationVersion(ctx)
-	if err != nil || version != 4 {
+	if err != nil || version != 8 {
 		t.Fatalf("migration version=%d err=%v", version, err)
 	}
 	site, err := dashboard.Site(ctx)
 	if err != nil || site.Language != "zh-CN" || site.Theme != "light" || site.Configured || site.FooterEnabled {
 		t.Fatalf("default Site()=%#v err=%v", site, err)
 	}
-	settings := SiteSettings{Language: "en", BrowserTitle: "My Stats", Theme: "dark", FooterEnabled: true, BackgroundImageURL: "https://example.com/background.jpg", PublicOrigin: "https://example.com", SteamOpenIDEnabled: true, A2SRefreshSeconds: 10, A2SJitterSeconds: 5, A2SRetryCount: 2, Links: []FooterLink{{Label: "ICP", URL: "https://example.com/icp"}}}
+	settings := SiteSettings{Language: "en", BrowserTitle: "My Stats", Theme: "dark", FooterEnabled: true, BackgroundImageURL: "https://example.com/background.jpg", PublicOrigin: "https://example.com", SteamOpenIDEnabled: true, A2SRefreshSeconds: 10, A2SJitterSeconds: 5, A2SRetryCount: 2, SEOEnabled: true, SEODescription: "Server statistics", SEOImageURL: "https://example.com/share.jpg", Links: []FooterLink{{Label: "ICP", URL: "https://example.com/icp"}}}
 	if err := dashboard.UpdateSite(ctx, settings); err != nil {
 		t.Fatal(err)
 	}
@@ -31,8 +32,16 @@ func TestDashboardInitialSchemaAndManagement(t *testing.T) {
 		t.Fatalf("updated Site()=%#v err=%v", site, err)
 	}
 	savedSettings, err := dashboard.SiteSettings(ctx)
-	if err != nil || savedSettings.Theme != "dark" || savedSettings.A2SJitterSeconds != 5 || savedSettings.A2SRetryCount != 2 {
+	if err != nil || savedSettings.Theme != "dark" || savedSettings.A2SJitterSeconds != 5 || savedSettings.A2SRetryCount != 2 || !savedSettings.SEOEnabled || savedSettings.SEODescription == "" {
 		t.Fatalf("updated SiteSettings()=%#v err=%v", savedSettings, err)
+	}
+	document, err := dashboard.UpdateSiteDocument(ctx, SiteDocument{Key: "introduction", Enabled: true, ContentMarkdown: "# Welcome"})
+	if err != nil || !document.Enabled {
+		t.Fatalf("UpdateSiteDocument()=%#v err=%v", document, err)
+	}
+	publicSite, err := dashboard.Site(ctx)
+	if err != nil || len(publicSite.Documents) != 1 || publicSite.Documents[0] != "introduction" {
+		t.Fatalf("Site().Documents=%#v err=%v", publicSite.Documents, err)
 	}
 	created, err := dashboard.CreateServer(ctx, GameServer{DisplayName: "Main", Address: "127.0.0.1:27015"})
 	if err != nil {
@@ -110,9 +119,17 @@ func TestDashboardAnnouncementLifecycle(t *testing.T) {
 	if err != nil || created.ID == "" || created.CreatedAt == 0 {
 		t.Fatalf("created=%#v err=%v", created, err)
 	}
-	page, err := dashboard.ListAnnouncements(ctx, 20, 0)
+	page, err := dashboard.ListAnnouncements(ctx, AnnouncementFilter{Limit: 20})
 	if err != nil || page.Total != 1 || len(page.Items) != 1 || page.Items[0].ID != created.ID {
 		t.Fatalf("page=%#v err=%v", page, err)
+	}
+	page, err = dashboard.ListAnnouncements(ctx, AnnouncementFilter{Title: "date", Year: time.Now().Year(), Limit: 20})
+	if err != nil || page.Total != 1 {
+		t.Fatalf("filtered page=%#v err=%v", page, err)
+	}
+	years, err := dashboard.ListAnnouncementYears(ctx)
+	if err != nil || len(years) != 1 || years[0] != time.Now().Year() {
+		t.Fatalf("years=%v err=%v", years, err)
 	}
 	created.Title = "Updated"
 	updated, err := dashboard.UpdateAnnouncement(ctx, created)
@@ -122,8 +139,59 @@ func TestDashboardAnnouncementLifecycle(t *testing.T) {
 	if err := dashboard.DeleteAnnouncement(ctx, created.ID); err != nil {
 		t.Fatal(err)
 	}
-	page, err = dashboard.ListAnnouncements(ctx, 20, 0)
+	page, err = dashboard.ListAnnouncements(ctx, AnnouncementFilter{Limit: 20})
 	if err != nil || page.Total != 0 || len(page.Items) != 0 {
 		t.Fatalf("empty page=%#v err=%v", page, err)
+	}
+}
+
+func TestDashboardAggregateFiltersAreAppliedByStore(t *testing.T) {
+	ctx := context.Background()
+	dashboard, err := OpenDashboard(ctx, filepath.Join(t.TempDir(), "dashboard.db"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer dashboard.Close()
+	change := AggregateChangeSet{
+		Full: true, SourceRows: 3, SourceWatermark: 100,
+		Rows: []AggregateRow{
+			{Kind: "activity", Day: 10, ServerKey: "one", SteamID: "a", Metrics: map[string]int64{"active_play_seconds": 10}},
+			{Kind: "activity", Day: 20, ServerKey: "two", SteamID: "a", Metrics: map[string]int64{"active_play_seconds": 20}},
+			{Kind: "pve_combat", Day: 20, ServerKey: "one", SteamID: "b", Mode: "coop", Metrics: map[string]int64{"common_kills": 30}},
+		},
+	}
+	if err := dashboard.ApplyAggregateChanges(ctx, change); err != nil {
+		t.Fatal(err)
+	}
+	rows, err := dashboard.ListAggregateRows(ctx, AggregateFilter{Kinds: []string{"activity"}, SteamID: "a", ServerKey: "two", CutoffDay: 15})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(rows) != 1 || rows[0].Day != 20 || rows[0].ServerKey != "two" || rows[0].Kind != "activity" {
+		t.Fatalf("filtered aggregate rows=%#v", rows)
+	}
+	lifetime, err := dashboard.ListAggregateRows(ctx, AggregateFilter{Grain: AggregateGrainLifetime, Kinds: []string{"activity"}, SteamID: "a", ServerKey: "two"})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(lifetime) != 1 || lifetime[0].Day != 0 || lifetime[0].Metrics["active_play_seconds"] != 20 {
+		t.Fatalf("lifetime aggregate rows=%#v", lifetime)
+	}
+	monthly, err := dashboard.ListAggregateRows(ctx, AggregateFilter{Grain: AggregateGrainMonthly, Kinds: []string{"activity"}, SteamID: "a"})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(monthly) != 2 || monthly[0].Metrics["active_play_seconds"]+monthly[1].Metrics["active_play_seconds"] != 30 {
+		t.Fatalf("monthly aggregate rows=%#v", monthly)
+	}
+	if err := dashboard.ApplyAggregateChanges(ctx, AggregateChangeSet{
+		Days: []int64{20}, SourceRows: 3, SourceWatermark: 110,
+		Rows: []AggregateRow{{Kind: "activity", Day: 20, ServerKey: "two", SteamID: "a", Metrics: map[string]int64{"active_play_seconds": 25}}},
+	}); err != nil {
+		t.Fatal(err)
+	}
+	lifetime, err = dashboard.ListAggregateRows(ctx, AggregateFilter{Grain: AggregateGrainLifetime, Kinds: []string{"activity"}, SteamID: "a", ServerKey: "two"})
+	if err != nil || len(lifetime) != 1 || lifetime[0].Metrics["active_play_seconds"] != 25 {
+		t.Fatalf("adjusted lifetime aggregate rows=%#v err=%v", lifetime, err)
 	}
 }

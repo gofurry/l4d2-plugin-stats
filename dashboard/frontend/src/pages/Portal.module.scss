@@ -14,7 +14,15 @@
 .record b { color: #57433a; }
 
 .auth { width: min(460px, calc(100% - 28px)); margin: 9vh auto 0; }
-.authPanel { padding: 0 6px 30px; }
+.authPanel {
+  padding: 30px 32px 32px;
+  border: 1px solid rgba(103, 72, 55, .13);
+  border-radius: 22px;
+  background: rgba(247, 241, 232, .82);
+  box-shadow: 0 16px 44px rgba(71, 47, 34, .12);
+  backdrop-filter: blur(20px) saturate(1.08);
+  -webkit-backdrop-filter: blur(20px) saturate(1.08);
+}
 .authHeading { margin-bottom: 28px; text-align: center; }
 .authHeading :global(h2.ant-typography) { margin-bottom: 8px; color: #4e3c32; }
 
@@ -37,6 +45,7 @@
 .settingsForm { width: 100%; }
 .formSection { margin-bottom: 30px; padding: 0; }
 .formSectionHeading { display: flex; flex-direction: column; gap: 4px; margin-bottom: 14px; }
+.sectionTitleRow .formSectionHeading { margin-bottom: 0; }
 .formSectionHeading strong { color: #5e463a; font-size: 15px; }
 .formSectionHeading span { color: #9a8578; font-size: 13px; }
 .formSection > :global(.ant-form-item:last-child) { margin-bottom: 0; }
@@ -56,6 +65,16 @@
 .footerLinkIdentity strong { color: #5c463b; font-size: 14px; }
 .footerLinkIdentity span { color: #9b877a; font-family: "JetBrains Mono", Consolas, monospace; font-size: 12px; }
 .footerLinkActions { display: flex; align-items: center; gap: 2px; }
+.siteDocumentList { overflow: hidden; border-radius: 12px; background: rgba(255, 250, 243, .3); }
+.siteDocumentRow { min-height: 58px; display: flex; align-items: center; justify-content: space-between; gap: 18px; padding: 10px 14px; transition: background .15s ease; }
+.siteDocumentRow:nth-child(even) { background: rgba(207, 188, 169, .2); }
+.siteDocumentRow:hover { background: rgba(211, 145, 96, .18); }
+.siteDocumentRow > div:first-child { min-width: 0; display: flex; flex-direction: column; gap: 3px; }
+.siteDocumentRow strong { color: #5c463b; }
+.siteDocumentRow span { overflow: hidden; color: #9b877a; font-size: 12px; text-overflow: ellipsis; white-space: nowrap; }
+.editorWorkspace { overflow: hidden; border: 1px solid rgba(139, 105, 82, .2); border-radius: 12px; }
+.siteDocumentModal :global(.w-md-editor) { box-shadow: none; }
+.siteDocumentModal :global(.wmde-markdown h1), .siteDocumentModal :global(.wmde-markdown h2) { border-bottom: 0; }
 
 .serverAdminList { border-top: 1px solid rgba(139, 105, 82, .18); }
 .serverAdminItem { border-bottom: 1px solid rgba(139, 105, 82, .18); }
@@ -106,6 +125,21 @@
 .accountGrid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 54px; }
 .accountColumn { padding-top: 12px; }
 .accountColumn :global(.ant-form-item) { margin-bottom: 24px; }
+.dataUsageGrid { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); overflow: hidden; margin-bottom: 28px; border-radius: 14px; background: rgba(255, 250, 243, .34); }
+.dataUsageGrid > div { min-width: 0; display: grid; grid-template-columns: auto 1fr; gap: 6px 10px; padding: 18px; border-right: 1px solid rgba(139, 105, 82, .14); }
+.dataUsageGrid > div:last-child { border-right: 0; }
+.dataUsageGrid svg { grid-row: 1 / 3; align-self: center; color: #c27645; font-size: 19px; }
+.dataUsageGrid span { color: #9a8578; font-size: 12px; }
+.dataUsageGrid strong { color: #5a4337; font-size: 20px; }
+.dataSection { margin-top: 28px; padding-top: 4px; }
+.dataSection + .dataSection, .dataSection + form, form + .dataSection { margin-top: 34px; }
+.dataStatusRows { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); overflow: hidden; margin: 12px 0 18px; border-radius: 12px; background: rgba(255, 250, 243, .3); }
+.dataStatusRows > * { padding: 12px 14px; }
+.dataStatusRows span { color: #9a8578; background: rgba(207, 188, 169, .16); }
+.dataStatusRows strong { color: #5a4337; font-family: "JetBrains Mono", Consolas, monospace; font-weight: 600; }
+.dataSettingsGrid { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 14px; }
+.dataSettingsGrid :global(.ant-input-number) { width: 100%; }
+.cleanupAudit { margin-left: 14px; }
 
 @media (max-width: 720px) {
   .content { width: min(100% - 22px, 1120px); padding: 28px 0 96px; }
@@ -113,12 +147,15 @@
   .adminContent { width: min(100% - 22px, 1100px); padding: 28px 0 96px; }
   .adminPage { padding: 24px 18px 28px; border-radius: 20px; }
   .auth { margin-top: 7vh; padding-bottom: 90px; }
+  .authPanel { padding: 25px 20px 27px; }
   .toolbar { align-items: flex-start; flex-direction: column; }
   .pageHeader :global(h2.ant-typography), .toolbar :global(h2.ant-typography) { font-size: 23px; }
   .playerMetrics { grid-template-columns: repeat(2, minmax(0, 1fr)); }
   .playerMetrics :global(.ant-statistic:nth-child(2n)) { border-right: 0; }
   .footerLinkRow { grid-template-columns: 30px minmax(0, 1fr) auto; }
   .accountGrid { grid-template-columns: 1fr; }
+	.dataUsageGrid, .dataStatusRows, .dataSettingsGrid { grid-template-columns: 1fr; }
+	.dataUsageGrid > div { border-right: 0; border-bottom: 1px solid rgba(139, 105, 82, .14); }
   .querySettingsGrid { grid-template-columns: 1fr; gap: 0; }
   .serverAdminRow { grid-template-columns: 1fr; gap: 10px; padding: 12px 4px; }
   .serverAdminToggle { grid-template-columns: 30px minmax(0, 1fr); gap: 10px; }
@@ -132,7 +169,12 @@
   .adminPage, .authPanel { border-color: var(--border-soft); background: var(--surface); box-shadow: var(--panel-shadow); }
   .hero, .panel, .playerMetrics, .serverAdminList, .serverAdminItem, .footerLinks, .footerLinkRow, .listNotice { border-color: var(--border-soft); }
   .hero :global(.ant-typography), .panel :global(.ant-typography), .authHeading :global(h2.ant-typography), .pageHeader :global(h2.ant-typography), .toolbar :global(h2.ant-typography), .formSectionHeading strong, .sectionTitleRow strong, .footerLinkIdentity strong, .serverAdminIdentity strong, .a2sSummary strong, .ruleRow strong, .detail strong { color: var(--text-primary); }
-  .formSectionHeading span, .footerLinkIdentity span, .serverAdminIdentity span, .a2sSummary, .a2sNotice, .rulesNotice, .detail span, .listNotice { color: var(--text-muted); }
+  .formSectionHeading span, .footerLinkIdentity span, .siteDocumentRow span, .serverAdminIdentity span, .a2sSummary, .a2sNotice, .rulesNotice, .detail span, .listNotice { color: var(--text-muted); }
+  .siteDocumentList, .siteDocumentRow { background: var(--surface-row); }
+  .siteDocumentRow:nth-child(even) { background: var(--surface-row-alt); }
+  .siteDocumentRow:hover { background: var(--surface-hover); }
+  .siteDocumentRow strong { color: var(--text-primary); }
+  .editorWorkspace { border-color: var(--border-soft); }
   .footerLinkRow:hover, .serverAdminRow:hover { background: var(--surface-hover); }
   .serverExpandedContent { border-color: var(--border-soft); background: var(--surface-row); }
   .ruleHeader { color: var(--text-secondary); background: rgba(255, 255, 255, .1); }
@@ -141,4 +183,9 @@
   .ruleRow:hover { background: var(--surface-hover); }
   .iconAction, .dragHandle, .sectionIconAction, .expandIcon { color: var(--text-muted) !important; }
   .playerMetrics :global(.ant-statistic-content) { color: #f09a62; }
+	.dataUsageGrid, .dataStatusRows { background: var(--surface-row); }
+	.dataUsageGrid > div { border-color: var(--border-soft); }
+	.dataUsageGrid span, .dataStatusRows span { color: var(--text-muted); }
+	.dataUsageGrid strong, .dataStatusRows strong { color: var(--text-primary); }
+	.dataStatusRows span { background: var(--surface-row-alt); }
 }

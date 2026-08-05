@@ -53,7 +53,8 @@ export function RankingsPage() {
   const players = useQuery({ queryKey: ['ranking-players', deferredPlayerSearch], queryFn: () => api.rankingPlayers(deferredPlayerSearch), enabled: filterOpen, staleTime: 30_000 })
   const playerFilterKey = selectedPlayers.join(',')
   const query = useQuery({ queryKey: ['rankings', mode, metric, range, server, playerFilterKey, mySteamID, page], queryFn: () => api.rankings({ mode, metric, range, server, players: selectedPlayers, subject: mySteamID, page, limit: 20 }) })
-  const top = useQuery({ queryKey: ['rankings-top', mode, metric, range, server, playerFilterKey], queryFn: () => api.rankings({ mode, metric, range, server, players: selectedPlayers, page: 1, limit: 10 }) })
+  const top = useQuery({ queryKey: ['rankings-top', mode, metric, range, server, playerFilterKey], queryFn: () => api.rankings({ mode, metric, range, server, players: selectedPlayers, page: 1, limit: 10 }), enabled: page !== 1 })
+  const topPage = page === 1 ? query.data : top.data
   const chooseMode = (value: string | number) => {
     const next = String(value) as keyof typeof metricOptions
     setMode(next)
@@ -69,7 +70,7 @@ export function RankingsPage() {
   }, [playerLabels, players.data])
 
   const chartOption = useMemo<EChartsCoreOption>(() => {
-    const items = [...(top.data?.items ?? [])].reverse()
+    const items = [...(topPage?.items.slice(0, 10) ?? [])].reverse()
     return {
       animationDuration: 450,
       grid: { left: 16, right: 70, top: 12, bottom: 22, containLabel: true },
@@ -78,7 +79,7 @@ export function RankingsPage() {
       yAxis: { type: 'category', data: items.map(item => item.player_name || item.steam_id), axisLabel: { color: '#5f4a3f', width: 150, overflow: 'truncate' }, axisLine: { show: false }, axisTick: { show: false } },
       series: [{ type: 'bar', data: items.map(item => item.value), barMaxWidth: 24, label: { show: true, position: 'right', color: '#6d5548', formatter: (params: { value?: unknown }) => valueLabel(metric, Number(params.value ?? 0)) }, itemStyle: { color: '#c8753f', borderRadius: [0, 7, 7, 0] } }],
     }
-  }, [top.data, metric])
+  }, [topPage, metric])
 
   const columns = [
     { title: '#', dataIndex: 'rank', width: 70 },
@@ -88,8 +89,8 @@ export function RankingsPage() {
   ]
 
   const toolbarItems = [{ key: 'filter', label: zh ? '筛选排行榜' : 'Filter rankings', icon: <FilterOutlined />, onClick: () => setFilterOpen(true) }]
-  const rankingError = query.isError || top.isError
-  const rankingLoading = query.isLoading || top.isLoading
+  const rankingError = query.isError || (page !== 1 && top.isError)
+  const rankingLoading = query.isLoading || (page !== 1 && top.isLoading)
   const noRankingData = !rankingLoading && !rankingError && (query.data?.total ?? 0) === 0
 
   return <Layout className={styles.layout}><FloatingNav /><FloatingToolbar ariaLabel={zh ? '排行榜工具' : 'Ranking tools'} items={toolbarItems} /><Layout.Content className={styles.content}>
@@ -98,8 +99,8 @@ export function RankingsPage() {
     {rankingError && <section className={styles.statePanel}><Empty image={Empty.PRESENTED_IMAGE_SIMPLE} description={zh ? '排行榜暂时无法读取，请稍后重试。' : 'Rankings are temporarily unavailable.'}><div className={styles.stateActions}><Button onClick={() => void Promise.all([query.refetch(), top.refetch()])}>{zh ? '重新加载' : 'Retry'}</Button><Button type="primary" onClick={() => setFilterOpen(true)}>{zh ? '调整筛选' : 'Change filters'}</Button></div></Empty></section>}
     {noRankingData && <section className={styles.statePanel}><Empty image={Empty.PRESENTED_IMAGE_SIMPLE} description={zh ? '当前玩法或筛选条件下还没有排行榜数据。' : 'There is no ranking data for this mode or filter yet.'}><div className={styles.stateActions}>{mode !== 'pve' && <Button type="primary" onClick={() => chooseMode('pve')}>{zh ? '查看 PvE 排行榜' : 'View PvE rankings'}</Button>}<Button onClick={() => setFilterOpen(true)}>{zh ? '调整筛选' : 'Change filters'}</Button></div></Empty></section>}
     {!rankingError && !noRankingData && <><section className={styles.chartPanel}>
-      <div className={styles.panelHeading}><h3>{label(metric)} · Top 10</h3><span>{top.data ? new Date(top.data.generated_at).toLocaleString() : ''}</span></div>
-      {top.isLoading ? <Spin /> : top.data?.items.length ? <EChart className={styles.chart} option={chartOption} ariaLabel={`${label(metric)} Top 10`} /> : <Empty image={Empty.PRESENTED_IMAGE_SIMPLE} />}
+      <div className={styles.panelHeading}><h3>{label(metric)} · Top 10</h3><span>{topPage ? new Date(topPage.generated_at).toLocaleString() : ''}</span></div>
+      {rankingLoading ? <Spin /> : topPage?.items.length ? <EChart className={styles.chart} option={chartOption} ariaLabel={`${label(metric)} Top 10`} /> : <Empty image={Empty.PRESENTED_IMAGE_SIMPLE} />}
     </section>
 
     <section className={styles.tablePanel}>

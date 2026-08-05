@@ -8,9 +8,10 @@ import (
 	"strings"
 
 	"github.com/gofiber/fiber/v3"
+	"github.com/gofurry/l4d2-plugin-stats/dashboard/internal/store"
 )
 
-func staticHandler(dist fs.FS) fiber.Handler {
+func staticHandler(dist fs.FS, dashboard store.DashboardStore) fiber.Handler {
 	return func(c fiber.Ctx) error {
 		requested := strings.TrimPrefix(c.Path(), "/")
 		requested = path.Clean(requested)
@@ -38,6 +39,11 @@ func staticHandler(dist fs.FS) fiber.Handler {
 		}
 		if contentType := mime.TypeByExtension(path.Ext(requested)); contentType != "" {
 			c.Set(fiber.HeaderContentType, contentType)
+		}
+		if requested == "index.html" {
+			if settings, settingsErr := dashboard.SiteSettings(c.Context()); settingsErr == nil {
+				body = applySEOMetadata(body, settings, c.Path())
+			}
 		}
 		return c.Send(body)
 	}

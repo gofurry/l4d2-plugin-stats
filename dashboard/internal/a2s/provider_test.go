@@ -22,6 +22,15 @@ func (f *fakeDashboard) SiteSettings(context.Context) (store.SiteSettings, error
 	return f.settings, nil
 }
 func (f *fakeDashboard) UpdateSite(context.Context, store.SiteSettings) error { return nil }
+func (f *fakeDashboard) ListSiteDocuments(context.Context, bool) ([]store.SiteDocument, error) {
+	return []store.SiteDocument{}, nil
+}
+func (f *fakeDashboard) GetSiteDocument(context.Context, string, bool) (store.SiteDocument, error) {
+	return store.SiteDocument{}, nil
+}
+func (f *fakeDashboard) UpdateSiteDocument(_ context.Context, document store.SiteDocument) (store.SiteDocument, error) {
+	return document, nil
+}
 func (f *fakeDashboard) ListServers(context.Context) ([]store.GameServer, error) {
 	return f.servers, nil
 }
@@ -37,9 +46,10 @@ func (f *fakeDashboard) CreateAdmin(context.Context, string, string, string) err
 func (f *fakeDashboard) Admin(context.Context) (*store.AdminAccount, error)        { return nil, nil }
 func (f *fakeDashboard) UpdateAdminUsername(context.Context, string) error         { return nil }
 func (f *fakeDashboard) UpdateAdminPassword(context.Context, string) error         { return nil }
-func (f *fakeDashboard) ListAnnouncements(context.Context, int32, int32) (store.AnnouncementPage, error) {
+func (f *fakeDashboard) ListAnnouncements(context.Context, store.AnnouncementFilter) (store.AnnouncementPage, error) {
 	return store.AnnouncementPage{Items: []store.Announcement{}}, nil
 }
+func (f *fakeDashboard) ListAnnouncementYears(context.Context) ([]int, error) { return []int{}, nil }
 func (f *fakeDashboard) GetAnnouncement(context.Context, string) (store.Announcement, error) {
 	return store.Announcement{}, nil
 }
@@ -158,5 +168,27 @@ func TestProviderRetriesFailuresUsingConfiguredCount(t *testing.T) {
 	statuses, err := NewProvider(dashboard, client).Statuses(context.Background())
 	if err != nil || len(statuses) != 1 || statuses[0].Online || client.calls != 4 {
 		t.Fatalf("Statuses()=%#v err=%v calls=%d", statuses, err, client.calls)
+	}
+}
+
+func TestProviderPurgesRemovedAndChangedServerCacheEntries(t *testing.T) {
+	dashboard := &fakeDashboard{servers: []store.GameServer{{
+		ID: "main", DisplayName: "Main", Address: "127.0.0.1:27015", Enabled: true,
+	}}}
+	provider := NewProvider(dashboard, &fakeClient{})
+	if _, err := provider.Statuses(context.Background()); err != nil {
+		t.Fatal(err)
+	}
+	dashboard.servers[0].Address = "127.0.0.1:27016"
+	if _, err := provider.Statuses(context.Background()); err != nil {
+		t.Fatal(err)
+	}
+	provider.mu.RLock()
+	defer provider.mu.RUnlock()
+	if len(provider.entries) != 1 {
+		t.Fatalf("A2S cache entries = %d, want 1", len(provider.entries))
+	}
+	if _, exists := provider.entries["main\x00127.0.0.1:27015"]; exists {
+		t.Fatal("stale A2S cache entry was retained")
 	}
 }

@@ -1,127 +1,219 @@
 # L4D2 Player Stats
 
-一个面向《求生之路 2》服务器的玩家身份、会话和玩法统计系统。
+[![Go](https://github.com/gofurry/l4d2-plugin-stats/actions/workflows/go.yml/badge.svg)](https://github.com/gofurry/l4d2-plugin-stats/actions/workflows/go.yml)
+[![React](https://github.com/gofurry/l4d2-plugin-stats/actions/workflows/frontend.yml/badge.svg)](https://github.com/gofurry/l4d2-plugin-stats/actions/workflows/frontend.yml)
+[![License](https://img.shields.io/github/license/gofurry/l4d2-plugin-stats)](LICENSE)
 
-项目采用 monorepo。v0.6.6 SourceMod 采集器已经覆盖真人身份、生命周期、PvE 与 Versus 统计并冻结对抗 v1 契约；当前 Go + 内嵌 React Dashboard 已推进到 v0.9.1-dev，包含公开首页、Steam/手动个人查询、完整个人统计、全服排行榜、日聚合读模型和单管理员后台。
+面向《求生之路 2》服务器的玩家统计系统，由 SourceMod 数据采集插件和可选的 Web Dashboard 组成。采集器记录真人玩家在合作、写实和对抗模式中的身份、会话与玩法数据；Dashboard 提供服务器状态、个人中心、排行榜、更新公告和数据维护后台。
 
-## 当前状态
+## 功能
 
-当前已实现：
+- 只统计通过 Steam 验证的真人玩家，不为 Bot 创建玩家档案；
+- 合作与写实共用 PvE 统计口径，对抗模式使用独立的幸存者、感染者、半场和比赛模型；
+- 记录连接时间、实际操作时间、章节与战役成绩、击杀、伤害、生存、救援、治疗、装备和技巧数据；
+- 支持 SQLite、MySQL 和 PostgreSQL，三种数据库使用一致的结构与统计契约；
+- 通过绝对快照、异步保存、有界队列、重试和日志抑制降低数据库故障对游戏线程的影响；
+- 提供内嵌 React 的 Go 单二进制 Dashboard，无需单独部署前端；
+- 支持 Steam OpenID、手动 SteamID64 查询、全服排行榜、多服务器 A2S 状态和单管理员后台；
+- 提供日、月度和终身聚合、数据库增长监控及管理员确认后的分批清理；
+- 应用日志自动轮转，公开 API 不返回玩家 IP，管理写操作使用 JWT、CSRF 和请求限流保护。
 
-- 一个 Go 1.26 + Fiber v3 Dashboard 子模块，生产环境由单二进制同时提供 API 和 React 页面；
-- Dashboard 自有纯 Go SQLite、Goose 初始结构和网页首次设置；
-- Stats DB 只读支持 SQLite、MySQL 和 PostgreSQL，首页查询按 PvE/Versus 契约隔离；
-- 多服务器 A2S 状态列表、全服历史总览、可选自定义页脚、限时缓存与故障降级；
-- Steam OpenID、手动 SteamID64、个人 PvE/Versus/Session/章节查询；
-- ECharts 个人趋势、完整 PvE/装备/Versus 明细、全服排行榜与效率样本门槛；
-- Dashboard DB 日聚合、定期刷新、手动重建和不会删除数据的保留预估；
-- easyhash bcrypt、JWT Cookie、Fiber CSRF、单管理员站点与服务器后台；
-- Cobra CLI、Zap/Lumberjack 限量日志、systemd 安装和部署诊断；
-
-Dashboard 的聚合、永久保留范围和未来清理边界见[数据生命周期](docs/dashboard-data-lifecycle.md)，版本安排见[Roadmap](docs/roadmap.md)。
-
-- 一个模块化 SourcePawn 插件，最终编译为 `l4d2_player_stats.smx`；
-- SQLite、MySQL 和 PostgreSQL 三套等价迁移；
-- 异步连接、自动迁移、服务器启动实例注册和异常启动恢复；
-- 300 秒加随机抖动的服务器心跳；
-- 5/15/30/60 秒有上限重连，以及重复错误日志限流；
-- 仅限 root 管理员的状态、重连和立即刷新命令；
-- 构建、部署、迁移校验和发布打包脚本。
-- 仅在 `coop`、`realism`、`versus` 中保存通过 Steam 认证的真人；
-- 保存 SteamID64、昵称、IP 和一次连续连接的 Session；
-- 分开累计连接时间与实际操作时间；
-- Session 按 SteamID 跨正常地图切换延续；换图重连窗口为 120 秒，真实断线或离开支持模式时关闭；
-- 数据库故障期间使用有上限的内存 closed Session 队列。
-- 建立 PvE 战役、章节尝试和 Versus 半场的 Run / Round 归属；
-- 处理正常过图、团灭重试、手动换图、结局和模式切换；
-- 按真人幸存者/感染者身份创建 Segment，观战和闲置会结束当前 Segment；
-- Run、Round 和 Segment 使用绝对快照、单一异步事务和有界 closed 队列持久化。
-- 按 PvE Segment 统计普通感染者、六种普通特感、Tank 和 Witch 的最后击杀；
-- 统计对特感、Tank 和 Witch 造成的实际生命损失，不记录溢出伤害；
-- 统计感染者造成的承伤，并拆分对真人、对 Bot 和真人承受的友伤；
-- 统计倒地、死亡、倒地救援、挂边救援、电击器复活和被救援次数；
-- 拆分医疗包自疗、治疗队友次数及实际恢复的真实生命；
-- 统计止痛药、肾上腺素使用次数和实际获得的临时生命；
-- 统计章节参与、完成时存活/死亡状态及战役完成；
-- 拆分六种普通特感的击杀、伤害、受控次数/时长和队友解救；
-- 以固定 ID 记录官方枪械与近战明细，未知/第三方枪械只进入 `Other Firearm`；
-- 记录三种官方投掷物、Boss 参与、本人近战断舌、Tank 石头空爆和 Witch 技巧；
-- 记录燃烧与高爆弹药升级包部署，不记录激光瞄准器；
-- 记录成功目标互动、从弹药堆补充弹药、倒地/挂边累计时间和把黑白队友治疗回彩色；
-- PvE 统计使用绝对快照与有界关闭队列，不为 Bot 建立个人统计。
-- 对抗幸存者侧拆分真人/Bot 特感与 Tank 的击杀和有效伤害；
-- 对抗幸存者侧按七种固定感染者职业保存真人/Bot 控制目标的击杀与有效伤害明细；
-- 对抗幸存者侧记录普通感染者击杀、感染者承伤、真人/Bot 友伤、生存、救援、治疗和临时生命；
-- 对抗幸存者侧记录 Witch、三种官方投掷物、两种弹药升级包、本人近战断舌、Tank 石头空爆和 Witch 技巧；
-- 对抗感染者侧记录有效出生、对真人/Bot 幸存者的伤害、倒地和击杀；
-- 对抗感染者侧按 Smoker、Boomer、Hunter、Spitter、Jockey、Charger、Tank 保存同口径职业明细；
-- 对抗感染者侧记录四种控制次数/时长、Boomer 胆汁命中人数和 Spitter 酸液有效伤害，并拆分真人/Bot 目标；
-- 对抗半场记录逻辑队伍地图分与累计分，对抗 Run 记录最终累计分、平局/胜负和异常结束状态；
-- 对抗幸存者与感染者使用不同数据库表、绝对快照和有界关闭队列，不能进入 PvE 聚合。
-- 使用机器可读清单冻结六张 Versus v1 表，并严格校验三种数据库的字段顺序、声明和主键；
-- 提供跨数据库契约健康查询和未来 Go 读取示例。
-
-v0.6.0～v0.6.5 的本地可验证范围已经通过验收，v0.6.6 已冻结对抗 v1 字段语义、Bot 口径、结果状态和读取不变量。完整的双方真人、换队、Tank 交接、重连和半场重开统一延期到 v0.7.0。当前不推算跨 Run 稳定队伍、逐时刻推进曲线或 MVP；对抗首版不建立逐武器统计表。
-
-已经确认的基础边界：
-
-- 数据库支持 SQLite、MySQL 和 PostgreSQL（SourceMod 驱动名为 `pgsql`）。
-- 只采集 `coop`、`realism` 和 `versus`；其他模式完全不记录。
-- `coop` 与 `realism` 属于 PvE 统计族，`versus` 使用独立的 PvP 统计模型。
-- 只为通过 Steam 认证的真人玩家建立身份和统计，不为 Bot 建立玩家记录。
-- 同时保存连接时间和有效参赛时间。
-- 保存服务器观察到的玩家 IP 地址，不含端口；IP 不得由公开网页默认展示。
-- 身份、会话和统计明细默认永久保留。
-- 常规保存周期为 300 秒加可配置随机抖动，并在关键生命周期事件发生时保存。
-- 第一阶段数据库故障只使用有界内存状态恢复，不创建无限增长的本地日志或队列文件。
-
-## 契约
-
-- [模式与生命周期](contracts/modes.md)
-- [统计口径](contracts/statistics.md)
-- [Versus v1 冻结契约](contracts/versus-v1.md)
-- [Versus v1 机器清单](contracts/versus-schema-v1.json)
-- [数据库结构](database/schema.md)
-- [读取查询示例](docs/query-examples.md)
-
-## Monorepo 边界
+## 运行结构
 
 ```text
-collector/     SourceMod 数据采集插件
-database/      三种数据库的结构和迁移
-contracts/     插件与未来 Go 服务共同遵守的行为定义
-dashboard/     Go 后端、Dashboard DB 与内嵌 React 前端
-docs/          架构、部署和测试文档
-scripts/       仓库级构建与发布脚本
+L4D2 + SourceMod
+        │
+        │ 采集并写入
+        ▼
+SQLite / MySQL / PostgreSQL
+        │
+        │ 只读查询与聚合
+        ▼
+Go Dashboard（内嵌 React）
 ```
 
-详细说明见[架构文档](docs/architecture.md)。
+采集插件可以独立运行；只有需要网页展示和数据维护时才部署 Dashboard。
 
-后续版本按[开发路线图](docs/roadmap.md)推进。
+## 支持范围
 
-## 本地构建
+| 项目 | 支持内容 |
+|---|---|
+| 游戏模式 | `coop`、`realism`、`versus` |
+| Stats 数据库 | SQLite、MySQL、PostgreSQL |
+| Dashboard 系统 | Windows amd64、Linux amd64 |
+| 玩家身份 | SteamID64 真人玩家 |
+| 服务器形态 | 独立服务器、用于开发测试的本地服务器 |
 
-1. 安装 Python 3，并将 `scripts/config.example.ps1` 复制为 `scripts/config.local.ps1`，填写本机 SourceMod 路径。
-2. 运行 `scripts/build.ps1`；产物位于 `dist/l4d2_player_stats.smx`。
-3. 运行 `scripts/deploy.ps1`，插件和三套迁移会复制到本机 SourceMod 环境。
+其他游戏模式不会创建身份、会话或统计记录。PvE 与对抗数据严格分开，详细统计语义见[统计口径](contracts/statistics.md)和[对抗契约](contracts/versus-v1.md)。
 
-VS Code 可以直接执行 `L4D2 Stats: Build` 或 `L4D2 Stats: Build and Deploy` 任务。
+## Release 包结构
 
-Dashboard 的开发与部署见 [Dashboard README](dashboard/README.md)。运行 `scripts/build-dashboard.ps1`（Linux 使用 `scripts/build-dashboard.sh`）会完成前端检查、sqlc 生成、Go 测试并生成 `dist/l4d2-stats` 单二进制。
+官方构建产物同时包含采集器和 Dashboard：
 
-## 服务器配置与验证
+```text
+l4d2-plugin-stats-*.zip
+├─ left4dead2/                         直接合并到游戏服务端目录
+│  └─ addons/sourcemod/
+│     ├─ plugins/l4d2_player_stats.smx
+│     └─ configs/l4d2_player_stats/migrations/
+├─ dashboard/
+│  ├─ windows-amd64/l4d2-stats.exe
+│  ├─ linux-amd64/l4d2-stats
+│  └─ config.example.yaml
+├─ examples/databases.cfg.example
+├─ README.md
+└─ LICENSE
+```
 
-数据库、ConVar 和 SQLite 首次验证步骤见[数据库地基部署](docs/database-foundation.md)。数据库密码只应存在于服务器自己的 `addons/sourcemod/configs/databases.cfg`，不得提交到仓库。
+Dashboard 前端已嵌入可执行文件，不需要单独部署 Node.js。Linux 解压后如缺少执行权限，请运行 `chmod +x dashboard/linux-amd64/l4d2-stats`。
 
-v0.3 的生命周期验收见 [Run / Round / Segment 测试清单](docs/v0.3-test-checklist.md)，v0.4 的战斗统计验收见 [PvE 核心统计测试清单](docs/v0.4-test-checklist.md)，v0.5 的治疗与章节统计验收见 [PvE 治疗与章节测试清单](docs/v0.5-test-checklist.md)，v0.5.1 的扩展统计验收见 [PvE 扩展统计测试清单](docs/v0.5.1-test-checklist.md)，v0.5.2 的互动与状态验收见 [PvE 互动与状态测试清单](docs/v0.5.2-test-checklist.md)，v0.6 的核心验收见 [Versus 核心统计测试清单](docs/v0.6-test-checklist.md)，v0.6.2 的职业明细验收见 [Versus 感染者职业测试清单](docs/v0.6.2-test-checklist.md)，v0.6.3 的能力效果验收见 [Versus 控制与能力测试清单](docs/v0.6.3-test-checklist.md)，v0.6.4 的幸存者明细验收见 [Versus 幸存者战斗明细测试清单](docs/v0.6.4-test-checklist.md)，v0.6.5 的比分与结果验收见 [Versus 比分与结果测试清单](docs/v0.6.5-test-checklist.md)，v0.6.6 的冻结验证见 [Versus v1 契约冻结](docs/v0.6.6-contract-freeze.md)。
+## 快速开始
 
-管理员命令：
+### 1. 安装采集器
+
+服务器需要先安装 [Metamod:Source](https://www.sourcemm.net/) 和 [SourceMod](https://www.sourcemod.net/)。
+
+将 release 压缩包内的 `left4dead2` 文件夹覆盖到服务器同名目录。它会安装：
+
+```text
+left4dead2/addons/sourcemod/plugins/l4d2_player_stats.smx
+left4dead2/addons/sourcemod/configs/l4d2_player_stats/migrations/
+```
+
+将 `examples/databases.cfg.example` 中选定的数据库块合并到：
+
+```text
+left4dead2/addons/sourcemod/configs/databases.cfg
+```
+
+插件首次加载会生成：
+
+```text
+left4dead2/cfg/sourcemod/l4d2_player_stats.cfg
+```
+
+至少设置一个在共享数据库中唯一的服务器标识：
+
+```text
+sm_lps_server_key "my-l4d2-server-01"
+```
+
+重新加载并检查状态：
+
+```text
+sm plugins reload l4d2_player_stats
+sm_lps_status
+```
+
+正常状态应显示数据库驱动、`schema=1/1` 和 `state=ready`。完整数据库配置见[采集器部署文档](docs/database-foundation.md)。
+
+### 2. 启动 Dashboard
+
+从压缩包的 `dashboard` 目录选择对应平台的二进制，并将 `config.example.yaml` 复制为 `config.yaml`：
+
+```yaml
+server:
+  listen: "127.0.0.1:18848"
+
+dashboard_database:
+  path: "./dashboard.db"
+
+stats_database:
+  driver: "sqlite"
+  dsn: "/absolute/path/l4d2_player_stats.sq3"
+
+logging:
+  file: "./logs/l4d2-stats.log"
+
+monitor:
+  enabled: true
+```
+
+启动服务：
+
+```sh
+./l4d2-stats serve --config ./config.yaml
+```
+
+首次启动会在终端输出一次性设置令牌。打开 `/admin/setup` 创建管理员，然后在后台配置界面、服务器、Steam 登录、公告和数据维护策略。
+
+Linux 可直接注册为 systemd 服务：
+
+```sh
+sudo ./l4d2-stats install --config ./config.yaml
+```
+
+生产部署、HTTPS、权限、备份和回滚说明见[Dashboard 部署指南](docs/dashboard-deployment.md)。
+
+## 管理命令
 
 | 命令 | 权限 | 用途 |
 |---|---|---|
-| `sm_lps_status` | root | 查看连接、驱动、迁移和最近错误 |
-| `sm_lps_reconnect` | root | 立即重新连接并重新检查迁移 |
-| `sm_lps_flush` | root | 立即执行服务器心跳/刷新请求 |
+| `sm_lps_status` | SourceMod root | 查看连接、驱动、迁移和最近错误 |
+| `sm_lps_reconnect` | SourceMod root | 立即重新连接并检查数据库 |
+| `sm_lps_flush` | SourceMod root | 立即保存当前快照 |
+
+Dashboard CLI 提供：
+
+```text
+l4d2-stats serve
+l4d2-stats doctor
+l4d2-stats aggregate status
+l4d2-stats aggregate rebuild
+l4d2-stats migrate status
+l4d2-stats install
+l4d2-stats uninstall
+```
+
+所有命令都可通过 `--config` 指定配置文件。
+
+## 数据与隐私
+
+- Stats DB 是游戏采集事实来源，Dashboard DB 保存网页配置、管理员和可重建的聚合数据；
+- 采集器保存服务器观察到的玩家 IP，用于会话审计，但公开 API 和网页不会查询或展示该字段；
+- 常规 Dashboard 查询只读 Stats DB；执行原始数据清理时才使用具备 `DELETE` 权限的维护连接；
+- 过期装备/职业明细、已关闭 Session 和比赛结果只有在聚合覆盖校验通过并由管理员确认后才会分批删除；
+- 数据库密码只应保存在服务器本地配置中，不应提交到仓库。
+
+详细规则见[数据生命周期](docs/dashboard-data-lifecycle.md)。
+
+## 从源码构建
+
+采集器需要 SourceMod 的 SourcePawn 编译器、Python 3 和本机路径配置：
+
+```powershell
+Copy-Item scripts/config.example.ps1 scripts/config.local.ps1
+./scripts/build.ps1
+```
+
+Dashboard 构建需要 Go、Node.js 和 pnpm：
+
+```powershell
+./scripts/build-dashboard.ps1
+```
+
+Linux 可以使用：
+
+```sh
+./scripts/build-dashboard.sh
+```
+
+项目构建产物统一写入 `dist/`，不会被 Git 跟踪。
+
+## 仓库结构
+
+```text
+collector/     SourceMod 采集器源码
+database/      SQLite、MySQL、PostgreSQL 迁移与结构说明
+contracts/     模式、统计口径和对抗数据契约
+dashboard/     Go API、Dashboard DB、内嵌 React 前端
+docs/          部署、数据生命周期和维护文档
+scripts/       构建、校验、部署和打包脚本
+```
+
+## 参与贡献
+
+欢迎提交 Issue 或 Pull Request。涉及数据库字段、统计含义或玩法边界的修改，请先阅读现有契约，并同步更新三种数据库迁移、采集器和 Dashboard 查询。
 
 ## License
 

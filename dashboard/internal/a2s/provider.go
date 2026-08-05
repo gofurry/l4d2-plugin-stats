@@ -131,6 +131,7 @@ func (p *Provider) Statuses(ctx context.Context) ([]store.ServerStatus, error) {
 	if err != nil {
 		return nil, err
 	}
+	p.removeUnknownServers(servers)
 	enabled := make([]store.GameServer, 0, len(servers))
 	for _, server := range servers {
 		if server.Enabled {
@@ -153,6 +154,30 @@ func (p *Provider) Statuses(ctx context.Context) ([]store.ServerStatus, error) {
 		return nil, err
 	}
 	return statuses, nil
+}
+
+func (p *Provider) InvalidateServer(serverID string) {
+	p.mu.Lock()
+	defer p.mu.Unlock()
+	for key, entry := range p.entries {
+		if entry.status.ServerID == serverID {
+			delete(p.entries, key)
+		}
+	}
+}
+
+func (p *Provider) removeUnknownServers(servers []store.GameServer) {
+	known := make(map[string]struct{}, len(servers))
+	for _, server := range servers {
+		known[serverCacheKey(server)] = struct{}{}
+	}
+	p.mu.Lock()
+	defer p.mu.Unlock()
+	for key := range p.entries {
+		if _, ok := known[key]; !ok {
+			delete(p.entries, key)
+		}
+	}
 }
 
 func (p *Provider) LastStatus(ctx context.Context, serverID string) (store.ServerStatus, bool, error) {

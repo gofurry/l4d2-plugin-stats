@@ -5,7 +5,7 @@ $dashboardRoot = Join-Path $repoRoot "dashboard"
 $frontendRoot = Join-Path $dashboardRoot "frontend"
 $outputDirectory = Join-Path $repoRoot "dist"
 $outputFile = Join-Path $outputDirectory "l4d2-stats.exe"
-$version = if ($env:L4D2_STATS_VERSION) { $env:L4D2_STATS_VERSION } else { "0.8.3-dev" }
+$version = if ($env:L4D2_STATS_VERSION) { $env:L4D2_STATS_VERSION } else { "0.9.2-dev" }
 
 Push-Location $frontendRoot
 try {

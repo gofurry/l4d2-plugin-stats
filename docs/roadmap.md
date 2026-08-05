@@ -14,7 +14,7 @@ Dashboard 已完成 Go + 内嵌 React 地基、公开首页、多服务器 A2S�
 4. 趋势按 Session 或 Segment 的开始日期归属，以 UTC 天为聚合桶；这不是逐事件发生时间。
 5. 排行榜只接受后端白名单指标，不允许客户端传入 SQL 字段或排序表达式。
 6. 效率榜必须设置最低样本门槛；首版 PvE 默认为 5 小时，Versus 默认为 3 小时。
-7. Session、身份/IP、Run、Round 和比赛结果永久保留。任何原始明细删除都必须经过聚合覆盖、校验、审计和显式维护命令。
+7. 身份、Run、Round、Segment 和核心统计永久保留；过期装备/职业明细、已关闭 Session 和比赛结果只有在聚合覆盖、预览复核、审计和管理员显式确认后才能清理。
 8. `v1.0.0` 只用于首个真正稳定、可长期部署的版本；之前继续使用 `v0.x.x` 和稳定冻结 Alpha。
 
 ## Version Plan
@@ -108,7 +108,7 @@ Dashboard 已完成 Go + 内嵌 React 地基、公开首页、多服务器 A2S�
 
 ### v0.9.2 - Incremental Aggregation and Safe Retention Apply
 
-**Status:** Planned
+**Status:** Implemented; awaiting long-running real-server validation
 
 **Scope:** Data / Reliability / CLI
 
@@ -118,24 +118,25 @@ Dashboard 已完成 Go + 内嵌 React 地基、公开首页、多服务器 A2S�
 
 #### Tasks
 
-- [ ] 使用 `last_saved_at + revision + source ID` 维护水位，只重算受影响的 UTC 日桶
-- [ ] 保留手动全量重建作为恢复和校验路径
-- [ ] 日聚合只保留最近 365 天；更早数据折叠进可重建的终身/月度汇总，确保 Dashboard DB 不随天数无限增长
-- [ ] 为每次聚合记录源水位、行数、指标校验和、耗时和失败原因
+- [x] 使用 `last_saved_at` 水位，只重算受影响的 UTC 日桶
+- [x] 聚合周期由 Dashboard DB 配置，默认 30 分钟并支持 15 分钟至 24 小时
+- [x] 为每次聚合记录源水位、变更日期、行数、耗时和失败原因
+- [x] 使用独立维护连接；常规网页、公开 API 和聚合仍只读 Stats DB
+- [x] 管理后台提供数据增长监控、清理预览、二次确认和立即聚合
+- [x] 清理过期装备/职业明细、已关闭 Session 和 Versus 比赛结果
+- [x] 清理前强制刷新聚合并两次校验水位与预览 ID
+- [x] 写入清理审计，记录范围、水位和实际删除数量
+- [ ] 为三种数据库增加大数据量小批事务和真实运行验收
 - [ ] 增加聚合与原始表按玩家/日期/指标抽样对账命令
-- [ ] 设计独立维护连接，网页 `serve` 仍保持只读 Stats DB
-- [ ] 增加 `retention apply --dry-run/--confirm`，默认仅预览并要求明确确认
-- [ ] 按“职业/装备明细 → Segment 总计 → Segment”顺序分批删除
-- [ ] SQLite 仅在维护窗口执行；MySQL/PostgreSQL 使用小批事务，均不自动全库压缩
-- [ ] 写入不可变清理清单，记录范围、数量、水位、校验和与执行者
+- [x] 增加月度/终身汇总层，累计统计和全周期排行榜不再扫描全部日聚合
 
 #### Acceptance Criteria
 
 - 活跃 Segment 多次保存不会被重复累加
 - 增量结果与同一水位的全量重建逐指标一致
 - 未完成聚合、校验失败或水位落后时清理命令拒绝执行
-- Session、IP、Run、Round、比赛结果和身份表不进入删除范围
-- Dashboard 日聚合有固定保留窗口，终身榜读取压缩汇总且与原始数据对账一致
+- 身份、Run、Round、Segment 和核心统计不进入删除范围
+- 清理后首页、个人累计和排行榜继续读取日聚合，旧逐条 Session/比赛结果按策略消失
 
 ---
 

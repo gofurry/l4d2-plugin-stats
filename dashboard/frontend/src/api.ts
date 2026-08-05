@@ -1,8 +1,10 @@
 export interface FooterLink { id?: string; label: string; url: string }
 export type SiteLanguage = 'zh-CN' | 'en'
 export type SiteTheme = 'light' | 'dark'
-export interface Site { language: SiteLanguage; browser_title: string; theme: SiteTheme; footer_enabled: boolean; background_image_url: string; footer_links: FooterLink[]; steam_openid_enabled: boolean; a2s_refresh_seconds: number; configured: boolean }
-export interface SiteSettings { language: SiteLanguage; browser_title: string; theme: SiteTheme; footer_enabled: boolean; background_image_url: string; public_origin: string; steam_openid_enabled: boolean; a2s_refresh_seconds: number; a2s_jitter_seconds: number; a2s_retry_count: number; footer_links: FooterLink[] }
+export type SiteDocumentKey = 'introduction' | 'commands' | 'resources'
+export interface SiteDocument { key: SiteDocumentKey; enabled: boolean; content_markdown: string; updated_at: number }
+export interface Site { language: SiteLanguage; browser_title: string; theme: SiteTheme; footer_enabled: boolean; background_image_url: string; footer_links: FooterLink[]; steam_openid_enabled: boolean; a2s_refresh_seconds: number; site_documents: SiteDocumentKey[]; configured: boolean }
+export interface SiteSettings { language: SiteLanguage; browser_title: string; theme: SiteTheme; footer_enabled: boolean; background_image_url: string; public_origin: string; steam_openid_enabled: boolean; a2s_refresh_seconds: number; a2s_jitter_seconds: number; a2s_retry_count: number; seo_enabled: boolean; seo_description: string; seo_image_url: string; footer_links: FooterLink[] }
 export interface CoreOverview { total_players: number; active_players_7d: number; total_active_play_seconds: number; completed_pve_runs: number; completed_versus_runs: number }
 export interface PVEOverview { common_kills: number; special_kills: number; tank_kills: number; witch_kills: number; rescues: number }
 export interface VersusOverview { completed_matches: number; completed_halves: number; human_controlled_infected_kills: number; human_survivor_controls: number }
@@ -47,6 +49,12 @@ export interface Page<T> { items:T[]; next_cursor?:string }
 export interface Announcement { id:string; title:string; content_markdown:string; created_at:number; updated_at:number }
 export interface AnnouncementPage { items:Announcement[]; total:number; page:number; limit:number }
 export interface AnnouncementInput { title:string; content_markdown:string }
+export interface AggregateStatus { state:string; last_started_at:number; last_finished_at:number; source_rows:number; aggregate_rows:number; source_watermark:number; last_duration_ms:number; last_changed_days:number; last_build_mode:string; last_error?:string }
+export interface DataMaintenanceSettings { aggregate_interval_minutes:number; detail_retention_days:number; session_retention_days:number; result_retention_days:number; updated_at:number }
+export interface DatabaseUsage { driver:string; bytes:number; wal_bytes?:number }
+export interface RetentionPlan { generated_at:number; detail_cutoff:number; session_cutoff:number; result_cutoff:number; equipment_rows_eligible:number; versus_class_rows_eligible:number; session_rows_eligible:number; versus_round_results_eligible:number; versus_run_results_eligible:number; source_watermark:number; plan_id:string; deletion_enabled:boolean; aggregate_coverage_ready:boolean }
+export interface RetentionResult { run_id:string; executed_at:number; equipment_rows:number; versus_class_rows:number; session_rows:number; versus_round_result_rows:number; versus_run_result_rows:number }
+export interface DataGrowthStatus { aggregate:AggregateStatus; settings:DataMaintenanceSettings; stats_database:DatabaseUsage; dashboard_database:DatabaseUsage; log_bytes:number; retention_runs:number; retention_plan:RetentionPlan }
 
 interface Envelope<T> { data: T; request_id: string }
 interface ErrorEnvelope { error?: { code?: string; message?: string } }
@@ -67,14 +75,16 @@ async function adminWrite<T>(path:string,method:string,body?:unknown):Promise<T>
 }
 
 export const api={
-  site:()=>request<Site>('/api/v1/site'),overview:()=>request<Overview>('/api/v1/dashboard/overview'),serverStatuses:()=>request<ServerStatus[]>('/api/v1/servers/status'),
-  announcements:(page=1,limit=20)=>request<AnnouncementPage>(`/api/v1/announcements?${new URLSearchParams({page:String(page),limit:String(limit)})}`),
+  site:()=>request<Site>('/api/v1/site'),overview:()=>request<Overview>('/api/v1/dashboard/overview'),serverStatuses:()=>request<ServerStatus[]>('/api/v1/servers/status'),siteDocument:(key:SiteDocumentKey)=>request<SiteDocument>(`/api/v1/site-documents/${key}`),
+  announcements:(page=1,limit=20,title='',year?:number)=>request<AnnouncementPage>(`/api/v1/announcements?${new URLSearchParams({page:String(page),limit:String(limit),...(title?{title}:{}),...(year?{year:String(year)}:{})})}`),announcementYears:()=>request<number[]>('/api/v1/announcements/years'),
   setupStatus:()=>request<{required:boolean;expires_at?:string}>('/api/v1/setup/status'),setupAdmin:(body:{setup_token:string;username:string;password:string})=>request('/api/v1/setup/admin',{method:'POST',body:JSON.stringify(body)}),
   login:(username:string,password:string)=>request('/api/v1/admin/auth/login',{method:'POST',body:JSON.stringify({username,password})}),logout:()=>adminWrite('/api/v1/admin/auth/logout','POST'),adminMe:()=>request<AdminIdentity>('/api/v1/admin/auth/me'),
   adminSite:()=>request<SiteSettings>('/api/v1/admin/site'),saveSite:(site:SiteSettings)=>adminWrite<SiteSettings>('/api/v1/admin/site','PUT',site),
+  adminSiteDocuments:()=>request<SiteDocument[]>('/api/v1/admin/site-documents'),saveSiteDocument:(document:SiteDocument)=>adminWrite<SiteDocument>(`/api/v1/admin/site-documents/${document.key}`,'PUT',document),
   adminAnnouncements:(page=1,limit=50)=>request<AnnouncementPage>(`/api/v1/admin/announcements?${new URLSearchParams({page:String(page),limit:String(limit)})}`),createAnnouncement:(value:AnnouncementInput)=>adminWrite<Announcement>('/api/v1/admin/announcements','POST',value),updateAnnouncement:(id:string,value:AnnouncementInput)=>adminWrite<Announcement>(`/api/v1/admin/announcements/${id}`,'PUT',value),deleteAnnouncement:(id:string)=>adminWrite(`/api/v1/admin/announcements/${id}`,'DELETE'),
   servers:()=>request<GameServer[]>('/api/v1/admin/servers'),createServer:(server:GameServerInput)=>adminWrite<GameServer>('/api/v1/admin/servers','POST',server),updateServer:(id:string,server:GameServerInput)=>adminWrite<GameServer>(`/api/v1/admin/servers/${id}`,'PUT',server),setServerEnabled:(id:string,enabled:boolean)=>adminWrite<{enabled:boolean}>(`/api/v1/admin/servers/${id}/enabled`,'PATCH',{enabled}),moveServer:(id:string,direction:'up'|'down')=>adminWrite<{moved:boolean}>(`/api/v1/admin/servers/${id}/move`,'POST',{direction}),serverA2S:(id:string)=>request<ServerA2SState>(`/api/v1/admin/servers/${id}/a2s`),refreshServerA2S:(id:string)=>adminWrite<ServerStatus>(`/api/v1/admin/servers/${id}/a2s`,'POST'),deleteServer:(id:string)=>adminWrite(`/api/v1/admin/servers/${id}`,'DELETE'),
   updateAccount:(username:string)=>adminWrite('/api/v1/admin/account','PUT',{username}),updatePassword:(current_password:string,new_password:string)=>adminWrite('/api/v1/admin/account/password','PUT',{current_password,new_password}),
+  dataStatus:()=>request<DataGrowthStatus>('/api/v1/admin/data/status'),dataSettings:()=>request<DataMaintenanceSettings>('/api/v1/admin/data/settings'),saveDataSettings:(settings:DataMaintenanceSettings)=>adminWrite<DataMaintenanceSettings>('/api/v1/admin/data/settings','PUT',settings),aggregateNow:()=>adminWrite<DataGrowthStatus>('/api/v1/admin/data/aggregate','POST'),retentionPlan:()=>request<RetentionPlan>('/api/v1/admin/data/retention/plan'),applyRetention:(plan_id:string)=>adminWrite<RetentionResult>('/api/v1/admin/data/retention/apply','POST',{plan_id}),
   steamIdentity:()=>request<{steam_id:string}|null>('/api/v1/steam/identity'),
   playerSummary:(id:string)=>request<PlayerSummary>(`/api/v1/players/${id}/summary`),
   playerActivity:(id:string,range:string,server='')=>request<PlayerActivity>(`/api/v1/players/${id}/activity?${new URLSearchParams({range,...(server?{server}:{})})}`),

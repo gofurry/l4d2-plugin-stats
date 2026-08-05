@@ -17,6 +17,7 @@ const AdminSitePage=lazy(()=>import('./pages/AdminPages').then(module=>({default
 const AdminServersPage=lazy(()=>import('./pages/AdminPages').then(module=>({default:module.AdminServersPage})))
 const AdminSecurityPage=lazy(()=>import('./pages/AdminPages').then(module=>({default:module.AdminSecurityPage})))
 const AdminAnnouncementsPage=lazy(()=>import('./pages/AdminAnnouncementsPage').then(module=>({default:module.AdminAnnouncementsPage})))
+const AdminDataPage=lazy(()=>import('./pages/AdminDataPage').then(module=>({default:module.AdminDataPage})))
 
 function SiteAppearanceSync() {
   const site = useQuery({ queryKey: ['site'], queryFn: api.site, staleTime: 5 * 60_000, retry: 1 })
@@ -54,6 +55,7 @@ function AppRoutes() {
       <Route path="servers" element={<AdminServersPage />} />
       <Route path="announcements" element={<AdminAnnouncementsPage />} />
       <Route path="security" element={<AdminSecurityPage />} />
+      <Route path="data" element={<AdminDataPage />} />
     </Route>
     <Route path="*" element={<Navigate to="/" replace />} />
   </Routes></Suspense></div><PageScrollOrb scrollerRef={scrollerRef} refreshKey={location.pathname}/></>

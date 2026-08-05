@@ -10,6 +10,8 @@
 .announcement header > span { flex: 0 0 auto; padding: 4px 9px; border-radius: 999px; background: rgba(200, 112, 57, .1); }
 .statePanel { display: grid; min-height: 250px; place-items: center; padding: 36px; }
 .loadMore { display: flex; justify-content: center; margin-top: 22px; }
+.filterForm { display: grid; gap: 20px; padding-top: 6px; }
+.filterForm label { display: grid; gap: 8px; color: var(--text-secondary); font-size: 13px; }
 
 @media (max-width: 920px) { .content { width: calc(100% - 250px); margin-right: 76px; } }
 @media (max-width: 720px) {

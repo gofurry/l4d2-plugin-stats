@@ -11,14 +11,18 @@ import (
 type Querier interface {
 	CompleteAggregateBuild(ctx context.Context, arg CompleteAggregateBuildParams) error
 	CountAdminAccounts(ctx context.Context) (int64, error)
-	CountAnnouncements(ctx context.Context) (int64, error)
+	CountAggregateRows(ctx context.Context) (int64, error)
+	CountAnnouncements(ctx context.Context, arg CountAnnouncementsParams) (int64, error)
 	CountGameServers(ctx context.Context) (int64, error)
+	CountRetentionRuns(ctx context.Context) (int64, error)
 	CountSiteSettings(ctx context.Context) (int64, error)
 	CreateAdminAccount(ctx context.Context, arg CreateAdminAccountParams) error
 	CreateAnnouncement(ctx context.Context, arg CreateAnnouncementParams) error
 	CreateFooterLink(ctx context.Context, arg CreateFooterLinkParams) error
 	CreateGameServer(ctx context.Context, arg CreateGameServerParams) error
+	CreateRetentionRun(ctx context.Context, arg CreateRetentionRunParams) error
 	DeleteAggregateRows(ctx context.Context) error
+	DeleteAggregateRowsForDay(ctx context.Context, day int64) error
 	DeleteAnnouncement(ctx context.Context, id string) (int64, error)
 	DeleteFooterLinks(ctx context.Context) error
 	DeleteGameServer(ctx context.Context, id string) (int64, error)
@@ -26,15 +30,21 @@ type Querier interface {
 	GetAdminAccount(ctx context.Context) (GetAdminAccountRow, error)
 	GetAggregateStatus(ctx context.Context) (GetAggregateStatusRow, error)
 	GetAnnouncement(ctx context.Context, id string) (Announcement, error)
+	GetDataMaintenanceSettings(ctx context.Context) (GetDataMaintenanceSettingsRow, error)
 	GetGameServer(ctx context.Context, id string) (GetGameServerRow, error)
 	GetMetadata(ctx context.Context, key string) (string, error)
+	GetPublicSiteDocument(ctx context.Context, key string) (SiteDocument, error)
+	GetSEOSettings(ctx context.Context) (GetSEOSettingsRow, error)
+	GetSiteDocument(ctx context.Context, key string) (SiteDocument, error)
 	GetSiteSettings(ctx context.Context) (GetSiteSettingsRow, error)
 	InsertAggregateRow(ctx context.Context, arg InsertAggregateRowParams) error
-	ListAggregateRows(ctx context.Context, arg ListAggregateRowsParams) ([]AggregateRow, error)
+	ListAnnouncementYears(ctx context.Context) ([]int64, error)
 	ListAnnouncements(ctx context.Context, arg ListAnnouncementsParams) ([]Announcement, error)
 	ListFooterLinks(ctx context.Context) ([]ListFooterLinksRow, error)
 	ListGameServers(ctx context.Context) ([]ListGameServersRow, error)
 	ListPublicFooterLinks(ctx context.Context) ([]ListPublicFooterLinksRow, error)
+	ListPublicSiteDocuments(ctx context.Context) ([]string, error)
+	ListSiteDocuments(ctx context.Context) ([]SiteDocument, error)
 	MarkAggregateFailed(ctx context.Context, lastError string) error
 	MarkAggregateStarted(ctx context.Context, lastStartedAt int64) error
 	NextGameServerSortOrder(ctx context.Context) (int64, error)
@@ -43,8 +53,11 @@ type Querier interface {
 	UpdateAdminPassword(ctx context.Context, arg UpdateAdminPasswordParams) error
 	UpdateAdminUsername(ctx context.Context, arg UpdateAdminUsernameParams) error
 	UpdateAnnouncement(ctx context.Context, arg UpdateAnnouncementParams) (int64, error)
+	UpdateDataMaintenanceSettings(ctx context.Context, arg UpdateDataMaintenanceSettingsParams) error
 	UpdateGameServer(ctx context.Context, arg UpdateGameServerParams) (int64, error)
+	UpdateSiteDocument(ctx context.Context, arg UpdateSiteDocumentParams) (int64, error)
 	UpsertMetadata(ctx context.Context, arg UpsertMetadataParams) error
+	UpsertSEOSettings(ctx context.Context, arg UpsertSEOSettingsParams) error
 	UpsertSiteSettings(ctx context.Context, arg UpsertSiteSettingsParams) error
 }
 

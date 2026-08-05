@@ -1,6 +1,6 @@
 # L4D2 Stats Dashboard
 
-`dashboard/` 是统计系统的只读展示端。Go + Fiber 提供 API，React 页面嵌入同一个二进制。Dashboard 自己的管理员、站点和服务器设置保存在独立的纯 Go SQLite 数据库中；采集器的 Stats DB 始终只读。
+`dashboard/` 是统计系统的展示端。Go + Fiber 提供 API，React 页面嵌入同一个二进制。Dashboard 自己的管理员、站点和服务器设置保存在独立的纯 Go SQLite 数据库中；日常查询与聚合只读 Stats DB，只有管理员明确确认原始数据清理时才临时打开维护连接。
 
 ## 已实现
 
@@ -10,8 +10,8 @@
 - 首页历史指标、同优先级多服务器 A2S 状态列表和可选自定义页脚；
 - Steam OpenID 或手动 SteamID64 个人查询，支持时间、服务器、PvE 模式和游标分页；
 - ECharts 个人趋势、PvE/装备/Versus 全量明细和独立的全服排行榜；
-- 可重建的 UTC 日聚合读模型、10 分钟刷新、手动重建和只读保留预估；
-- 网页首次设置、easyhash bcrypt、8 小时 HS256 JWT、Fiber CSRF 和登录限流；
+- UTC 日增量聚合、月度/终身汇总读模型、可配置 15 分钟至 24 小时刷新周期和每批 500 行的可审计原始数据清理；
+- 网页首次设置、easyhash bcrypt、8 小时 HS256 JWT、Fiber CSRF、登录限流和全站每 IP 每分钟 300 次的温和限流；
 - 全局界面语言、背景图片、页脚链接、Steam 登录、服务器目录和账号安全后台；
 - 仅管理员可访问的轻量运行监控，展示 Dashboard 进程、Go Runtime、宿主机资源和 HTTP 请求状态；
 - systemd 安装、诊断、日志轮转和单二进制生产运行。
@@ -55,7 +55,7 @@ monitor:
 
 相对路径以 `config.yaml` 所在目录为基准。超时、连接池和日志轮转参数均有安全默认值，可按 `config.example.yaml` 的注释选择性覆盖。
 
-SQLite Stats DB 会以只读模式打开。MySQL/PostgreSQL 应使用只有 `SELECT` 权限的专用账号。服务只检查 `lps_schema_migrations`，不会迁移或写入 Stats DB；公开查询不会读取 Session IP。
+SQLite Stats DB 的常规连接会以只读模式打开。MySQL/PostgreSQL 若只使用展示与聚合，可继续使用只有 `SELECT` 权限的账号；若要从管理页执行清理，该 DSN 还需要对清理目标表具备 `DELETE` 权限。服务不会迁移 Stats DB；公开查询不会读取 Session IP。
 
 ## 首次设置
 
@@ -67,6 +67,7 @@ SQLite Stats DB 会以只读模式打开。MySQL/PostgreSQL 应使用只有 `SEL
 - 在“服务器管理”只填写展示名称和 `host:port` 地址；系统自动生成 UUID，并在列表中完成启停、上下排序、编辑和删除；
 - 在“安全设置”修改管理员用户名和密码。修改密码会让旧 JWT 立即失效。
 - 通过“运行监控”在新标签页查看当前 Dashboard 和宿主机的短期实时状态。
+- 通过“数据增长监控”查看数据库/日志占用、聚合水位，配置保留期并手动清理已聚合的过期数据。
 
 启用 Steam 登录后，需要填写玩家实际访问 Dashboard 时使用的完整地址，例如 `https://stats.example.com` 或 `http://203.0.113.10:18848`，供 Steam 验证后返回本站；不支持子路径。没有域名或不启用 Steam 登录都不影响手动 SteamID64 查询。
 
@@ -101,7 +102,7 @@ l4d2-stats aggregate rebuild
 l4d2-stats retention plan
 ```
 
-`aggregate rebuild` 从只读 Stats DB 事务性重建 Dashboard 日聚合。`retention plan` 只报告候选数量，当前始终显示 `deletion_enabled: false`，不会删除任何采集记录。
+`aggregate rebuild` 仅适用于尚未清理原始数据的环境；清理后为保护历史聚合会拒绝全量重建。日常运行和管理页“立即聚合”使用增量模式。`retention plan` 仍是只读 CLI 预览；真正清理由管理员登录网页后在“数据增长监控”页二次确认执行。
 
 统计读模型、永久保留范围和未来清理硬条件见[Dashboard 数据生命周期](../docs/dashboard-data-lifecycle.md)。
 

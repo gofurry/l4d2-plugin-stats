@@ -15,6 +15,25 @@ type AdminAccount struct {
 	PasswordChangedAt int64  `json:"password_changed_at"`
 }
 
+type AggregateLifetimeRow struct {
+	Kind        string `json:"kind"`
+	ServerKey   string `json:"server_key"`
+	SteamID     string `json:"steam_id"`
+	Mode        string `json:"mode"`
+	Dimension   string `json:"dimension"`
+	MetricsJson string `json:"metrics_json"`
+}
+
+type AggregateMonthlyRow struct {
+	Kind        string `json:"kind"`
+	Month       int64  `json:"month"`
+	ServerKey   string `json:"server_key"`
+	SteamID     string `json:"steam_id"`
+	Mode        string `json:"mode"`
+	Dimension   string `json:"dimension"`
+	MetricsJson string `json:"metrics_json"`
+}
+
 type AggregateRow struct {
 	Kind        string `json:"kind"`
 	Day         int64  `json:"day"`
@@ -26,13 +45,17 @@ type AggregateRow struct {
 }
 
 type AggregateState struct {
-	ID             int64  `json:"id"`
-	State          string `json:"state"`
-	LastStartedAt  int64  `json:"last_started_at"`
-	LastFinishedAt int64  `json:"last_finished_at"`
-	SourceRows     int64  `json:"source_rows"`
-	AggregateRows  int64  `json:"aggregate_rows"`
-	LastError      string `json:"last_error"`
+	ID              int64  `json:"id"`
+	State           string `json:"state"`
+	LastStartedAt   int64  `json:"last_started_at"`
+	LastFinishedAt  int64  `json:"last_finished_at"`
+	SourceRows      int64  `json:"source_rows"`
+	AggregateRows   int64  `json:"aggregate_rows"`
+	LastError       string `json:"last_error"`
+	SourceWatermark int64  `json:"source_watermark"`
+	LastDurationMs  int64  `json:"last_duration_ms"`
+	LastChangedDays int64  `json:"last_changed_days"`
+	LastBuildMode   string `json:"last_build_mode"`
 }
 
 type Announcement struct {
@@ -46,6 +69,15 @@ type Announcement struct {
 type DashboardMetadatum struct {
 	Key   string `json:"key"`
 	Value string `json:"value"`
+}
+
+type DataMaintenanceSetting struct {
+	ID                       int64 `json:"id"`
+	AggregateIntervalMinutes int64 `json:"aggregate_interval_minutes"`
+	DetailRetentionDays      int64 `json:"detail_retention_days"`
+	SessionRetentionDays     int64 `json:"session_retention_days"`
+	ResultRetentionDays      int64 `json:"result_retention_days"`
+	UpdatedAt                int64 `json:"updated_at"`
 }
 
 type FooterLink struct {
@@ -64,6 +96,35 @@ type GameServer struct {
 	Enabled     int64  `json:"enabled"`
 	SortOrder   int64  `json:"sort_order"`
 	CreatedAt   int64  `json:"created_at"`
+	UpdatedAt   int64  `json:"updated_at"`
+}
+
+type RetentionRun struct {
+	ID                    string `json:"id"`
+	ExecutedAt            int64  `json:"executed_at"`
+	SourceWatermark       int64  `json:"source_watermark"`
+	DetailCutoff          int64  `json:"detail_cutoff"`
+	SessionCutoff         int64  `json:"session_cutoff"`
+	ResultCutoff          int64  `json:"result_cutoff"`
+	EquipmentRows         int64  `json:"equipment_rows"`
+	VersusClassRows       int64  `json:"versus_class_rows"`
+	SessionRows           int64  `json:"session_rows"`
+	VersusRoundResultRows int64  `json:"versus_round_result_rows"`
+	VersusRunResultRows   int64  `json:"versus_run_result_rows"`
+}
+
+type SiteDocument struct {
+	Key             string `json:"key"`
+	Enabled         int64  `json:"enabled"`
+	ContentMarkdown string `json:"content_markdown"`
+	UpdatedAt       int64  `json:"updated_at"`
+}
+
+type SiteSeoSetting struct {
+	ID          int64  `json:"id"`
+	Enabled     int64  `json:"enabled"`
+	Description string `json:"description"`
+	ImageUrl    string `json:"image_url"`
 	UpdatedAt   int64  `json:"updated_at"`
 }
 

@@ -238,6 +238,8 @@ a { color: inherit; }
   border-color: rgba(224, 151, 99, .5);
   background: linear-gradient(135deg, #ca7842, #cf814a);
 }
+.floating-toolbar-button.active { color: #fff; border-color: transparent; background: linear-gradient(135deg, #dd8347, #c56b35); }
+.floating-toolbar-button.active:hover { color: #fff; border-color: transparent; background: linear-gradient(135deg, #e18a4e, #ca7039); }
 .floating-toolbar-button:disabled { opacity: .38; cursor: not-allowed; }
 .floating-toolbar-button:disabled:hover { color: var(--text-secondary); border-color: transparent; background: transparent; }
 .floating-toolbar-button.danger:hover { color: #fff; border-color: #c86659; background: #b65448; }

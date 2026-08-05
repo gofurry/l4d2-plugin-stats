@@ -320,3 +320,47 @@ CREATE TABLE IF NOT EXISTS lps_versus_infected_class_stats (
   PRIMARY KEY (segment_id, infected_class),
   INDEX lps_idx_versus_infected_class_id (infected_class, segment_id)
 );
+-- statement-breakpoint
+CREATE INDEX lps_idx_server_boots_server_status ON lps_server_boots (server_key, status);
+-- statement-breakpoint
+CREATE INDEX lps_idx_sessions_started ON lps_sessions (started_at);
+-- statement-breakpoint
+CREATE INDEX lps_idx_sessions_ended ON lps_sessions (ended_at);
+-- statement-breakpoint
+CREATE INDEX lps_idx_sessions_saved ON lps_sessions (last_saved_at, started_at);
+-- statement-breakpoint
+CREATE INDEX lps_idx_runs_started ON lps_runs (started_at);
+-- statement-breakpoint
+CREATE INDEX lps_idx_runs_saved ON lps_runs (last_saved_at, started_at);
+-- statement-breakpoint
+CREATE INDEX lps_idx_rounds_started ON lps_rounds (started_at);
+-- statement-breakpoint
+CREATE INDEX lps_idx_rounds_saved ON lps_rounds (last_saved_at, started_at);
+-- statement-breakpoint
+CREATE INDEX lps_idx_versus_round_results_saved ON lps_versus_round_results (last_saved_at, round_id);
+-- statement-breakpoint
+CREATE INDEX lps_idx_versus_round_results_finalized ON lps_versus_round_results (finalized_at);
+-- statement-breakpoint
+CREATE INDEX lps_idx_versus_run_results_saved ON lps_versus_run_results (last_saved_at, run_id);
+-- statement-breakpoint
+CREATE INDEX lps_idx_versus_run_results_finalized ON lps_versus_run_results (finalized_at);
+-- statement-breakpoint
+CREATE INDEX lps_idx_segments_session_status ON lps_player_segments (session_id, status);
+-- statement-breakpoint
+CREATE INDEX lps_idx_segments_started ON lps_player_segments (started_at);
+-- statement-breakpoint
+CREATE INDEX lps_idx_segments_ended ON lps_player_segments (ended_at);
+-- statement-breakpoint
+CREATE INDEX lps_idx_segments_saved ON lps_player_segments (last_saved_at, started_at);
+-- statement-breakpoint
+CREATE INDEX lps_idx_pve_stats_saved ON lps_pve_segment_stats (last_saved_at, segment_id);
+-- statement-breakpoint
+CREATE INDEX lps_idx_pve_equipment_saved ON lps_pve_segment_equipment_stats (last_saved_at, segment_id);
+-- statement-breakpoint
+CREATE INDEX lps_idx_versus_survivor_saved ON lps_versus_survivor_stats (last_saved_at, segment_id);
+-- statement-breakpoint
+CREATE INDEX lps_idx_versus_survivor_class_saved ON lps_versus_survivor_infected_class_stats (last_saved_at, segment_id);
+-- statement-breakpoint
+CREATE INDEX lps_idx_versus_infected_saved ON lps_versus_infected_stats (last_saved_at, segment_id);
+-- statement-breakpoint
+CREATE INDEX lps_idx_versus_infected_class_saved ON lps_versus_infected_class_stats (last_saved_at, segment_id);

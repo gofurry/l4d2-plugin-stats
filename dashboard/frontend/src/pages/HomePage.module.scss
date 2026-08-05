@@ -42,6 +42,8 @@
 .metricValue > strong { color: #8f4f2f; font-size: 31px; font-weight: 600; line-height: 1.15; }
 .metricValue > small { color: #6f5b50; font-size: 12px; }
 .loading, .alert { margin: 28px 0; }
+.siteDocumentBody { min-height: 180px; max-height: min(68vh, 720px); overflow: auto; padding: 4px 2px; }
+.siteDocumentBody > :global(.ant-spin) { width: 100%; margin-top: 72px; }
 
 @media (max-width: 1020px) {
   .content { width: min(100% - 156px, 1120px); }

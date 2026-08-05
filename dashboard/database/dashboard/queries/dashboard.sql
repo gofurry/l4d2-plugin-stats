@@ -40,6 +40,45 @@ ON CONFLICT(id) DO UPDATE SET
 -- name: DeleteFooterLinks :exec
 DELETE FROM footer_links;
 
+-- name: GetSEOSettings :one
+SELECT enabled, description, image_url, updated_at
+FROM site_seo_settings
+WHERE id = 1;
+
+-- name: UpsertSEOSettings :exec
+INSERT INTO site_seo_settings (id, enabled, description, image_url, updated_at)
+VALUES (1, ?1, ?2, ?3, ?4)
+ON CONFLICT(id) DO UPDATE SET
+  enabled = excluded.enabled,
+  description = excluded.description,
+  image_url = excluded.image_url,
+  updated_at = excluded.updated_at;
+
+-- name: ListPublicSiteDocuments :many
+SELECT key
+FROM site_documents
+WHERE enabled = 1 AND content_markdown <> ''
+ORDER BY CASE key WHEN 'introduction' THEN 1 WHEN 'commands' THEN 2 ELSE 3 END;
+
+-- name: ListSiteDocuments :many
+SELECT key, enabled, content_markdown, updated_at
+FROM site_documents
+ORDER BY CASE key WHEN 'introduction' THEN 1 WHEN 'commands' THEN 2 ELSE 3 END;
+
+-- name: GetPublicSiteDocument :one
+SELECT key, enabled, content_markdown, updated_at
+FROM site_documents
+WHERE key = ?1 AND enabled = 1 AND content_markdown <> '';
+
+-- name: GetSiteDocument :one
+SELECT key, enabled, content_markdown, updated_at
+FROM site_documents
+WHERE key = ?1;
+
+-- name: UpdateSiteDocument :execrows
+UPDATE site_documents SET enabled = ?2, content_markdown = ?3, updated_at = ?4
+WHERE key = ?1;
+
 -- name: CreateFooterLink :exec
 INSERT INTO footer_links (
   id, label, url, sort_order, created_at, updated_at
@@ -122,13 +161,22 @@ UPDATE admin_account SET
 WHERE id = 1;
 
 -- name: CountAnnouncements :one
-SELECT COUNT(*) FROM announcements;
+SELECT COUNT(*) FROM announcements
+WHERE (sqlc.arg(title_filter) = '' OR instr(lower(title), lower(sqlc.arg(title_filter))) > 0)
+  AND (sqlc.arg(year_filter) = 0 OR CAST(strftime('%Y', updated_at, 'unixepoch') AS INTEGER) = sqlc.arg(year_filter));
 
 -- name: ListAnnouncements :many
 SELECT id, title, content_markdown, created_at, updated_at
 FROM announcements
+WHERE (sqlc.arg(title_filter) = '' OR instr(lower(title), lower(sqlc.arg(title_filter))) > 0)
+  AND (sqlc.arg(year_filter) = 0 OR CAST(strftime('%Y', updated_at, 'unixepoch') AS INTEGER) = sqlc.arg(year_filter))
 ORDER BY created_at DESC, id DESC
-LIMIT ?1 OFFSET ?2;
+LIMIT sqlc.arg(row_limit) OFFSET sqlc.arg(row_offset);
+
+-- name: ListAnnouncementYears :many
+SELECT DISTINCT CAST(strftime('%Y', updated_at, 'unixepoch') AS INTEGER) AS year
+FROM announcements
+ORDER BY year DESC;
 
 -- name: GetAnnouncement :one
 SELECT id, title, content_markdown, created_at, updated_at
@@ -151,7 +199,8 @@ WHERE id = ?1;
 DELETE FROM announcements WHERE id = ?1;
 
 -- name: GetAggregateStatus :one
-SELECT state, last_started_at, last_finished_at, source_rows, aggregate_rows, last_error
+SELECT state, last_started_at, last_finished_at, source_rows, aggregate_rows, last_error,
+       source_watermark, last_duration_ms, last_changed_days, last_build_mode
 FROM aggregate_state WHERE id = 1;
 
 -- name: MarkAggregateStarted :exec
@@ -162,21 +211,47 @@ UPDATE aggregate_state SET state = 'failed', last_error = ?1 WHERE id = 1;
 
 -- name: CompleteAggregateBuild :exec
 UPDATE aggregate_state SET state = 'ready', last_finished_at = ?1,
-  source_rows = ?2, aggregate_rows = ?3, last_error = '' WHERE id = 1;
+  source_rows = ?2, aggregate_rows = ?3, source_watermark = ?4,
+  last_duration_ms = ?5, last_changed_days = ?6, last_build_mode = ?7,
+  last_error = '' WHERE id = 1;
 
 -- name: DeleteAggregateRows :exec
 DELETE FROM aggregate_rows;
+
+-- name: DeleteAggregateRowsForDay :exec
+DELETE FROM aggregate_rows WHERE day = ?1;
+
+-- name: CountAggregateRows :one
+SELECT
+  (SELECT COUNT(*) FROM aggregate_rows) +
+  (SELECT COUNT(*) FROM aggregate_monthly_rows) +
+  (SELECT COUNT(*) FROM aggregate_lifetime_rows);
 
 -- name: InsertAggregateRow :exec
 INSERT INTO aggregate_rows (
   kind, day, server_key, steam_id, mode, dimension, metrics_json
 ) VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7);
 
--- name: ListAggregateRows :many
-SELECT kind, day, server_key, steam_id, mode, dimension, metrics_json
-FROM aggregate_rows
-WHERE (?1 = '' OR steam_id = ?1)
-  AND (?2 = '' OR server_key = ?2)
-  AND (?3 = '' OR mode = ?3)
-  AND (?4 = 0 OR day >= ?4)
-ORDER BY day, kind, server_key, steam_id, mode, dimension;
+-- name: GetDataMaintenanceSettings :one
+SELECT aggregate_interval_minutes, detail_retention_days,
+       session_retention_days, result_retention_days, updated_at
+FROM data_maintenance_settings WHERE id = 1;
+
+-- name: UpdateDataMaintenanceSettings :exec
+UPDATE data_maintenance_settings SET
+  aggregate_interval_minutes = ?1,
+  detail_retention_days = ?2,
+  session_retention_days = ?3,
+  result_retention_days = ?4,
+  updated_at = ?5
+WHERE id = 1;
+
+-- name: CreateRetentionRun :exec
+INSERT INTO retention_runs (
+  id, executed_at, source_watermark, detail_cutoff, session_cutoff, result_cutoff,
+  equipment_rows, versus_class_rows, session_rows,
+  versus_round_result_rows, versus_run_result_rows
+) VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9, ?10, ?11);
+
+-- name: CountRetentionRuns :one
+SELECT COUNT(*) FROM retention_runs;

@@ -11,17 +11,31 @@ import (
 
 const completeAggregateBuild = `-- name: CompleteAggregateBuild :exec
 UPDATE aggregate_state SET state = 'ready', last_finished_at = ?1,
-  source_rows = ?2, aggregate_rows = ?3, last_error = '' WHERE id = 1
+  source_rows = ?2, aggregate_rows = ?3, source_watermark = ?4,
+  last_duration_ms = ?5, last_changed_days = ?6, last_build_mode = ?7,
+  last_error = '' WHERE id = 1
 `
 
 type CompleteAggregateBuildParams struct {
-	LastFinishedAt int64 `json:"last_finished_at"`
-	SourceRows     int64 `json:"source_rows"`
-	AggregateRows  int64 `json:"aggregate_rows"`
+	LastFinishedAt  int64  `json:"last_finished_at"`
+	SourceRows      int64  `json:"source_rows"`
+	AggregateRows   int64  `json:"aggregate_rows"`
+	SourceWatermark int64  `json:"source_watermark"`
+	LastDurationMs  int64  `json:"last_duration_ms"`
+	LastChangedDays int64  `json:"last_changed_days"`
+	LastBuildMode   string `json:"last_build_mode"`
 }
 
 func (q *Queries) CompleteAggregateBuild(ctx context.Context, arg CompleteAggregateBuildParams) error {
-	_, err := q.db.ExecContext(ctx, completeAggregateBuild, arg.LastFinishedAt, arg.SourceRows, arg.AggregateRows)
+	_, err := q.db.ExecContext(ctx, completeAggregateBuild,
+		arg.LastFinishedAt,
+		arg.SourceRows,
+		arg.AggregateRows,
+		arg.SourceWatermark,
+		arg.LastDurationMs,
+		arg.LastChangedDays,
+		arg.LastBuildMode,
+	)
 	return err
 }
 
@@ -36,12 +50,33 @@ func (q *Queries) CountAdminAccounts(ctx context.Context) (int64, error) {
 	return count, err
 }
 
-const countAnnouncements = `-- name: CountAnnouncements :one
-SELECT COUNT(*) FROM announcements
+const countAggregateRows = `-- name: CountAggregateRows :one
+SELECT
+  (SELECT COUNT(*) FROM aggregate_rows) +
+  (SELECT COUNT(*) FROM aggregate_monthly_rows) +
+  (SELECT COUNT(*) FROM aggregate_lifetime_rows)
 `
 
-func (q *Queries) CountAnnouncements(ctx context.Context) (int64, error) {
-	row := q.db.QueryRowContext(ctx, countAnnouncements)
+func (q *Queries) CountAggregateRows(ctx context.Context) (int64, error) {
+	row := q.db.QueryRowContext(ctx, countAggregateRows)
+	var column_1 int64
+	err := row.Scan(&column_1)
+	return column_1, err
+}
+
+const countAnnouncements = `-- name: CountAnnouncements :one
+SELECT COUNT(*) FROM announcements
+WHERE (?1 = '' OR instr(lower(title), lower(?1)) > 0)
+  AND (?2 = 0 OR CAST(strftime('%Y', updated_at, 'unixepoch') AS INTEGER) = ?2)
+`
+
+type CountAnnouncementsParams struct {
+	TitleFilter interface{} `json:"title_filter"`
+	YearFilter  interface{} `json:"year_filter"`
+}
+
+func (q *Queries) CountAnnouncements(ctx context.Context, arg CountAnnouncementsParams) (int64, error) {
+	row := q.db.QueryRowContext(ctx, countAnnouncements, arg.TitleFilter, arg.YearFilter)
 	var count int64
 	err := row.Scan(&count)
 	return count, err
@@ -53,6 +88,17 @@ SELECT COUNT(*) FROM game_servers
 
 func (q *Queries) CountGameServers(ctx context.Context) (int64, error) {
 	row := q.db.QueryRowContext(ctx, countGameServers)
+	var count int64
+	err := row.Scan(&count)
+	return count, err
+}
+
+const countRetentionRuns = `-- name: CountRetentionRuns :one
+SELECT COUNT(*) FROM retention_runs
+`
+
+func (q *Queries) CountRetentionRuns(ctx context.Context) (int64, error) {
+	row := q.db.QueryRowContext(ctx, countRetentionRuns)
 	var count int64
 	err := row.Scan(&count)
 	return count, err
@@ -168,12 +214,60 @@ func (q *Queries) CreateGameServer(ctx context.Context, arg CreateGameServerPara
 	return err
 }
 
+const createRetentionRun = `-- name: CreateRetentionRun :exec
+INSERT INTO retention_runs (
+  id, executed_at, source_watermark, detail_cutoff, session_cutoff, result_cutoff,
+  equipment_rows, versus_class_rows, session_rows,
+  versus_round_result_rows, versus_run_result_rows
+) VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9, ?10, ?11)
+`
+
+type CreateRetentionRunParams struct {
+	ID                    string `json:"id"`
+	ExecutedAt            int64  `json:"executed_at"`
+	SourceWatermark       int64  `json:"source_watermark"`
+	DetailCutoff          int64  `json:"detail_cutoff"`
+	SessionCutoff         int64  `json:"session_cutoff"`
+	ResultCutoff          int64  `json:"result_cutoff"`
+	EquipmentRows         int64  `json:"equipment_rows"`
+	VersusClassRows       int64  `json:"versus_class_rows"`
+	SessionRows           int64  `json:"session_rows"`
+	VersusRoundResultRows int64  `json:"versus_round_result_rows"`
+	VersusRunResultRows   int64  `json:"versus_run_result_rows"`
+}
+
+func (q *Queries) CreateRetentionRun(ctx context.Context, arg CreateRetentionRunParams) error {
+	_, err := q.db.ExecContext(ctx, createRetentionRun,
+		arg.ID,
+		arg.ExecutedAt,
+		arg.SourceWatermark,
+		arg.DetailCutoff,
+		arg.SessionCutoff,
+		arg.ResultCutoff,
+		arg.EquipmentRows,
+		arg.VersusClassRows,
+		arg.SessionRows,
+		arg.VersusRoundResultRows,
+		arg.VersusRunResultRows,
+	)
+	return err
+}
+
 const deleteAggregateRows = `-- name: DeleteAggregateRows :exec
 DELETE FROM aggregate_rows
 `
 
 func (q *Queries) DeleteAggregateRows(ctx context.Context) error {
 	_, err := q.db.ExecContext(ctx, deleteAggregateRows)
+	return err
+}
+
+const deleteAggregateRowsForDay = `-- name: DeleteAggregateRowsForDay :exec
+DELETE FROM aggregate_rows WHERE day = ?1
+`
+
+func (q *Queries) DeleteAggregateRowsForDay(ctx context.Context, day int64) error {
+	_, err := q.db.ExecContext(ctx, deleteAggregateRowsForDay, day)
 	return err
 }
 
@@ -253,17 +347,22 @@ func (q *Queries) GetAdminAccount(ctx context.Context) (GetAdminAccountRow, erro
 }
 
 const getAggregateStatus = `-- name: GetAggregateStatus :one
-SELECT state, last_started_at, last_finished_at, source_rows, aggregate_rows, last_error
+SELECT state, last_started_at, last_finished_at, source_rows, aggregate_rows, last_error,
+       source_watermark, last_duration_ms, last_changed_days, last_build_mode
 FROM aggregate_state WHERE id = 1
 `
 
 type GetAggregateStatusRow struct {
-	State          string `json:"state"`
-	LastStartedAt  int64  `json:"last_started_at"`
-	LastFinishedAt int64  `json:"last_finished_at"`
-	SourceRows     int64  `json:"source_rows"`
-	AggregateRows  int64  `json:"aggregate_rows"`
-	LastError      string `json:"last_error"`
+	State           string `json:"state"`
+	LastStartedAt   int64  `json:"last_started_at"`
+	LastFinishedAt  int64  `json:"last_finished_at"`
+	SourceRows      int64  `json:"source_rows"`
+	AggregateRows   int64  `json:"aggregate_rows"`
+	LastError       string `json:"last_error"`
+	SourceWatermark int64  `json:"source_watermark"`
+	LastDurationMs  int64  `json:"last_duration_ms"`
+	LastChangedDays int64  `json:"last_changed_days"`
+	LastBuildMode   string `json:"last_build_mode"`
 }
 
 func (q *Queries) GetAggregateStatus(ctx context.Context) (GetAggregateStatusRow, error) {
@@ -276,6 +375,10 @@ func (q *Queries) GetAggregateStatus(ctx context.Context) (GetAggregateStatusRow
 		&i.SourceRows,
 		&i.AggregateRows,
 		&i.LastError,
+		&i.SourceWatermark,
+		&i.LastDurationMs,
+		&i.LastChangedDays,
+		&i.LastBuildMode,
 	)
 	return i, err
 }
@@ -294,6 +397,33 @@ func (q *Queries) GetAnnouncement(ctx context.Context, id string) (Announcement,
 		&i.Title,
 		&i.ContentMarkdown,
 		&i.CreatedAt,
+		&i.UpdatedAt,
+	)
+	return i, err
+}
+
+const getDataMaintenanceSettings = `-- name: GetDataMaintenanceSettings :one
+SELECT aggregate_interval_minutes, detail_retention_days,
+       session_retention_days, result_retention_days, updated_at
+FROM data_maintenance_settings WHERE id = 1
+`
+
+type GetDataMaintenanceSettingsRow struct {
+	AggregateIntervalMinutes int64 `json:"aggregate_interval_minutes"`
+	DetailRetentionDays      int64 `json:"detail_retention_days"`
+	SessionRetentionDays     int64 `json:"session_retention_days"`
+	ResultRetentionDays      int64 `json:"result_retention_days"`
+	UpdatedAt                int64 `json:"updated_at"`
+}
+
+func (q *Queries) GetDataMaintenanceSettings(ctx context.Context) (GetDataMaintenanceSettingsRow, error) {
+	row := q.db.QueryRowContext(ctx, getDataMaintenanceSettings)
+	var i GetDataMaintenanceSettingsRow
+	err := row.Scan(
+		&i.AggregateIntervalMinutes,
+		&i.DetailRetentionDays,
+		&i.SessionRetentionDays,
+		&i.ResultRetentionDays,
 		&i.UpdatedAt,
 	)
 	return i, err
@@ -336,6 +466,67 @@ func (q *Queries) GetMetadata(ctx context.Context, key string) (string, error) {
 	var value string
 	err := row.Scan(&value)
 	return value, err
+}
+
+const getPublicSiteDocument = `-- name: GetPublicSiteDocument :one
+SELECT key, enabled, content_markdown, updated_at
+FROM site_documents
+WHERE key = ?1 AND enabled = 1 AND content_markdown <> ''
+`
+
+func (q *Queries) GetPublicSiteDocument(ctx context.Context, key string) (SiteDocument, error) {
+	row := q.db.QueryRowContext(ctx, getPublicSiteDocument, key)
+	var i SiteDocument
+	err := row.Scan(
+		&i.Key,
+		&i.Enabled,
+		&i.ContentMarkdown,
+		&i.UpdatedAt,
+	)
+	return i, err
+}
+
+const getSEOSettings = `-- name: GetSEOSettings :one
+SELECT enabled, description, image_url, updated_at
+FROM site_seo_settings
+WHERE id = 1
+`
+
+type GetSEOSettingsRow struct {
+	Enabled     int64  `json:"enabled"`
+	Description string `json:"description"`
+	ImageUrl    string `json:"image_url"`
+	UpdatedAt   int64  `json:"updated_at"`
+}
+
+func (q *Queries) GetSEOSettings(ctx context.Context) (GetSEOSettingsRow, error) {
+	row := q.db.QueryRowContext(ctx, getSEOSettings)
+	var i GetSEOSettingsRow
+	err := row.Scan(
+		&i.Enabled,
+		&i.Description,
+		&i.ImageUrl,
+		&i.UpdatedAt,
+	)
+	return i, err
+}
+
+const getSiteDocument = `-- name: GetSiteDocument :one
+SELECT key, enabled, content_markdown, updated_at
+FROM site_documents
+WHERE key = ?1
+`
+
+func (q *Queries) GetSiteDocument(ctx context.Context, key string) (SiteDocument, error) {
+	row := q.db.QueryRowContext(ctx, getSiteDocument, key)
+	var i SiteDocument
+	err := row.Scan(
+		&i.Key,
+		&i.Enabled,
+		&i.ContentMarkdown,
+		&i.UpdatedAt,
+	)
+	return i, err
 }
 
 const getSiteSettings = `-- name: GetSiteSettings :one
@@ -407,49 +598,25 @@ func (q *Queries) InsertAggregateRow(ctx context.Context, arg InsertAggregateRow
 	return err
 }
 
-const listAggregateRows = `-- name: ListAggregateRows :many
-SELECT kind, day, server_key, steam_id, mode, dimension, metrics_json
-FROM aggregate_rows
-WHERE (?1 = '' OR steam_id = ?1)
-  AND (?2 = '' OR server_key = ?2)
-  AND (?3 = '' OR mode = ?3)
-  AND (?4 = 0 OR day >= ?4)
-ORDER BY day, kind, server_key, steam_id, mode, dimension
+const listAnnouncementYears = `-- name: ListAnnouncementYears :many
+SELECT DISTINCT CAST(strftime('%Y', updated_at, 'unixepoch') AS INTEGER) AS year
+FROM announcements
+ORDER BY year DESC
 `
 
-type ListAggregateRowsParams struct {
-	Column1 interface{} `json:"column_1"`
-	Column2 interface{} `json:"column_2"`
-	Column3 interface{} `json:"column_3"`
-	Column4 interface{} `json:"column_4"`
-}
-
-func (q *Queries) ListAggregateRows(ctx context.Context, arg ListAggregateRowsParams) ([]AggregateRow, error) {
-	rows, err := q.db.QueryContext(ctx, listAggregateRows,
-		arg.Column1,
-		arg.Column2,
-		arg.Column3,
-		arg.Column4,
-	)
+func (q *Queries) ListAnnouncementYears(ctx context.Context) ([]int64, error) {
+	rows, err := q.db.QueryContext(ctx, listAnnouncementYears)
 	if err != nil {
 		return nil, err
 	}
 	defer rows.Close()
-	items := []AggregateRow{}
+	items := []int64{}
 	for rows.Next() {
-		var i AggregateRow
-		if err := rows.Scan(
-			&i.Kind,
-			&i.Day,
-			&i.ServerKey,
-			&i.SteamID,
-			&i.Mode,
-			&i.Dimension,
-			&i.MetricsJson,
-		); err != nil {
+		var year int64
+		if err := rows.Scan(&year); err != nil {
 			return nil, err
 		}
-		items = append(items, i)
+		items = append(items, year)
 	}
 	if err := rows.Close(); err != nil {
 		return nil, err
@@ -463,17 +630,26 @@ func (q *Queries) ListAggregateRows(ctx context.Context, arg ListAggregateRowsPa
 const listAnnouncements = `-- name: ListAnnouncements :many
 SELECT id, title, content_markdown, created_at, updated_at
 FROM announcements
+WHERE (?1 = '' OR instr(lower(title), lower(?1)) > 0)
+  AND (?2 = 0 OR CAST(strftime('%Y', updated_at, 'unixepoch') AS INTEGER) = ?2)
 ORDER BY created_at DESC, id DESC
-LIMIT ?1 OFFSET ?2
+LIMIT ?4 OFFSET ?3
 `
 
 type ListAnnouncementsParams struct {
-	Limit  int64 `json:"limit"`
-	Offset int64 `json:"offset"`
+	TitleFilter interface{} `json:"title_filter"`
+	YearFilter  interface{} `json:"year_filter"`
+	RowOffset   int64       `json:"row_offset"`
+	RowLimit    int64       `json:"row_limit"`
 }
 
 func (q *Queries) ListAnnouncements(ctx context.Context, arg ListAnnouncementsParams) ([]Announcement, error) {
-	rows, err := q.db.QueryContext(ctx, listAnnouncements, arg.Limit, arg.Offset)
+	rows, err := q.db.QueryContext(ctx, listAnnouncements,
+		arg.TitleFilter,
+		arg.YearFilter,
+		arg.RowOffset,
+		arg.RowLimit,
+	)
 	if err != nil {
 		return nil, err
 	}
@@ -614,6 +790,70 @@ func (q *Queries) ListPublicFooterLinks(ctx context.Context) ([]ListPublicFooter
 	return items, nil
 }
 
+const listPublicSiteDocuments = `-- name: ListPublicSiteDocuments :many
+SELECT key
+FROM site_documents
+WHERE enabled = 1 AND content_markdown <> ''
+ORDER BY CASE key WHEN 'introduction' THEN 1 WHEN 'commands' THEN 2 ELSE 3 END
+`
+
+func (q *Queries) ListPublicSiteDocuments(ctx context.Context) ([]string, error) {
+	rows, err := q.db.QueryContext(ctx, listPublicSiteDocuments)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	items := []string{}
+	for rows.Next() {
+		var key string
+		if err := rows.Scan(&key); err != nil {
+			return nil, err
+		}
+		items = append(items, key)
+	}
+	if err := rows.Close(); err != nil {
+		return nil, err
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
+const listSiteDocuments = `-- name: ListSiteDocuments :many
+SELECT key, enabled, content_markdown, updated_at
+FROM site_documents
+ORDER BY CASE key WHEN 'introduction' THEN 1 WHEN 'commands' THEN 2 ELSE 3 END
+`
+
+func (q *Queries) ListSiteDocuments(ctx context.Context) ([]SiteDocument, error) {
+	rows, err := q.db.QueryContext(ctx, listSiteDocuments)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	items := []SiteDocument{}
+	for rows.Next() {
+		var i SiteDocument
+		if err := rows.Scan(
+			&i.Key,
+			&i.Enabled,
+			&i.ContentMarkdown,
+			&i.UpdatedAt,
+		); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Close(); err != nil {
+		return nil, err
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
 const markAggregateFailed = `-- name: MarkAggregateFailed :exec
 UPDATE aggregate_state SET state = 'failed', last_error = ?1 WHERE id = 1
 `
@@ -740,6 +980,35 @@ func (q *Queries) UpdateAnnouncement(ctx context.Context, arg UpdateAnnouncement
 	return result.RowsAffected()
 }
 
+const updateDataMaintenanceSettings = `-- name: UpdateDataMaintenanceSettings :exec
+UPDATE data_maintenance_settings SET
+  aggregate_interval_minutes = ?1,
+  detail_retention_days = ?2,
+  session_retention_days = ?3,
+  result_retention_days = ?4,
+  updated_at = ?5
+WHERE id = 1
+`
+
+type UpdateDataMaintenanceSettingsParams struct {
+	AggregateIntervalMinutes int64 `json:"aggregate_interval_minutes"`
+	DetailRetentionDays      int64 `json:"detail_retention_days"`
+	SessionRetentionDays     int64 `json:"session_retention_days"`
+	ResultRetentionDays      int64 `json:"result_retention_days"`
+	UpdatedAt                int64 `json:"updated_at"`
+}
+
+func (q *Queries) UpdateDataMaintenanceSettings(ctx context.Context, arg UpdateDataMaintenanceSettingsParams) error {
+	_, err := q.db.ExecContext(ctx, updateDataMaintenanceSettings,
+		arg.AggregateIntervalMinutes,
+		arg.DetailRetentionDays,
+		arg.SessionRetentionDays,
+		arg.ResultRetentionDays,
+		arg.UpdatedAt,
+	)
+	return err
+}
+
 const updateGameServer = `-- name: UpdateGameServer :execrows
 UPDATE game_servers SET
   display_name = ?2,
@@ -768,6 +1037,31 @@ func (q *Queries) UpdateGameServer(ctx context.Context, arg UpdateGameServerPara
 	return result.RowsAffected()
 }
 
+const updateSiteDocument = `-- name: UpdateSiteDocument :execrows
+UPDATE site_documents SET enabled = ?2, content_markdown = ?3, updated_at = ?4
+WHERE key = ?1
+`
+
+type UpdateSiteDocumentParams struct {
+	Key             string `json:"key"`
+	Enabled         int64  `json:"enabled"`
+	ContentMarkdown string `json:"content_markdown"`
+	UpdatedAt       int64  `json:"updated_at"`
+}
+
+func (q *Queries) UpdateSiteDocument(ctx context.Context, arg UpdateSiteDocumentParams) (int64, error) {
+	result, err := q.db.ExecContext(ctx, updateSiteDocument,
+		arg.Key,
+		arg.Enabled,
+		arg.ContentMarkdown,
+		arg.UpdatedAt,
+	)
+	if err != nil {
+		return 0, err
+	}
+	return result.RowsAffected()
+}
+
 const upsertMetadata = `-- name: UpsertMetadata :exec
 INSERT INTO dashboard_metadata (key, value)
 VALUES (?1, ?2)
@@ -781,6 +1075,33 @@ type UpsertMetadataParams struct {
 
 func (q *Queries) UpsertMetadata(ctx context.Context, arg UpsertMetadataParams) error {
 	_, err := q.db.ExecContext(ctx, upsertMetadata, arg.Key, arg.Value)
+	return err
+}
+
+const upsertSEOSettings = `-- name: UpsertSEOSettings :exec
+INSERT INTO site_seo_settings (id, enabled, description, image_url, updated_at)
+VALUES (1, ?1, ?2, ?3, ?4)
+ON CONFLICT(id) DO UPDATE SET
+  enabled = excluded.enabled,
+  description = excluded.description,
+  image_url = excluded.image_url,
+  updated_at = excluded.updated_at
+`
+
+type UpsertSEOSettingsParams struct {
+	Enabled     int64  `json:"enabled"`
+	Description string `json:"description"`
+	ImageUrl    string `json:"image_url"`
+	UpdatedAt   int64  `json:"updated_at"`
+}
+
+func (q *Queries) UpsertSEOSettings(ctx context.Context, arg UpsertSEOSettingsParams) error {
+	_, err := q.db.ExecContext(ctx, upsertSEOSettings,
+		arg.Enabled,
+		arg.Description,
+		arg.ImageUrl,
+		arg.UpdatedAt,
+	)
 	return err
 }
 

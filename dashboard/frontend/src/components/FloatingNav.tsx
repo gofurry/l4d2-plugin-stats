@@ -1,5 +1,6 @@
 import {
   DashboardOutlined,
+  DatabaseOutlined,
   GithubOutlined,
   HomeOutlined,
   LogoutOutlined,
@@ -41,6 +42,7 @@ export function FloatingNav({ mode = 'public', loggingOut = false, onLogout, mon
         { path: '/admin/servers', label: t('navServerManagement'), icon: <UnorderedListOutlined /> },
         { path: '/admin/announcements', label: t('navAnnouncementManagement'), icon: <NotificationOutlined /> },
         { path: '/admin/security', label: t('navSecurity'), icon: <SafetyOutlined /> },
+        { path: '/admin/data', label: t('navDataMaintenance'), icon: <DatabaseOutlined /> },
         ...(monitorEnabled ? [{ path: '/api/v1/admin/monitor', label: t('runtimeMonitor'), icon: <DashboardOutlined />, external: true }] : []),
       ]
     : mode === 'auth'

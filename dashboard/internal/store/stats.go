@@ -4,6 +4,7 @@ import (
 	"context"
 	"database/sql"
 	"fmt"
+	"os"
 	"path/filepath"
 	"strings"
 	"time"
@@ -27,6 +28,18 @@ type statsStore struct {
 }
 
 func OpenStats(ctx context.Context, cfg config.StatsDatabaseConfig) (StatsDatabase, error) {
+	store, err := openStats(ctx, cfg, true)
+	if err != nil {
+		return nil, err
+	}
+	return store, nil
+}
+
+func OpenStatsMaintenance(ctx context.Context, cfg config.StatsDatabaseConfig) (StatsMaintenanceStore, error) {
+	return openStats(ctx, cfg, false)
+}
+
+func openStats(ctx context.Context, cfg config.StatsDatabaseConfig, readOnly bool) (*statsStore, error) {
 	driver := strings.ToLower(cfg.Driver)
 	dsn := cfg.DSN
 	sqlDriver := driver
@@ -34,8 +47,9 @@ func OpenStats(ctx context.Context, cfg config.StatsDatabaseConfig) (StatsDataba
 	case "sqlite":
 		sqlDriver = "sqlite"
 		if !strings.HasPrefix(dsn, "file:") {
-			dsn = "file:" + filepath.ToSlash(dsn) + "?mode=ro"
-		} else if !strings.Contains(dsn, "mode=") {
+			dsn = "file:" + filepath.ToSlash(dsn)
+		}
+		if readOnly && !strings.Contains(dsn, "mode=") {
 			separator := "?"
 			if strings.Contains(dsn, "?") {
 				separator = "&"
@@ -73,6 +87,38 @@ func OpenStats(ctx context.Context, cfg config.StatsDatabaseConfig) (StatsDataba
 		s.pg = statspg.New(db)
 	}
 	return s, nil
+}
+
+func (s *statsStore) DatabaseUsage(ctx context.Context) (DatabaseUsage, error) {
+	queryCtx, cancel := context.WithTimeout(ctx, s.timeout)
+	defer cancel()
+	usage := DatabaseUsage{Driver: s.driver}
+	switch s.driver {
+	case "sqlite":
+		var pageCount, pageSize int64
+		if err := s.db.QueryRowContext(queryCtx, "PRAGMA page_count").Scan(&pageCount); err != nil {
+			return usage, err
+		}
+		if err := s.db.QueryRowContext(queryCtx, "PRAGMA page_size").Scan(&pageSize); err != nil {
+			return usage, err
+		}
+		usage.Bytes = pageCount * pageSize
+		var path string
+		if err := s.db.QueryRowContext(queryCtx, "PRAGMA database_list").Scan(new(int64), new(string), &path); err == nil {
+			if info, err := os.Stat(path + "-wal"); err == nil {
+				usage.WALBytes = info.Size()
+			}
+		}
+	case "mysql":
+		if err := s.db.QueryRowContext(queryCtx, `SELECT COALESCE(SUM(data_length + index_length),0) FROM information_schema.tables WHERE table_schema=DATABASE()`).Scan(&usage.Bytes); err != nil {
+			return usage, err
+		}
+	case "postgres":
+		if err := s.db.QueryRowContext(queryCtx, `SELECT pg_database_size(current_database())`).Scan(&usage.Bytes); err != nil {
+			return usage, err
+		}
+	}
+	return usage, nil
 }
 
 func (s *statsStore) Ping(ctx context.Context) error {

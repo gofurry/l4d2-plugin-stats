@@ -59,8 +59,12 @@ func registerRankingRoutes(api fiber.Router, rankings *service.RankingService) {
 		if subject != "" && !validSteamID64(subject) {
 			return sendError(c, 400, "invalid_subject", "subject must be a 17-digit SteamID64")
 		}
+		serverKey := strings.TrimSpace(c.Query("server"))
+		if len(serverKey) > 64 {
+			return sendError(c, 400, "invalid_server", "server must not exceed 64 characters")
+		}
 		result, err := rankings.List(c.Context(), store.RankingQuery{
-			Mode: mode, Metric: metric, ServerKey: c.Query("server"), Cutoff: cutoff,
+			Mode: mode, Metric: metric, ServerKey: serverKey, Cutoff: cutoff,
 			MinimumActiveSec: int64(minimumHours) * 3600, SteamIDs: steamIDs, SubjectSteamID: subject,
 			Limit: int(limit), Offset: (page - 1) * int(limit),
 		})

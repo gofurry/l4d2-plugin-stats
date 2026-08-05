@@ -28,6 +28,7 @@ type Dependencies struct {
 	Status    store.ServerStatusProvider
 	Players   *service.PlayerService
 	Rankings  *service.RankingService
+	Data      *service.DataMaintenanceService
 	Auth      *auth.Service
 	Logger    *zap.Logger
 	Assets    fs.FS
@@ -38,6 +39,12 @@ func New(cfg *config.Config, deps Dependencies) *fiber.App {
 		AppName: "L4D2 Stats", BodyLimit: 1024 * 1024,
 		ReadTimeout: cfg.Server.ReadTimeout.Value(), WriteTimeout: cfg.Server.WriteTimeout.Value(),
 		IdleTimeout: cfg.Server.IdleTimeout.Value(),
+		// The documented deployment keeps Fiber on loopback behind a local Nginx
+		// process. Trust X-Real-IP only from loopback so login/setup throttling sees
+		// the real client without allowing direct clients to spoof their address.
+		TrustProxy:       true,
+		ProxyHeader:      "X-Real-IP",
+		TrustProxyConfig: fiber.TrustProxyConfig{Loopback: true},
 		ErrorHandler: func(c fiber.Ctx, err error) error {
 			status := fiber.StatusInternalServerError
 			if fiberErr, ok := errors.AsType[*fiber.Error](err); ok {
@@ -69,6 +76,7 @@ func New(cfg *config.Config, deps Dependencies) *fiber.App {
 		deps.Logger.Info("http request", zap.String("request_id", c.RequestID()), zap.String("method", c.Method()), zap.String("path", c.Path()), zap.Int("status", c.Response().StatusCode()), zap.Duration("duration", time.Since(started)))
 		return err
 	})
+	app.Use(siteRateLimiter())
 
 	api := app.Group("/api/v1")
 	api.Get("/health/live", func(c fiber.Ctx) error {
@@ -113,13 +121,15 @@ func New(cfg *config.Config, deps Dependencies) *fiber.App {
 	registerPlayerRoutes(api, deps.Players)
 	registerRankingRoutes(api, deps.Rankings)
 	registerAnnouncementRoutes(api, deps.Dashboard)
+	registerSiteDocumentRoutes(api, deps.Dashboard)
 	registerSteamRoutes(api, deps.Dashboard, deps.Auth)
-	registerAdminRoutes(api, deps.Dashboard, deps.Status, deps.Auth, deps.Logger, runtimeMonitor)
+	registerAdminRoutes(api, deps.Dashboard, deps.Status, deps.Auth, deps.Data, deps.Logger, runtimeMonitor)
 	api.All("/*", func(c fiber.Ctx) error {
 		return sendError(c, fiber.StatusNotFound, "not_found", "API route not found")
 	})
 
-	assets := staticHandler(deps.Assets)
+	registerSEORoutes(app, deps.Dashboard)
+	assets := staticHandler(deps.Assets, deps.Dashboard)
 	app.Get("/", assets)
 	app.Get("/*", assets)
 	return app
