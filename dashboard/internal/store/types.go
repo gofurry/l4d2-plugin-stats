@@ -286,6 +286,40 @@ type PlayerIdentity struct {
 	Name    string `json:"name"`
 }
 
+type ActivePlayer struct {
+	SteamID          string
+	Name             string
+	StartedAt        int64
+	LastSavedAt      int64
+	ConnectedSeconds int64
+}
+
+type PlayerPreviewPVE struct {
+	Available           bool  `json:"available"`
+	SpecialKills        int64 `json:"special_kills"`
+	BossKills           int64 `json:"boss_kills"`
+	Rescues             int64 `json:"rescues"`
+	CampaignCompletions int64 `json:"campaign_completions"`
+}
+
+type PlayerPreviewVersus struct {
+	Available               bool  `json:"available"`
+	HumanSIKills            int64 `json:"human_si_kills"`
+	InfectedDamage          int64 `json:"infected_damage"`
+	SurvivorControls        int64 `json:"survivor_controls"`
+	SurvivorIncapacitations int64 `json:"survivor_incapacitations"`
+}
+
+type PlayerPreview struct {
+	SteamID           string              `json:"steam_id"`
+	PlayerName        string              `json:"player_name"`
+	SessionCount      int64               `json:"session_count"`
+	ActivePlaySeconds int64               `json:"active_play_seconds"`
+	LastSeenAt        int64               `json:"last_seen_at"`
+	PVE               PlayerPreviewPVE    `json:"pve"`
+	Versus            PlayerPreviewVersus `json:"versus"`
+}
+
 type RankingPage struct {
 	Metric      string         `json:"metric"`
 	Mode        string         `json:"mode"`
@@ -430,6 +464,7 @@ type Overview struct {
 
 type ServerStatus struct {
 	ServerID      string         `json:"server_id"`
+	ServerKey     string         `json:"server_key,omitempty"`
 	DisplayName   string         `json:"display_name"`
 	Address       string         `json:"address"`
 	Online        bool           `json:"online"`
@@ -448,6 +483,7 @@ type ServerStatus struct {
 
 type ServerPlayer struct {
 	Name            string `json:"name"`
+	SteamID         string `json:"steam_id,omitempty"`
 	Score           int32  `json:"score"`
 	DurationSeconds int64  `json:"duration_seconds"`
 }
@@ -563,10 +599,15 @@ type StatsFilteredStore interface {
 	PlayerActivityFiltered(context.Context, string, PlayerFilter) (PlayerActivity, error)
 }
 
+type StatsPresenceStore interface {
+	ActivePlayers(context.Context, string, int64) ([]ActivePlayer, error)
+}
+
 type StatsDatabase interface {
 	StatsStore
 	StatsAggregateStore
 	StatsFilteredStore
+	StatsPresenceStore
 }
 
 type ServerStatusProvider interface {

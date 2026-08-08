@@ -8,6 +8,20 @@ import (
 
 func registerPlayerRoutes(api fiber.Router, players *service.PlayerService) {
 	group := api.Group("/players/:steam_id")
+	group.Get("/preview", func(c fiber.Ctx) error {
+		steamID, ok := playerID(c)
+		if !ok {
+			return nil
+		}
+		result, err := players.Preview(c.Context(), steamID)
+		if err != nil {
+			return statsError(c, err)
+		}
+		if result == nil {
+			return sendError(c, 404, "player_not_found", "player was not found")
+		}
+		return sendData(c, 200, result)
+	})
 	group.Get("/summary", func(c fiber.Ctx) error {
 		steamID, ok := playerID(c)
 		if !ok {

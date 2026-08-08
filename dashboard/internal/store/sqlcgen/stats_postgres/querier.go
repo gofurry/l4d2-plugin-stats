@@ -16,6 +16,7 @@ type Querier interface {
 	GetPlayerVersus(ctx context.Context, arg GetPlayerVersusParams) (GetPlayerVersusRow, error)
 	GetSchemaVersion(ctx context.Context) (int64, error)
 	GetVersusOverview(ctx context.Context) (GetVersusOverviewRow, error)
+	ListActivePlayersByServer(ctx context.Context, arg ListActivePlayersByServerParams) ([]ListActivePlayersByServerRow, error)
 	ListPlayerChapters(ctx context.Context, arg ListPlayerChaptersParams) ([]ListPlayerChaptersRow, error)
 	ListPlayerSessions(ctx context.Context, arg ListPlayerSessionsParams) ([]ListPlayerSessionsRow, error)
 	SearchPlayers(ctx context.Context, arg SearchPlayersParams) ([]SearchPlayersRow, error)

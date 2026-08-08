@@ -95,6 +95,14 @@ func TestSQLiteOverviewUsesFrozenModeAndVersionBoundaries(t *testing.T) {
 	if err != nil || missing != nil {
 		t.Fatalf("missing player = %#v, %v", missing, err)
 	}
+	active, err := stats.ActivePlayers(ctx, "one", now-600)
+	if err != nil || len(active) != 1 || active[0].SteamID != "1" || active[0].Name != "Alice" {
+		t.Fatalf("active players = %#v, %v", active, err)
+	}
+	stale, err := stats.ActivePlayers(ctx, "one", now+1)
+	if err != nil || len(stale) != 0 {
+		t.Fatalf("stale active players = %#v, %v", stale, err)
+	}
 	pve, err := stats.PlayerPVE(ctx, "1", 0)
 	if err != nil || pve.CommonKills != 100 || pve.SpecialKills != 12 || pve.Revives != 9 {
 		t.Fatalf("player pve = %#v, %v", pve, err)

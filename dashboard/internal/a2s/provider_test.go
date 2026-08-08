@@ -63,9 +63,11 @@ func (f *fakeDashboard) DeleteAnnouncement(context.Context, string) error { retu
 func (f *fakeDashboard) Close() error                                     { return nil }
 
 type fakeClient struct {
-	mu    sync.Mutex
-	calls int
-	fail  bool
+	mu      sync.Mutex
+	calls   int
+	fail    bool
+	players []Player
+	rules   []Rule
 }
 
 func (f *fakeClient) Query(context.Context, string, time.Duration) (Info, []Player, []Rule, time.Duration, error) {
@@ -75,7 +77,26 @@ func (f *fakeClient) Query(context.Context, string, time.Duration) (Info, []Play
 	if f.fail {
 		return Info{}, nil, nil, 0, errors.New("offline")
 	}
-	return Info{Name: "Test Server", Map: "c1m1_hotel", Players: 3, MaxPlayers: 8, Bots: 1}, []Player{{Name: "Coach", Score: 8, DurationSeconds: 90}}, []Rule{{Name: "sv_tags", Value: "coop"}}, 12 * time.Millisecond, nil
+	players := f.players
+	if players == nil {
+		players = []Player{{Name: "Coach", Score: 8, DurationSeconds: 90}}
+	}
+	rules := f.rules
+	if rules == nil {
+		rules = []Rule{{Name: "sv_tags", Value: "coop"}}
+	}
+	return Info{Name: "Test Server", Map: "c1m1_hotel", Players: 3, MaxPlayers: 8, Bots: 1}, players, rules, 12 * time.Millisecond, nil
+}
+
+type fakePresence struct {
+	players   []store.ActivePlayer
+	err       error
+	serverKey string
+}
+
+func (f *fakePresence) ActivePlayers(_ context.Context, serverKey string, _ int64) ([]store.ActivePlayer, error) {
+	f.serverKey = serverKey
+	return f.players, f.err
 }
 
 func TestProviderCachesAndFallsBackToRecentSuccess(t *testing.T) {
@@ -190,5 +211,35 @@ func TestProviderPurgesRemovedAndChangedServerCacheEntries(t *testing.T) {
 	}
 	if _, exists := provider.entries["main\x00127.0.0.1:27015"]; exists {
 		t.Fatal("stale A2S cache entry was retained")
+	}
+}
+
+func TestProviderLinksA2SPlayersThroughPublishedServerKey(t *testing.T) {
+	dashboard := &fakeDashboard{servers: []store.GameServer{{ID: "main", DisplayName: "Main", Address: "127.0.0.1:27015", Enabled: true}}}
+	client := &fakeClient{
+		players: []Player{{Name: "Alice", Score: 42, DurationSeconds: 180}},
+		rules:   []Rule{{Name: "sm_lps_server_key", Value: "community.one"}},
+	}
+	presence := &fakePresence{players: []store.ActivePlayer{{SteamID: "76561198000000001", Name: "Alice", LastSavedAt: time.Now().Unix(), ConnectedSeconds: 170}}}
+	statuses, err := NewProvider(dashboard, client, presence).Statuses(context.Background())
+	if err != nil || len(statuses) != 1 {
+		t.Fatalf("Statuses() = %#v, %v", statuses, err)
+	}
+	status := statuses[0]
+	if status.ServerKey != "community.one" || presence.serverKey != "community.one" || len(status.PlayerList) != 1 {
+		t.Fatalf("linked status = %#v", status)
+	}
+	if status.PlayerList[0].SteamID != "76561198000000001" || status.PlayerList[0].Score != 42 || status.PlayerList[0].DurationSeconds != 180 {
+		t.Fatalf("linked player = %#v", status.PlayerList[0])
+	}
+}
+
+func TestProviderFallsBackToAnonymousA2SPlayersWhenPresenceFails(t *testing.T) {
+	dashboard := &fakeDashboard{servers: []store.GameServer{{ID: "main", DisplayName: "Main", Address: "127.0.0.1:27015", Enabled: true}}}
+	client := &fakeClient{rules: []Rule{{Name: "sm_lps_server_key", Value: "community.one"}}}
+	presence := &fakePresence{err: errors.New("stats unavailable")}
+	statuses, err := NewProvider(dashboard, client, presence).Statuses(context.Background())
+	if err != nil || len(statuses) != 1 || len(statuses[0].PlayerList) != 1 || statuses[0].PlayerList[0].SteamID != "" {
+		t.Fatalf("fallback status = %#v, %v", statuses, err)
 	}
 }

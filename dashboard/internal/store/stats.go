@@ -268,6 +268,39 @@ func (s *statsStore) SearchPlayers(ctx context.Context, query string, limit int3
 	return result, nil
 }
 
+func (s *statsStore) ActivePlayers(ctx context.Context, serverKey string, freshSince int64) ([]ActivePlayer, error) {
+	queryCtx, cancel := context.WithTimeout(ctx, s.timeout)
+	defer cancel()
+	result := make([]ActivePlayer, 0)
+	switch s.driver {
+	case "sqlite":
+		rows, err := s.sqlite.ListActivePlayersByServer(queryCtx, statssqlite.ListActivePlayersByServerParams{ServerKey: serverKey, FreshSince: freshSince})
+		if err != nil {
+			return nil, err
+		}
+		for _, row := range rows {
+			result = append(result, ActivePlayer{SteamID: row.SteamID, Name: row.PlayerName, StartedAt: row.StartedAt, LastSavedAt: row.LastSavedAt, ConnectedSeconds: row.ConnectedSeconds})
+		}
+	case "mysql":
+		rows, err := s.mysql.ListActivePlayersByServer(queryCtx, statsmysql.ListActivePlayersByServerParams{ServerKey: serverKey, FreshSince: freshSince})
+		if err != nil {
+			return nil, err
+		}
+		for _, row := range rows {
+			result = append(result, ActivePlayer{SteamID: row.SteamID, Name: row.PlayerName, StartedAt: row.StartedAt, LastSavedAt: row.LastSavedAt, ConnectedSeconds: row.ConnectedSeconds})
+		}
+	default:
+		rows, err := s.pg.ListActivePlayersByServer(queryCtx, statspg.ListActivePlayersByServerParams{ServerKey: serverKey, FreshSince: freshSince})
+		if err != nil {
+			return nil, err
+		}
+		for _, row := range rows {
+			result = append(result, ActivePlayer{SteamID: row.SteamID, Name: row.PlayerName, StartedAt: row.StartedAt, LastSavedAt: row.LastSavedAt, ConnectedSeconds: row.ConnectedSeconds})
+		}
+	}
+	return result, nil
+}
+
 func (s *statsStore) PlayerPVE(ctx context.Context, steamID string, cutoff int64) (PlayerPVE, error) {
 	queryCtx, cancel := context.WithTimeout(ctx, s.timeout)
 	defer cancel()

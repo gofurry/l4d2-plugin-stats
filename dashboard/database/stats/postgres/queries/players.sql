@@ -14,6 +14,15 @@ WHERE sqlc.arg(search_query) = ''
 ORDER BY last_seen_at DESC, steam_id ASC
 LIMIT sqlc.arg(page_limit);
 
+-- name: ListActivePlayersByServer :many
+SELECT steam_id, player_name, started_at, last_saved_at, connected_seconds
+FROM lps_sessions
+WHERE server_key = sqlc.arg(server_key)
+  AND status = 'active'
+  AND ended_at IS NULL
+  AND last_saved_at >= sqlc.arg(fresh_since)
+ORDER BY started_at ASC, steam_id ASC;
+
 -- name: GetPlayerPVE :one
 SELECT
   COALESCE(SUM(p.common_kills),0)::bigint common_kills,
