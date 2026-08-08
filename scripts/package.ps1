@@ -1,6 +1,6 @@
 param(
     [ValidatePattern('^[0-9A-Za-z][0-9A-Za-z._-]*$')]
-    [string]$Version = "preview"
+    [string]$Version = "1.1.0"
 )
 
 $ErrorActionPreference = "Stop"
@@ -9,10 +9,10 @@ $projectRoot = Split-Path -Parent $PSScriptRoot
 $dashboardRoot = Join-Path $projectRoot "dashboard"
 $frontendRoot = Join-Path $dashboardRoot "frontend"
 $distRoot = Join-Path $projectRoot "dist"
-$stagingRoot = Join-Path $distRoot "release-preview"
+$stagingRoot = Join-Path $distRoot "release-staging"
 $serverRoot = Join-Path $stagingRoot "left4dead2"
 $pluginOutput = Join-Path $distRoot "l4d2_player_stats.smx"
-$archiveName = if ($Version -eq "preview") { "l4d2-plugin-stats-release-preview.zip" } else { "l4d2-plugin-stats-v$Version.zip" }
+$archiveName = "l4d2-plugin-stats-v$Version.zip"
 $archivePath = Join-Path $distRoot $archiveName
 
 & (Join-Path $PSScriptRoot "build.ps1")
