@@ -1,0 +1,15 @@
+server:
+  listen: "0.0.0.0:18848"
+
+dashboard_database:
+  path: "./dashboard.db"
+
+stats_database:
+  driver: "pgsql"
+  dsn: "postgres://l4d2_dashboard:replace-me@127.0.0.1:5432/l4d2_stats?sslmode=disable"
+
+logging:
+  file: "./logs/l4d2-stats.log"
+
+monitor:
+  enabled: true

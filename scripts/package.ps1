@@ -89,11 +89,16 @@ try {
     $env:GOARCH = $previousGoarch
 }
 
-Copy-Item -LiteralPath (Join-Path $dashboardRoot "config.example.yaml") -Destination (Join-Path $dashboardDestination "config.example.yaml") -Force
+Copy-Item -LiteralPath (Join-Path $dashboardRoot "config.example.yaml") -Destination (Join-Path $windowsDestination "config.example.yaml") -Force
+Copy-Item -LiteralPath (Join-Path $dashboardRoot "config.example.yaml") -Destination (Join-Path $linuxDestination "config.example.yaml") -Force
 
 $examplesDestination = Join-Path $stagingRoot "examples"
 New-Item -ItemType Directory -Path $examplesDestination -Force | Out-Null
 Copy-Item -LiteralPath (Join-Path $projectRoot "config\databases.cfg.example") -Destination $examplesDestination -Force
+Copy-Item -LiteralPath (Join-Path $projectRoot "config\dashboard-sqlite.example.yaml") -Destination (Join-Path $examplesDestination "dashboard-sqlite.yaml") -Force
+Copy-Item -LiteralPath (Join-Path $projectRoot "config\dashboard-mysql.example.yaml") -Destination (Join-Path $examplesDestination "dashboard-mysql.yaml") -Force
+Copy-Item -LiteralPath (Join-Path $projectRoot "config\dashboard-postgresql.example.yaml") -Destination (Join-Path $examplesDestination "dashboard-postgresql.yaml") -Force
+Copy-Item -LiteralPath (Join-Path $projectRoot "config\nginx.conf.example") -Destination (Join-Path $examplesDestination "nginx.conf.example") -Force
 
 $packageReadme = Join-Path $stagingRoot "README.md"
 Copy-Item -LiteralPath (Join-Path $projectRoot "README.md") -Destination $packageReadme -Force
@@ -106,6 +111,9 @@ $readmeContent = $readmeContent.Replace(
     "(https://github.com/gofurry/l4d2-plugin-stats/blob/main/docs/"
 )
 Set-Content -LiteralPath $packageReadme -Value $readmeContent -Encoding utf8
+Copy-Item -LiteralPath (Join-Path $projectRoot "INSTALL.zh-CN.md") -Destination $stagingRoot -Force
+Copy-Item -LiteralPath (Join-Path $projectRoot "UPGRADE.zh-CN.md") -Destination $stagingRoot -Force
+Copy-Item -LiteralPath (Join-Path $projectRoot "CHANGELOG.md") -Destination $stagingRoot -Force
 Copy-Item -LiteralPath (Join-Path $projectRoot "LICENSE") -Destination $stagingRoot -Force
 
 Compress-Archive -Path (Join-Path $stagingRoot "*") -DestinationPath $archivePath -Force

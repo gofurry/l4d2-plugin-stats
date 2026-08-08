@@ -37,7 +37,7 @@ dashboard/
 
 ```yaml
 server:
-  listen: "127.0.0.1:18848"
+  listen: "0.0.0.0:18848"
 
 dashboard_database:
   path: "./dashboard.db"

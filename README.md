@@ -6,6 +6,8 @@
 
 面向《求生之路 2》服务器的玩家统计系统，由 SourceMod 数据采集插件和可选的 Web Dashboard 组成。采集器记录真人玩家在合作、写实和对抗模式中的身份、会话与玩法数据；Dashboard 提供服务器状态、个人中心、排行榜、更新公告和数据维护后台。
 
+> 第一次部署请阅读[中文部署手册](INSTALL.zh-CN.md)；升级已有安装请阅读[升级与回滚](UPGRADE.zh-CN.md)。
+
 ## 功能
 
 - 只统计通过 Steam 验证的真人玩家，不为 Bot 创建玩家档案；
@@ -57,15 +59,26 @@ l4d2-plugin-stats-*.zip
 │     ├─ plugins/l4d2_player_stats.smx
 │     └─ configs/l4d2_player_stats/migrations/
 ├─ dashboard/
-│  ├─ windows-amd64/l4d2-stats.exe
-│  ├─ linux-amd64/l4d2-stats
-│  └─ config.example.yaml
-├─ examples/databases.cfg.example
+│  ├─ windows-amd64/
+│  │  ├─ l4d2-stats.exe
+│  │  └─ config.example.yaml
+│  └─ linux-amd64/
+│     ├─ l4d2-stats
+│     └─ config.example.yaml
+├─ examples/
+│  ├─ databases.cfg.example
+│  ├─ dashboard-sqlite.yaml
+│  ├─ dashboard-mysql.yaml
+│  ├─ dashboard-postgresql.yaml
+│  └─ nginx.conf.example
+├─ INSTALL.zh-CN.md
+├─ UPGRADE.zh-CN.md
+├─ CHANGELOG.md
 ├─ README.md
 └─ LICENSE
 ```
 
-Dashboard 前端已嵌入可执行文件，不需要单独部署 Node.js。Linux 解压后如缺少执行权限，请运行 `chmod +x dashboard/linux-amd64/l4d2-stats`。
+Dashboard 前端已嵌入可执行文件，不需要单独部署 Node.js。发布包不包含开发期的 `docs/` 和 `contracts/` 目录；部署所需内容集中在两份离线手册和 `examples/`。Linux 解压后如缺少执行权限，请运行 `chmod +x dashboard/linux-amd64/l4d2-stats`。
 
 ## 快速开始
 
@@ -105,7 +118,7 @@ sm plugins reload l4d2_player_stats
 sm_lps_status
 ```
 
-正常状态应显示数据库驱动、`schema=1/1` 和 `state=ready`。完整数据库配置见[采集器部署文档](docs/database-foundation.md)。
+正常状态应显示数据库驱动、`schema=1/1` 和 `state=ready`。完整步骤见[中文部署手册](INSTALL.zh-CN.md)。
 
 ### 2. 启动 Dashboard
 
@@ -113,7 +126,7 @@ sm_lps_status
 
 ```yaml
 server:
-  listen: "127.0.0.1:18848"
+  listen: "0.0.0.0:18848"
 
 dashboard_database:
   path: "./dashboard.db"
@@ -143,7 +156,7 @@ Linux 可直接注册为 systemd 服务：
 sudo ./l4d2-stats install --config ./config.yaml
 ```
 
-生产部署、HTTPS、权限、备份和回滚说明见[Dashboard 部署指南](docs/dashboard-deployment.md)。
+生产部署、HTTPS、权限和首次设置说明见[中文部署手册](INSTALL.zh-CN.md)，备份与回滚说明见[升级与回滚](UPGRADE.zh-CN.md)。
 
 ## 管理命令
 

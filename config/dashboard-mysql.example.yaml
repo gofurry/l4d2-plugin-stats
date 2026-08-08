@@ -1,0 +1,15 @@
+server:
+  listen: "0.0.0.0:18848"
+
+dashboard_database:
+  path: "./dashboard.db"
+
+stats_database:
+  driver: "mysql"
+  dsn: "l4d2_dashboard:replace-me@tcp(127.0.0.1:3306)/l4d2_stats?parseTime=true"
+
+logging:
+  file: "./logs/l4d2-stats.log"
+
+monitor:
+  enabled: true
