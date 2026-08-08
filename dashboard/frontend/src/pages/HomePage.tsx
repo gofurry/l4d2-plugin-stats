@@ -7,6 +7,7 @@ import { api, type Overview, type ServerPlayer, type ServerStatus, type SiteDocu
 import { FloatingNav } from '../components/FloatingNav'
 import { FloatingToolbar } from '../components/FloatingToolbar'
 import { MarkdownContent } from '../components/MarkdownContent'
+import { PlayerPreviewModal } from '../components/PlayerPreviewModal'
 import { SiteFooter } from '../components/SiteFooter'
 import styles from './HomePage.module.scss'
 
@@ -63,55 +64,9 @@ function ServerRow({ status }: { status: ServerStatus }) {
         </div>}
       </div>}
     </div></div>
-	<PlayerPreviewModal player={selectedPlayer} server={status} onClose={() => setSelectedPlayer(null)} />
+	<PlayerPreviewModal open={selectedPlayer !== null} steamID={selectedPlayer?.steam_id ?? ''} playerName={selectedPlayer?.name}
+		contextLabel={status.name || status.display_name} onClose={() => setSelectedPlayer(null)} />
   </article>
-}
-
-function PlayerPreviewModal({ player, server, onClose }: { player: ServerPlayer | null; server: ServerStatus; onClose: () => void }) {
-	const { t } = useTranslation()
-	const steamID = player?.steam_id ?? ''
-	const preview = useQuery({ queryKey: ['player-preview', steamID], queryFn: () => api.playerPreview(steamID), enabled: steamID !== '', staleTime: 60_000, retry: 1 })
-	const data = preview.data
-	return <Modal className={styles.playerPreviewModal} open={player !== null} title={null} footer={null} onCancel={onClose} destroyOnHidden>
-		<div className={styles.previewHeader}>
-			<div><strong>{data?.player_name || player?.name || t('unnamedPlayer')}</strong><code>{steamID}</code></div>
-			<span><i className={`${styles.statusDot} ${styles.statusDot_online}`} />{server.name || server.display_name}</span>
-		</div>
-		{preview.isLoading && <Skeleton active paragraph={{ rows: 5 }} />}
-		{preview.isError && <Alert type="warning" showIcon title={t('playerStatsUnavailable')} />}
-		{data && <>
-			<div className={styles.previewMetrics}>
-				<PreviewMetric label={t('activePlayTime')} value={formatDuration(data.active_play_seconds)} />
-				<PreviewMetric label={t('sessions')} value={integer.format(data.session_count)} />
-			</div>
-			<div className={styles.previewSection}>
-				<h4>{t('pveSummary')}</h4>
-				{data.pve.available ? <div className={styles.previewMetrics}>
-					<PreviewMetric label={t('specialKills')} value={integer.format(data.pve.special_kills)} />
-					<PreviewMetric label={t('bossKills')} value={integer.format(data.pve.boss_kills)} />
-					<PreviewMetric label={t('rescues')} value={integer.format(data.pve.rescues)} />
-					<PreviewMetric label={t('campaigns')} value={integer.format(data.pve.campaign_completions)} />
-				</div> : <span className={styles.previewEmpty}>{t('noData')}</span>}
-			</div>
-			<div className={styles.previewSection}>
-				<h4>{t('versusSummary')}</h4>
-				{data.versus.available ? <div className={styles.previewMetrics}>
-					<PreviewMetric label={t('humanSIKills')} value={integer.format(data.versus.human_si_kills)} />
-					<PreviewMetric label={t('infectedDamage')} value={integer.format(data.versus.infected_damage)} />
-					<PreviewMetric label={t('controls')} value={integer.format(data.versus.survivor_controls)} />
-					<PreviewMetric label={t('incaps')} value={integer.format(data.versus.survivor_incapacitations)} />
-				</div> : <span className={styles.previewEmpty}>{t('noData')}</span>}
-			</div>
-			<div className={styles.previewActions}>
-				<Button href={`https://steamcommunity.com/profiles/${steamID}`} target="_blank" rel="noreferrer">{t('viewSteamProfile')}</Button>
-				<Button type="primary" href={`/player?steam_id=${steamID}`}>{t('viewFullProfile')}</Button>
-			</div>
-		</>}
-	</Modal>
-}
-
-function PreviewMetric({ label, value }: { label: string; value: string }) {
-	return <div><span>{label}</span><strong>{value}</strong></div>
 }
 
 function formatDuration(seconds: number) {

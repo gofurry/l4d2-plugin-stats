@@ -1,9 +1,10 @@
-import { DatabaseOutlined, DeleteOutlined, ReloadOutlined, SyncOutlined } from '@ant-design/icons'
+import { DatabaseOutlined, DeleteOutlined, ReloadOutlined, SyncOutlined, UserOutlined } from '@ant-design/icons'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
-import { Alert, Button, Form, InputNumber, Popconfirm, Select, Spin, Typography, message } from 'antd'
-import { useEffect } from 'react'
+import { Alert, Button, Form, Input, InputNumber, Modal, Popconfirm, Select, Space, Spin, Typography, message } from 'antd'
+import { useEffect, useState } from 'react'
 import { useTranslation } from 'react-i18next'
 import { api, type DataMaintenanceSettings } from '../api'
+import { PlayerPreviewModal } from '../components/PlayerPreviewModal'
 import styles from './Portal.module.scss'
 
 const intervals = [15, 30, 60, 180, 300, 720, 1440]
@@ -23,12 +24,21 @@ export function AdminDataPage() {
   const { t } = useTranslation()
   const client = useQueryClient()
   const [form] = Form.useForm<DataMaintenanceSettings>()
+  const [previewPromptOpen, setPreviewPromptOpen] = useState(false)
+  const [previewInput, setPreviewInput] = useState('')
+  const [previewSteamID, setPreviewSteamID] = useState('')
   const status = useQuery({ queryKey: ['admin-data-status'], queryFn: api.dataStatus })
   useEffect(() => { if (status.data?.settings) form.setFieldsValue(status.data.settings) }, [form, status.data?.settings])
   const refresh = () => void client.invalidateQueries({ queryKey: ['admin-data-status'] })
   const save = useMutation({ mutationFn: api.saveDataSettings, onSuccess: () => { void message.success(t('saved')); refresh() } })
   const aggregate = useMutation({ mutationFn: api.aggregateNow, onSuccess: () => { void message.success(t('aggregateCompleted')); refresh() }, onError: () => void message.error(t('operationFailed')) })
   const cleanup = useMutation({ mutationFn: (planID: string) => api.applyRetention(planID), onSuccess: result => { void message.success(t('cleanupCompleted', { count: result.equipment_rows + result.versus_class_rows + result.session_rows + result.versus_round_result_rows + result.versus_run_result_rows })); refresh() }, onError: () => { void message.error(t('cleanupPreviewChanged')); refresh() } })
+  const openPlayerPreview = () => {
+    const steamID = previewInput.trim()
+    if (!/^7656119\d{10}$/.test(steamID)) return
+    setPreviewPromptOpen(false)
+    setPreviewSteamID(steamID)
+  }
 
   if (status.isLoading) return <div className={styles.adminPage}><Spin /></div>
   if (!status.data) return <div className={styles.adminPage}><Alert type="error" message={t('dataStatusUnavailable')} action={<Button onClick={() => status.refetch()}>{t('retry')}</Button>} /></div>
@@ -39,7 +49,10 @@ export function AdminDataPage() {
   return <div className={styles.adminPage}>
     <div className={styles.toolbar}>
       <div><Typography.Title level={2}>{t('dataMaintenance')}</Typography.Title><Typography.Text type="secondary">{t('dataMaintenanceHint')}</Typography.Text></div>
-      <Button icon={<ReloadOutlined />} onClick={() => status.refetch()}>{t('refresh')}</Button>
+      <Space>
+        <Button icon={<UserOutlined />} onClick={() => setPreviewPromptOpen(true)}>{t('previewPlayerCard')}</Button>
+        <Button icon={<ReloadOutlined />} onClick={() => status.refetch()}>{t('refresh')}</Button>
+      </Space>
     </div>
 
     <section className={styles.dataUsageGrid}>
@@ -87,5 +100,14 @@ export function AdminDataPage() {
       </Popconfirm>
       <Typography.Text type="secondary" className={styles.cleanupAudit}>{t('cleanupRuns', { count: data.retention_runs })}</Typography.Text>
     </section>
+
+    <Modal title={t('previewPlayerCard')} open={previewPromptOpen} okText={t('preview')} cancelText={t('cancel')}
+      okButtonProps={{ disabled: !/^7656119\d{10}$/.test(previewInput.trim()) }}
+      onOk={openPlayerPreview} onCancel={() => setPreviewPromptOpen(false)} destroyOnHidden>
+      <Typography.Paragraph type="secondary">{t('previewPlayerCardHint')}</Typography.Paragraph>
+      <Input autoFocus value={previewInput} maxLength={17} placeholder="SteamID64" onChange={event => setPreviewInput(event.target.value)} onPressEnter={openPlayerPreview} />
+    </Modal>
+    <PlayerPreviewModal open={previewSteamID !== ''} steamID={previewSteamID} contextLabel={t('statsDatabase')}
+      onClose={() => setPreviewSteamID('')} />
   </div>
 }
