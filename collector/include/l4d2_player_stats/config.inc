@@ -38,7 +38,8 @@ void LPS_CreateConfig()
 	g_LPSServerKeyCvar = CreateConVar(
 		"sm_lps_server_key",
 		"change-me",
-		"Globally unique server key (1-64 characters: A-Z, a-z, 0-9, dot, underscore, hyphen)."
+		"Globally unique server key (1-64 characters: A-Z, a-z, 0-9, dot, underscore, hyphen).",
+		FCVAR_NOTIFY
 	);
 
 	g_LPSServerName = CreateConVar(

@@ -9,7 +9,7 @@ export interface CoreOverview { total_players: number; active_players_7d: number
 export interface PVEOverview { common_kills: number; special_kills: number; tank_kills: number; witch_kills: number; rescues: number }
 export interface VersusOverview { completed_matches: number; completed_halves: number; human_controlled_infected_kills: number; human_survivor_controls: number }
 export interface Overview { core: CoreOverview; pve: PVEOverview; versus: VersusOverview; generated_at: string }
-export interface ServerPlayer { name: string; score: number; duration_seconds: number }
+export interface ServerPlayer { name: string; steam_id?: string; score: number; duration_seconds: number }
 export interface ServerRule { name: string; value: string }
 export interface ServerStatus { server_id: string; display_name: string; address: string; online: boolean; stale: boolean; name?: string; map?: string; players: number; max_players: number; bots: number; latency_ms?: number; last_success_at?: string; checked_at: string; player_list?: ServerPlayer[]; rules?: ServerRule[] }
 export interface ServerA2SState { available: boolean; status?: ServerStatus }
@@ -17,6 +17,11 @@ export interface GameServer { id?: string; display_name: string; address: string
 export interface GameServerInput { display_name: string; address: string }
 export interface AdminIdentity { username:string; created_at:number; updated_at:number; password_changed_at:number; monitor_enabled:boolean }
 export interface PlayerSummary { steam_id:string; last_name:string; first_seen_at:number; last_seen_at:number; session_count:number; connected_seconds:number; active_play_seconds:number }
+export interface PlayerPreview {
+  steam_id:string; player_name:string; session_count:number; active_play_seconds:number; last_seen_at:number;
+  pve:{available:boolean;special_kills:number;boss_kills:number;rescues:number;campaign_completions:number};
+  versus:{available:boolean;human_si_kills:number;infected_damage:number;survivor_controls:number;survivor_incapacitations:number};
+}
 export interface PlayerActivityPoint { day:number; session_count:number; connected_seconds:number; active_play_seconds:number }
 export interface PlayerServerActivity { server_key:string; session_count:number; active_play_seconds:number }
 export interface PlayerActivity { timeline:PlayerActivityPoint[]; servers:PlayerServerActivity[] }
@@ -87,6 +92,7 @@ export const api={
   dataStatus:()=>request<DataGrowthStatus>('/api/v1/admin/data/status'),dataSettings:()=>request<DataMaintenanceSettings>('/api/v1/admin/data/settings'),saveDataSettings:(settings:DataMaintenanceSettings)=>adminWrite<DataMaintenanceSettings>('/api/v1/admin/data/settings','PUT',settings),aggregateNow:()=>adminWrite<DataGrowthStatus>('/api/v1/admin/data/aggregate','POST'),retentionPlan:()=>request<RetentionPlan>('/api/v1/admin/data/retention/plan'),applyRetention:(plan_id:string)=>adminWrite<RetentionResult>('/api/v1/admin/data/retention/apply','POST',{plan_id}),
   steamIdentity:()=>request<{steam_id:string}|null>('/api/v1/steam/identity'),
   playerSummary:(id:string)=>request<PlayerSummary>(`/api/v1/players/${id}/summary`),
+  playerPreview:(id:string)=>request<PlayerPreview>(`/api/v1/players/${id}/preview`),
   playerActivity:(id:string,range:string,server='')=>request<PlayerActivity>(`/api/v1/players/${id}/activity?${new URLSearchParams({range,...(server?{server}:{})})}`),
   playerPVE:(id:string,range:string,server='',mode='')=>request<PlayerPVE>(`/api/v1/players/${id}/pve?${new URLSearchParams({range,...(server?{server}:{}),...(mode?{mode}:{})})}`),
   playerVersus:(id:string,range:string,server='')=>request<PlayerVersus>(`/api/v1/players/${id}/versus?${new URLSearchParams({range,...(server?{server}:{})})}`),

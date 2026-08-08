@@ -3,10 +3,11 @@ import { useQuery } from '@tanstack/react-query'
 import { Alert, Button, Empty, Layout, Modal, Skeleton, Spin } from 'antd'
 import { useState } from 'react'
 import { useTranslation } from 'react-i18next'
-import { api, type Overview, type ServerStatus, type SiteDocumentKey } from '../api'
+import { api, type Overview, type ServerPlayer, type ServerStatus, type SiteDocumentKey } from '../api'
 import { FloatingNav } from '../components/FloatingNav'
 import { FloatingToolbar } from '../components/FloatingToolbar'
 import { MarkdownContent } from '../components/MarkdownContent'
+import { PlayerPreviewModal } from '../components/PlayerPreviewModal'
 import { SiteFooter } from '../components/SiteFooter'
 import styles from './HomePage.module.scss'
 
@@ -23,6 +24,7 @@ function Metric({ title, value, suffix, details }: { title: string; value: numbe
 function ServerRow({ status }: { status: ServerStatus }) {
   const { t } = useTranslation()
   const [expanded, setExpanded] = useState(false)
+	const [selectedPlayer, setSelectedPlayer] = useState<ServerPlayer | null>(null)
   const state = status.stale ? 'stale' : status.online ? 'online' : 'offline'
   const players = status.player_list ?? []
   const toggle = () => setExpanded(value => !value)
@@ -52,12 +54,18 @@ function ServerRow({ status }: { status: ServerStatus }) {
         {status.online && players.length === 0 && <span className={styles.playerNotice}>{status.players === 0 ? t('noOnlinePlayers') : t('noPlayerDetails')}</span>}
         {players.length > 0 && <div className={styles.playerList}>
           <div className={styles.playerListHeader}><span>{t('playerName')}</span><span>{t('score')}</span><span>{t('onlineDuration')}</span></div>
-          {players.map((player, index) => <div className={styles.playerEntry} key={`${player.name}-${index}`}>
+          {players.map((player, index) => <div className={`${styles.playerEntry} ${player.steam_id ? styles.linkedPlayer : ''}`} key={player.steam_id ?? `${player.name}-${index}`}
+			role={player.steam_id ? 'button' : undefined} tabIndex={player.steam_id ? 0 : undefined}
+			title={player.steam_id ? t('clickForPlayerStats') : undefined}
+			onClick={() => { if (player.steam_id) setSelectedPlayer(player) }}
+			onKeyDown={event => { if (player.steam_id && (event.key === 'Enter' || event.key === ' ')) { event.preventDefault(); setSelectedPlayer(player) } }}>
             <strong>{player.name || t('unnamedPlayer')}</strong><span>{player.score}</span><span>{formatDuration(player.duration_seconds)}</span>
           </div>)}
         </div>}
       </div>}
     </div></div>
+	<PlayerPreviewModal open={selectedPlayer !== null} steamID={selectedPlayer?.steam_id ?? ''} playerName={selectedPlayer?.name}
+		contextLabel={status.name || status.display_name} onClose={() => setSelectedPlayer(null)} />
   </article>
 }
 

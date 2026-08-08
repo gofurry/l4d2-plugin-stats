@@ -75,7 +75,7 @@ type MonitorConfig struct {
 func Default() Config {
 	return Config{
 		Server: ServerConfig{
-			Listen:       "127.0.0.1:18848",
+			Listen:       "0.0.0.0:18848",
 			ReadTimeout:  Duration(10 * time.Second),
 			WriteTimeout: Duration(15 * time.Second),
 			IdleTimeout:  Duration(60 * time.Second),

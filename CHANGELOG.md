@@ -1,90 +1,56 @@
 # Changelog
 
-All notable changes to this project will be documented in this file.
+All notable changes to this project are documented in this file.
 
-## Unreleased
+## 1.1.0 - 2026-08-08
 
-- Add the v0.8.0-v0.8.1 Go 1.26/Fiber dashboard foundation and embedded React 19 homepage.
-- Add strict YAML configuration, a Goose-managed pure-Go SQLite Dashboard DB, bootstrap site/server settings, and safe custom footer links.
-- Add sqlc-generated read-only overview queries for SQLite, MySQL, and PostgreSQL with PvE/Versus mode isolation.
-- Add primary-server A2S status with bounded concurrency, timeout, cache, and recent-success fallback.
-- Add Cobra diagnostics/bootstrap/systemd commands, Zap/Lumberjack rotation, production build scripts, frontend tests, and deployment documentation.
-- Freeze the Versus v1 field semantics, ownership, units, Bot attribution, result states, and reader invariants for the future Go service.
-- Add a machine-readable six-table Versus schema manifest with strict SQLite/MySQL/PostgreSQL column and primary-key validation.
-- Add portable Versus contract health queries, mutation-backed SQLite regression checks, and read-only query examples.
-- Require future Versus schema changes to use a new migration and incompatible statistical semantics to use a new `stats_version`.
-- Determine each Versus scoring team from the observed map-score change, with the half number as a zero-score fallback, instead of trusting `m_bAreTeamsFlipped` on listen servers.
-- Add an inspection check for Versus round results whose scoring slot disagrees with the recorded half.
-- Record authoritative Versus map/half and campaign scores from L4D2 GameRules without adding a Left4DHooks dependency.
-- Persist one bounded result snapshot per Versus Round and Run, including completed, abandoned, tie, and unavailable-score states.
-- Preserve raw engine winner fields for diagnostics while deriving the final logical winner only from completed campaign scores.
-- Recover stale active Versus Run results as abandoned after an abnormal server restart.
-- Add a bounded seven-class Versus survivor breakdown for kills and effective damage split by human or Bot infected controllers.
-- Record Versus survivor Witch kills/damage, official throwable use, ammo-pack deployments, self tongue cuts, destroyed Tank rocks, and Witch one-shot/solo kills.
-- Validate that Versus survivor class sums match the existing special infected and Tank totals.
-- Keep per-weapon Versus statistics, shot/hit/accuracy/ammo/reload metrics, and dynamic custom equipment dimensions out of scope.
-- Record Smoker, Hunter, Jockey, and Charger control counts and durations split by human or Bot survivor targets.
-- Record Boomer bile victim counts and Spitter acid effective damage with bounded per-class absolute snapshots.
-- Preserve late Spitter acid attribution by capturing the original human owner of each acid pool.
-- Add a bounded seven-class Versus infected breakdown for spawns, damage, incapacitations, and kills split by human or Bot survivor targets.
-- Preserve the existing Versus infected totals as authoritative snapshots and validate that every class sum matches its total.
-- Add equivalent SQLite, MySQL, and PostgreSQL class tables plus inspection and integration checks.
-- Preserve one Versus campaign Run and one listen-server Session when the second half advances to the next map without a reliable `map_transition` event.
-- Reclassify a repeated second half as abandoned even when it was initially treated as a pending map transition.
-- Add separate absolute snapshot collectors for Versus survivor and infected Segments.
-- Split Versus survivor special infected and Tank kills/damage by human or Bot victim.
-- Record Versus survivor common kills, infected damage taken, friendly fire, survival, rescue, healing, and temporary health.
-- Record valid human infected spawns plus damage, incapacitations, and kills split by human or Bot survivor victim.
-- Add bounded closed Versus queues, shared transactional flush integration, status diagnostics, and a runtime enable ConVar.
-- Extend SQLite integration and inspection tools with Versus table, side, mode, orphan, and snapshot checks.
-- Count Vomit Jar actions from `vomitjar_projectile` ownership when `weapon_fire` does not expose the throw.
-- Keep Vomit Jar projectile accounting separate from the Molotov/Pipe Bomb event path to prevent duplicate actions.
-- Add allowlisted, success-only objective interaction counts with one attribution per entity and Round.
-- Add ammo-pile refill counts, incapacitated seconds, and ledge-hanging seconds.
-- Add successful medkit restores of black-and-white teammates.
-- Accumulate active duration timers into periodic absolute snapshots without per-second polling.
-- Add fixed-ID per-equipment PvE snapshots for official firearms, official melee weapons, and official throwables.
-- Aggregate every unknown/custom firearm into one bounded `Other Firearm` row while ignoring custom melee and throwables.
-- Add per-class special infected kills and effective damage.
-- Add Smoker/Hunter/Jockey/Charger control counts, durations, and attributable teammate saves.
-- Add self tongue cuts with official melee, destroyed Tank rocks, Witch one-shots and solo kills.
-- Add Tank/Witch encounters and kill participation plus incendiary/explosive ammo-pack deployments.
-- Keep firearm shots, hits, accuracy, ammunition, reloads, common-infected damage, melee hit metrics, decapitations, and laser sights out of scope.
-- Add successful medkit self/other use counts and actual permanent health restored.
-- Add pills, adrenaline, and actual temporary health received statistics.
-- Add per-Segment chapter participation, alive/dead completion, and campaign completion results.
-- Capture temporary-health gain from a pre-command health snapshot without assuming default item ConVars.
-- Extend SQLite validation and inspection output for all v0.5 PvE fields.
-- Add `coop` and `realism` common, special, Tank, and Witch last-hit kill statistics.
-- Record effective health loss dealt to special infected, Tanks, and Witches without overkill inflation.
-- Record infected damage taken and split human-target, bot-target, and received friendly fire.
-- Add incapacitation, death, incap revive, ledge rescue, defibrillator revive, and rescue-received statistics.
-- Persist PvE Segment statistics as absolute snapshots in the shared asynchronous flush transaction.
-- Extend SQLite integration and inspection tools with PvE statistics checks.
+### Added
+
+- Add an online-player preview card to the homepage A2S player list, backed by aggregated SteamID statistics.
+- Expose each collector's stable `server_key` through A2S rules so Dashboard servers can be matched to their Stats DB source.
+- Add offline Chinese installation and upgrade guides covering collector setup, all three database drivers, Dashboard initialization, systemd, Nginx, verification, backup, and rollback.
+- Add ready-to-copy Dashboard examples for SQLite, MySQL, and PostgreSQL plus a SourceMod database and Nginx example.
+
+### Changed
+
+- Use release-ready `1.1.0` versions and neutral production defaults throughout the collector and Dashboard.
+- Default Dashboard examples to `0.0.0.0:18848` so first-time administrators can initialize the site from another computer using the server IP.
+- Package Dashboard configuration beside each Windows/Linux binary and keep development-only `docs/` and `contracts/` out of release archives.
+- Clarify the distinction between normal read-only Stats DB access and the write permission required by optional raw-data cleanup.
+
+## 1.0.0 - 2026-08-05
+
+### Collector
+
+- Record SteamID64-backed identities, Sessions, Runs, Rounds, Segments, chapter results, connection time, and active play time for `coop`, `realism`, and `versus`.
+- Collect bounded PvE and Versus combat, survival, rescue, healing, equipment, objective, technique, class, score, half, and match-result statistics without recording Bot player profiles.
+- Support SQLite, MySQL, and PostgreSQL through equivalent schema migrations and an asynchronous snapshot-based persistence pipeline.
+- Add retry, bounded queues, periodic and lifecycle flushes, migration checks, diagnostics, and privacy-safe status commands.
+
+### Dashboard
+
+- Add a Go/Fiber single-binary service with an embedded React interface, strict YAML configuration, rotating logs, Cobra commands, and optional systemd installation.
+- Add Steam OpenID/manual SteamID lookup, personal statistics, PvE/Versus leaderboards, multi-server A2S status, announcements, Markdown-managed server information, themes, SEO settings, and a protected runtime monitor.
+- Add a single-administrator JWT/CSRF-protected management interface for site, server, security, announcement, and data-operation settings.
+- Add bounded public caches, request coalescing, site-wide rate limiting, incremental daily aggregation, monthly/lifetime rollups, growth monitoring, and guarded batched raw-data cleanup.
+
+### Release engineering
+
+- Add Go and React CI workflows, reproducible SourcePawn/Go/frontend builds, cross-platform release packaging, migration validation, database inspection tooling, and an MIT license.
+
+## 0.4.0–0.6.6
+
+- Expand the collector from lifecycle records into the complete PvE and Versus v1 statistics contract.
+- Add equipment and infected-class breakdowns, special techniques, objective interactions, duration metrics, campaign/half scores, result snapshots, and three-database validation.
 
 ## 0.3.0
 
-- Add PvE campaign Run continuity, chapter attempts, failure retries, transitions, and finale completion.
-- Add separate Versus half Rounds with half and attempt numbering.
-- Add human survivor/infected Segments that close on spectating, idle takeover, side changes, or Round end.
-- Persist Run, Round, and Segment absolute snapshots in the shared asynchronous flush transaction.
-- Add a bounded lifecycle closure queue, lifecycle diagnostics, SQLite checks, and a local validation checklist.
-- Keep `boot_id` stable when SourceMod re-executes plugin configuration on map changes.
-- Preserve one SteamID-backed Session across listen-server map reconnects, with a bounded 120-second transfer window.
-- Abandon a Versus Run when the map actually ends after only one half instead of preserving a stale half continuation.
-- Extend SQLite inspection and integration checks for corruption, orphan records, invalid times, and abandoned-startup recovery.
+- Add campaign Run, Round, Segment, map-transition, retry, finale, side-change, idle, spectator, and abnormal-restart lifecycle handling.
 
 ## 0.2.0
 
-- Record SteamID64-backed human player identities in supported game modes.
-- Add Session creation, cross-map continuity, disconnect and unsupported-mode closure.
-- Track connected time separately from active play time, excluding spectators and idle takeover.
-- Persist active and closed Session snapshots through the shared asynchronous flush transaction.
-- Add a bounded in-memory closed Session queue for temporary database outages.
-- Add privacy-safe Session diagnostics and SQLite inspection tooling.
+- Add SteamID64 player identity, Session continuity, connected time, active play time, and bounded asynchronous persistence.
 
 ## 0.1.0
 
-- Establish the SourcePawn collector monorepo layout.
-- Add portable schema migrations for SQLite, MySQL, and PostgreSQL.
-- Add asynchronous database connection, migration, retry, heartbeat, and diagnostics foundations.
+- Establish the SourcePawn monorepo, portable SQLite/MySQL/PostgreSQL migrations, connection management, migration execution, heartbeat, retry, and diagnostics foundations.

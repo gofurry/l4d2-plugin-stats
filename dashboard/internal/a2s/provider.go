@@ -4,6 +4,7 @@ import (
 	"context"
 	"math/rand/v2"
 	"sort"
+	"strings"
 	"sync"
 	"time"
 
@@ -92,6 +93,7 @@ func (SteamClient) Query(ctx context.Context, address string, timeout time.Durat
 
 type Provider struct {
 	dashboard store.DashboardStore
+	presence  store.StatsPresenceStore
 	client    Client
 	timeout   time.Duration
 	ttl       time.Duration // test override; production uses Dashboard settings
@@ -113,12 +115,16 @@ type queryPolicy struct {
 	retries int
 }
 
-func NewProvider(dashboard store.DashboardStore, client Client) *Provider {
-	return &Provider{
+func NewProvider(dashboard store.DashboardStore, client Client, presence ...store.StatsPresenceStore) *Provider {
+	provider := &Provider{
 		dashboard: dashboard, client: client, timeout: 2 * time.Second,
 		staleTTL:  5 * time.Minute,
 		semaphore: make(chan struct{}, 4), entries: make(map[string]cacheEntry),
 	}
+	if len(presence) > 0 {
+		provider.presence = presence[0]
+	}
+	return provider
 }
 
 func (p *Provider) Statuses(ctx context.Context) ([]store.ServerStatus, error) {
@@ -301,18 +307,78 @@ func (p *Provider) refresh(server store.GameServer, policy queryPolicy) (store.S
 		MaxPlayers: info.MaxPlayers, Bots: info.Bots, LatencyMS: latency.Milliseconds(),
 		LastSuccessAt: now, CheckedAt: now,
 	}
-	status.PlayerList = make([]store.ServerPlayer, 0, len(players))
-	for _, player := range players {
-		status.PlayerList = append(status.PlayerList, store.ServerPlayer{Name: player.Name, Score: player.Score, DurationSeconds: player.DurationSeconds})
-	}
 	status.Rules = make([]store.ServerRule, 0, len(rules))
 	for _, rule := range rules {
 		status.Rules = append(status.Rules, store.ServerRule{Name: rule.Name, Value: rule.Value})
 	}
+	status.ServerKey = serverKeyFromRules(rules)
+	status.PlayerList = p.linkPlayers(status.ServerKey, players, now)
 	p.mu.Lock()
 	p.entries[key] = cacheEntry{status: status, expires: now.Add(cacheTTL)}
 	p.mu.Unlock()
 	return status, nil
+}
+
+func (p *Provider) linkPlayers(serverKey string, a2sPlayers []Player, now time.Time) []store.ServerPlayer {
+	fallback := make([]store.ServerPlayer, 0, len(a2sPlayers))
+	for _, player := range a2sPlayers {
+		fallback = append(fallback, store.ServerPlayer{Name: player.Name, Score: player.Score, DurationSeconds: player.DurationSeconds})
+	}
+	if serverKey == "" || p.presence == nil {
+		return fallback
+	}
+	ctx, cancel := context.WithTimeout(context.Background(), 2*time.Second)
+	active, err := p.presence.ActivePlayers(ctx, serverKey, now.Add(-10*time.Minute).Unix())
+	cancel()
+	if err != nil || len(active) == 0 {
+		return fallback
+	}
+
+	byName := make(map[string][]Player, len(a2sPlayers))
+	for _, player := range a2sPlayers {
+		name := strings.TrimSpace(player.Name)
+		byName[name] = append(byName[name], player)
+	}
+	linked := make([]store.ServerPlayer, 0, len(active))
+	for _, player := range active {
+		duration := player.ConnectedSeconds
+		if player.LastSavedAt > 0 && now.Unix() > player.LastSavedAt {
+			duration += now.Unix() - player.LastSavedAt
+		}
+		entry := store.ServerPlayer{Name: player.Name, SteamID: player.SteamID, DurationSeconds: duration}
+		if matches := byName[strings.TrimSpace(player.Name)]; len(matches) == 1 {
+			entry.Score = matches[0].Score
+			entry.DurationSeconds = matches[0].DurationSeconds
+		}
+		linked = append(linked, entry)
+	}
+	return linked
+}
+
+func serverKeyFromRules(rules []Rule) string {
+	for _, rule := range rules {
+		if strings.EqualFold(strings.TrimSpace(rule.Name), "sm_lps_server_key") {
+			value := strings.TrimSpace(rule.Value)
+			if validServerKey(value) {
+				return value
+			}
+			return ""
+		}
+	}
+	return ""
+}
+
+func validServerKey(value string) bool {
+	if len(value) < 1 || len(value) > 64 || strings.EqualFold(value, "change-me") {
+		return false
+	}
+	for _, char := range value {
+		if (char >= 'A' && char <= 'Z') || (char >= 'a' && char <= 'z') || (char >= '0' && char <= '9') || char == '.' || char == '_' || char == '-' {
+			continue
+		}
+		return false
+	}
+	return true
 }
 
 func normalizePolicy(settings store.SiteSettings) queryPolicy {

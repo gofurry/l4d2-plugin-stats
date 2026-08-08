@@ -197,6 +197,58 @@ func (q *Queries) GetPlayerVersus(ctx context.Context, arg GetPlayerVersusParams
 	return i, err
 }
 
+const listActivePlayersByServer = `-- name: ListActivePlayersByServer :many
+SELECT steam_id, player_name, started_at, last_saved_at, connected_seconds
+FROM lps_sessions
+WHERE server_key = $1
+  AND status = 'active'
+  AND ended_at IS NULL
+  AND last_saved_at >= $2
+ORDER BY started_at ASC, steam_id ASC
+`
+
+type ListActivePlayersByServerParams struct {
+	ServerKey  string
+	FreshSince int64
+}
+
+type ListActivePlayersByServerRow struct {
+	SteamID          string
+	PlayerName       string
+	StartedAt        int64
+	LastSavedAt      int64
+	ConnectedSeconds int64
+}
+
+func (q *Queries) ListActivePlayersByServer(ctx context.Context, arg ListActivePlayersByServerParams) ([]ListActivePlayersByServerRow, error) {
+	rows, err := q.db.QueryContext(ctx, listActivePlayersByServer, arg.ServerKey, arg.FreshSince)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	items := []ListActivePlayersByServerRow{}
+	for rows.Next() {
+		var i ListActivePlayersByServerRow
+		if err := rows.Scan(
+			&i.SteamID,
+			&i.PlayerName,
+			&i.StartedAt,
+			&i.LastSavedAt,
+			&i.ConnectedSeconds,
+		); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Close(); err != nil {
+		return nil, err
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
 const listPlayerChapters = `-- name: ListPlayerChapters :many
 SELECT s.segment_id,s.server_key,r.mode_family,r.game_mode,rd.map_name,s.side,s.started_at,s.ended_at,s.active_play_seconds,s.status
 FROM lps_player_segments s JOIN lps_runs r ON r.run_id=s.run_id JOIN lps_rounds rd ON rd.round_id=s.round_id

@@ -1,7 +1,7 @@
 {
   "name": "@gofurry/l4d2-stats-dashboard",
   "private": true,
-  "version": "0.9.2-dev",
+  "version": "1.1.0",
   "type": "module",
   "packageManager": "pnpm@10.11.0",
   "scripts": {

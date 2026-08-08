@@ -1,0 +1,15 @@
+server:
+  listen: "0.0.0.0:18848"
+
+dashboard_database:
+  path: "./dashboard.db"
+
+stats_database:
+  driver: "sqlite"
+  dsn: "/absolute/path/left4dead2/addons/sourcemod/data/sqlite/l4d2_player_stats.sq3"
+
+logging:
+  file: "./logs/l4d2-stats.log"
+
+monitor:
+  enabled: true

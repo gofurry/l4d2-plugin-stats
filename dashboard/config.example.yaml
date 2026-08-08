@@ -1,15 +1,16 @@
 # Production serves both the embedded React UI and API from this address.
-# Use 0.0.0.0:18848 only when intentionally exposing the service directly.
+# Open http://SERVER_IP:18848 after startup.
 server:
-  listen: "127.0.0.1:18848"
+  listen: "0.0.0.0:18848"
 
 # Relative paths are resolved from the directory containing config.yaml.
 dashboard_database:
   path: "./dashboard.db"
 
 # Supported drivers: sqlite, mysql, pgsql.
-# SQLite is always opened read-only. MySQL and PostgreSQL credentials should
-# use a database account that has SELECT permission only.
+# Normal queries and aggregation are read-only. The optional administrator
+# cleanup action also needs DELETE permission; SQLite cleanup needs write
+# permission for the database file and its directory.
 stats_database:
   driver: "sqlite"
   dsn: "./l4d2_player_stats.sq3"

@@ -63,6 +63,47 @@ func (s *PlayerService) Summary(ctx context.Context, steamID string) (*store.Pla
 	return value.(*store.PlayerSummary), nil
 }
 
+func (s *PlayerService) Preview(ctx context.Context, steamID string) (*store.PlayerPreview, error) {
+	value, err := s.cached(ctx, steamID, "preview:"+steamID, func(ctx context.Context) (any, error) {
+		summary, err := s.Summary(ctx, steamID)
+		if err != nil {
+			return nil, err
+		}
+		if summary == nil {
+			return nil, nil
+		}
+		pve, err := s.PVE(ctx, steamID, 0)
+		if err != nil {
+			return nil, err
+		}
+		versus, err := s.Versus(ctx, steamID, 0)
+		if err != nil {
+			return nil, err
+		}
+		pveRescues := pve.IncapRevives + pve.LedgeRescues + pve.DefibRevives
+		pveBossKills := pve.TankKills + pve.WitchKills
+		versusHumanKills := versus.HumanSpecialKills + versus.HumanTankKills
+		return &store.PlayerPreview{
+			SteamID: summary.SteamID, PlayerName: summary.LastName, SessionCount: summary.SessionCount,
+			ActivePlaySeconds: summary.ActiveSeconds, LastSeenAt: summary.LastSeenAt,
+			PVE: store.PlayerPreviewPVE{
+				Available:    pve.SpecialKills+pveBossKills+pveRescues+pve.CampaignCompletions > 0,
+				SpecialKills: pve.SpecialKills, BossKills: pveBossKills, Rescues: pveRescues,
+				CampaignCompletions: pve.CampaignCompletions,
+			},
+			Versus: store.PlayerPreviewVersus{
+				Available:    versusHumanKills+versus.DamageToHumanSurvivors+versus.HumanSurvivorControls+versus.HumanSurvivorIncaps > 0,
+				HumanSIKills: versusHumanKills, InfectedDamage: versus.DamageToHumanSurvivors,
+				SurvivorControls: versus.HumanSurvivorControls, SurvivorIncapacitations: versus.HumanSurvivorIncaps,
+			},
+		}, nil
+	})
+	if err != nil || value == nil {
+		return nil, err
+	}
+	return value.(*store.PlayerPreview), nil
+}
+
 func (s *PlayerService) PVE(ctx context.Context, steamID string, cutoff int64) (store.PlayerPVE, error) {
 	return s.PVEFiltered(ctx, steamID, store.PlayerFilter{Cutoff: cutoff})
 }

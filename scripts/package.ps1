@@ -1,6 +1,6 @@
 param(
     [ValidatePattern('^[0-9A-Za-z][0-9A-Za-z._-]*$')]
-    [string]$Version = "preview"
+    [string]$Version = "1.1.0"
 )
 
 $ErrorActionPreference = "Stop"
@@ -9,10 +9,10 @@ $projectRoot = Split-Path -Parent $PSScriptRoot
 $dashboardRoot = Join-Path $projectRoot "dashboard"
 $frontendRoot = Join-Path $dashboardRoot "frontend"
 $distRoot = Join-Path $projectRoot "dist"
-$stagingRoot = Join-Path $distRoot "release-preview"
+$stagingRoot = Join-Path $distRoot "release-staging"
 $serverRoot = Join-Path $stagingRoot "left4dead2"
 $pluginOutput = Join-Path $distRoot "l4d2_player_stats.smx"
-$archiveName = if ($Version -eq "preview") { "l4d2-plugin-stats-release-preview.zip" } else { "l4d2-plugin-stats-v$Version.zip" }
+$archiveName = "l4d2-plugin-stats-v$Version.zip"
 $archivePath = Join-Path $distRoot $archiveName
 
 & (Join-Path $PSScriptRoot "build.ps1")
@@ -89,11 +89,16 @@ try {
     $env:GOARCH = $previousGoarch
 }
 
-Copy-Item -LiteralPath (Join-Path $dashboardRoot "config.example.yaml") -Destination (Join-Path $dashboardDestination "config.example.yaml") -Force
+Copy-Item -LiteralPath (Join-Path $dashboardRoot "config.example.yaml") -Destination (Join-Path $windowsDestination "config.example.yaml") -Force
+Copy-Item -LiteralPath (Join-Path $dashboardRoot "config.example.yaml") -Destination (Join-Path $linuxDestination "config.example.yaml") -Force
 
 $examplesDestination = Join-Path $stagingRoot "examples"
 New-Item -ItemType Directory -Path $examplesDestination -Force | Out-Null
 Copy-Item -LiteralPath (Join-Path $projectRoot "config\databases.cfg.example") -Destination $examplesDestination -Force
+Copy-Item -LiteralPath (Join-Path $projectRoot "config\dashboard-sqlite.example.yaml") -Destination (Join-Path $examplesDestination "dashboard-sqlite.yaml") -Force
+Copy-Item -LiteralPath (Join-Path $projectRoot "config\dashboard-mysql.example.yaml") -Destination (Join-Path $examplesDestination "dashboard-mysql.yaml") -Force
+Copy-Item -LiteralPath (Join-Path $projectRoot "config\dashboard-postgresql.example.yaml") -Destination (Join-Path $examplesDestination "dashboard-postgresql.yaml") -Force
+Copy-Item -LiteralPath (Join-Path $projectRoot "config\nginx.conf.example") -Destination (Join-Path $examplesDestination "nginx.conf.example") -Force
 
 $packageReadme = Join-Path $stagingRoot "README.md"
 Copy-Item -LiteralPath (Join-Path $projectRoot "README.md") -Destination $packageReadme -Force
@@ -106,6 +111,9 @@ $readmeContent = $readmeContent.Replace(
     "(https://github.com/gofurry/l4d2-plugin-stats/blob/main/docs/"
 )
 Set-Content -LiteralPath $packageReadme -Value $readmeContent -Encoding utf8
+Copy-Item -LiteralPath (Join-Path $projectRoot "INSTALL.zh-CN.md") -Destination $stagingRoot -Force
+Copy-Item -LiteralPath (Join-Path $projectRoot "UPGRADE.zh-CN.md") -Destination $stagingRoot -Force
+Copy-Item -LiteralPath (Join-Path $projectRoot "CHANGELOG.md") -Destination $stagingRoot -Force
 Copy-Item -LiteralPath (Join-Path $projectRoot "LICENSE") -Destination $stagingRoot -Force
 
 Compress-Archive -Path (Join-Path $stagingRoot "*") -DestinationPath $archivePath -Force
