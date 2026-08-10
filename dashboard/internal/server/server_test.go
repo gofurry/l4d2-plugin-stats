@@ -198,8 +198,10 @@ func (testDashboardStore) Close() error                                     { re
 
 type testStatsStore struct{ overview store.Overview }
 
-func (testStatsStore) Ping(context.Context) error                   { return nil }
-func (testStatsStore) SchemaVersion(context.Context) (int64, error) { return 1, nil }
+func (testStatsStore) Ping(context.Context) error { return nil }
+func (testStatsStore) SchemaVersion(context.Context) (int64, error) {
+	return store.StatsSchemaVersion, nil
+}
 func (s testStatsStore) Overview(context.Context, time.Time) (store.Overview, error) {
 	return s.overview, nil
 }

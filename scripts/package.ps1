@@ -1,6 +1,6 @@
 param(
     [ValidatePattern('^[0-9A-Za-z][0-9A-Za-z._-]*$')]
-    [string]$Version = "1.1.0"
+    [string]$Version = "1.2.0"
 )
 
 $ErrorActionPreference = "Stop"
@@ -53,10 +53,9 @@ Copy-Item -LiteralPath $pluginOutput -Destination $pluginDestination -Force
 foreach ($driver in @("sqlite", "mysql", "pgsql")) {
     $driverDestination = Join-Path $migrationDestination $driver
     New-Item -ItemType Directory -Path $driverDestination -Force | Out-Null
-    Copy-Item `
-        -LiteralPath (Join-Path $projectRoot "database\migrations\$driver\0001_initial.sql") `
-        -Destination (Join-Path $driverDestination "0001_initial.sql") `
-        -Force
+    Get-ChildItem -LiteralPath (Join-Path $projectRoot "database\migrations\$driver") -Filter "*.sql" -File |
+        Sort-Object Name |
+        ForEach-Object { Copy-Item -LiteralPath $_.FullName -Destination (Join-Path $driverDestination $_.Name) -Force }
 }
 
 $dashboardDestination = Join-Path $stagingRoot "dashboard"
@@ -104,6 +103,9 @@ $packageReadme = Join-Path $stagingRoot "README.md"
 Copy-Item -LiteralPath (Join-Path $projectRoot "README.md") -Destination $packageReadme -Force
 $readmeContent = Get-Content -LiteralPath $packageReadme -Raw
 $readmeContent = $readmeContent.Replace(
+    "(docs/assets/",
+    "(https://raw.githubusercontent.com/gofurry/l4d2-plugin-stats/main/docs/assets/"
+).Replace(
     "(contracts/",
     "(https://github.com/gofurry/l4d2-plugin-stats/blob/main/contracts/"
 ).Replace(
@@ -116,7 +118,38 @@ Copy-Item -LiteralPath (Join-Path $projectRoot "UPGRADE.zh-CN.md") -Destination 
 Copy-Item -LiteralPath (Join-Path $projectRoot "CHANGELOG.md") -Destination $stagingRoot -Force
 Copy-Item -LiteralPath (Join-Path $projectRoot "LICENSE") -Destination $stagingRoot -Force
 
-Compress-Archive -Path (Join-Path $stagingRoot "*") -DestinationPath $archivePath -Force
+$resolvedArchivePath = [System.IO.Path]::GetFullPath($archivePath)
+if (-not $resolvedArchivePath.StartsWith($expectedParent, [System.StringComparison]::OrdinalIgnoreCase)) {
+    throw "Unsafe release archive path: $resolvedArchivePath"
+}
+if (Test-Path -LiteralPath $resolvedArchivePath) {
+    Remove-Item -LiteralPath $resolvedArchivePath -Force
+}
+
+Add-Type -AssemblyName System.IO.Compression
+Add-Type -AssemblyName System.IO.Compression.FileSystem
+$archive = [System.IO.Compression.ZipFile]::Open(
+    $resolvedArchivePath,
+    [System.IO.Compression.ZipArchiveMode]::Create
+)
+try {
+    Get-ChildItem -LiteralPath $resolvedStagingRoot -Recurse -File |
+        Sort-Object FullName |
+        ForEach-Object {
+            $entryName = $_.FullName.Substring($resolvedStagingRoot.Length).TrimStart(
+                [System.IO.Path]::DirectorySeparatorChar,
+                [System.IO.Path]::AltDirectorySeparatorChar
+            ).Replace('\', '/')
+            [System.IO.Compression.ZipFileExtensions]::CreateEntryFromFile(
+                $archive,
+                $_.FullName,
+                $entryName,
+                [System.IO.Compression.CompressionLevel]::Optimal
+            ) | Out-Null
+        }
+} finally {
+    $archive.Dispose()
+}
 
 $archiveHash = (Get-FileHash -Algorithm SHA256 -LiteralPath $archivePath).Hash.ToLowerInvariant()
 $hashPath = "$archivePath.sha256"

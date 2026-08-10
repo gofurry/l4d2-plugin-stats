@@ -225,6 +225,17 @@ func (s *RankingService) load(ctx context.Context, query store.RankingQuery) (st
 	if !ok {
 		return store.RankingPage{}, fmt.Errorf("unsupported ranking metric")
 	}
+	if definition.rawIncident {
+		incidentStore, ok := s.stats.(store.StatsIncidentRankingStore)
+		if !ok {
+			return store.RankingPage{}, fmt.Errorf("incident rankings are unavailable")
+		}
+		entries, err := incidentStore.CarAlarmRanking(ctx, query)
+		if err != nil {
+			return store.RankingPage{}, err
+		}
+		return s.finishRanking(ctx, query, entries), nil
+	}
 	cutoffDay := int64(0)
 	if query.Cutoff > 0 {
 		cutoffDay = query.Cutoff / 86400
@@ -284,6 +295,10 @@ func (s *RankingService) load(ctx context.Context, query store.RankingQuery) (st
 	for i := range entries {
 		entries[i].Rank = int64(i + 1)
 	}
+	return s.finishRanking(ctx, query, entries), nil
+}
+
+func (s *RankingService) finishRanking(ctx context.Context, query store.RankingQuery, entries []store.RankingEntry) store.RankingPage {
 	var self *store.RankingEntry
 	if query.SubjectSteamID != "" {
 		for i := range entries {
@@ -323,13 +338,14 @@ func (s *RankingService) load(ctx context.Context, query store.RankingQuery) (st
 			self.PlayerName = player.LastName
 		}
 	}
-	return store.RankingPage{Metric: query.Metric, Mode: query.Mode, Items: pageEntries, Total: int64(total), Self: self, GeneratedAt: time.Now().UTC()}, nil
+	return store.RankingPage{Metric: query.Metric, Mode: query.Mode, Items: pageEntries, Total: int64(total), Self: self, GeneratedAt: time.Now().UTC()}
 }
 
 type rankingDefinition struct {
 	kinds          []string
 	defaultMinimum int64
 	perHour        bool
+	rawIncident    bool
 	accept         func(store.AggregateRow) bool
 	value          func(map[string]int64) float64
 }
@@ -366,6 +382,10 @@ func definition(kinds []string, minimum int64, perHour bool, accept func(store.A
 	return rankingDefinition{kinds: kinds, defaultMinimum: minimum, perHour: perHour, accept: accept, value: sumMetrics(metrics...)}
 }
 
+func incidentDefinition() rankingDefinition {
+	return rankingDefinition{rawIncident: true}
+}
+
 var rankingDefinitions = func() map[string]rankingDefinition {
 	all := func(store.AggregateRow) bool { return true }
 	pve := modeRows("pve", "survivor")
@@ -383,11 +403,13 @@ var rankingDefinitions = func() map[string]rankingDefinition {
 		"pve:campaign_completions":                definition([]string{"mode_activity", "pve_combat"}, 0, false, pve, "campaign_completions"),
 		"pve:tongue_self_cuts":                    definition([]string{"mode_activity", "pve_detail"}, 0, false, pve, "melee_tongue_self_cuts"),
 		"pve:rocks_destroyed":                     definition([]string{"mode_activity", "pve_detail"}, 0, false, pve, "tank_rocks_destroyed"),
+		"pve:car_alarms_triggered":                incidentDefinition(),
 		"pve:common_kills_per_hour":               definition([]string{"mode_activity", "pve_combat"}, 5*3600, true, pve, "common_kills"),
 		"pve:special_kills_per_hour":              definition([]string{"mode_activity", "pve_combat"}, 5*3600, true, pve, "special_kills"),
 		"versus_survivor:human_si_kills":          definition([]string{"mode_activity", "versus_survivor"}, 0, false, vs, "human_special_kills", "human_tank_kills"),
 		"versus_survivor:damage":                  definition([]string{"mode_activity", "versus_survivor"}, 0, false, vs, "damage_to_human_special", "damage_to_human_tank"),
 		"versus_survivor:rescues":                 definition([]string{"mode_activity", "versus_survivor"}, 0, false, vs, "incap_revives", "ledge_rescues", "defib_revives"),
+		"versus_survivor:car_alarms_triggered":    incidentDefinition(),
 		"versus_survivor:human_si_kills_per_hour": definition([]string{"mode_activity", "versus_survivor"}, 3*3600, true, vs, "human_special_kills", "human_tank_kills"),
 		"versus_infected:damage":                  definition([]string{"mode_activity", "versus_infected"}, 0, false, vi, "damage_to_human_survivors"),
 		"versus_infected:incaps":                  definition([]string{"mode_activity", "versus_infected"}, 0, false, vi, "human_survivor_incaps"),

@@ -216,9 +216,21 @@ public void LPS_OnMigrationVersionLoaded(Database database, DBResultSet results,
 		return;
 	}
 
+	LPS_StartNextMigration(data);
+}
+
+void LPS_StartNextMigration(int generation)
+{
+	if (!LPS_IsCurrentGeneration(generation))
+	{
+		return;
+	}
+
+	g_LPSApplyingMigrationVersion = g_LPSSchemaVersion + 1;
 	char migrationError[LPS_MAX_DATABASE_ERROR];
 	int statementCount;
-	Transaction migration = LPS_LoadInitialMigration(
+	Transaction migration = LPS_LoadMigration(
+		g_LPSApplyingMigrationVersion,
 		migrationError,
 		sizeof(migrationError),
 		statementCount
@@ -226,16 +238,16 @@ public void LPS_OnMigrationVersionLoaded(Database database, DBResultSet results,
 
 	if (migration == null)
 	{
-		LPS_HandleDatabaseFailure("initial migration could not be loaded", migrationError);
+		LPS_HandleDatabaseFailure("schema migration could not be loaded", migrationError);
 		return;
 	}
 
-	LogMessage("Applying schema migration 0001 (%d SQL statements).", statementCount);
+	LogMessage("Applying schema migration %04d (%d SQL statements).", g_LPSApplyingMigrationVersion, statementCount);
 	g_LPSDatabase.Execute(
 		migration,
 		LPS_OnMigrationSucceeded,
 		LPS_OnMigrationFailed,
-		data,
+		generation,
 		DBPrio_High
 	);
 }
@@ -253,8 +265,13 @@ public void LPS_OnMigrationSucceeded(
 		return;
 	}
 
-	g_LPSSchemaVersion = LPS_SCHEMA_VERSION;
-	LogMessage("Schema migration 0001 completed successfully.");
+	g_LPSSchemaVersion = g_LPSApplyingMigrationVersion;
+	LogMessage("Schema migration %04d completed successfully.", g_LPSSchemaVersion);
+	if (g_LPSSchemaVersion < LPS_SCHEMA_VERSION)
+	{
+		LPS_StartNextMigration(data);
+		return;
+	}
 	LPS_RegisterServerBoot(data);
 }
 
@@ -273,7 +290,7 @@ public void LPS_OnMigrationFailed(
 	}
 
 	char context[128];
-	Format(context, sizeof(context), "schema migration 0001 failed at statement %d", failIndex + 1);
+	Format(context, sizeof(context), "schema migration %04d failed at statement %d", g_LPSApplyingMigrationVersion, failIndex + 1);
 	LPS_HandleDatabaseFailure(context, error);
 }
 

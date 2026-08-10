@@ -315,7 +315,7 @@ func (s *statsStore) queryAggregate(ctx context.Context, query, kind, modeColumn
 		if err := rows.Scan(pointers...); err != nil {
 			return nil, err
 		}
-		row := AggregateRow{Kind: kind, Day: integerValue(values[0]), ServerKey: stringValue(values[1]), SteamID: stringValue(values[2]), Metrics: make(map[string]int64, len(metrics))}
+		row := AggregateRow{Version: AggregateContractVersion, Kind: kind, Day: integerValue(values[0]), ServerKey: stringValue(values[1]), SteamID: stringValue(values[2]), Metrics: make(map[string]int64, len(metrics))}
 		metricStart := 3
 		if modeColumn != "" {
 			row.Mode = stringValue(values[3])
@@ -365,10 +365,13 @@ func (s *statsStore) RetentionPlan(ctx context.Context, detailCutoff, sessionCut
 	if err != nil {
 		return RetentionPlan{}, err
 	}
-	return RetentionPlan{GeneratedAt: time.Now().Unix(), DetailCutoff: detailCutoff, SessionCutoff: sessionCutoff, ResultCutoff: resultCutoff, EquipmentRowsEligible: equipment, VersusClassRowsEligible: classes, SessionRowsEligible: sessions, VersusRoundResultsEligible: roundResults, VersusRunResultsEligible: runResults, SourceWatermark: watermark}, nil
+	return RetentionPlan{AggregateVersion: AggregateContractVersion, GeneratedAt: time.Now().Unix(), DetailCutoff: detailCutoff, SessionCutoff: sessionCutoff, ResultCutoff: resultCutoff, EquipmentRowsEligible: equipment, VersusClassRowsEligible: classes, SessionRowsEligible: sessions, VersusRoundResultsEligible: roundResults, VersusRunResultsEligible: runResults, SourceWatermark: watermark}, nil
 }
 
 func (s *statsStore) ApplyRetention(ctx context.Context, plan RetentionPlan) (RetentionResult, error) {
+	if err := validateAggregateVersion(plan.AggregateVersion); err != nil {
+		return RetentionResult{}, fmt.Errorf("apply retention: %w", err)
+	}
 	queryCtx, cancel := context.WithTimeout(ctx, maxDuration(s.timeout, 10*time.Minute))
 	defer cancel()
 	equipment, err := s.deleteRetentionBatches(queryCtx, retentionDeleteTarget{

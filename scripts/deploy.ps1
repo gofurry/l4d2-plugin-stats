@@ -25,10 +25,11 @@ Copy-Item -LiteralPath $compiledPlugin -Destination $deployedPlugin -Force
 New-Item -ItemType Directory -Path $migrationDestination -Force | Out-Null
 
 foreach ($driver in @("sqlite", "mysql", "pgsql")) {
-    $sourceFile = Join-Path $migrationSource "$driver\0001_initial.sql"
     $driverDestination = Join-Path $migrationDestination $driver
     New-Item -ItemType Directory -Path $driverDestination -Force | Out-Null
-    Copy-Item -LiteralPath $sourceFile -Destination (Join-Path $driverDestination "0001_initial.sql") -Force
+    Get-ChildItem -LiteralPath (Join-Path $migrationSource $driver) -Filter "*.sql" -File |
+        Sort-Object Name |
+        ForEach-Object { Copy-Item -LiteralPath $_.FullName -Destination (Join-Path $driverDestination $_.Name) -Force }
 }
 
 $sourceHash = (Get-FileHash -Algorithm SHA256 -LiteralPath $compiledPlugin).Hash

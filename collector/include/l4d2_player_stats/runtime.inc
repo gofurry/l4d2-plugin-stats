@@ -14,6 +14,7 @@ int g_LPSConnectionGeneration;
 int g_LPSRetryAttempt;
 int g_LPSNextRetryDelay;
 int g_LPSSchemaVersion;
+int g_LPSApplyingMigrationVersion;
 int g_LPSBootStartedAt;
 int g_LPSLastSuccessfulWriteAt;
 
@@ -37,6 +38,7 @@ void LPS_ResetRuntime()
 	g_LPSRetryAttempt = 0;
 	g_LPSNextRetryDelay = 0;
 	g_LPSSchemaVersion = 0;
+	g_LPSApplyingMigrationVersion = 0;
 	g_LPSBootStartedAt = 0;
 	g_LPSLastSuccessfulWriteAt = 0;
 	g_LPSHeartbeatInFlight = false;

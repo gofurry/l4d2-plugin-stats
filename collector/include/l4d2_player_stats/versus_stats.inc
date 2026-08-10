@@ -43,6 +43,8 @@ enum struct LPSVersusSurvivorStatsSnapshot
 	int tankRocksDestroyed;
 	int witchOneShots;
 	int witchSoloKills;
+	int objectiveInteractions;
+	int carAlarmsTriggered;
 	int classStats[
 		view_as<int>(LPSVersusInfectedClass_Count)
 		* view_as<int>(LPSVersusSurvivorClassStat_Count)
@@ -712,6 +714,8 @@ void LPS_AddVersusSurvivorStat(int client, LPSVersusSurvivorStat stat, int amoun
 		case LPSVersusSurvivorStat_TankRocksDestroyed: g_LPSClientVersusSurvivorStats[client].tankRocksDestroyed += amount;
 		case LPSVersusSurvivorStat_WitchOneShots: g_LPSClientVersusSurvivorStats[client].witchOneShots += amount;
 		case LPSVersusSurvivorStat_WitchSoloKills: g_LPSClientVersusSurvivorStats[client].witchSoloKills += amount;
+		case LPSVersusSurvivorStat_ObjectiveInteractions: g_LPSClientVersusSurvivorStats[client].objectiveInteractions += amount;
+		case LPSVersusSurvivorStat_CarAlarmsTriggered: g_LPSClientVersusSurvivorStats[client].carAlarmsTriggered += amount;
 	}
 
 	g_LPSClientVersusSurvivorStats[client].revision++;
@@ -899,6 +903,8 @@ void LPS_FillClientVersusSurvivorSnapshot(
 	snapshot.tankRocksDestroyed = g_LPSClientVersusSurvivorStats[client].tankRocksDestroyed;
 	snapshot.witchOneShots = g_LPSClientVersusSurvivorStats[client].witchOneShots;
 	snapshot.witchSoloKills = g_LPSClientVersusSurvivorStats[client].witchSoloKills;
+	snapshot.objectiveInteractions = g_LPSClientVersusSurvivorStats[client].objectiveInteractions;
+	snapshot.carAlarmsTriggered = g_LPSClientVersusSurvivorStats[client].carAlarmsTriggered;
 	for (int index = 0; index < sizeof(snapshot.classStats); index++)
 	{
 		snapshot.classStats[index] = g_LPSClientVersusSurvivorStats[client].classStats[index];
@@ -1106,7 +1112,7 @@ bool LPS_BuildVersusSurvivorUpsertQuery(
 	written += FormatEx(
 		values[written],
 		sizeof(values) - written,
-		", %d, %d, %d, %d, %d, %d, %d, %d, %d, %d, %d, %d, %d",
+		", %d, %d, %d, %d, %d, %d, %d, %d, %d, %d, %d, %d, %d, %d",
 		snapshot.commonKills,
 		snapshot.humanSpecialKills,
 		snapshot.botSpecialKills,
@@ -1142,7 +1148,7 @@ bool LPS_BuildVersusSurvivorUpsertQuery(
 	written += FormatEx(
 		values[written],
 		sizeof(values) - written,
-		", %d, %d, %d, %d, %d, %d, %d, %d, %d, %d, %d, %d",
+		", %d, %d, %d, %d, %d, %d, %d, %d, %d, %d, %d, %d, %d",
 		snapshot.witchKills,
 		snapshot.damageToWitch,
 		snapshot.molotovsThrown,
@@ -1154,6 +1160,8 @@ bool LPS_BuildVersusSurvivorUpsertQuery(
 		snapshot.tankRocksDestroyed,
 		snapshot.witchOneShots,
 		snapshot.witchSoloKills,
+		snapshot.objectiveInteractions,
+		snapshot.carAlarmsTriggered,
 		snapshot.revision
 	);
 	if (written >= sizeof(values) - 1)
@@ -1161,13 +1169,13 @@ bool LPS_BuildVersusSurvivorUpsertQuery(
 		return false;
 	}
 
-	char columns[] = "segment_id, stats_version, last_saved_at, common_kills, human_special_kills, bot_special_kills, human_tank_kills, bot_tank_kills, damage_to_human_special, damage_to_bot_special, damage_to_human_tank, damage_to_bot_tank, damage_taken_infected, friendly_fire_to_humans, friendly_fire_to_bots, friendly_fire_taken, incapacitations, deaths, incap_revives, ledge_rescues, defib_revives, rescues_received, medkits_used_self, medkits_used_on_others, medkit_healing_self, medkit_healing_others, pills_used, adrenaline_used, temporary_health_received, witch_kills, damage_to_witch, molotovs_thrown, pipe_bombs_thrown, vomit_jars_thrown, incendiary_packs_deployed, explosive_packs_deployed, melee_tongue_self_cuts, tank_rocks_destroyed, witch_oneshots, witch_solo_kills, revision";
+	char columns[] = "segment_id, stats_version, last_saved_at, common_kills, human_special_kills, bot_special_kills, human_tank_kills, bot_tank_kills, damage_to_human_special, damage_to_bot_special, damage_to_human_tank, damage_to_bot_tank, damage_taken_infected, friendly_fire_to_humans, friendly_fire_to_bots, friendly_fire_taken, incapacitations, deaths, incap_revives, ledge_rescues, defib_revives, rescues_received, medkits_used_self, medkits_used_on_others, medkit_healing_self, medkit_healing_others, pills_used, adrenaline_used, temporary_health_received, witch_kills, damage_to_witch, molotovs_thrown, pipe_bombs_thrown, vomit_jars_thrown, incendiary_packs_deployed, explosive_packs_deployed, melee_tongue_self_cuts, tank_rocks_destroyed, witch_oneshots, witch_solo_kills, objective_interactions, car_alarms_triggered, revision";
 	if (g_LPSDatabaseDialect == LPSDatabaseDialect_MySQL)
 	{
 		FormatEx(
 			query,
 			maxLength,
-			"INSERT INTO lps_versus_survivor_stats (%s) VALUES (%s) ON DUPLICATE KEY UPDATE stats_version = VALUES(stats_version), last_saved_at = VALUES(last_saved_at), common_kills = VALUES(common_kills), human_special_kills = VALUES(human_special_kills), bot_special_kills = VALUES(bot_special_kills), human_tank_kills = VALUES(human_tank_kills), bot_tank_kills = VALUES(bot_tank_kills), damage_to_human_special = VALUES(damage_to_human_special), damage_to_bot_special = VALUES(damage_to_bot_special), damage_to_human_tank = VALUES(damage_to_human_tank), damage_to_bot_tank = VALUES(damage_to_bot_tank), damage_taken_infected = VALUES(damage_taken_infected), friendly_fire_to_humans = VALUES(friendly_fire_to_humans), friendly_fire_to_bots = VALUES(friendly_fire_to_bots), friendly_fire_taken = VALUES(friendly_fire_taken), incapacitations = VALUES(incapacitations), deaths = VALUES(deaths), incap_revives = VALUES(incap_revives), ledge_rescues = VALUES(ledge_rescues), defib_revives = VALUES(defib_revives), rescues_received = VALUES(rescues_received), medkits_used_self = VALUES(medkits_used_self), medkits_used_on_others = VALUES(medkits_used_on_others), medkit_healing_self = VALUES(medkit_healing_self), medkit_healing_others = VALUES(medkit_healing_others), pills_used = VALUES(pills_used), adrenaline_used = VALUES(adrenaline_used), temporary_health_received = VALUES(temporary_health_received), witch_kills = VALUES(witch_kills), damage_to_witch = VALUES(damage_to_witch), molotovs_thrown = VALUES(molotovs_thrown), pipe_bombs_thrown = VALUES(pipe_bombs_thrown), vomit_jars_thrown = VALUES(vomit_jars_thrown), incendiary_packs_deployed = VALUES(incendiary_packs_deployed), explosive_packs_deployed = VALUES(explosive_packs_deployed), melee_tongue_self_cuts = VALUES(melee_tongue_self_cuts), tank_rocks_destroyed = VALUES(tank_rocks_destroyed), witch_oneshots = VALUES(witch_oneshots), witch_solo_kills = VALUES(witch_solo_kills), revision = VALUES(revision)",
+			"INSERT INTO lps_versus_survivor_stats (%s) VALUES (%s) ON DUPLICATE KEY UPDATE stats_version = VALUES(stats_version), last_saved_at = VALUES(last_saved_at), common_kills = VALUES(common_kills), human_special_kills = VALUES(human_special_kills), bot_special_kills = VALUES(bot_special_kills), human_tank_kills = VALUES(human_tank_kills), bot_tank_kills = VALUES(bot_tank_kills), damage_to_human_special = VALUES(damage_to_human_special), damage_to_bot_special = VALUES(damage_to_bot_special), damage_to_human_tank = VALUES(damage_to_human_tank), damage_to_bot_tank = VALUES(damage_to_bot_tank), damage_taken_infected = VALUES(damage_taken_infected), friendly_fire_to_humans = VALUES(friendly_fire_to_humans), friendly_fire_to_bots = VALUES(friendly_fire_to_bots), friendly_fire_taken = VALUES(friendly_fire_taken), incapacitations = VALUES(incapacitations), deaths = VALUES(deaths), incap_revives = VALUES(incap_revives), ledge_rescues = VALUES(ledge_rescues), defib_revives = VALUES(defib_revives), rescues_received = VALUES(rescues_received), medkits_used_self = VALUES(medkits_used_self), medkits_used_on_others = VALUES(medkits_used_on_others), medkit_healing_self = VALUES(medkit_healing_self), medkit_healing_others = VALUES(medkit_healing_others), pills_used = VALUES(pills_used), adrenaline_used = VALUES(adrenaline_used), temporary_health_received = VALUES(temporary_health_received), witch_kills = VALUES(witch_kills), damage_to_witch = VALUES(damage_to_witch), molotovs_thrown = VALUES(molotovs_thrown), pipe_bombs_thrown = VALUES(pipe_bombs_thrown), vomit_jars_thrown = VALUES(vomit_jars_thrown), incendiary_packs_deployed = VALUES(incendiary_packs_deployed), explosive_packs_deployed = VALUES(explosive_packs_deployed), melee_tongue_self_cuts = VALUES(melee_tongue_self_cuts), tank_rocks_destroyed = VALUES(tank_rocks_destroyed), witch_oneshots = VALUES(witch_oneshots), witch_solo_kills = VALUES(witch_solo_kills), objective_interactions = VALUES(objective_interactions), car_alarms_triggered = VALUES(car_alarms_triggered), revision = VALUES(revision)",
 			columns,
 			values
 		);
@@ -1177,7 +1185,7 @@ bool LPS_BuildVersusSurvivorUpsertQuery(
 		FormatEx(
 			query,
 			maxLength,
-			"INSERT INTO lps_versus_survivor_stats (%s) VALUES (%s) ON CONFLICT(segment_id) DO UPDATE SET stats_version = excluded.stats_version, last_saved_at = excluded.last_saved_at, common_kills = excluded.common_kills, human_special_kills = excluded.human_special_kills, bot_special_kills = excluded.bot_special_kills, human_tank_kills = excluded.human_tank_kills, bot_tank_kills = excluded.bot_tank_kills, damage_to_human_special = excluded.damage_to_human_special, damage_to_bot_special = excluded.damage_to_bot_special, damage_to_human_tank = excluded.damage_to_human_tank, damage_to_bot_tank = excluded.damage_to_bot_tank, damage_taken_infected = excluded.damage_taken_infected, friendly_fire_to_humans = excluded.friendly_fire_to_humans, friendly_fire_to_bots = excluded.friendly_fire_to_bots, friendly_fire_taken = excluded.friendly_fire_taken, incapacitations = excluded.incapacitations, deaths = excluded.deaths, incap_revives = excluded.incap_revives, ledge_rescues = excluded.ledge_rescues, defib_revives = excluded.defib_revives, rescues_received = excluded.rescues_received, medkits_used_self = excluded.medkits_used_self, medkits_used_on_others = excluded.medkits_used_on_others, medkit_healing_self = excluded.medkit_healing_self, medkit_healing_others = excluded.medkit_healing_others, pills_used = excluded.pills_used, adrenaline_used = excluded.adrenaline_used, temporary_health_received = excluded.temporary_health_received, witch_kills = excluded.witch_kills, damage_to_witch = excluded.damage_to_witch, molotovs_thrown = excluded.molotovs_thrown, pipe_bombs_thrown = excluded.pipe_bombs_thrown, vomit_jars_thrown = excluded.vomit_jars_thrown, incendiary_packs_deployed = excluded.incendiary_packs_deployed, explosive_packs_deployed = excluded.explosive_packs_deployed, melee_tongue_self_cuts = excluded.melee_tongue_self_cuts, tank_rocks_destroyed = excluded.tank_rocks_destroyed, witch_oneshots = excluded.witch_oneshots, witch_solo_kills = excluded.witch_solo_kills, revision = excluded.revision",
+			"INSERT INTO lps_versus_survivor_stats (%s) VALUES (%s) ON CONFLICT(segment_id) DO UPDATE SET stats_version = excluded.stats_version, last_saved_at = excluded.last_saved_at, common_kills = excluded.common_kills, human_special_kills = excluded.human_special_kills, bot_special_kills = excluded.bot_special_kills, human_tank_kills = excluded.human_tank_kills, bot_tank_kills = excluded.bot_tank_kills, damage_to_human_special = excluded.damage_to_human_special, damage_to_bot_special = excluded.damage_to_bot_special, damage_to_human_tank = excluded.damage_to_human_tank, damage_to_bot_tank = excluded.damage_to_bot_tank, damage_taken_infected = excluded.damage_taken_infected, friendly_fire_to_humans = excluded.friendly_fire_to_humans, friendly_fire_to_bots = excluded.friendly_fire_to_bots, friendly_fire_taken = excluded.friendly_fire_taken, incapacitations = excluded.incapacitations, deaths = excluded.deaths, incap_revives = excluded.incap_revives, ledge_rescues = excluded.ledge_rescues, defib_revives = excluded.defib_revives, rescues_received = excluded.rescues_received, medkits_used_self = excluded.medkits_used_self, medkits_used_on_others = excluded.medkits_used_on_others, medkit_healing_self = excluded.medkit_healing_self, medkit_healing_others = excluded.medkit_healing_others, pills_used = excluded.pills_used, adrenaline_used = excluded.adrenaline_used, temporary_health_received = excluded.temporary_health_received, witch_kills = excluded.witch_kills, damage_to_witch = excluded.damage_to_witch, molotovs_thrown = excluded.molotovs_thrown, pipe_bombs_thrown = excluded.pipe_bombs_thrown, vomit_jars_thrown = excluded.vomit_jars_thrown, incendiary_packs_deployed = excluded.incendiary_packs_deployed, explosive_packs_deployed = excluded.explosive_packs_deployed, melee_tongue_self_cuts = excluded.melee_tongue_self_cuts, tank_rocks_destroyed = excluded.tank_rocks_destroyed, witch_oneshots = excluded.witch_oneshots, witch_solo_kills = excluded.witch_solo_kills, objective_interactions = excluded.objective_interactions, car_alarms_triggered = excluded.car_alarms_triggered, revision = excluded.revision",
 			columns,
 			values
 		);
@@ -1568,6 +1576,8 @@ void LPS_ResetClientVersusStatsState(int client)
 	g_LPSClientVersusSurvivorStats[client].tankRocksDestroyed = 0;
 	g_LPSClientVersusSurvivorStats[client].witchOneShots = 0;
 	g_LPSClientVersusSurvivorStats[client].witchSoloKills = 0;
+	g_LPSClientVersusSurvivorStats[client].objectiveInteractions = 0;
+	g_LPSClientVersusSurvivorStats[client].carAlarmsTriggered = 0;
 	for (int index = 0; index < sizeof(g_LPSClientVersusSurvivorStats[].classStats); index++)
 	{
 		g_LPSClientVersusSurvivorStats[client].classStats[index] = 0;

@@ -178,10 +178,18 @@ func TestSQLiteIncrementalAggregationAndRetention(t *testing.T) {
 	if plan.EquipmentRowsEligible != 1 || plan.VersusClassRowsEligible != 2 || plan.SessionRowsEligible != 1 || plan.VersusRoundResultsEligible != 1 || plan.VersusRunResultsEligible != 1 {
 		t.Fatalf("plan=%+v", plan)
 	}
+	if plan.AggregateVersion != AggregateContractVersion {
+		t.Fatalf("aggregate version=%d", plan.AggregateVersion)
+	}
 	stats.Close()
 	maintenance, err := OpenStatsMaintenance(ctx, cfg)
 	if err != nil {
 		t.Fatal(err)
+	}
+	invalidPlan := plan
+	invalidPlan.AggregateVersion = 2
+	if _, err := maintenance.ApplyRetention(ctx, invalidPlan); err == nil {
+		t.Fatal("ApplyRetention accepted aggregate contract version 2")
 	}
 	result, err := maintenance.ApplyRetention(ctx, plan)
 	if err != nil {
@@ -211,18 +219,24 @@ func TestSQLiteIncrementalAggregationAndRetention(t *testing.T) {
 func applyCollectorSchema(t *testing.T, db *sql.DB) {
 	t.Helper()
 	_, current, _, _ := runtime.Caller(0)
-	path := filepath.Clean(filepath.Join(filepath.Dir(current), "..", "..", "..", "database", "migrations", "sqlite", "0001_initial.sql"))
-	contents, err := os.ReadFile(path)
-	if err != nil {
-		t.Fatal(err)
+	directory := filepath.Clean(filepath.Join(filepath.Dir(current), "..", "..", "..", "database", "migrations", "sqlite"))
+	paths, err := filepath.Glob(filepath.Join(directory, "*.sql"))
+	if err != nil || len(paths) == 0 {
+		t.Fatalf("list collector migrations: %v", err)
 	}
-	for _, statement := range strings.Split(string(contents), "-- statement-breakpoint") {
-		statement = strings.TrimSpace(statement)
-		if statement == "" {
-			continue
+	for _, path := range paths {
+		contents, err := os.ReadFile(path)
+		if err != nil {
+			t.Fatal(err)
 		}
-		if _, err := db.Exec(statement); err != nil {
-			t.Fatalf("apply collector schema: %v\n%s", err, statement)
+		for _, statement := range strings.Split(string(contents), "-- statement-breakpoint") {
+			statement = strings.TrimSpace(statement)
+			if statement == "" {
+				continue
+			}
+			if _, err := db.Exec(statement); err != nil {
+				t.Fatalf("apply collector schema: %v\n%s", err, statement)
+			}
 		}
 	}
 }

@@ -52,7 +52,7 @@ func readAggregateRowsForDays(ctx context.Context, tx *sql.Tx, days []int64) ([]
 	if len(days) == 0 {
 		return nil, nil
 	}
-	query := `SELECT kind, day, server_key, steam_id, mode, dimension, metrics_json FROM aggregate_rows WHERE day IN (` + strings.TrimSuffix(strings.Repeat("?,", len(days)), ",") + `)`
+	query := `SELECT aggregate_version, kind, day, server_key, steam_id, mode, dimension, metrics_json FROM aggregate_rows WHERE day IN (` + strings.TrimSuffix(strings.Repeat("?,", len(days)), ",") + `)`
 	args := make([]any, len(days))
 	for i, day := range days {
 		args[i] = day
@@ -76,7 +76,10 @@ func scanAggregateRows(ctx context.Context, queryer interface {
 	for rows.Next() {
 		var row AggregateRow
 		var metricsJSON string
-		if err := rows.Scan(&row.Kind, &row.Day, &row.ServerKey, &row.SteamID, &row.Mode, &row.Dimension, &metricsJSON); err != nil {
+		if err := rows.Scan(&row.Version, &row.Kind, &row.Day, &row.ServerKey, &row.SteamID, &row.Mode, &row.Dimension, &metricsJSON); err != nil {
+			return nil, err
+		}
+		if err := validateAggregateVersion(row.Version); err != nil {
 			return nil, err
 		}
 		if err := json.Unmarshal([]byte(metricsJSON), &row.Metrics); err != nil {
@@ -113,11 +116,11 @@ func insertAggregateSummaries(ctx context.Context, tx *sql.Tx, table, periodColu
 		var query string
 		var args []any
 		if periodColumn != "" {
-			query = `INSERT INTO ` + table + ` (kind, ` + periodColumn + `, server_key, steam_id, mode, dimension, metrics_json) VALUES (?, ?, ?, ?, ?, ?, ?)`
-			args = []any{key.Kind, key.Period, key.ServerKey, key.SteamID, key.Mode, key.Dimension, string(encoded)}
+			query = `INSERT INTO ` + table + ` (kind, ` + periodColumn + `, server_key, steam_id, mode, dimension, metrics_json, aggregate_version) VALUES (?, ?, ?, ?, ?, ?, ?, ?)`
+			args = []any{key.Kind, key.Period, key.ServerKey, key.SteamID, key.Mode, key.Dimension, string(encoded), AggregateContractVersion}
 		} else {
-			query = `INSERT INTO ` + table + ` (kind, server_key, steam_id, mode, dimension, metrics_json) VALUES (?, ?, ?, ?, ?, ?)`
-			args = []any{key.Kind, key.ServerKey, key.SteamID, key.Mode, key.Dimension, string(encoded)}
+			query = `INSERT INTO ` + table + ` (kind, server_key, steam_id, mode, dimension, metrics_json, aggregate_version) VALUES (?, ?, ?, ?, ?, ?, ?)`
+			args = []any{key.Kind, key.ServerKey, key.SteamID, key.Mode, key.Dimension, string(encoded), AggregateContractVersion}
 		}
 		if _, err := tx.ExecContext(ctx, query, args...); err != nil {
 			return err
@@ -135,13 +138,17 @@ func applyAggregateRollupDeltas(ctx context.Context, tx *sql.Tx, table, periodCo
 			args = []any{key.Kind, key.Period, key.ServerKey, key.SteamID, key.Mode, key.Dimension}
 		}
 		var encoded string
+		var version int64
 		exists := true
 		current := make(map[string]int64)
-		err := tx.QueryRowContext(ctx, `SELECT metrics_json FROM `+table+` WHERE `+where, args...).Scan(&encoded)
+		err := tx.QueryRowContext(ctx, `SELECT aggregate_version, metrics_json FROM `+table+` WHERE `+where, args...).Scan(&version, &encoded)
 		if err != nil && err != sql.ErrNoRows {
 			return err
 		}
 		if err == nil {
+			if err := validateAggregateVersion(version); err != nil {
+				return err
+			}
 			if err := json.Unmarshal([]byte(encoded), &current); err != nil {
 				return err
 			}
@@ -186,7 +193,7 @@ func (s *dashboardStore) ensureAggregateRollups(ctx context.Context) error {
 	if daily == 0 || lifetime > 0 {
 		return nil
 	}
-	rows, err := scanAggregateRows(ctx, s.db, `SELECT kind, day, server_key, steam_id, mode, dimension, metrics_json FROM aggregate_rows`)
+	rows, err := scanAggregateRows(ctx, s.db, `SELECT aggregate_version, kind, day, server_key, steam_id, mode, dimension, metrics_json FROM aggregate_rows`)
 	if err != nil {
 		return err
 	}

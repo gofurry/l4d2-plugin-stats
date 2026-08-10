@@ -2,9 +2,13 @@ package store
 
 import (
 	"context"
+	"database/sql"
 	"path/filepath"
 	"testing"
 	"time"
+
+	dashboarddb "github.com/gofurry/l4d2-plugin-stats/dashboard/database/dashboard"
+	"github.com/pressly/goose/v3"
 )
 
 func TestDashboardInitialSchemaAndManagement(t *testing.T) {
@@ -16,7 +20,7 @@ func TestDashboardInitialSchemaAndManagement(t *testing.T) {
 	}
 	defer dashboard.Close()
 	version, err := dashboard.MigrationVersion(ctx)
-	if err != nil || version != 8 {
+	if err != nil || version != 9 {
 		t.Fatalf("migration version=%d err=%v", version, err)
 	}
 	site, err := dashboard.Site(ctx)
@@ -155,13 +159,17 @@ func TestDashboardAggregateFiltersAreAppliedByStore(t *testing.T) {
 	change := AggregateChangeSet{
 		Full: true, SourceRows: 3, SourceWatermark: 100,
 		Rows: []AggregateRow{
-			{Kind: "activity", Day: 10, ServerKey: "one", SteamID: "a", Metrics: map[string]int64{"active_play_seconds": 10}},
-			{Kind: "activity", Day: 20, ServerKey: "two", SteamID: "a", Metrics: map[string]int64{"active_play_seconds": 20}},
-			{Kind: "pve_combat", Day: 20, ServerKey: "one", SteamID: "b", Mode: "coop", Metrics: map[string]int64{"common_kills": 30}},
+			{Version: AggregateContractVersion, Kind: "activity", Day: 10, ServerKey: "one", SteamID: "a", Metrics: map[string]int64{"active_play_seconds": 10}},
+			{Version: AggregateContractVersion, Kind: "activity", Day: 20, ServerKey: "two", SteamID: "a", Metrics: map[string]int64{"active_play_seconds": 20}},
+			{Version: AggregateContractVersion, Kind: "pve_combat", Day: 20, ServerKey: "one", SteamID: "b", Mode: "coop", Metrics: map[string]int64{"common_kills": 30}},
 		},
 	}
 	if err := dashboard.ApplyAggregateChanges(ctx, change); err != nil {
 		t.Fatal(err)
+	}
+	status, err := dashboard.AggregateStatus(ctx)
+	if err != nil || status.AggregateVersion != AggregateContractVersion {
+		t.Fatalf("aggregate status=%+v err=%v", status, err)
 	}
 	rows, err := dashboard.ListAggregateRows(ctx, AggregateFilter{Kinds: []string{"activity"}, SteamID: "a", ServerKey: "two", CutoffDay: 15})
 	if err != nil {
@@ -186,12 +194,87 @@ func TestDashboardAggregateFiltersAreAppliedByStore(t *testing.T) {
 	}
 	if err := dashboard.ApplyAggregateChanges(ctx, AggregateChangeSet{
 		Days: []int64{20}, SourceRows: 3, SourceWatermark: 110,
-		Rows: []AggregateRow{{Kind: "activity", Day: 20, ServerKey: "two", SteamID: "a", Metrics: map[string]int64{"active_play_seconds": 25}}},
+		Rows: []AggregateRow{{Version: AggregateContractVersion, Kind: "activity", Day: 20, ServerKey: "two", SteamID: "a", Metrics: map[string]int64{"active_play_seconds": 25}}},
 	}); err != nil {
 		t.Fatal(err)
 	}
 	lifetime, err = dashboard.ListAggregateRows(ctx, AggregateFilter{Grain: AggregateGrainLifetime, Kinds: []string{"activity"}, SteamID: "a", ServerKey: "two"})
 	if err != nil || len(lifetime) != 1 || lifetime[0].Metrics["active_play_seconds"] != 25 {
 		t.Fatalf("adjusted lifetime aggregate rows=%#v err=%v", lifetime, err)
+	}
+}
+
+func TestDashboardRejectsUnknownAggregateContractVersions(t *testing.T) {
+	ctx := context.Background()
+	dashboard, err := OpenDashboard(ctx, filepath.Join(t.TempDir(), "dashboard.db"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer dashboard.Close()
+	store := dashboard.(*dashboardStore)
+	if _, err := store.db.ExecContext(ctx, `UPDATE aggregate_state SET aggregate_version=2 WHERE id=1`); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := dashboard.AggregateStatus(ctx); err == nil {
+		t.Fatal("AggregateStatus accepted aggregate contract version 2")
+	}
+	if _, err := store.db.ExecContext(ctx, `UPDATE aggregate_state SET aggregate_version=1 WHERE id=1`); err != nil {
+		t.Fatal(err)
+	}
+	if err := dashboard.ApplyAggregateChanges(ctx, AggregateChangeSet{Full: true, Rows: []AggregateRow{{Version: 2, Kind: "activity", Metrics: map[string]int64{}}}}); err == nil {
+		t.Fatal("ApplyAggregateChanges accepted aggregate contract version 2")
+	}
+	if _, err := store.db.ExecContext(ctx, `INSERT INTO aggregate_rows (kind,day,server_key,steam_id,mode,dimension,metrics_json,aggregate_version) VALUES ('activity',1,'','','','','{}',2)`); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := dashboard.ListAggregateRows(ctx, AggregateFilter{}); err == nil {
+		t.Fatal("ListAggregateRows accepted aggregate contract version 2")
+	}
+	if err := dashboard.ApplyAggregateChanges(ctx, AggregateChangeSet{Full: true}); err == nil {
+		t.Fatal("ApplyAggregateChanges replaced an unknown stored aggregate contract version")
+	}
+}
+
+func TestAggregateContractMigrationEightToNine(t *testing.T) {
+	ctx := context.Background()
+	db, err := sql.Open("sqlite", filepath.Join(t.TempDir(), "migration.db"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer db.Close()
+	goose.SetBaseFS(dashboarddb.Migrations)
+	if err := goose.SetDialect("sqlite3"); err != nil {
+		t.Fatal(err)
+	}
+	if err := goose.UpToContext(ctx, db, "migrations", 8); err != nil {
+		t.Fatal(err)
+	}
+	statements := []string{
+		`INSERT INTO aggregate_rows (kind,day,server_key,steam_id,mode,dimension,metrics_json) VALUES ('activity',1,'one','1','','','{}')`,
+		`INSERT INTO aggregate_monthly_rows (kind,month,server_key,steam_id,mode,dimension,metrics_json) VALUES ('activity',1,'one','1','','','{}')`,
+		`INSERT INTO aggregate_lifetime_rows (kind,server_key,steam_id,mode,dimension,metrics_json) VALUES ('activity','one','1','','','{}')`,
+		`INSERT INTO retention_runs (id,executed_at,source_watermark,detail_cutoff,session_cutoff,result_cutoff,equipment_rows,versus_class_rows,session_rows,versus_round_result_rows,versus_run_result_rows) VALUES ('run',1,1,1,1,1,0,0,0,0,0)`,
+	}
+	for _, statement := range statements {
+		if _, err := db.ExecContext(ctx, statement); err != nil {
+			t.Fatal(err)
+		}
+	}
+	if err := goose.UpToContext(ctx, db, "migrations", 9); err != nil {
+		t.Fatal(err)
+	}
+	for _, table := range []string{"aggregate_rows", "aggregate_monthly_rows", "aggregate_lifetime_rows", "aggregate_state", "retention_runs"} {
+		var version int64
+		if err := db.QueryRowContext(ctx, `SELECT aggregate_version FROM `+table+` LIMIT 1`).Scan(&version); err != nil || version != AggregateContractVersion {
+			t.Fatalf("%s aggregate_version=%d err=%v", table, version, err)
+		}
+	}
+	if err := goose.DownToContext(ctx, db, "migrations", 8); err != nil {
+		t.Fatal(err)
+	}
+	for _, table := range []string{"aggregate_rows", "aggregate_monthly_rows", "aggregate_lifetime_rows", "aggregate_state", "retention_runs"} {
+		if _, err := db.ExecContext(ctx, `SELECT aggregate_version FROM `+table+` LIMIT 1`); err == nil {
+			t.Fatalf("%s retained aggregate_version after Down migration", table)
+		}
 	}
 }

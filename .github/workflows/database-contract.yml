@@ -1,0 +1,89 @@
+name: Database contract
+
+on:
+  push:
+    paths:
+      - 'dashboard/**/*.go'
+      - 'dashboard/go.mod'
+      - 'dashboard/go.sum'
+      - 'dashboard/database/**'
+      - 'database/migrations/**'
+      - '.github/workflows/database-contract.yml'
+  pull_request:
+    paths:
+      - 'dashboard/**/*.go'
+      - 'dashboard/go.mod'
+      - 'dashboard/go.sum'
+      - 'dashboard/database/**'
+      - 'database/migrations/**'
+      - '.github/workflows/database-contract.yml'
+
+permissions:
+  contents: read
+
+concurrency:
+  group: database-contract-${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  contract:
+    name: ${{ matrix.name }}
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - name: SQLite
+            driver: sqlite
+            image: ''
+            dsn: ''
+            options: ''
+          - name: MySQL 8.4
+            driver: mysql
+            image: mysql:8.4
+            dsn: root:contract@tcp(127.0.0.1:3306)/lps_contract?parseTime=true
+            options: >-
+              --health-cmd="mysqladmin ping -h localhost -pcontract"
+              --health-interval=10s
+              --health-timeout=5s
+              --health-retries=10
+          - name: PostgreSQL 17
+            driver: postgres
+            image: postgres:17
+            dsn: postgres://postgres:contract@127.0.0.1:5432/lps_contract?sslmode=disable
+            options: >-
+              --health-cmd="pg_isready -U postgres -d lps_contract"
+              --health-interval=10s
+              --health-timeout=5s
+              --health-retries=10
+    services:
+      database:
+        image: ${{ matrix.image }}
+        env:
+          MYSQL_DATABASE: lps_contract
+          MYSQL_ROOT_PASSWORD: contract
+          POSTGRES_DB: lps_contract
+          POSTGRES_PASSWORD: contract
+        ports:
+          - 3306:3306
+          - 5432:5432
+        options: ${{ matrix.options }}
+    defaults:
+      run:
+        working-directory: dashboard
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-go@v6
+        with:
+          go-version-file: dashboard/go.mod
+          cache-dependency-path: dashboard/go.sum
+      - name: Run database contract
+        env:
+          LPS_CONTRACT_DRIVER: ${{ matrix.driver }}
+          LPS_CONTRACT_DSN: ${{ matrix.dsn }}
+        run: go test ./internal/store -run '^TestDatabaseContract$' -count=1 -v
+      - name: Validate static collector contracts
+        working-directory: .
+        run: |
+          python scripts/validate_versus_contract.py
+          pwsh -NoProfile -File scripts/validate-migrations.ps1

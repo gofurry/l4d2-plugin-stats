@@ -7,15 +7,15 @@ import i18n from './i18n'
 import { HomePage } from './pages/HomePage'
 import { PageScrollOrb } from './components/PageScrollOrb'
 
-const PlayerPage=lazy(()=>import('./pages/PlayerPage').then(module=>({default:module.PlayerPage})))
+const PlayerPage=lazy(()=>import('./pages/player/PlayerPage').then(module=>({default:module.PlayerPage})))
 const RankingsPage=lazy(()=>import('./pages/RankingsPage').then(module=>({default:module.RankingsPage})))
 const AnnouncementsPage=lazy(()=>import('./pages/AnnouncementsPage').then(module=>({default:module.AnnouncementsPage})))
 const AdminSetupPage=lazy(()=>import('./pages/AdminSetupPage').then(module=>({default:module.AdminSetupPage})))
 const AdminLoginPage=lazy(()=>import('./pages/AdminLoginPage').then(module=>({default:module.AdminLoginPage})))
-const AdminLayout=lazy(()=>import('./pages/AdminPages').then(module=>({default:module.AdminLayout})))
-const AdminSitePage=lazy(()=>import('./pages/AdminPages').then(module=>({default:module.AdminSitePage})))
-const AdminServersPage=lazy(()=>import('./pages/AdminPages').then(module=>({default:module.AdminServersPage})))
-const AdminSecurityPage=lazy(()=>import('./pages/AdminPages').then(module=>({default:module.AdminSecurityPage})))
+const AdminLayout=lazy(()=>import('./pages/admin').then(module=>({default:module.AdminLayout})))
+const AdminSitePage=lazy(()=>import('./pages/admin').then(module=>({default:module.AdminSitePage})))
+const AdminServersPage=lazy(()=>import('./pages/admin').then(module=>({default:module.AdminServersPage})))
+const AdminSecurityPage=lazy(()=>import('./pages/admin').then(module=>({default:module.AdminSecurityPage})))
 const AdminAnnouncementsPage=lazy(()=>import('./pages/AdminAnnouncementsPage').then(module=>({default:module.AdminAnnouncementsPage})))
 const AdminDataPage=lazy(()=>import('./pages/AdminDataPage').then(module=>({default:module.AdminDataPage})))
 

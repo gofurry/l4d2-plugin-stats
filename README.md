@@ -20,21 +20,25 @@
 - 提供日、月度和终身聚合、数据库增长监控及管理员确认后的分批清理；
 - 应用日志自动轮转，公开 API 不返回玩家 IP，管理写操作使用 JWT、CSRF 和请求限流保护。
 
+## 界面预览
+
+### 服务器概览
+
+![Dashboard 服务器概览](docs/assets/screenshots/dashboard-server-overview.webp)
+
+### 玩家个人页
+
+![Dashboard 玩家个人页](docs/assets/screenshots/dashboard-player-profile.webp)
+
+### 数据运维
+
+![Dashboard 数据运维](docs/assets/screenshots/dashboard-data-maintenance.webp)
+
 ## 运行结构
 
-```text
-L4D2 + SourceMod
-        │
-        │ 采集并写入
-        ▼
-SQLite / MySQL / PostgreSQL
-        │
-        │ 只读查询与聚合
-        ▼
-Go Dashboard（内嵌 React）
-```
+![L4D2 Player Stats 多服务器部署架构](docs/assets/l4d2-player-stats-architecture.svg)
 
-采集插件可以独立运行；只有需要网页展示和数据维护时才部署 Dashboard。
+每台 L4D2 服务器运行一份采集器并使用唯一的 `server_key`；多台服务器可以写入同一个 Stats 数据库，由 Go Dashboard 统一只读查询和聚合。采集插件可以独立运行；只有需要网页展示和数据维护时才部署 Dashboard。
 
 ## 支持范围
 
@@ -118,7 +122,7 @@ sm plugins reload l4d2_player_stats
 sm_lps_status
 ```
 
-正常状态应显示数据库驱动、`schema=1/1` 和 `state=ready`。完整步骤见[中文部署手册](INSTALL.zh-CN.md)。
+正常状态应显示数据库驱动、`schema=3/3` 和 `state=ready`。完整步骤见[中文部署手册](INSTALL.zh-CN.md)。
 
 ### 2. 启动 Dashboard
 
@@ -171,8 +175,12 @@ Dashboard CLI 提供：
 ```text
 l4d2-stats serve
 l4d2-stats doctor
+l4d2-stats doctor --deep
 l4d2-stats aggregate status
 l4d2-stats aggregate rebuild
+l4d2-stats backup create
+l4d2-stats backup restore <file>
+l4d2-stats diagnostics export
 l4d2-stats migrate status
 l4d2-stats install
 l4d2-stats uninstall
@@ -226,7 +234,7 @@ scripts/       构建、校验、部署和打包脚本
 
 ## 参与贡献
 
-欢迎提交 Issue 或 Pull Request。涉及数据库字段、统计含义或玩法边界的修改，请先阅读现有契约，并同步更新三种数据库迁移、采集器和 Dashboard 查询。
+欢迎提交 Issue 或 Pull Request。涉及数据库字段、统计含义或玩法边界的修改，请先阅读现有契约，并同步更新三种数据库迁移、采集器和 Dashboard 查询。实现已有 Issue 的功能 PR 请在描述中使用 `Fixes #<issue-number>`，让功能合并时同步关闭对应 Issue。
 
 ## License
 

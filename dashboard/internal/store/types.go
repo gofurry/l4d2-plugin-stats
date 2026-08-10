@@ -8,6 +8,11 @@ import (
 
 var ErrServerNotFound = errors.New("game server not found")
 
+const (
+	DashboardSchemaVersion int64 = 9
+	StatsSchemaVersion     int64 = 3
+)
+
 type FooterLink struct {
 	ID    string `json:"id,omitempty"`
 	Label string `json:"label"`
@@ -194,6 +199,7 @@ type PlayerPVE struct {
 	IncapacitatedSeconds  int64              `json:"incapacitated_seconds"`
 	LedgeHangingSeconds   int64              `json:"ledge_hanging_seconds"`
 	BlackWhiteRestored    int64              `json:"black_white_teammates_restored"`
+	CarAlarmsTriggered    int64              `json:"car_alarms_triggered"`
 	Classes               []PVEInfectedClass `json:"infected_classes"`
 	Equipment             []PVEEquipment     `json:"equipment"`
 }
@@ -226,51 +232,53 @@ type VersusInfectedClass struct {
 }
 
 type PlayerVersus struct {
-	SurvivorCommonKills         int64                 `json:"survivor_common_kills"`
-	HumanSpecialKills           int64                 `json:"human_special_kills"`
-	BotSpecialKills             int64                 `json:"bot_special_kills"`
-	HumanTankKills              int64                 `json:"human_tank_kills"`
-	BotTankKills                int64                 `json:"bot_tank_kills"`
-	SurvivorDamage              int64                 `json:"survivor_damage"`
-	SurvivorDeaths              int64                 `json:"survivor_deaths"`
-	SurvivorRevives             int64                 `json:"survivor_revives"`
-	InfectedSpawns              int64                 `json:"infected_spawns"`
-	DamageToHumanSurvivors      int64                 `json:"damage_to_human_survivors"`
-	HumanSurvivorIncaps         int64                 `json:"human_survivor_incaps"`
-	HumanSurvivorKills          int64                 `json:"human_survivor_kills"`
-	HumanSurvivorControls       int64                 `json:"human_survivor_controls"`
-	HumanSurvivorControlSeconds int64                 `json:"human_survivor_control_seconds"`
-	SurvivorDamageTaken         int64                 `json:"survivor_damage_taken"`
-	SurvivorFriendlyFire        int64                 `json:"survivor_friendly_fire"`
-	SurvivorFriendlyFireTaken   int64                 `json:"survivor_friendly_fire_taken"`
-	SurvivorIncapacitations     int64                 `json:"survivor_incapacitations"`
-	SurvivorIncapRevives        int64                 `json:"survivor_incap_revives"`
-	SurvivorLedgeRescues        int64                 `json:"survivor_ledge_rescues"`
-	SurvivorDefibRevives        int64                 `json:"survivor_defib_revives"`
-	SurvivorRescuesReceived     int64                 `json:"survivor_rescues_received"`
-	SurvivorMedkitsSelf         int64                 `json:"survivor_medkits_self"`
-	SurvivorMedkitsOthers       int64                 `json:"survivor_medkits_others"`
-	SurvivorHealingSelf         int64                 `json:"survivor_healing_self"`
-	SurvivorHealingOthers       int64                 `json:"survivor_healing_others"`
-	SurvivorPills               int64                 `json:"survivor_pills"`
-	SurvivorAdrenaline          int64                 `json:"survivor_adrenaline"`
-	SurvivorTemporaryHealth     int64                 `json:"survivor_temporary_health"`
-	SurvivorWitchKills          int64                 `json:"survivor_witch_kills"`
-	SurvivorWitchDamage         int64                 `json:"survivor_witch_damage"`
-	MolotovsThrown              int64                 `json:"molotovs_thrown"`
-	PipeBombsThrown             int64                 `json:"pipe_bombs_thrown"`
-	VomitJarsThrown             int64                 `json:"vomit_jars_thrown"`
-	SurvivorIncendiaryPacks     int64                 `json:"survivor_incendiary_packs"`
-	SurvivorExplosivePacks      int64                 `json:"survivor_explosive_packs"`
-	SurvivorTongueSelfCuts      int64                 `json:"survivor_tongue_self_cuts"`
-	SurvivorTankRocksDestroyed  int64                 `json:"survivor_tank_rocks_destroyed"`
-	SurvivorWitchOneShots       int64                 `json:"survivor_witch_oneshots"`
-	SurvivorWitchSoloKills      int64                 `json:"survivor_witch_solo_kills"`
-	DamageToBotSurvivors        int64                 `json:"damage_to_bot_survivors"`
-	BotSurvivorIncaps           int64                 `json:"bot_survivor_incaps"`
-	BotSurvivorKills            int64                 `json:"bot_survivor_kills"`
-	SurvivorClasses             []VersusSurvivorClass `json:"survivor_classes"`
-	InfectedClasses             []VersusInfectedClass `json:"infected_classes"`
+	SurvivorCommonKills           int64                 `json:"survivor_common_kills"`
+	HumanSpecialKills             int64                 `json:"human_special_kills"`
+	BotSpecialKills               int64                 `json:"bot_special_kills"`
+	HumanTankKills                int64                 `json:"human_tank_kills"`
+	BotTankKills                  int64                 `json:"bot_tank_kills"`
+	SurvivorDamage                int64                 `json:"survivor_damage"`
+	SurvivorDeaths                int64                 `json:"survivor_deaths"`
+	SurvivorRevives               int64                 `json:"survivor_revives"`
+	InfectedSpawns                int64                 `json:"infected_spawns"`
+	DamageToHumanSurvivors        int64                 `json:"damage_to_human_survivors"`
+	HumanSurvivorIncaps           int64                 `json:"human_survivor_incaps"`
+	HumanSurvivorKills            int64                 `json:"human_survivor_kills"`
+	HumanSurvivorControls         int64                 `json:"human_survivor_controls"`
+	HumanSurvivorControlSeconds   int64                 `json:"human_survivor_control_seconds"`
+	SurvivorDamageTaken           int64                 `json:"survivor_damage_taken"`
+	SurvivorFriendlyFire          int64                 `json:"survivor_friendly_fire"`
+	SurvivorFriendlyFireTaken     int64                 `json:"survivor_friendly_fire_taken"`
+	SurvivorIncapacitations       int64                 `json:"survivor_incapacitations"`
+	SurvivorIncapRevives          int64                 `json:"survivor_incap_revives"`
+	SurvivorLedgeRescues          int64                 `json:"survivor_ledge_rescues"`
+	SurvivorDefibRevives          int64                 `json:"survivor_defib_revives"`
+	SurvivorRescuesReceived       int64                 `json:"survivor_rescues_received"`
+	SurvivorMedkitsSelf           int64                 `json:"survivor_medkits_self"`
+	SurvivorMedkitsOthers         int64                 `json:"survivor_medkits_others"`
+	SurvivorHealingSelf           int64                 `json:"survivor_healing_self"`
+	SurvivorHealingOthers         int64                 `json:"survivor_healing_others"`
+	SurvivorPills                 int64                 `json:"survivor_pills"`
+	SurvivorAdrenaline            int64                 `json:"survivor_adrenaline"`
+	SurvivorTemporaryHealth       int64                 `json:"survivor_temporary_health"`
+	SurvivorWitchKills            int64                 `json:"survivor_witch_kills"`
+	SurvivorWitchDamage           int64                 `json:"survivor_witch_damage"`
+	MolotovsThrown                int64                 `json:"molotovs_thrown"`
+	PipeBombsThrown               int64                 `json:"pipe_bombs_thrown"`
+	VomitJarsThrown               int64                 `json:"vomit_jars_thrown"`
+	SurvivorIncendiaryPacks       int64                 `json:"survivor_incendiary_packs"`
+	SurvivorExplosivePacks        int64                 `json:"survivor_explosive_packs"`
+	SurvivorTongueSelfCuts        int64                 `json:"survivor_tongue_self_cuts"`
+	SurvivorTankRocksDestroyed    int64                 `json:"survivor_tank_rocks_destroyed"`
+	SurvivorWitchOneShots         int64                 `json:"survivor_witch_oneshots"`
+	SurvivorWitchSoloKills        int64                 `json:"survivor_witch_solo_kills"`
+	SurvivorObjectiveInteractions int64                 `json:"survivor_objective_interactions"`
+	SurvivorCarAlarmsTriggered    int64                 `json:"survivor_car_alarms_triggered"`
+	DamageToBotSurvivors          int64                 `json:"damage_to_bot_survivors"`
+	BotSurvivorIncaps             int64                 `json:"bot_survivor_incaps"`
+	BotSurvivorKills              int64                 `json:"bot_survivor_kills"`
+	SurvivorClasses               []VersusSurvivorClass `json:"survivor_classes"`
+	InfectedClasses               []VersusInfectedClass `json:"infected_classes"`
 }
 
 type RankingEntry struct {
@@ -342,27 +350,30 @@ type RankingQuery struct {
 }
 
 type AggregateStatus struct {
-	State           string `json:"state"`
-	LastStartedAt   int64  `json:"last_started_at"`
-	LastFinishedAt  int64  `json:"last_finished_at"`
-	SourceRows      int64  `json:"source_rows"`
-	AggregateRows   int64  `json:"aggregate_rows"`
-	SourceWatermark int64  `json:"source_watermark"`
-	LastDurationMS  int64  `json:"last_duration_ms"`
-	LastChangedDays int64  `json:"last_changed_days"`
-	LastBuildMode   string `json:"last_build_mode"`
-	LastError       string `json:"last_error,omitempty"`
+	AggregateVersion int64  `json:"aggregate_version"`
+	State            string `json:"state"`
+	LastStartedAt    int64  `json:"last_started_at"`
+	LastFinishedAt   int64  `json:"last_finished_at"`
+	SourceRows       int64  `json:"source_rows"`
+	AggregateRows    int64  `json:"aggregate_rows"`
+	SourceWatermark  int64  `json:"source_watermark"`
+	LastDurationMS   int64  `json:"last_duration_ms"`
+	LastChangedDays  int64  `json:"last_changed_days"`
+	LastBuildMode    string `json:"last_build_mode"`
+	LastError        string `json:"last_error,omitempty"`
 }
 
 type AggregateGrain string
 
 const (
-	AggregateGrainDaily    AggregateGrain = "daily"
-	AggregateGrainMonthly  AggregateGrain = "monthly"
-	AggregateGrainLifetime AggregateGrain = "lifetime"
+	AggregateContractVersion int64          = 1
+	AggregateGrainDaily      AggregateGrain = "daily"
+	AggregateGrainMonthly    AggregateGrain = "monthly"
+	AggregateGrainLifetime   AggregateGrain = "lifetime"
 )
 
 type RetentionPlan struct {
+	AggregateVersion           int64  `json:"aggregate_version"`
 	GeneratedAt                int64  `json:"generated_at"`
 	DetailCutoff               int64  `json:"detail_cutoff"`
 	SessionCutoff              int64  `json:"session_cutoff"`
@@ -400,6 +411,20 @@ type DatabaseUsage struct {
 	Driver   string `json:"driver"`
 	Bytes    int64  `json:"bytes"`
 	WALBytes int64  `json:"wal_bytes,omitempty"`
+}
+
+type DataQualityFinding struct {
+	Count int64
+	IDs   []string
+}
+
+type StatsDataQuality struct {
+	SourceWatermark     int64
+	StaleActiveBoots    DataQualityFinding
+	UnknownStatsVersion DataQualityFinding
+	LifecycleLinks      DataQualityFinding
+	ModeSideMismatch    DataQualityFinding
+	PVETotalMismatch    DataQualityFinding
 }
 
 type PlayerSession struct {
@@ -540,6 +565,7 @@ type DashboardDatabase interface {
 }
 
 type AggregateRow struct {
+	Version   int64
 	Kind      string
 	Day       int64
 	ServerKey string
@@ -570,6 +596,10 @@ type StatsStore interface {
 	PlayerSessions(context.Context, string, int64, string, int32) ([]PlayerSession, error)
 	PlayerChapters(context.Context, string, int64, string, int32) ([]PlayerChapter, error)
 	Close() error
+}
+
+type StatsDoctorStore interface {
+	DeepDataQuality(context.Context, int64) (StatsDataQuality, error)
 }
 
 type StatsAggregateStore interface {
@@ -603,11 +633,16 @@ type StatsPresenceStore interface {
 	ActivePlayers(context.Context, string, int64) ([]ActivePlayer, error)
 }
 
+type StatsIncidentRankingStore interface {
+	CarAlarmRanking(context.Context, RankingQuery) ([]RankingEntry, error)
+}
+
 type StatsDatabase interface {
 	StatsStore
 	StatsAggregateStore
 	StatsFilteredStore
 	StatsPresenceStore
+	StatsDoctorStore
 }
 
 type ServerStatusProvider interface {

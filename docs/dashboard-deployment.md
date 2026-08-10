@@ -45,7 +45,7 @@ monitor:
 
 首次启动会把 30 分钟有效的一次性令牌输出到 stderr。打开 `http://127.0.0.1:18848/admin/setup` 创建唯一管理员。令牌不写入应用日志或数据库，过期后重启服务即可生成新令牌。
 
-项目未发布，v0.9.1 不维护旧 Dashboard DB 升级包袱。测试过旧版时，停止进程后删除旧 `dashboard.db`、`dashboard.db-shm` 和 `dashboard.db-wal` 再启动；不要删除采集器的 Stats DB。
+Dashboard DB 使用 Goose 按顺序自动升级，当前 schema 为 9。Stats DB 仍由采集器管理，schema 为 1；升级时不应删除或手工改写迁移版本。
 
 ## systemd
 
@@ -99,11 +99,14 @@ server {
 
 ```sh
 ./l4d2-stats doctor --config ./config.yaml
+./l4d2-stats doctor --deep --config ./config.yaml
 ./l4d2-stats migrate status --config ./config.yaml
 curl -fsS http://127.0.0.1:18848/api/v1/health/live
 curl -fsS http://127.0.0.1:18848/api/v1/health/ready
 ```
 
-`ready` 检查两个数据库和 Stats schema；A2S 故障不影响 liveness。Lumberjack 按大小、份数和保留天数轮转应用日志，启动错误仍进入 journald。
+`ready` 检查两个数据库和 Stats schema；`doctor --deep` 额外检查引用完整性、统计总计和聚合水位，只读且不修复数据。A2S 故障不影响 liveness。Lumberjack 按大小、份数和保留天数轮转应用日志，启动错误仍进入 journald。
 
-升级前停止服务并备份二进制、配置和 Dashboard DB。首次执行清理前还应完整备份 Stats DB；清理后的旧逐条 Session/比赛结果不能通过回滚 Dashboard 二进制恢复。
+升级前可在服务运行时执行 `l4d2-stats backup create --config ./config.yaml`。SQLite Stats DB 会与 Dashboard DB 一起使用在线快照；MySQL/PostgreSQL 必须另行使用原生工具备份。恢复前必须停止服务，然后执行 `l4d2-stats backup restore <file> --config ./config.yaml`；原文件会保留为 `.pre-restore-*` 回滚副本。
+
+排查问题时可执行 `l4d2-stats diagnostics export --config ./config.yaml`。诊断包不包含原始数据库或管理员密钥，配置和最近日志会先脱敏。

@@ -74,8 +74,12 @@ func (s *dashboardStore) AggregateStatus(ctx context.Context) (AggregateStatus, 
 	if err != nil {
 		return AggregateStatus{}, fmt.Errorf("get aggregate status: %w", err)
 	}
+	if err := validateAggregateVersion(row.AggregateVersion); err != nil {
+		return AggregateStatus{}, fmt.Errorf("get aggregate status: %w", err)
+	}
 	return AggregateStatus{
-		State: row.State, LastStartedAt: row.LastStartedAt, LastFinishedAt: row.LastFinishedAt,
+		AggregateVersion: row.AggregateVersion,
+		State:            row.State, LastStartedAt: row.LastStartedAt, LastFinishedAt: row.LastFinishedAt,
 		SourceRows: row.SourceRows, AggregateRows: row.AggregateRows, LastError: row.LastError,
 		SourceWatermark: row.SourceWatermark, LastDurationMS: row.LastDurationMs,
 		LastChangedDays: row.LastChangedDays, LastBuildMode: row.LastBuildMode,
@@ -89,6 +93,17 @@ func (s *dashboardStore) ReplaceAggregateRows(ctx context.Context, rows []Aggreg
 }
 
 func (s *dashboardStore) ApplyAggregateChanges(ctx context.Context, change AggregateChangeSet) error {
+	if _, err := s.AggregateStatus(ctx); err != nil {
+		return fmt.Errorf("validate aggregate state: %w", err)
+	}
+	if err := s.validateAggregateStorage(ctx); err != nil {
+		return fmt.Errorf("validate aggregate storage: %w", err)
+	}
+	for _, row := range change.Rows {
+		if err := validateAggregateVersion(row.Version); err != nil {
+			return fmt.Errorf("apply aggregate row %s: %w", row.Kind, err)
+		}
+	}
 	startedAt := time.Now()
 	started := startedAt.Unix()
 	if err := s.q.MarkAggregateStarted(ctx, started); err != nil {
@@ -129,7 +144,7 @@ func (s *dashboardStore) ApplyAggregateChanges(ctx context.Context, change Aggre
 		}
 		if err := q.InsertAggregateRow(ctx, dashsql.InsertAggregateRowParams{
 			Kind: row.Kind, Day: row.Day, ServerKey: row.ServerKey, SteamID: row.SteamID,
-			Mode: row.Mode, Dimension: row.Dimension, MetricsJson: string(metrics),
+			Mode: row.Mode, Dimension: row.Dimension, MetricsJson: string(metrics), AggregateVersion: row.Version,
 		}); err != nil {
 			return fail(fmt.Errorf("insert aggregate row: %w", err))
 		}
@@ -163,7 +178,7 @@ func (s *dashboardStore) ApplyAggregateChanges(ctx context.Context, change Aggre
 	if err := q.CompleteAggregateBuild(ctx, dashsql.CompleteAggregateBuildParams{
 		LastFinishedAt: time.Now().Unix(), SourceRows: change.SourceRows, AggregateRows: aggregateRows,
 		SourceWatermark: change.SourceWatermark, LastDurationMs: time.Since(startedAt).Milliseconds(),
-		LastChangedDays: int64(len(change.Days)), LastBuildMode: mode,
+		LastChangedDays: int64(len(change.Days)), LastBuildMode: mode, AggregateVersion: AggregateContractVersion,
 	}); err != nil {
 		return fail(fmt.Errorf("complete aggregate build: %w", err))
 	}
@@ -214,12 +229,15 @@ func (s *dashboardStore) DatabaseUsage(ctx context.Context) (DatabaseUsage, erro
 }
 
 func (s *dashboardStore) RecordRetentionRun(ctx context.Context, plan RetentionPlan, result RetentionResult) error {
+	if err := validateAggregateVersion(plan.AggregateVersion); err != nil {
+		return fmt.Errorf("record retention run: %w", err)
+	}
 	return s.q.CreateRetentionRun(ctx, dashsql.CreateRetentionRunParams{
 		ID: result.RunID, ExecutedAt: result.ExecutedAt, SourceWatermark: plan.SourceWatermark,
 		DetailCutoff: plan.DetailCutoff, SessionCutoff: plan.SessionCutoff, ResultCutoff: plan.ResultCutoff,
 		EquipmentRows: result.EquipmentRows, VersusClassRows: result.VersusClassRows,
 		SessionRows: result.SessionRows, VersusRoundResultRows: result.VersusRoundResultRows,
-		VersusRunResultRows: result.VersusRunResultRows,
+		VersusRunResultRows: result.VersusRunResultRows, AggregateVersion: plan.AggregateVersion,
 	})
 }
 
@@ -238,7 +256,7 @@ func (s *dashboardStore) ListAggregateRows(ctx context.Context, filter Aggregate
 	default:
 		return nil, fmt.Errorf("unsupported aggregate grain %q", filter.Grain)
 	}
-	query := `SELECT kind, ` + period + ` AS day, server_key, steam_id, mode, dimension, metrics_json FROM ` + table + ` WHERE 1=1`
+	query := `SELECT aggregate_version, kind, ` + period + ` AS day, server_key, steam_id, mode, dimension, metrics_json FROM ` + table + ` WHERE 1=1`
 	args := make([]any, 0, 4+len(filter.Kinds))
 	if filter.SteamID != "" {
 		query += " AND steam_id = ?"
@@ -268,6 +286,29 @@ func (s *dashboardStore) ListAggregateRows(ctx context.Context, filter Aggregate
 		return nil, fmt.Errorf("list aggregate rows: %w", err)
 	}
 	return result, nil
+}
+
+func validateAggregateVersion(version int64) error {
+	if version != AggregateContractVersion {
+		return fmt.Errorf("unsupported aggregate contract version %d (expected %d)", version, AggregateContractVersion)
+	}
+	return nil
+}
+
+func (s *dashboardStore) validateAggregateStorage(ctx context.Context) error {
+	var unsupported int64
+	err := s.db.QueryRowContext(ctx, `SELECT COUNT(*) FROM (
+SELECT aggregate_version FROM aggregate_rows
+UNION ALL SELECT aggregate_version FROM aggregate_monthly_rows
+UNION ALL SELECT aggregate_version FROM aggregate_lifetime_rows
+) versions WHERE aggregate_version <> ?`, AggregateContractVersion).Scan(&unsupported)
+	if err != nil {
+		return err
+	}
+	if unsupported > 0 {
+		return fmt.Errorf("found %d rows with an unsupported aggregate contract version", unsupported)
+	}
+	return nil
 }
 
 func (s *dashboardStore) Site(ctx context.Context) (Site, error) {

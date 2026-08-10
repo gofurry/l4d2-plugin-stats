@@ -397,3 +397,14 @@ stats_version = 1
 所有者、单位、Bot 语义、读取不变量和兼容规则见
 [`versus-v1.md`](versus-v1.md)，机器可读字段清单见
 [`versus-schema-v1.json`](versus-schema-v1.json)。
+
+Stats schema 2 通过增量迁移在 `lps_pve_segment_stats` 和
+`lps_versus_survivor_stats` 分别增加可空的 `car_alarms_triggered`。它统计
+`triggered_car_alarm` 事件中 `userid` 对应的真人幸存者，每次事件加 1；Bot、感染者和
+不受支持模式不计数。历史 `NULL` 表示该 Segment 创建时尚未采集此指标，不等同于明确的
+0。这个加法字段不改变既有指标含义，因此 `stats_version` 仍为 1。
+
+Stats schema 3 通过增量迁移为 `lps_versus_survivor_stats` 增加可空的
+`objective_interactions`。对抗幸存者与 PvE 使用 5.12 节相同的白名单实体、完成输出、
+真人归属和“同一实体每个 Round 最多一次”规则；历史 `NULL` 同样表示当时尚未采集。
+该字段只在个人页从原始 Stats 行读取，不加入首页、成就或 Aggregate Contract v1。

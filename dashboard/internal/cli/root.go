@@ -26,7 +26,7 @@ import (
 	"go.uber.org/zap"
 )
 
-var Version = "1.1.0"
+var Version = "1.2.0"
 
 type rootOptions struct{ configPath string }
 
@@ -34,8 +34,71 @@ func Execute() error {
 	options := &rootOptions{}
 	root := &cobra.Command{Use: "l4d2-stats", Short: "L4D2 player statistics dashboard", SilenceUsage: true, SilenceErrors: true}
 	root.PersistentFlags().StringVar(&options.configPath, "config", "./config.yaml", "path to config.yaml")
-	root.AddCommand(serveCommand(options), doctorCommand(options), versionCommand(), installCommand(options), uninstallCommand(), migrateCommand(options), aggregateCommand(options), retentionCommand(options))
+	root.AddCommand(serveCommand(options), doctorCommand(options), versionCommand(), installCommand(options), uninstallCommand(), migrateCommand(options), aggregateCommand(options), retentionCommand(options), backupCommand(options), diagnosticsCommand(options))
 	return root.Execute()
+}
+
+func backupCommand(options *rootOptions) *cobra.Command {
+	backup := &cobra.Command{Use: "backup", Short: "create and restore Dashboard backups"}
+	backup.AddCommand(
+		&cobra.Command{Use: "create", Short: "create a verified backup archive", Args: cobra.NoArgs, RunE: func(cmd *cobra.Command, args []string) error {
+			cfg, err := config.Load(options.configPath)
+			if err != nil {
+				return err
+			}
+			ctx, cancel := context.WithTimeout(context.Background(), 10*time.Minute)
+			defer cancel()
+			result, err := service.NewArchiveService(cfg, Version).CreateBackup(ctx, ".")
+			if err != nil {
+				return err
+			}
+			fmt.Fprintln(cmd.OutOrStdout(), result.Path)
+			if result.Message != "" {
+				fmt.Fprintln(cmd.ErrOrStderr(), result.Message)
+			}
+			return nil
+		}},
+		&cobra.Command{Use: "restore <file>", Short: "restore a verified backup while preserving rollback copies", Args: cobra.ExactArgs(1), RunE: func(cmd *cobra.Command, args []string) error {
+			cfg, err := config.Load(options.configPath)
+			if err != nil {
+				return err
+			}
+			ctx, cancel := context.WithTimeout(context.Background(), 10*time.Minute)
+			defer cancel()
+			result, err := service.NewArchiveService(cfg, Version).RestoreBackup(ctx, args[0])
+			if err != nil {
+				return err
+			}
+			fmt.Fprintln(cmd.OutOrStdout(), result.Message)
+			for _, path := range result.RollbackCopies {
+				fmt.Fprintf(cmd.OutOrStdout(), "rollback copy: %s\n", path)
+			}
+			return nil
+		}},
+	)
+	return backup
+}
+
+func diagnosticsCommand(options *rootOptions) *cobra.Command {
+	diagnostics := &cobra.Command{Use: "diagnostics", Short: "export redacted diagnostic data"}
+	diagnostics.AddCommand(&cobra.Command{Use: "export", Short: "create a redacted diagnostics archive", Args: cobra.NoArgs, RunE: func(cmd *cobra.Command, args []string) error {
+		cfg, err := config.Load(options.configPath)
+		if err != nil {
+			return err
+		}
+		ctx, cancel := context.WithTimeout(context.Background(), 2*time.Minute)
+		defer cancel()
+		result, err := service.NewArchiveService(cfg, Version).ExportDiagnostics(ctx, ".")
+		if err != nil {
+			return err
+		}
+		fmt.Fprintln(cmd.OutOrStdout(), result.Path)
+		if result.Message != "" {
+			fmt.Fprintln(cmd.ErrOrStderr(), result.Message)
+		}
+		return nil
+	}})
+	return diagnostics
 }
 
 func serveCommand(options *rootOptions) *cobra.Command {
@@ -72,8 +135,8 @@ func serveCommand(options *rootOptions) *cobra.Command {
 		if err != nil {
 			return fmt.Errorf("read stats schema version: %w", err)
 		}
-		if version != 1 {
-			return fmt.Errorf("unsupported stats schema version %d; expected 1", version)
+		if version != store.StatsSchemaVersion {
+			return fmt.Errorf("unsupported stats schema version %d; expected %d", version, store.StatsSchemaVersion)
 		}
 		assets, err := webassets.Dist()
 		if err != nil {
@@ -185,7 +248,8 @@ func retentionCommand(options *rootOptions) *cobra.Command {
 		if err != nil {
 			return err
 		}
-		plan.AggregateCoverageReady = status.State == "ready" && status.LastFinishedAt > 0
+		plan.AggregateCoverageReady = status.State == "ready" &&
+			status.AggregateVersion == plan.AggregateVersion && status.LastFinishedAt > 0
 		plan.DeletionEnabled = false
 		return writeJSON(cmd, plan)
 	}})
@@ -199,7 +263,8 @@ func writeJSON(cmd *cobra.Command, value any) error {
 }
 
 func doctorCommand(options *rootOptions) *cobra.Command {
-	return &cobra.Command{Use: "doctor", Short: "validate configuration and database connectivity", RunE: func(cmd *cobra.Command, args []string) error {
+	var deep bool
+	command := &cobra.Command{Use: "doctor", Short: "validate configuration and database connectivity", RunE: func(cmd *cobra.Command, args []string) error {
 		cfg, err := config.Load(options.configPath)
 		if err != nil {
 			return err
@@ -247,8 +312,23 @@ func doctorCommand(options *rootOptions) *cobra.Command {
 			return err
 		}
 		fmt.Fprintf(cmd.OutOrStdout(), "config: ok\ndashboard database: ok (schema %d)\nstats database: ok (schema %d)\nadministrator: %t\nsite configured: %t\nenabled servers: %d\nSteam OpenID ready: %t\nruntime monitor: %t\n", dashboardVersion, version, adminConfigured, site.Configured, enabledServers, settings.SteamOpenIDEnabled && settings.PublicOrigin != "", cfg.Monitor.Enabled)
+		cancel()
+		if !deep {
+			return nil
+		}
+		deepCtx, deepCancel := context.WithTimeout(context.Background(), 2*time.Minute)
+		defer deepCancel()
+		report := service.NewDoctorService(dashboard, stats).Deep(deepCtx)
+		for _, check := range report.Checks {
+			fmt.Fprintf(cmd.OutOrStdout(), "[%s] %s: %s\n", check.Status, check.Name, check.Message)
+		}
+		if report.HasErrors() {
+			return errors.New("deep doctor found data quality errors")
+		}
 		return nil
 	}}
+	command.Flags().BoolVar(&deep, "deep", false, "run read-only data quality and aggregate checks")
+	return command
 }
 
 func versionCommand() *cobra.Command {
