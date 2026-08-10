@@ -22,19 +22,9 @@
 
 ## 运行结构
 
-```text
-L4D2 + SourceMod
-        │
-        │ 采集并写入
-        ▼
-SQLite / MySQL / PostgreSQL
-        │
-        │ 只读查询与聚合
-        ▼
-Go Dashboard（内嵌 React）
-```
+![L4D2 Player Stats 多服务器部署架构](docs/assets/l4d2-player-stats-architecture.svg)
 
-采集插件可以独立运行；只有需要网页展示和数据维护时才部署 Dashboard。
+每台 L4D2 服务器运行一份采集器并使用唯一的 `server_key`；多台服务器可以写入同一个 Stats 数据库，由 Go Dashboard 统一只读查询和聚合。采集插件可以独立运行；只有需要网页展示和数据维护时才部署 Dashboard。
 
 ## 支持范围
 
@@ -118,7 +108,7 @@ sm plugins reload l4d2_player_stats
 sm_lps_status
 ```
 
-正常状态应显示数据库驱动、`schema=2/2` 和 `state=ready`。完整步骤见[中文部署手册](INSTALL.zh-CN.md)。
+正常状态应显示数据库驱动、`schema=3/3` 和 `state=ready`。完整步骤见[中文部署手册](INSTALL.zh-CN.md)。
 
 ### 2. 启动 Dashboard
 

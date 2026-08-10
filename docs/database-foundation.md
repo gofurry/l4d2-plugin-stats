@@ -77,10 +77,10 @@ sm_lps_versus_stats_enabled "1"
 ```text
 state=ready
 driver=sqlite
-schema=2/2
+schema=3/3
 ```
 
-当前首次连接会建立 16 张表、9 个查询索引、服务器记录和当前 `boot_id`，随后顺序应用增量迁移，最终状态为 `schema=2/2`。
+当前首次连接会建立 16 张表、9 个查询索引、服务器记录和当前 `boot_id`，随后顺序应用增量迁移，最终状态为 `schema=3/3`。
 
 ## 5. 故障验证
 

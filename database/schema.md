@@ -399,6 +399,10 @@ revision
 
 `car_alarms_triggered` 由 schema 2 的 `0002_car_alarms_triggered.sql` 增加。它只归属触发事件的真人幸存者，PvE 与 Versus 分表保存；升级前历史行保持 `NULL`，新采集快照写入 0 或正整数。
 
+对抗幸存者的 `objective_interactions` 由 schema 3 的
+`0003_versus_objective_interactions.sql` 增加。它与 PvE 使用同一组完成事件和真人归属
+规则；升级前历史行保持 `NULL`，新采集快照写入 0 或正整数。
+
 ### 4.14 `lps_versus_survivor_infected_class_stats`
 
 复合主键为 `(segment_id, infected_class)`。每个幸存者 Segment 最多产生七行，

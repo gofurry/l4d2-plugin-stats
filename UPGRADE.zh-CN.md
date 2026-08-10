@@ -34,7 +34,7 @@ sm_lps_status
 
 确认版本、数据库状态和 schema 版本符合新发布说明。
 
-v1.2 的采集器会按顺序执行 `0001_initial.sql` 和 `0002_car_alarms_triggered.sql`，把 Stats schema 从 1 升至 2。旧统计行的新字段保持 `NULL`（表示当时尚未采集），新快照写入明确的 0 或正整数；不要手工把历史 `NULL` 回填为 0。
+v1.2 的采集器会按顺序执行 `0001_initial.sql`、`0002_car_alarms_triggered.sql` 和 `0003_versus_objective_interactions.sql`，把 Stats schema 从 1 升至 3。`0002` 为 PvE 与对抗增加警报车计数，`0003` 为对抗幸存者增加机关互动计数。旧统计行的新字段保持 `NULL`（表示当时尚未采集），新快照写入明确的 0 或正整数；不要手工把历史 `NULL` 回填为 0。
 
 ## 升级 Dashboard
 

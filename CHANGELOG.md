@@ -12,15 +12,18 @@ All notable changes to this project are documented in this file.
 - Add verified ZIP backup and restore commands with online SQLite snapshots, SHA-256 manifests, integrity checks, safe extraction, rollback copies, and external-database guidance.
 - Add redacted diagnostics export containing doctor reports, aggregate status, storage usage, server directory, configuration, and bounded recent logs.
 - Track human-survivor car-alarm triggers separately for PvE and Versus, expose them on player pages, and add raw full-server Top rankings without changing Aggregate Contract v1.
+- Track completed objective interactions for Versus survivors with the same allowlist and per-Round ownership rules as PvE, and expose the raw total on player pages without adding homepage, ranking, aggregate, or achievement behavior.
+- Add the multi-server collector, shared Stats database, and Dashboard architecture diagram to the repository documentation.
 
 ### Changed
 
-- Upgrade Dashboard schema from 8 to 9 and Stats schema from 1 to 2; `stats_version` remains at 1 because existing metric semantics are unchanged.
-- Apply Collector Stats migrations sequentially so existing schema-1 databases receive the nullable car-alarm columns while historical rows remain distinguishable as not collected.
+- Upgrade Dashboard schema from 8 to 9 and Stats schema from 1 to 3; `stats_version` remains at 1 because existing metric semantics are unchanged.
+- Apply Collector Stats migrations sequentially so existing databases receive the nullable car-alarm and Versus-objective columns while historical rows remain distinguishable as not collected.
 - Reject unknown aggregate contract versions during reads, writes, status checks, rebuilds, and retention cleanup validation.
 - Include aggregate contract version and source watermark in retention previews and require both to match before deletion.
 - Split the Dashboard frontend API, administration pages, player pages, shared player presentation code, and PvE collector statistics into smaller modules without changing public routes or statistics semantics.
 - Refresh embedded frontend assets and align collector, Dashboard, frontend, build, and packaging versions at `1.2.0`.
+- Align recent player Session and chapter records with stable date, duration, and status columns plus responsive narrow-screen behavior.
 
 ## 1.1.0 - 2026-08-08
 

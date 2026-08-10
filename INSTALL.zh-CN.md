@@ -127,7 +127,7 @@ sm_lps_flush
 ```text
 version=1.2.0
 state=ready
-schema=2/2
+schema=3/3
 ```
 
 进入受支持模式游玩一段时间，再执行 `sm_lps_flush`。确认数据库中出现 `lps_players`、`lps_sessions` 和相关统计表记录。
@@ -302,7 +302,7 @@ journalctl -u l4d2-stats -n 100 --no-pager
 ### 采集器
 
 - `sm plugins list` 显示 `L4D2 Player Stats`；
-- `sm_lps_status` 显示 `version=1.2.0`、`state=ready` 和 `schema=2/2`；
+- `sm_lps_status` 显示 `version=1.2.0`、`state=ready` 和 `schema=3/3`；
 - `sm_lps_server_key` 不再是默认占位值，并在共享 DB 中唯一；
 - 真人进入受支持模式后，`sm_lps_flush` 能写入数据；
 - SourceMod `logs/errors_*.log` 没有持续数据库错误。
