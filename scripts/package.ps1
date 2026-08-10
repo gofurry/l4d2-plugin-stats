@@ -126,6 +126,7 @@ if (Test-Path -LiteralPath $resolvedArchivePath) {
     Remove-Item -LiteralPath $resolvedArchivePath -Force
 }
 
+Add-Type -AssemblyName System.IO.Compression
 Add-Type -AssemblyName System.IO.Compression.FileSystem
 $archive = [System.IO.Compression.ZipFile]::Open(
     $resolvedArchivePath,
@@ -135,9 +136,9 @@ try {
     Get-ChildItem -LiteralPath $resolvedStagingRoot -Recurse -File |
         Sort-Object FullName |
         ForEach-Object {
-            $entryName = [System.IO.Path]::GetRelativePath(
-                $resolvedStagingRoot,
-                $_.FullName
+            $entryName = $_.FullName.Substring($resolvedStagingRoot.Length).TrimStart(
+                [System.IO.Path]::DirectorySeparatorChar,
+                [System.IO.Path]::AltDirectorySeparatorChar
             ).Replace('\', '/')
             [System.IO.Compression.ZipFileExtensions]::CreateEntryFromFile(
                 $archive,
