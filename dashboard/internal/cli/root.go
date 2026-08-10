@@ -34,8 +34,71 @@ func Execute() error {
 	options := &rootOptions{}
 	root := &cobra.Command{Use: "l4d2-stats", Short: "L4D2 player statistics dashboard", SilenceUsage: true, SilenceErrors: true}
 	root.PersistentFlags().StringVar(&options.configPath, "config", "./config.yaml", "path to config.yaml")
-	root.AddCommand(serveCommand(options), doctorCommand(options), versionCommand(), installCommand(options), uninstallCommand(), migrateCommand(options), aggregateCommand(options), retentionCommand(options))
+	root.AddCommand(serveCommand(options), doctorCommand(options), versionCommand(), installCommand(options), uninstallCommand(), migrateCommand(options), aggregateCommand(options), retentionCommand(options), backupCommand(options), diagnosticsCommand(options))
 	return root.Execute()
+}
+
+func backupCommand(options *rootOptions) *cobra.Command {
+	backup := &cobra.Command{Use: "backup", Short: "create and restore Dashboard backups"}
+	backup.AddCommand(
+		&cobra.Command{Use: "create", Short: "create a verified backup archive", Args: cobra.NoArgs, RunE: func(cmd *cobra.Command, args []string) error {
+			cfg, err := config.Load(options.configPath)
+			if err != nil {
+				return err
+			}
+			ctx, cancel := context.WithTimeout(context.Background(), 10*time.Minute)
+			defer cancel()
+			result, err := service.NewArchiveService(cfg, Version).CreateBackup(ctx, ".")
+			if err != nil {
+				return err
+			}
+			fmt.Fprintln(cmd.OutOrStdout(), result.Path)
+			if result.Message != "" {
+				fmt.Fprintln(cmd.ErrOrStderr(), result.Message)
+			}
+			return nil
+		}},
+		&cobra.Command{Use: "restore <file>", Short: "restore a verified backup while preserving rollback copies", Args: cobra.ExactArgs(1), RunE: func(cmd *cobra.Command, args []string) error {
+			cfg, err := config.Load(options.configPath)
+			if err != nil {
+				return err
+			}
+			ctx, cancel := context.WithTimeout(context.Background(), 10*time.Minute)
+			defer cancel()
+			result, err := service.NewArchiveService(cfg, Version).RestoreBackup(ctx, args[0])
+			if err != nil {
+				return err
+			}
+			fmt.Fprintln(cmd.OutOrStdout(), result.Message)
+			for _, path := range result.RollbackCopies {
+				fmt.Fprintf(cmd.OutOrStdout(), "rollback copy: %s\n", path)
+			}
+			return nil
+		}},
+	)
+	return backup
+}
+
+func diagnosticsCommand(options *rootOptions) *cobra.Command {
+	diagnostics := &cobra.Command{Use: "diagnostics", Short: "export redacted diagnostic data"}
+	diagnostics.AddCommand(&cobra.Command{Use: "export", Short: "create a redacted diagnostics archive", Args: cobra.NoArgs, RunE: func(cmd *cobra.Command, args []string) error {
+		cfg, err := config.Load(options.configPath)
+		if err != nil {
+			return err
+		}
+		ctx, cancel := context.WithTimeout(context.Background(), 2*time.Minute)
+		defer cancel()
+		result, err := service.NewArchiveService(cfg, Version).ExportDiagnostics(ctx, ".")
+		if err != nil {
+			return err
+		}
+		fmt.Fprintln(cmd.OutOrStdout(), result.Path)
+		if result.Message != "" {
+			fmt.Fprintln(cmd.ErrOrStderr(), result.Message)
+		}
+		return nil
+	}})
+	return diagnostics
 }
 
 func serveCommand(options *rootOptions) *cobra.Command {
