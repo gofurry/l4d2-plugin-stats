@@ -69,6 +69,9 @@ func TestDatabaseContract(t *testing.T) {
 	expectedKinds := []string{"activity", "mode_activity", "pve_combat", "pve_detail", "pve_equipment", "run_result", "versus_infected", "versus_infected_class", "versus_result", "versus_survivor", "versus_survivor_class"}
 	actualKinds := make([]string, 0, len(expectedKinds))
 	for _, row := range changes.Rows {
+		if row.Version != AggregateContractVersion {
+			t.Fatalf("AggregateChanges row %s has version %d", row.Kind, row.Version)
+		}
 		if len(actualKinds) == 0 || actualKinds[len(actualKinds)-1] != row.Kind {
 			actualKinds = append(actualKinds, row.Kind)
 		}

@@ -2,10 +2,10 @@ import { adminWrite, queryString, request } from './client'
 import type { Announcement, AnnouncementInput, AnnouncementPage } from './site'
 
 export interface AdminIdentity { username: string; created_at: number; updated_at: number; password_changed_at: number; monitor_enabled: boolean }
-export interface AggregateStatus { state: string; last_started_at: number; last_finished_at: number; source_rows: number; aggregate_rows: number; source_watermark: number; last_duration_ms: number; last_changed_days: number; last_build_mode: string; last_error?: string }
+export interface AggregateStatus { aggregate_version: number; state: string; last_started_at: number; last_finished_at: number; source_rows: number; aggregate_rows: number; source_watermark: number; last_duration_ms: number; last_changed_days: number; last_build_mode: string; last_error?: string }
 export interface DataMaintenanceSettings { aggregate_interval_minutes: number; detail_retention_days: number; session_retention_days: number; result_retention_days: number; updated_at: number }
 export interface DatabaseUsage { driver: string; bytes: number; wal_bytes?: number }
-export interface RetentionPlan { generated_at: number; detail_cutoff: number; session_cutoff: number; result_cutoff: number; equipment_rows_eligible: number; versus_class_rows_eligible: number; session_rows_eligible: number; versus_round_results_eligible: number; versus_run_results_eligible: number; source_watermark: number; plan_id: string; deletion_enabled: boolean; aggregate_coverage_ready: boolean }
+export interface RetentionPlan { aggregate_version: number; generated_at: number; detail_cutoff: number; session_cutoff: number; result_cutoff: number; equipment_rows_eligible: number; versus_class_rows_eligible: number; session_rows_eligible: number; versus_round_results_eligible: number; versus_run_results_eligible: number; source_watermark: number; plan_id: string; deletion_enabled: boolean; aggregate_coverage_ready: boolean }
 export interface RetentionResult { run_id: string; executed_at: number; equipment_rows: number; versus_class_rows: number; session_rows: number; versus_round_result_rows: number; versus_run_result_rows: number }
 export interface DataGrowthStatus { aggregate: AggregateStatus; settings: DataMaintenanceSettings; stats_database: DatabaseUsage; dashboard_database: DatabaseUsage; log_bytes: number; retention_runs: number; retention_plan: RetentionPlan }
 

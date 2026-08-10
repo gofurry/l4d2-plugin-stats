@@ -65,6 +65,7 @@ export function AdminDataPage() {
     <section className={styles.dataSection}>
       <div className={styles.sectionTitleRow}><div className={styles.formSectionHeading}><strong>{t('incrementalAggregate')}</strong><span>{t('incrementalAggregateHint')}</span></div><Button icon={<SyncOutlined />} loading={aggregate.isPending} onClick={() => aggregate.mutate()}>{t('aggregateNow')}</Button></div>
       <div className={styles.dataStatusRows}>
+        <span>{t('aggregateContract')}</span><strong>v{data.aggregate.aggregate_version}</strong>
         <span>{t('aggregateState')}</span><strong>{data.aggregate.state}</strong>
         <span>{t('lastAggregate')}</span><strong>{dateTime(data.aggregate.last_finished_at)}</strong>
         <span>{t('aggregateDuration')}</span><strong>{data.aggregate.last_duration_ms.toLocaleString()} ms</strong>

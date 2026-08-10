@@ -16,46 +16,50 @@ type AdminAccount struct {
 }
 
 type AggregateLifetimeRow struct {
-	Kind        string `json:"kind"`
-	ServerKey   string `json:"server_key"`
-	SteamID     string `json:"steam_id"`
-	Mode        string `json:"mode"`
-	Dimension   string `json:"dimension"`
-	MetricsJson string `json:"metrics_json"`
+	Kind             string `json:"kind"`
+	ServerKey        string `json:"server_key"`
+	SteamID          string `json:"steam_id"`
+	Mode             string `json:"mode"`
+	Dimension        string `json:"dimension"`
+	MetricsJson      string `json:"metrics_json"`
+	AggregateVersion int64  `json:"aggregate_version"`
 }
 
 type AggregateMonthlyRow struct {
-	Kind        string `json:"kind"`
-	Month       int64  `json:"month"`
-	ServerKey   string `json:"server_key"`
-	SteamID     string `json:"steam_id"`
-	Mode        string `json:"mode"`
-	Dimension   string `json:"dimension"`
-	MetricsJson string `json:"metrics_json"`
+	Kind             string `json:"kind"`
+	Month            int64  `json:"month"`
+	ServerKey        string `json:"server_key"`
+	SteamID          string `json:"steam_id"`
+	Mode             string `json:"mode"`
+	Dimension        string `json:"dimension"`
+	MetricsJson      string `json:"metrics_json"`
+	AggregateVersion int64  `json:"aggregate_version"`
 }
 
 type AggregateRow struct {
-	Kind        string `json:"kind"`
-	Day         int64  `json:"day"`
-	ServerKey   string `json:"server_key"`
-	SteamID     string `json:"steam_id"`
-	Mode        string `json:"mode"`
-	Dimension   string `json:"dimension"`
-	MetricsJson string `json:"metrics_json"`
+	Kind             string `json:"kind"`
+	Day              int64  `json:"day"`
+	ServerKey        string `json:"server_key"`
+	SteamID          string `json:"steam_id"`
+	Mode             string `json:"mode"`
+	Dimension        string `json:"dimension"`
+	MetricsJson      string `json:"metrics_json"`
+	AggregateVersion int64  `json:"aggregate_version"`
 }
 
 type AggregateState struct {
-	ID              int64  `json:"id"`
-	State           string `json:"state"`
-	LastStartedAt   int64  `json:"last_started_at"`
-	LastFinishedAt  int64  `json:"last_finished_at"`
-	SourceRows      int64  `json:"source_rows"`
-	AggregateRows   int64  `json:"aggregate_rows"`
-	LastError       string `json:"last_error"`
-	SourceWatermark int64  `json:"source_watermark"`
-	LastDurationMs  int64  `json:"last_duration_ms"`
-	LastChangedDays int64  `json:"last_changed_days"`
-	LastBuildMode   string `json:"last_build_mode"`
+	ID               int64  `json:"id"`
+	State            string `json:"state"`
+	LastStartedAt    int64  `json:"last_started_at"`
+	LastFinishedAt   int64  `json:"last_finished_at"`
+	SourceRows       int64  `json:"source_rows"`
+	AggregateRows    int64  `json:"aggregate_rows"`
+	LastError        string `json:"last_error"`
+	SourceWatermark  int64  `json:"source_watermark"`
+	LastDurationMs   int64  `json:"last_duration_ms"`
+	LastChangedDays  int64  `json:"last_changed_days"`
+	LastBuildMode    string `json:"last_build_mode"`
+	AggregateVersion int64  `json:"aggregate_version"`
 }
 
 type Announcement struct {
@@ -111,6 +115,7 @@ type RetentionRun struct {
 	SessionRows           int64  `json:"session_rows"`
 	VersusRoundResultRows int64  `json:"versus_round_result_rows"`
 	VersusRunResultRows   int64  `json:"versus_run_result_rows"`
+	AggregateVersion      int64  `json:"aggregate_version"`
 }
 
 type SiteDocument struct {

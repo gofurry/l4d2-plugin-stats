@@ -342,27 +342,30 @@ type RankingQuery struct {
 }
 
 type AggregateStatus struct {
-	State           string `json:"state"`
-	LastStartedAt   int64  `json:"last_started_at"`
-	LastFinishedAt  int64  `json:"last_finished_at"`
-	SourceRows      int64  `json:"source_rows"`
-	AggregateRows   int64  `json:"aggregate_rows"`
-	SourceWatermark int64  `json:"source_watermark"`
-	LastDurationMS  int64  `json:"last_duration_ms"`
-	LastChangedDays int64  `json:"last_changed_days"`
-	LastBuildMode   string `json:"last_build_mode"`
-	LastError       string `json:"last_error,omitempty"`
+	AggregateVersion int64  `json:"aggregate_version"`
+	State            string `json:"state"`
+	LastStartedAt    int64  `json:"last_started_at"`
+	LastFinishedAt   int64  `json:"last_finished_at"`
+	SourceRows       int64  `json:"source_rows"`
+	AggregateRows    int64  `json:"aggregate_rows"`
+	SourceWatermark  int64  `json:"source_watermark"`
+	LastDurationMS   int64  `json:"last_duration_ms"`
+	LastChangedDays  int64  `json:"last_changed_days"`
+	LastBuildMode    string `json:"last_build_mode"`
+	LastError        string `json:"last_error,omitempty"`
 }
 
 type AggregateGrain string
 
 const (
-	AggregateGrainDaily    AggregateGrain = "daily"
-	AggregateGrainMonthly  AggregateGrain = "monthly"
-	AggregateGrainLifetime AggregateGrain = "lifetime"
+	AggregateContractVersion int64          = 1
+	AggregateGrainDaily      AggregateGrain = "daily"
+	AggregateGrainMonthly    AggregateGrain = "monthly"
+	AggregateGrainLifetime   AggregateGrain = "lifetime"
 )
 
 type RetentionPlan struct {
+	AggregateVersion           int64  `json:"aggregate_version"`
 	GeneratedAt                int64  `json:"generated_at"`
 	DetailCutoff               int64  `json:"detail_cutoff"`
 	SessionCutoff              int64  `json:"session_cutoff"`
@@ -540,6 +543,7 @@ type DashboardDatabase interface {
 }
 
 type AggregateRow struct {
+	Version   int64
 	Kind      string
 	Day       int64
 	ServerKey string

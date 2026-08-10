@@ -113,7 +113,9 @@ func (s *DataMaintenanceService) plan(ctx context.Context, settings store.DataMa
 	if err != nil {
 		return store.RetentionPlan{}, err
 	}
-	plan.AggregateCoverageReady = status.State == "ready" && status.SourceWatermark >= plan.SourceWatermark
+	plan.AggregateCoverageReady = status.State == "ready" &&
+		status.AggregateVersion == plan.AggregateVersion &&
+		status.SourceWatermark >= plan.SourceWatermark
 	plan.DeletionEnabled = plan.AggregateCoverageReady
 	plan.PlanID = retentionPlanID(plan)
 	return plan, nil
@@ -142,6 +144,9 @@ func (s *DataMaintenanceService) ApplyRetention(ctx context.Context, planID stri
 	if err != nil {
 		return store.RetentionResult{}, err
 	}
+	if latest.AggregateVersion != plan.AggregateVersion {
+		return store.RetentionResult{}, fmt.Errorf("aggregate contract version changed; cleanup is blocked")
+	}
 	latest.AggregateCoverageReady = plan.AggregateCoverageReady
 	latest.DeletionEnabled = plan.DeletionEnabled
 	latest.PlanID = retentionPlanID(latest)
@@ -163,8 +168,8 @@ func (s *DataMaintenanceService) ApplyRetention(ctx context.Context, planID stri
 
 func retentionPlanID(plan store.RetentionPlan) string {
 	value := struct {
-		Detail, Session, Result, Equipment, Classes, Sessions, Rounds, Runs, Watermark int64
-	}{plan.DetailCutoff, plan.SessionCutoff, plan.ResultCutoff, plan.EquipmentRowsEligible, plan.VersusClassRowsEligible, plan.SessionRowsEligible, plan.VersusRoundResultsEligible, plan.VersusRunResultsEligible, plan.SourceWatermark}
+		Version, Detail, Session, Result, Equipment, Classes, Sessions, Rounds, Runs, Watermark int64
+	}{plan.AggregateVersion, plan.DetailCutoff, plan.SessionCutoff, plan.ResultCutoff, plan.EquipmentRowsEligible, plan.VersusClassRowsEligible, plan.SessionRowsEligible, plan.VersusRoundResultsEligible, plan.VersusRunResultsEligible, plan.SourceWatermark}
 	encoded, _ := json.Marshal(value)
 	digest := sha256.Sum256(encoded)
 	return hex.EncodeToString(digest[:16])

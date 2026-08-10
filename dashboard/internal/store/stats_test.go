@@ -178,10 +178,18 @@ func TestSQLiteIncrementalAggregationAndRetention(t *testing.T) {
 	if plan.EquipmentRowsEligible != 1 || plan.VersusClassRowsEligible != 2 || plan.SessionRowsEligible != 1 || plan.VersusRoundResultsEligible != 1 || plan.VersusRunResultsEligible != 1 {
 		t.Fatalf("plan=%+v", plan)
 	}
+	if plan.AggregateVersion != AggregateContractVersion {
+		t.Fatalf("aggregate version=%d", plan.AggregateVersion)
+	}
 	stats.Close()
 	maintenance, err := OpenStatsMaintenance(ctx, cfg)
 	if err != nil {
 		t.Fatal(err)
+	}
+	invalidPlan := plan
+	invalidPlan.AggregateVersion = 2
+	if _, err := maintenance.ApplyRetention(ctx, invalidPlan); err == nil {
+		t.Fatal("ApplyRetention accepted aggregate contract version 2")
 	}
 	result, err := maintenance.ApplyRetention(ctx, plan)
 	if err != nil {

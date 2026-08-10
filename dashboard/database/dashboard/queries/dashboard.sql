@@ -200,7 +200,7 @@ DELETE FROM announcements WHERE id = ?1;
 
 -- name: GetAggregateStatus :one
 SELECT state, last_started_at, last_finished_at, source_rows, aggregate_rows, last_error,
-       source_watermark, last_duration_ms, last_changed_days, last_build_mode
+       source_watermark, last_duration_ms, last_changed_days, last_build_mode, aggregate_version
 FROM aggregate_state WHERE id = 1;
 
 -- name: MarkAggregateStarted :exec
@@ -213,7 +213,7 @@ UPDATE aggregate_state SET state = 'failed', last_error = ?1 WHERE id = 1;
 UPDATE aggregate_state SET state = 'ready', last_finished_at = ?1,
   source_rows = ?2, aggregate_rows = ?3, source_watermark = ?4,
   last_duration_ms = ?5, last_changed_days = ?6, last_build_mode = ?7,
-  last_error = '' WHERE id = 1;
+  aggregate_version = ?8, last_error = '' WHERE id = 1;
 
 -- name: DeleteAggregateRows :exec
 DELETE FROM aggregate_rows;
@@ -229,8 +229,8 @@ SELECT
 
 -- name: InsertAggregateRow :exec
 INSERT INTO aggregate_rows (
-  kind, day, server_key, steam_id, mode, dimension, metrics_json
-) VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7);
+  kind, day, server_key, steam_id, mode, dimension, metrics_json, aggregate_version
+) VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8);
 
 -- name: GetDataMaintenanceSettings :one
 SELECT aggregate_interval_minutes, detail_retention_days,
@@ -250,8 +250,8 @@ WHERE id = 1;
 INSERT INTO retention_runs (
   id, executed_at, source_watermark, detail_cutoff, session_cutoff, result_cutoff,
   equipment_rows, versus_class_rows, session_rows,
-  versus_round_result_rows, versus_run_result_rows
-) VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9, ?10, ?11);
+  versus_round_result_rows, versus_run_result_rows, aggregate_version
+) VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9, ?10, ?11, ?12);
 
 -- name: CountRetentionRuns :one
 SELECT COUNT(*) FROM retention_runs;

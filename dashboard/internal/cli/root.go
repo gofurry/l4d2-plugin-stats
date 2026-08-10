@@ -185,7 +185,8 @@ func retentionCommand(options *rootOptions) *cobra.Command {
 		if err != nil {
 			return err
 		}
-		plan.AggregateCoverageReady = status.State == "ready" && status.LastFinishedAt > 0
+		plan.AggregateCoverageReady = status.State == "ready" &&
+			status.AggregateVersion == plan.AggregateVersion && status.LastFinishedAt > 0
 		plan.DeletionEnabled = false
 		return writeJSON(cmd, plan)
 	}})
