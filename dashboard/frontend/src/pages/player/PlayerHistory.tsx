@@ -20,7 +20,25 @@ export function PlayerHistory({ sessions, chapters, sessionPage, chapterPage, co
 }) {
   const { t } = useTranslation()
   return <div className={styles.historyGrid}>
-    <Section title={copy.sessionHistory}><div className={styles.recordList}>{sessions.map((item, index) => <div key={`${item.started_at}-${index}`}><strong>{item.player_name || item.server_key}</strong><span>{item.server_key}</span><span>{date(item.started_at)}</span><span>{duration(item.active_play_seconds)}</span><Tag>{item.status}</Tag></div>)}</div>{sessionPage.hasNextPage && <Button loading={sessionPage.isFetchingNextPage} onClick={() => void sessionPage.fetchNextPage()}>{t('loadMore')}</Button>}</Section>
-    <Section title={copy.chapterHistory}><div className={styles.recordList}>{chapters.map((item, index) => <div key={`${item.started_at}-${index}`}><strong>{item.map_name}</strong><span>{item.game_mode} · {item.side || '—'}</span><span>{date(item.started_at)}</span><span>{duration(item.active_play_seconds)}</span><Tag>{item.status}</Tag></div>)}</div>{chapterPage.hasNextPage && <Button loading={chapterPage.isFetchingNextPage} onClick={() => void chapterPage.fetchNextPage()}>{t('loadMore')}</Button>}</Section>
+    <Section title={copy.sessionHistory}>
+      <div className={styles.recordList}>{sessions.map((item, index) => <div key={`${item.started_at}-${index}`}>
+        <strong className={styles.recordPrimary}>{item.player_name || item.server_key}</strong>
+        <span className={styles.recordSecondary}>{item.server_key}</span>
+        <span className={styles.recordDate}>{date(item.started_at)}</span>
+        <span className={styles.recordDuration}>{duration(item.active_play_seconds)}</span>
+        <span className={styles.recordStatus}><Tag>{item.status}</Tag></span>
+      </div>)}</div>
+      {sessionPage.hasNextPage && <Button loading={sessionPage.isFetchingNextPage} onClick={() => void sessionPage.fetchNextPage()}>{t('loadMore')}</Button>}
+    </Section>
+    <Section title={copy.chapterHistory}>
+      <div className={styles.recordList}>{chapters.map((item, index) => <div key={`${item.started_at}-${index}`}>
+        <strong className={styles.recordPrimary}>{item.map_name}</strong>
+        <span className={styles.recordSecondary}>{item.game_mode} · {item.side || '—'}</span>
+        <span className={styles.recordDate}>{date(item.started_at)}</span>
+        <span className={styles.recordDuration}>{duration(item.active_play_seconds)}</span>
+        <span className={styles.recordStatus}><Tag>{item.status}</Tag></span>
+      </div>)}</div>
+      {chapterPage.hasNextPage && <Button loading={chapterPage.isFetchingNextPage} onClick={() => void chapterPage.fetchNextPage()}>{t('loadMore')}</Button>}
+    </Section>
   </div>
 }

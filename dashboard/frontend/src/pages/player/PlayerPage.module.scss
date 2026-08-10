@@ -42,7 +42,13 @@
 .compactTable > div:nth-child(even), .recordList > div:nth-child(even) { background: rgba(201, 181, 162, .2); }
 .compactTable > div:hover, .recordList > div:hover { background: rgba(211, 145, 96, .2); }
 .compactTable strong, .recordList strong { overflow: hidden; color: #4c392f; text-overflow: ellipsis; white-space: nowrap; }
-.recordList > div { grid-template-columns: minmax(130px, 1.2fr) minmax(110px, 1fr) 1.3fr 80px auto; }
+.recordList > div { grid-template-columns: minmax(84px, 1fr) minmax(96px, 1fr) 128px 58px 76px; gap: 8px; padding: 0 10px; }
+.recordList > div > * { min-width: 0; }
+.recordSecondary { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.recordDate, .recordDuration { font-variant-numeric: tabular-nums; white-space: nowrap; }
+.recordDuration { text-align: right; }
+.recordStatus { display: flex; justify-content: flex-end; }
+.recordStatus :global(.ant-tag) { margin-inline-end: 0; }
 .historyGrid .dataSection { align-self: start; }
 .loading, .empty { margin-top: 16px; padding: 58px 20px; text-align: center; }
 
@@ -50,6 +56,9 @@
   .content { width: calc(100% - 250px); margin-right: 76px; }
   .queryPanel { grid-template-columns: 1fr; }
   .chartGrid { grid-template-columns: 1fr; }
+}
+@media (max-width: 1100px) {
+  .historyGrid { grid-template-columns: 1fr; }
 }
 @media (max-width: 720px) {
   .content { width: calc(100% - 78px); margin: 0 64px 0 14px; padding: 24px 0 96px; }
@@ -65,7 +74,7 @@
   .compactTable > div { grid-template-columns: minmax(100px, 1fr) repeat(2, 70px); }
   .compactTable > div span:nth-of-type(n+3) { display: none; }
   .recordList > div { grid-template-columns: 1fr auto; padding: 9px 12px; }
-  .recordList > div span:nth-of-type(2), .recordList > div span:nth-of-type(3) { display: none; }
+  .recordSecondary, .recordDate, .recordDuration { display: none; }
 }
 
 :global(html[data-theme='dark']) {
