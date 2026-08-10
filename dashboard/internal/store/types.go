@@ -10,7 +10,7 @@ var ErrServerNotFound = errors.New("game server not found")
 
 const (
 	DashboardSchemaVersion int64 = 9
-	StatsSchemaVersion     int64 = 1
+	StatsSchemaVersion     int64 = 2
 )
 
 type FooterLink struct {
@@ -199,6 +199,7 @@ type PlayerPVE struct {
 	IncapacitatedSeconds  int64              `json:"incapacitated_seconds"`
 	LedgeHangingSeconds   int64              `json:"ledge_hanging_seconds"`
 	BlackWhiteRestored    int64              `json:"black_white_teammates_restored"`
+	CarAlarmsTriggered    int64              `json:"car_alarms_triggered"`
 	Classes               []PVEInfectedClass `json:"infected_classes"`
 	Equipment             []PVEEquipment     `json:"equipment"`
 }
@@ -271,6 +272,7 @@ type PlayerVersus struct {
 	SurvivorTankRocksDestroyed  int64                 `json:"survivor_tank_rocks_destroyed"`
 	SurvivorWitchOneShots       int64                 `json:"survivor_witch_oneshots"`
 	SurvivorWitchSoloKills      int64                 `json:"survivor_witch_solo_kills"`
+	SurvivorCarAlarmsTriggered  int64                 `json:"survivor_car_alarms_triggered"`
 	DamageToBotSurvivors        int64                 `json:"damage_to_bot_survivors"`
 	BotSurvivorIncaps           int64                 `json:"bot_survivor_incaps"`
 	BotSurvivorKills            int64                 `json:"bot_survivor_kills"`
@@ -628,6 +630,10 @@ type StatsFilteredStore interface {
 
 type StatsPresenceStore interface {
 	ActivePlayers(context.Context, string, int64) ([]ActivePlayer, error)
+}
+
+type StatsIncidentRankingStore interface {
+	CarAlarmRanking(context.Context, RankingQuery) ([]RankingEntry, error)
 }
 
 type StatsDatabase interface {

@@ -84,18 +84,24 @@ func applyContractMigration(t *testing.T, db *sql.DB, driver string) {
 		migrationDriver = "pgsql"
 	}
 	_, current, _, _ := runtime.Caller(0)
-	path := filepath.Clean(filepath.Join(filepath.Dir(current), "..", "..", "..", "database", "migrations", migrationDriver, "0001_initial.sql"))
-	contents, err := os.ReadFile(path)
-	if err != nil {
-		t.Fatalf("read %s migration: %v", driver, err)
+	directory := filepath.Clean(filepath.Join(filepath.Dir(current), "..", "..", "..", "database", "migrations", migrationDriver))
+	paths, err := filepath.Glob(filepath.Join(directory, "*.sql"))
+	if err != nil || len(paths) == 0 {
+		t.Fatalf("list %s migrations: %v", driver, err)
 	}
-	for _, statement := range strings.Split(string(contents), "-- statement-breakpoint") {
-		statement = strings.TrimSpace(statement)
-		if statement == "" {
-			continue
+	for _, path := range paths {
+		contents, err := os.ReadFile(path)
+		if err != nil {
+			t.Fatalf("read %s migration: %v", driver, err)
 		}
-		if _, err := db.Exec(statement); err != nil {
-			t.Fatalf("apply %s migration: %v\n%s", driver, err, statement)
+		for _, statement := range strings.Split(string(contents), "-- statement-breakpoint") {
+			statement = strings.TrimSpace(statement)
+			if statement == "" {
+				continue
+			}
+			if _, err := db.Exec(statement); err != nil {
+				t.Fatalf("apply %s migration %s: %v\n%s", driver, filepath.Base(path), err, statement)
+			}
 		}
 	}
 }
@@ -105,7 +111,7 @@ func insertContractFixture(t *testing.T, db *sql.DB) {
 	b := contractBaseTime
 	w := contractWatermark
 	statements := []string{
-		fmt.Sprintf(`INSERT INTO lps_schema_migrations (version,name,applied_at) VALUES (1,'initial',%d)`, b),
+		fmt.Sprintf(`INSERT INTO lps_schema_migrations (version,name,applied_at) VALUES (1,'initial',%d),(2,'car_alarms_triggered',%d)`, b, b+1),
 		fmt.Sprintf(`INSERT INTO lps_servers (server_key,display_name,first_seen_at,last_seen_at) VALUES ('one','Server One',%d,%d),('two','Server Two',%d,%d)`, b-100, b+500, b-100, b+500),
 		fmt.Sprintf(`INSERT INTO lps_server_boots (boot_id,server_key,started_at,ended_at,last_heartbeat_at,status) VALUES ('boot-one','one',%d,%d,%d,'closed'),('boot-two','two',%d,%d,%d,'closed')`, b-10, b+400, b+400, b-10, b+400, b+400),
 		fmt.Sprintf(`INSERT INTO lps_players (steam_id,last_name,first_seen_at,last_seen_at) VALUES ('1','Alice',%d,%d),('2','Bob',%d,%d)`, b-100, b+400, b-50, b+200),
@@ -113,9 +119,9 @@ func insertContractFixture(t *testing.T, db *sql.DB) {
 		fmt.Sprintf(`INSERT INTO lps_runs (run_id,boot_id,server_key,mode_family,game_mode,campaign_key,started_at,ended_at,last_saved_at,status,round_count,completed_round_count) VALUES ('run-pve','boot-one','one','pve','coop','c1',%d,%d,%d,'completed',1,1),('run-versus','boot-one','one','versus','versus','c5',%d,%d,%d,'completed',1,1)`, b+10, b+200, b+410, b+20, b+300, b+420),
 		fmt.Sprintf(`INSERT INTO lps_rounds (round_id,run_id,server_key,mode_family,map_name,round_seq,map_seq,attempt_no,half_no,started_at,ended_at,last_saved_at,status) VALUES ('round-pve','run-pve','one','pve','c1m1_hotel',1,1,1,0,%d,%d,%d,'completed'),('round-versus','run-versus','one','versus','c5m1_waterfront',1,1,1,1,%d,%d,%d,'completed')`, b+20, b+190, b+411, b+30, b+290, b+421),
 		fmt.Sprintf(`INSERT INTO lps_player_segments (segment_id,session_id,run_id,round_id,server_key,steam_id,side,started_at,ended_at,last_saved_at,active_play_seconds,status) VALUES ('segment-pve','session-alice','run-pve','round-pve','one','1','survivor',%d,%d,%d,90,'closed'),('segment-vs','session-alice','run-versus','round-versus','one','1','survivor',%d,%d,%d,70,'closed'),('segment-vi','session-alice','run-versus','round-versus','one','1','infected',%d,%d,%d,60,'closed')`, b+30, b+180, b+430, b+40, b+200, b+440, b+50, b+210, b+450),
-		fmt.Sprintf(`INSERT INTO lps_pve_segment_stats (segment_id,stats_version,last_saved_at,common_kills,special_kills,tank_kills,witch_kills,damage_to_special,damage_to_tank,damage_to_witch,damage_taken_infected,friendly_fire_to_humans,friendly_fire_to_bots,friendly_fire_taken,incapacitations,deaths,incap_revives,ledge_rescues,defib_revives,rescues_received,medkits_used_self,medkits_used_on_others,medkit_healing_self,medkit_healing_others,pills_used,adrenaline_used,temporary_health_received,chapter_participations,chapter_completions_alive,campaign_completions,smoker_kills,damage_to_smoker,smoker_controls_received,smoker_controlled_seconds,smoker_saves,melee_tongue_self_cuts,tank_rocks_destroyed,witch_oneshots,witch_solo_kills,tank_encounters,tank_kill_participations,witch_encounters,witch_kill_participations,incendiary_packs_deployed,explosive_packs_deployed,objective_interactions,ammo_pile_uses,incapacitated_seconds,ledge_hanging_seconds,black_white_teammates_restored) VALUES ('segment-pve',1,%d,100,12,2,1,1200,400,200,300,10,5,7,3,1,2,3,4,1,2,1,80,40,3,2,50,1,1,1,4,500,2,30,3,1,2,1,1,2,1,1,1,1,1,2,4,20,10,1)`, b+460),
+		fmt.Sprintf(`INSERT INTO lps_pve_segment_stats (segment_id,stats_version,last_saved_at,common_kills,special_kills,tank_kills,witch_kills,damage_to_special,damage_to_tank,damage_to_witch,damage_taken_infected,friendly_fire_to_humans,friendly_fire_to_bots,friendly_fire_taken,incapacitations,deaths,incap_revives,ledge_rescues,defib_revives,rescues_received,medkits_used_self,medkits_used_on_others,medkit_healing_self,medkit_healing_others,pills_used,adrenaline_used,temporary_health_received,chapter_participations,chapter_completions_alive,campaign_completions,smoker_kills,damage_to_smoker,smoker_controls_received,smoker_controlled_seconds,smoker_saves,melee_tongue_self_cuts,tank_rocks_destroyed,witch_oneshots,witch_solo_kills,tank_encounters,tank_kill_participations,witch_encounters,witch_kill_participations,incendiary_packs_deployed,explosive_packs_deployed,objective_interactions,ammo_pile_uses,incapacitated_seconds,ledge_hanging_seconds,black_white_teammates_restored,car_alarms_triggered) VALUES ('segment-pve',1,%d,100,12,2,1,1200,400,200,300,10,5,7,3,1,2,3,4,1,2,1,80,40,3,2,50,1,1,1,4,500,2,30,3,1,2,1,1,2,1,1,1,1,1,2,4,20,10,1,3)`, b+460),
 		fmt.Sprintf(`INSERT INTO lps_pve_segment_equipment_stats (segment_id,equipment_id,stats_version,last_saved_at,actions,common_kills,special_kills,tank_kills,witch_kills,headshot_kills,damage_to_special,damage_to_tank,damage_to_witch) VALUES ('segment-pve',7,1,%d,15,25,4,1,1,8,300,100,50)`, b+461),
-		fmt.Sprintf(`INSERT INTO lps_versus_survivor_stats (segment_id,stats_version,last_saved_at,common_kills,human_special_kills,bot_special_kills,human_tank_kills,bot_tank_kills,damage_to_human_special,damage_to_bot_special,damage_to_human_tank,damage_to_bot_tank,damage_taken_infected,friendly_fire_to_humans,friendly_fire_to_bots,friendly_fire_taken,incapacitations,deaths,incap_revives,ledge_rescues,defib_revives,rescues_received,medkits_used_self,medkits_used_on_others,medkit_healing_self,medkit_healing_others,pills_used,adrenaline_used,temporary_health_received,witch_kills,damage_to_witch,molotovs_thrown,pipe_bombs_thrown,vomit_jars_thrown,incendiary_packs_deployed,explosive_packs_deployed,melee_tongue_self_cuts,tank_rocks_destroyed,witch_oneshots,witch_solo_kills) VALUES ('segment-vs',1,%d,40,7,3,2,1,100,50,200,75,80,4,2,3,2,1,1,2,1,2,1,2,30,50,2,1,20,1,90,1,2,3,1,2,1,1,1,1)`, b+470),
+		fmt.Sprintf(`INSERT INTO lps_versus_survivor_stats (segment_id,stats_version,last_saved_at,common_kills,human_special_kills,bot_special_kills,human_tank_kills,bot_tank_kills,damage_to_human_special,damage_to_bot_special,damage_to_human_tank,damage_to_bot_tank,damage_taken_infected,friendly_fire_to_humans,friendly_fire_to_bots,friendly_fire_taken,incapacitations,deaths,incap_revives,ledge_rescues,defib_revives,rescues_received,medkits_used_self,medkits_used_on_others,medkit_healing_self,medkit_healing_others,pills_used,adrenaline_used,temporary_health_received,witch_kills,damage_to_witch,molotovs_thrown,pipe_bombs_thrown,vomit_jars_thrown,incendiary_packs_deployed,explosive_packs_deployed,melee_tongue_self_cuts,tank_rocks_destroyed,witch_oneshots,witch_solo_kills,car_alarms_triggered) VALUES ('segment-vs',1,%d,40,7,3,2,1,100,50,200,75,80,4,2,3,2,1,1,2,1,2,1,2,30,50,2,1,20,1,90,1,2,3,1,2,1,1,1,1,2)`, b+470),
 		fmt.Sprintf(`INSERT INTO lps_versus_survivor_infected_class_stats (segment_id,infected_class,stats_version,last_saved_at,human_controller_kills,bot_controller_kills,damage_to_human_controllers,damage_to_bot_controllers) VALUES ('segment-vs',3,1,%d,5,2,120,60)`, b+471),
 		fmt.Sprintf(`INSERT INTO lps_versus_infected_stats (segment_id,stats_version,last_saved_at,spawn_count,damage_to_human_survivors,damage_to_bot_survivors,human_survivor_incaps,bot_survivor_incaps,human_survivor_kills,bot_survivor_kills) VALUES ('segment-vi',1,%d,6,450,120,3,2,1,1)`, b+480),
 		fmt.Sprintf(`INSERT INTO lps_versus_infected_class_stats (segment_id,infected_class,stats_version,last_saved_at,spawn_count,damage_to_human_survivors,damage_to_bot_survivors,human_survivor_incaps,bot_survivor_incaps,human_survivor_kills,bot_survivor_kills,human_survivor_controls,bot_survivor_controls,human_survivor_control_seconds,bot_survivor_control_seconds,human_survivor_ability_hits,bot_survivor_ability_hits,human_survivor_ability_damage,bot_survivor_ability_damage) VALUES ('segment-vi',3,1,%d,6,450,120,3,2,1,1,11,4,75,20,9,3,180,40)`, b+481),

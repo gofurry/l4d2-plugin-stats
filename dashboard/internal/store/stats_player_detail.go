@@ -91,6 +91,10 @@ func (s *statsStore) enrichPlayerPVE(ctx context.Context, steamID string, filter
 	if err != nil {
 		return PlayerPVE{}, err
 	}
+	incidents, err := s.queryMetricTotals(queryCtx, "lps_pve_segment_stats p "+where+" AND p.stats_version=1", "p", []string{"car_alarms_triggered"}, args...)
+	if err != nil {
+		return PlayerPVE{}, err
+	}
 	result.CommonKills = core["common_kills"]
 	result.SpecialKills = core["special_kills"]
 	result.TankKills = core["tank_kills"]
@@ -137,6 +141,7 @@ func (s *statsStore) enrichPlayerPVE(ctx context.Context, steamID string, filter
 	result.IncapacitatedSeconds = detail["incapacitated_seconds"]
 	result.LedgeHangingSeconds = detail["ledge_hanging_seconds"]
 	result.BlackWhiteRestored = detail["black_white_teammates_restored"]
+	result.CarAlarmsTriggered = incidents["car_alarms_triggered"]
 	classNames := []string{"smoker", "boomer", "hunter", "spitter", "jockey", "charger"}
 	result.Classes = make([]PVEInfectedClass, 0, len(classNames))
 	for index, name := range classNames {
@@ -166,6 +171,10 @@ func (s *statsStore) enrichPlayerVersus(ctx context.Context, steamID string, fil
 	defer cancel()
 	survivorWhere, args := s.playerSegmentWhere("p", "versus", "survivor", steamID, filter)
 	survivor, err := s.queryMetricTotals(queryCtx, "lps_versus_survivor_stats p "+survivorWhere+" AND p.stats_version=1", "p", versusSurvivorMetrics, args...)
+	if err != nil {
+		return PlayerVersus{}, err
+	}
+	survivorIncidents, err := s.queryMetricTotals(queryCtx, "lps_versus_survivor_stats p "+survivorWhere+" AND p.stats_version=1", "p", []string{"car_alarms_triggered"}, args...)
 	if err != nil {
 		return PlayerVersus{}, err
 	}
@@ -203,6 +212,7 @@ func (s *statsStore) enrichPlayerVersus(ctx context.Context, steamID string, fil
 	result.SurvivorTankRocksDestroyed = survivor["tank_rocks_destroyed"]
 	result.SurvivorWitchOneShots = survivor["witch_oneshots"]
 	result.SurvivorWitchSoloKills = survivor["witch_solo_kills"]
+	result.SurvivorCarAlarmsTriggered = survivorIncidents["car_alarms_triggered"]
 	survivorClasses, err := s.queryGroupedMetrics(queryCtx, "lps_versus_survivor_infected_class_stats p "+survivorWhere+" AND p.stats_version=1", "p", "p.infected_class", versusSurvivorClassMetrics, args...)
 	if err != nil {
 		return PlayerVersus{}, err

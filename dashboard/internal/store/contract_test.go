@@ -13,7 +13,7 @@ func TestDatabaseContract(t *testing.T) {
 	stats := openDatabaseContractFixture(t)
 
 	version, err := stats.SchemaVersion(ctx)
-	contractEqual(t, "SchemaVersion", version, int64(1), err)
+	contractEqual(t, "SchemaVersion", version, StatsSchemaVersion, err)
 
 	overview, err := stats.Overview(ctx, time.Unix(contractBaseTime-1, 0))
 	overview.Generated = time.Time{}
@@ -40,6 +40,12 @@ func TestDatabaseContract(t *testing.T) {
 
 	versus, err := stats.PlayerVersus(ctx, "1", 0)
 	contractEqual(t, "PlayerVersus", versus, expectedContractVersus(), err)
+
+	incidentRankings := stats.(StatsIncidentRankingStore)
+	pveRanking, err := incidentRankings.CarAlarmRanking(ctx, RankingQuery{Mode: "pve"})
+	contractEqual(t, "PVE car alarm ranking", pveRanking, []RankingEntry{{Rank: 1, SteamID: "1", PlayerName: "Alice", Value: 3, ActiveSeconds: 90}}, err)
+	versusRanking, err := incidentRankings.CarAlarmRanking(ctx, RankingQuery{Mode: "versus_survivor"})
+	contractEqual(t, "Versus car alarm ranking", versusRanking, []RankingEntry{{Rank: 1, SteamID: "1", PlayerName: "Alice", Value: 2, ActiveSeconds: 70}}, err)
 
 	ended := contractBaseTime + 300
 	sessions, err := stats.PlayerSessions(ctx, "1", 0, "", 20)
@@ -111,7 +117,7 @@ func expectedContractPVE() PlayerPVE {
 		TongueSelfCuts: 1, TankRocksDestroyed: 2, WitchOneShots: 1, WitchSoloKills: 1,
 		TankEncounters: 2, TankParticipations: 1, WitchEncounters: 1, WitchParticipations: 1,
 		IncendiaryPacks: 1, ExplosivePacks: 1, ObjectiveInteractions: 2, AmmoPileUses: 4,
-		IncapacitatedSeconds: 20, LedgeHangingSeconds: 10, BlackWhiteRestored: 1,
+		IncapacitatedSeconds: 20, LedgeHangingSeconds: 10, BlackWhiteRestored: 1, CarAlarmsTriggered: 3,
 		Classes: []PVEInfectedClass{
 			{ClassID: 1, Kills: 4, Damage: 500, ControlsReceived: 2, ControlledSeconds: 30, Saves: 3},
 			{ClassID: 2}, {ClassID: 3}, {ClassID: 4}, {ClassID: 5}, {ClassID: 6},
@@ -128,7 +134,7 @@ func expectedContractVersus() PlayerVersus {
 		SurvivorMedkitsSelf: 1, SurvivorMedkitsOthers: 2, SurvivorHealingSelf: 30, SurvivorHealingOthers: 50,
 		SurvivorPills: 2, SurvivorAdrenaline: 1, SurvivorTemporaryHealth: 20, SurvivorWitchKills: 1, SurvivorWitchDamage: 90,
 		MolotovsThrown: 1, PipeBombsThrown: 2, VomitJarsThrown: 3, SurvivorIncendiaryPacks: 1, SurvivorExplosivePacks: 2,
-		SurvivorTongueSelfCuts: 1, SurvivorTankRocksDestroyed: 1, SurvivorWitchOneShots: 1, SurvivorWitchSoloKills: 1,
+		SurvivorTongueSelfCuts: 1, SurvivorTankRocksDestroyed: 1, SurvivorWitchOneShots: 1, SurvivorWitchSoloKills: 1, SurvivorCarAlarmsTriggered: 2,
 		InfectedSpawns: 6, DamageToHumanSurvivors: 450, DamageToBotSurvivors: 120, HumanSurvivorIncaps: 3, BotSurvivorIncaps: 2,
 		HumanSurvivorKills: 1, BotSurvivorKills: 1, HumanSurvivorControls: 11, HumanSurvivorControlSeconds: 75,
 		SurvivorClasses: []VersusSurvivorClass{{ClassID: 3, HumanControllerKills: 5, BotControllerKills: 2, DamageToHumanControllers: 120, DamageToBotControllers: 60}},

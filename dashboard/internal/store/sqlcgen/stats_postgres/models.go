@@ -120,6 +120,7 @@ type LpsPveSegmentStat struct {
 	LedgeHangingSeconds         int64
 	BlackWhiteTeammatesRestored int64
 	Revision                    int64
+	CarAlarmsTriggered          sql.NullInt64
 }
 
 type LpsRound struct {
@@ -317,4 +318,5 @@ type LpsVersusSurvivorStat struct {
 	WitchOneshots           int64
 	WitchSoloKills          int64
 	Revision                int64
+	CarAlarmsTriggered      sql.NullInt64
 }

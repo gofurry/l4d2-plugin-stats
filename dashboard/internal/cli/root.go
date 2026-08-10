@@ -135,8 +135,8 @@ func serveCommand(options *rootOptions) *cobra.Command {
 		if err != nil {
 			return fmt.Errorf("read stats schema version: %w", err)
 		}
-		if version != 1 {
-			return fmt.Errorf("unsupported stats schema version %d; expected 1", version)
+		if version != store.StatsSchemaVersion {
+			return fmt.Errorf("unsupported stats schema version %d; expected %d", version, store.StatsSchemaVersion)
 		}
 		assets, err := webassets.Dist()
 		if err != nil {

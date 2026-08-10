@@ -261,19 +261,25 @@ func createStatsFixture(t *testing.T, path string) {
 	}
 	defer db.Close()
 	_, current, _, _ := runtime.Caller(0)
-	migration := filepath.Clean(filepath.Join(filepath.Dir(current), "..", "..", "..", "database", "migrations", "sqlite", "0001_initial.sql"))
-	contents, err := os.ReadFile(migration)
-	if err != nil {
-		t.Fatal(err)
+	directory := filepath.Clean(filepath.Join(filepath.Dir(current), "..", "..", "..", "database", "migrations", "sqlite"))
+	migrations, err := filepath.Glob(filepath.Join(directory, "*.sql"))
+	if err != nil || len(migrations) == 0 {
+		t.Fatalf("list Stats migrations: %v", err)
 	}
-	for _, statement := range strings.Split(string(contents), "-- statement-breakpoint") {
-		if statement = strings.TrimSpace(statement); statement != "" {
-			if _, err := db.Exec(statement); err != nil {
-				t.Fatalf("apply Stats migration: %v", err)
+	for _, migration := range migrations {
+		contents, err := os.ReadFile(migration)
+		if err != nil {
+			t.Fatal(err)
+		}
+		for _, statement := range strings.Split(string(contents), "-- statement-breakpoint") {
+			if statement = strings.TrimSpace(statement); statement != "" {
+				if _, err := db.Exec(statement); err != nil {
+					t.Fatalf("apply Stats migration: %v", err)
+				}
 			}
 		}
 	}
-	if _, err := db.Exec(`INSERT INTO lps_schema_migrations VALUES (1,'initial',1)`); err != nil {
+	if _, err := db.Exec(`INSERT INTO lps_schema_migrations VALUES (1,'initial',1),(2,'car_alarms_triggered',2)`); err != nil {
 		t.Fatal(err)
 	}
 }
@@ -336,7 +342,7 @@ func assertZipModeAndManifest(t *testing.T, path string) {
 		if err := json.Unmarshal(readZipEntry(t, file), &manifest); err != nil {
 			t.Fatal(err)
 		}
-		if manifest.DashboardSchema != 9 || manifest.StatsSchema != 1 || manifest.AggregateVersion != 1 || len(manifest.Members) != 3 {
+		if manifest.DashboardSchema != store.DashboardSchemaVersion || manifest.StatsSchema != store.StatsSchemaVersion || manifest.AggregateVersion != store.AggregateContractVersion || len(manifest.Members) != 3 {
 			t.Fatalf("manifest = %#v", manifest)
 		}
 		return

@@ -17,7 +17,7 @@ export interface PlayerPVE {
   medkits_used: number; medkits_used_self: number; medkits_used_on_others: number; healing: number; medkit_healing_self: number; medkit_healing_others: number; pills_used: number; adrenaline_used: number; temporary_health_received: number
   chapter_participations: number; chapter_completions: number; chapter_completions_alive: number; chapter_completions_dead: number; campaign_completions: number
   melee_tongue_self_cuts: number; tank_rocks_destroyed: number; witch_oneshots: number; witch_solo_kills: number; tank_encounters: number; tank_kill_participations: number; witch_encounters: number; witch_kill_participations: number
-  incendiary_packs_deployed: number; explosive_packs_deployed: number; objective_interactions: number; ammo_pile_uses: number; incapacitated_seconds: number; ledge_hanging_seconds: number; black_white_teammates_restored: number
+  incendiary_packs_deployed: number; explosive_packs_deployed: number; objective_interactions: number; ammo_pile_uses: number; incapacitated_seconds: number; ledge_hanging_seconds: number; black_white_teammates_restored: number; car_alarms_triggered: number
   infected_classes: PVEInfectedClass[]; equipment: PVEEquipment[]
 }
 export interface VersusSurvivorClass { class_id: number; human_controller_kills: number; bot_controller_kills: number; damage_to_human_controllers: number; damage_to_bot_controllers: number }
@@ -25,7 +25,7 @@ export interface VersusInfectedClass { class_id: number; spawns: number; damage_
 export interface PlayerVersus {
   survivor_common_kills: number; human_special_kills: number; bot_special_kills: number; human_tank_kills: number; bot_tank_kills: number; survivor_damage: number; survivor_damage_taken: number; survivor_friendly_fire: number; survivor_friendly_fire_taken: number; survivor_incapacitations: number; survivor_deaths: number; survivor_revives: number; survivor_incap_revives: number; survivor_ledge_rescues: number; survivor_defib_revives: number; survivor_rescues_received: number
   survivor_medkits_self: number; survivor_medkits_others: number; survivor_healing_self: number; survivor_healing_others: number; survivor_pills: number; survivor_adrenaline: number; survivor_temporary_health: number; survivor_witch_kills: number; survivor_witch_damage: number
-  molotovs_thrown: number; pipe_bombs_thrown: number; vomit_jars_thrown: number; survivor_incendiary_packs: number; survivor_explosive_packs: number; survivor_tongue_self_cuts: number; survivor_tank_rocks_destroyed: number; survivor_witch_oneshots: number; survivor_witch_solo_kills: number
+  molotovs_thrown: number; pipe_bombs_thrown: number; vomit_jars_thrown: number; survivor_incendiary_packs: number; survivor_explosive_packs: number; survivor_tongue_self_cuts: number; survivor_tank_rocks_destroyed: number; survivor_witch_oneshots: number; survivor_witch_solo_kills: number; survivor_car_alarms_triggered: number
   infected_spawns: number; damage_to_human_survivors: number; damage_to_bot_survivors: number; human_survivor_incaps: number; bot_survivor_incaps: number; human_survivor_kills: number; bot_survivor_kills: number; human_survivor_controls: number; human_survivor_control_seconds: number
   survivor_classes: VersusSurvivorClass[]; infected_classes: VersusInfectedClass[]
 }

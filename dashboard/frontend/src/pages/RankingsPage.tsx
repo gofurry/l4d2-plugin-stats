@@ -13,13 +13,13 @@ import styles from './RankingsPage.module.scss'
 
 const metricOptions = {
   activity: ['active_time', 'sessions'],
-  pve: ['common_kills', 'special_kills', 'boss_kills', 'special_damage', 'rescues', 'healing', 'campaign_completions', 'tongue_self_cuts', 'rocks_destroyed', 'common_kills_per_hour', 'special_kills_per_hour'],
-  versus_survivor: ['human_si_kills', 'damage', 'rescues', 'human_si_kills_per_hour'],
+  pve: ['common_kills', 'special_kills', 'boss_kills', 'special_damage', 'rescues', 'healing', 'campaign_completions', 'tongue_self_cuts', 'rocks_destroyed', 'car_alarms_triggered', 'common_kills_per_hour', 'special_kills_per_hour'],
+  versus_survivor: ['human_si_kills', 'damage', 'rescues', 'car_alarms_triggered', 'human_si_kills_per_hour'],
   versus_infected: ['damage', 'incaps', 'kills', 'controls', 'damage_per_hour'],
 } as const
 
 const metricLabels: Record<string, [string, string]> = {
-  active_time: ['实际操作时长', 'Active play time'], sessions: ['会话数', 'Sessions'], common_kills: ['普通感染者击杀', 'Common kills'], special_kills: ['特殊感染者击杀', 'Special kills'], boss_kills: ['Boss 击杀', 'Boss kills'], special_damage: ['特感与 Boss 伤害', 'SI and Boss damage'], rescues: ['团队救援', 'Team rescues'], healing: ['治疗量', 'Healing'], campaign_completions: ['完成战役', 'Campaign completions'], tongue_self_cuts: ['断舌自救', 'Self tongue cuts'], rocks_destroyed: ['击碎 Tank 石块', 'Tank rocks destroyed'], common_kills_per_hour: ['每小时普通感染者击杀', 'Common kills per hour'], special_kills_per_hour: ['每小时特感击杀', 'Special kills per hour'], human_si_kills: ['真人特感 / Tank 击杀', 'Human SI / Tank kills'], damage: ['伤害', 'Damage'], human_si_kills_per_hour: ['每小时真人特感击杀', 'Human SI kills per hour'], incaps: ['击倒真人幸存者', 'Human survivor incaps'], kills: ['击杀真人幸存者', 'Human survivor kills'], controls: ['控制真人幸存者', 'Human survivor controls'], damage_per_hour: ['每小时伤害', 'Damage per hour'],
+  active_time: ['实际操作时长', 'Active play time'], sessions: ['会话数', 'Sessions'], common_kills: ['普通感染者击杀', 'Common kills'], special_kills: ['特殊感染者击杀', 'Special kills'], boss_kills: ['Boss 击杀', 'Boss kills'], special_damage: ['特感与 Boss 伤害', 'SI and Boss damage'], rescues: ['团队救援', 'Team rescues'], healing: ['治疗量', 'Healing'], campaign_completions: ['完成战役', 'Campaign completions'], tongue_self_cuts: ['断舌自救', 'Self tongue cuts'], rocks_destroyed: ['击碎 Tank 石块', 'Tank rocks destroyed'], car_alarms_triggered: ['触发警报车', 'Car alarms triggered'], common_kills_per_hour: ['每小时普通感染者击杀', 'Common kills per hour'], special_kills_per_hour: ['每小时特感击杀', 'Special kills per hour'], human_si_kills: ['真人特感 / Tank 击杀', 'Human SI / Tank kills'], damage: ['伤害', 'Damage'], human_si_kills_per_hour: ['每小时真人特感击杀', 'Human SI kills per hour'], incaps: ['击倒真人幸存者', 'Human survivor incaps'], kills: ['击杀真人幸存者', 'Human survivor kills'], controls: ['控制真人幸存者', 'Human survivor controls'], damage_per_hour: ['每小时伤害', 'Damage per hour'],
 }
 
 const modeLabels: Record<string, [string, string]> = {

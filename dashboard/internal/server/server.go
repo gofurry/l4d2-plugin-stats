@@ -19,8 +19,6 @@ import (
 	"go.uber.org/zap"
 )
 
-const expectedStatsSchemaVersion = 1
-
 type Dependencies struct {
 	Dashboard store.DashboardStore
 	Stats     store.StatsStore
@@ -92,7 +90,7 @@ func New(cfg *config.Config, deps Dependencies) *fiber.App {
 			return sendError(c, fiber.StatusServiceUnavailable, "stats_database_unavailable", "stats database is unavailable")
 		}
 		version, err := deps.Stats.SchemaVersion(ctx)
-		if err != nil || version != expectedStatsSchemaVersion {
+		if err != nil || version != store.StatsSchemaVersion {
 			return sendError(c, fiber.StatusServiceUnavailable, "stats_schema_incompatible", "stats schema is incompatible")
 		}
 		return sendData(c, fiber.StatusOK, fiber.Map{"status": "ready", "stats_schema_version": version})
