@@ -24,6 +24,7 @@ All notable changes to this project are documented in this file.
 - Split the Dashboard frontend API, administration pages, player pages, shared player presentation code, and PvE collector statistics into smaller modules without changing public routes or statistics semantics.
 - Refresh embedded frontend assets and align collector, Dashboard, frontend, build, and packaging versions at `1.2.0`.
 - Align recent player Session and chapter records with stable date, duration, and status columns plus responsive narrow-screen behavior.
+- Compile the collector with SourcePawn `1.12.0.7246`, reject mismatched local compilers, and order session declarations for SourceMod 1.12 compatibility.
 
 ## 1.1.0 - 2026-08-08
 

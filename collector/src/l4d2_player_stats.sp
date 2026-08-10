@@ -12,8 +12,8 @@
 #include <l4d2_player_stats/modes>
 #include <l4d2_player_stats/lifecycles>
 #include <l4d2_player_stats/versus_results>
-#include <l4d2_player_stats/segments>
 #include <l4d2_player_stats/sessions>
+#include <l4d2_player_stats/segments>
 #include <l4d2_player_stats/pve_stats>
 #include <l4d2_player_stats/versus_stats>
 #include <l4d2_player_stats/versus_abilities>
