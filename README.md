@@ -200,7 +200,7 @@ l4d2-stats uninstall
 
 ## 从源码构建
 
-采集器需要 SourceMod 的 SourcePawn 编译器、Python 3 和本机路径配置：
+采集器以生产环境稳定版 SourceMod 1.12 为兼容目标，需要 SourcePawn Compiler `1.12.0.7246`、对应版本的 include、Python 3 和本机路径配置。编译工具目录应与游戏服务器的 SourceMod 运行目录分开配置，构建脚本会拒绝 1.13 或其他版本的编译器：
 
 ```powershell
 Copy-Item scripts/config.example.ps1 scripts/config.local.ps1

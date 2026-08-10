@@ -21,6 +21,23 @@ foreach ($requiredPath in @($CompilerPath, $SourceModInclude, $sourceFile)) {
     }
 }
 
+if (-not (Get-Variable -Name ExpectedSourcePawnVersion -ErrorAction SilentlyContinue)) {
+    throw "Missing ExpectedSourcePawnVersion in scripts\config.local.ps1. Copy the current config.example.ps1 and configure local paths."
+}
+
+$compilerBanner = (& $CompilerPath 2>&1 | Out-String)
+$compilerVersionMatch = [regex]::Match($compilerBanner, "SourcePawn Compiler (?<version>[0-9]+\.[0-9]+\.[0-9]+\.[0-9]+)")
+if (-not $compilerVersionMatch.Success) {
+    throw "Unable to determine SourcePawn compiler version: $CompilerPath"
+}
+
+$compilerVersion = $compilerVersionMatch.Groups["version"].Value
+if ($compilerVersion -ne $ExpectedSourcePawnVersion) {
+    throw "SourcePawn compiler version $compilerVersion does not match required version $ExpectedSourcePawnVersion."
+}
+
+Write-Host "Using SourcePawn Compiler $compilerVersion."
+
 New-Item -ItemType Directory -Path $distDirectory -Force | Out-Null
 & $migrationValidator
 python $versusContractValidator
