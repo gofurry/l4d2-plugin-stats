@@ -84,3 +84,4 @@ All eleven kinds support the `daily`, `monthly`, and `lifetime` grains. Monthly 
 - Consumers validate the version before decoding or summing metrics.
 - Cleanup preview IDs include the aggregate version. Cleanup requires a ready state, matching version, and a source watermark that covers the preview watermark; all three are checked again immediately before deletion.
 - Adding or removing a kind, dimension, eligible source mode, metric, unit, or semantic meaning requires a new aggregate contract version.
+- Stats schema 2's `car_alarms_triggered` field is deliberately not an Aggregate Contract v1 metric. Player totals and full-server rankings read it from raw Stats rows; retention must therefore treat availability of that ranking like any other raw-detail feature.

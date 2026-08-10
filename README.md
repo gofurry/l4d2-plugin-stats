@@ -118,7 +118,7 @@ sm plugins reload l4d2_player_stats
 sm_lps_status
 ```
 
-正常状态应显示数据库驱动、`schema=1/1` 和 `state=ready`。完整步骤见[中文部署手册](INSTALL.zh-CN.md)。
+正常状态应显示数据库驱动、`schema=2/2` 和 `state=ready`。完整步骤见[中文部署手册](INSTALL.zh-CN.md)。
 
 ### 2. 启动 Dashboard
 
