@@ -225,5 +225,23 @@ foreach ($driver in $drivers) {
         }
     }
 
-    Write-Host "Validated $driver migration ($($statements.Count) statements)."
+    $secondMigration = Join-Path $migrationRoot "$driver\0002_car_alarms_triggered.sql"
+    if (-not (Test-Path -LiteralPath $secondMigration -PathType Leaf)) {
+        throw "Missing $driver migration: $secondMigration"
+    }
+    $secondSQL = Get-Content -LiteralPath $secondMigration -Raw
+    $secondStatements = [regex]::Split(
+        $secondSQL,
+        '(?m)^\s*-- statement-breakpoint\s*$'
+    ) | ForEach-Object { $_.Trim() } | Where-Object { $_ -ne "" }
+    if ($secondStatements.Count -ne 2) {
+        throw "$driver migration 0002 must contain exactly two statements."
+    }
+    foreach ($statement in $secondStatements) {
+        if (-not $statement.EndsWith(';') -or $statement -notmatch '(?i)ADD COLUMN\s+car_alarms_triggered\b') {
+            throw "$driver migration 0002 must add car_alarms_triggered with terminated statements."
+        }
+    }
+
+    Write-Host "Validated $driver migrations ($($statements.Count + $secondStatements.Count) statements)."
 }

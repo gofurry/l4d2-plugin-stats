@@ -316,6 +316,7 @@ void LPS_AddPvEStat(int client, LPSPvEStat stat, int amount)
 		case LPSPvEStat_IncapacitatedSeconds: g_LPSClientPvEStats[client].incapacitatedSeconds += amount;
 		case LPSPvEStat_LedgeHangingSeconds: g_LPSClientPvEStats[client].ledgeHangingSeconds += amount;
 		case LPSPvEStat_BlackWhiteTeammatesRestored: g_LPSClientPvEStats[client].blackWhiteTeammatesRestored += amount;
+		case LPSPvEStat_CarAlarmsTriggered: g_LPSClientPvEStats[client].carAlarmsTriggered += amount;
 	}
 
 	g_LPSClientPvEStats[client].revision++;
@@ -392,5 +393,6 @@ void LPS_FillClientPvEStatsSnapshot(int client, LPSPvEStatsSnapshot snapshot, bo
 	snapshot.incapacitatedSeconds = g_LPSClientPvEStats[client].incapacitatedSeconds;
 	snapshot.ledgeHangingSeconds = g_LPSClientPvEStats[client].ledgeHangingSeconds;
 	snapshot.blackWhiteTeammatesRestored = g_LPSClientPvEStats[client].blackWhiteTeammatesRestored;
+	snapshot.carAlarmsTriggered = g_LPSClientPvEStats[client].carAlarmsTriggered;
 	snapshot.revision = g_LPSClientPvEStats[client].revision + (closed ? 1 : 0);
 }

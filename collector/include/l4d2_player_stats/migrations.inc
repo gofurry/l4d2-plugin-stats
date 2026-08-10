@@ -3,9 +3,36 @@
 #endif
 #define _l4d2_player_stats_migrations_included
 
-bool LPS_BuildMigrationPath(char[] path, int maxLength)
+bool LPS_GetMigrationMetadata(int version, char[] fileName, int fileNameLength, char[] name, int nameLength)
+{
+	switch (version)
+	{
+		case 1:
+		{
+			strcopy(fileName, fileNameLength, "0001_initial.sql");
+			strcopy(name, nameLength, "initial_schema");
+			return true;
+		}
+		case 2:
+		{
+			strcopy(fileName, fileNameLength, "0002_car_alarms_triggered.sql");
+			strcopy(name, nameLength, "car_alarms_triggered");
+			return true;
+		}
+	}
+	return false;
+}
+
+bool LPS_BuildMigrationPath(int version, char[] path, int maxLength)
 {
 	if (g_LPSDriverName[0] == '\0')
+	{
+		return false;
+	}
+
+	char fileName[64];
+	char migrationName[64];
+	if (!LPS_GetMigrationMetadata(version, fileName, sizeof(fileName), migrationName, sizeof(migrationName)))
 	{
 		return false;
 	}
@@ -14,8 +41,9 @@ bool LPS_BuildMigrationPath(char[] path, int maxLength)
 		Path_SM,
 		path,
 		maxLength,
-		"configs/l4d2_player_stats/migrations/%s/0001_initial.sql",
-		g_LPSDriverName
+		"configs/l4d2_player_stats/migrations/%s/%s",
+		g_LPSDriverName,
+		fileName
 	);
 	return true;
 }
@@ -25,7 +53,7 @@ bool LPS_ReadBootstrapStatement(char[] query, int maxLength, char[] error, int e
 	query[0] = '\0';
 
 	char path[PLATFORM_MAX_PATH];
-	if (!LPS_BuildMigrationPath(path, sizeof(path)))
+	if (!LPS_BuildMigrationPath(1, path, sizeof(path)))
 	{
 		strcopy(error, errorLength, "database driver has no migration path");
 		return false;
@@ -72,12 +100,12 @@ bool LPS_ReadBootstrapStatement(char[] query, int maxLength, char[] error, int e
 	return true;
 }
 
-Transaction LPS_LoadInitialMigration(char[] error, int errorLength, int &statementCount)
+Transaction LPS_LoadMigration(int version, char[] error, int errorLength, int &statementCount)
 {
 	statementCount = 0;
 
 	char path[PLATFORM_MAX_PATH];
-	if (!LPS_BuildMigrationPath(path, sizeof(path)))
+	if (!LPS_BuildMigrationPath(version, path, sizeof(path)))
 	{
 		strcopy(error, errorLength, "database driver has no migration path");
 		return null;
@@ -141,12 +169,20 @@ Transaction LPS_LoadInitialMigration(char[] error, int errorLength, int &stateme
 	}
 
 	char migrationQuery[512];
+	char fileName[64];
+	char migrationName[64];
+	if (!LPS_GetMigrationMetadata(version, fileName, sizeof(fileName), migrationName, sizeof(migrationName)))
+	{
+		delete transaction;
+		strcopy(error, errorLength, "migration metadata is missing");
+		return null;
+	}
 	Format(
 		migrationQuery,
 		sizeof(migrationQuery),
 		"INSERT INTO lps_schema_migrations (version, name, applied_at) VALUES (%d, '%s', %d)",
-		LPS_SCHEMA_VERSION,
-		LPS_MIGRATION_NAME,
+		version,
+		migrationName,
 		GetTime()
 	);
 	transaction.AddQuery(migrationQuery);

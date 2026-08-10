@@ -53,10 +53,9 @@ Copy-Item -LiteralPath $pluginOutput -Destination $pluginDestination -Force
 foreach ($driver in @("sqlite", "mysql", "pgsql")) {
     $driverDestination = Join-Path $migrationDestination $driver
     New-Item -ItemType Directory -Path $driverDestination -Force | Out-Null
-    Copy-Item `
-        -LiteralPath (Join-Path $projectRoot "database\migrations\$driver\0001_initial.sql") `
-        -Destination (Join-Path $driverDestination "0001_initial.sql") `
-        -Force
+    Get-ChildItem -LiteralPath (Join-Path $projectRoot "database\migrations\$driver") -Filter "*.sql" -File |
+        Sort-Object Name |
+        ForEach-Object { Copy-Item -LiteralPath $_.FullName -Destination (Join-Path $driverDestination $_.Name) -Force }
 }
 
 $dashboardDestination = Join-Path $stagingRoot "dashboard"

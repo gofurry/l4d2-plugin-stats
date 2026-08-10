@@ -73,6 +73,7 @@ enum struct LPSPvEStatsSnapshot
 	int incapacitatedSeconds;
 	int ledgeHangingSeconds;
 	int blackWhiteTeammatesRestored;
+	int carAlarmsTriggered;
 	int revision;
 }
 
@@ -175,6 +176,7 @@ void LPS_ResetClientPvEStatsState(int client)
 	g_LPSClientPvEStats[client].incapacitatedSeconds = 0;
 	g_LPSClientPvEStats[client].ledgeHangingSeconds = 0;
 	g_LPSClientPvEStats[client].blackWhiteTeammatesRestored = 0;
+	g_LPSClientPvEStats[client].carAlarmsTriggered = 0;
 	LPS_ResetClientPvEInteractionState(client);
 	g_LPSClientPvEStats[client].revision = 0;
 }

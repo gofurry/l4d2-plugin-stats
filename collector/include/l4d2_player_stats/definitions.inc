@@ -4,7 +4,7 @@
 #define _l4d2_player_stats_definitions_included
 
 #define LPS_VERSION "1.2.0"
-#define LPS_SCHEMA_VERSION 1
+#define LPS_SCHEMA_VERSION 2
 #define LPS_MIGRATION_NAME "initial_schema"
 #define LPS_STATS_VERSION 1
 
@@ -140,7 +140,8 @@ enum LPSPvEStat
 	LPSPvEStat_AmmoPileUses,
 	LPSPvEStat_IncapacitatedSeconds,
 	LPSPvEStat_LedgeHangingSeconds,
-	LPSPvEStat_BlackWhiteTeammatesRestored
+	LPSPvEStat_BlackWhiteTeammatesRestored,
+	LPSPvEStat_CarAlarmsTriggered
 };
 
 // Stable IDs persisted by lps_pve_segment_equipment_stats. Never reuse an ID
@@ -251,7 +252,8 @@ enum LPSVersusSurvivorStat
 	LPSVersusSurvivorStat_MeleeTongueSelfCuts,
 	LPSVersusSurvivorStat_TankRocksDestroyed,
 	LPSVersusSurvivorStat_WitchOneShots,
-	LPSVersusSurvivorStat_WitchSoloKills
+	LPSVersusSurvivorStat_WitchSoloKills,
+	LPSVersusSurvivorStat_CarAlarmsTriggered
 };
 
 // Fixed per-class combat metrics for a human survivor attacking the seven

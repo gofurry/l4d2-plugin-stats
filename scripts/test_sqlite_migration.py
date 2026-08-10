@@ -5,7 +5,9 @@ from pathlib import Path
 
 
 PROJECT_ROOT = Path(__file__).resolve().parent.parent
-MIGRATION = PROJECT_ROOT / "database" / "migrations" / "sqlite" / "0001_initial.sql"
+MIGRATION_ROOT = PROJECT_ROOT / "database" / "migrations" / "sqlite"
+INITIAL_MIGRATION = MIGRATION_ROOT / "0001_initial.sql"
+INCIDENT_MIGRATION = MIGRATION_ROOT / "0002_car_alarms_triggered.sql"
 VERSUS_CONTRACT_CHECKS = (
     PROJECT_ROOT / "database" / "queries" / "versus_contract_checks.sql"
 )
@@ -34,7 +36,7 @@ PVE_STAT_COLUMNS = [
     "witch_kill_participations", "incendiary_packs_deployed",
     "explosive_packs_deployed", "objective_interactions", "ammo_pile_uses",
     "incapacitated_seconds", "ledge_hanging_seconds",
-    "black_white_teammates_restored", "revision",
+    "black_white_teammates_restored", "revision", "car_alarms_triggered",
 ]
 
 EQUIPMENT_STAT_COLUMNS = [
@@ -58,7 +60,7 @@ VERSUS_SURVIVOR_STAT_COLUMNS = [
     "molotovs_thrown", "pipe_bombs_thrown", "vomit_jars_thrown",
     "incendiary_packs_deployed", "explosive_packs_deployed",
     "melee_tongue_self_cuts", "tank_rocks_destroyed", "witch_oneshots",
-    "witch_solo_kills", "revision",
+    "witch_solo_kills", "revision", "car_alarms_triggered",
 ]
 
 VERSUS_SURVIVOR_CLASS_STAT_COLUMNS = [
@@ -121,7 +123,7 @@ def run_versus_contract_checks(database: sqlite3.Connection) -> dict[str, int]:
 
 
 def main() -> None:
-    sql = MIGRATION.read_text(encoding="utf-8")
+    sql = INITIAL_MIGRATION.read_text(encoding="utf-8")
     statements = [
         statement.strip()
         for statement in sql.split("-- statement-breakpoint")
@@ -132,6 +134,26 @@ def main() -> None:
     try:
         for statement in statements:
             database.execute(statement)
+
+        incident_statements = [
+            statement.strip()
+            for statement in INCIDENT_MIGRATION.read_text(encoding="utf-8").split(
+                "-- statement-breakpoint"
+            )
+            if statement.strip()
+        ]
+        for statement in incident_statements:
+            database.execute(statement)
+        database.execute(
+            "INSERT INTO lps_schema_migrations "
+            "(version, name, applied_at) VALUES (2, 'car_alarms_triggered', 2)"
+        )
+        for table in ("lps_pve_segment_stats", "lps_versus_survivor_stats"):
+            column = next(
+                row for row in database.execute(f"PRAGMA table_info({table})")
+                if row[1] == "car_alarms_triggered"
+            )
+            assert column[3] == 0, column
 
         database.execute(
             "INSERT INTO lps_schema_migrations "
@@ -322,7 +344,7 @@ def main() -> None:
             (
                 segment_id, 1, 20, 5, 1, 0, 0, 80, 0, 0, 12, 0, 3, 0,
                 0, 0, 0, 0, 0, 0, 1, 0, 42, 0, 1, 0, 50, 0, 0, 0, 0,
-                *([0] * 39), 1,
+                *([0] * 39), 1, 0,
             ),
         )
         # Absolute snapshots replace the stored values; they must never be
@@ -334,7 +356,7 @@ def main() -> None:
                 2, 1, 1, 1, 1, 3, 2, 1, 80, 55, 2, 1, 125, 1, 1, 0, 0,
                 1, 0, 1, 0, 1, 0, 100, 20, 50, 10, 30, 40,
                 1, 2, 3, 4, 5, 6, 7, 8, 2, 1, 0, 1,
-                1, 2, 1, 1, 1, 1, 1, 1, 1, 2, 3, 2, 11, 4, 1, 2,
+                1, 2, 1, 1, 1, 1, 1, 1, 1, 2, 3, 2, 11, 4, 1, 2, 3,
             ),
         )
 
@@ -469,7 +491,7 @@ def main() -> None:
             (
                 stale_segment_id, 1, 115, 4, 1, 2, 0, 1, 100, 80, 0, 200,
                 25, 2, 3, 4, 1, 0, 1, 0, 0, 1, 1, 0, 30, 0, 1, 0, 50,
-                0, 0, 1, 0, 0, 0, 0, 0, 0, 0, 0, 1,
+                0, 0, 1, 0, 0, 0, 0, 0, 0, 0, 0, 1, 0,
             ),
         )
         # A retry replaces the absolute snapshot rather than incrementing it.
@@ -478,7 +500,7 @@ def main() -> None:
             (
                 stale_segment_id, 1, 125, 12, 3, 4, 1, 2, 300, 200, 500,
                 400, 70, 10, 11, 12, 2, 1, 3, 1, 1, 4, 1, 2, 80, 90, 2,
-                1, 125, 2, 300, 2, 1, 1, 1, 1, 1, 2, 1, 1, 2,
+                1, 125, 2, 300, 2, 1, 1, 1, 1, 1, 2, 1, 1, 2, 4,
             ),
         )
 
@@ -688,7 +710,7 @@ def main() -> None:
             2, 1, 1, 1, 1, 3, 2, 1, 80, 55, 2, 1, 125, 1, 1, 0, 0,
             1, 0, 1, 0, 1, 0, 100, 20, 50, 10, 30, 40,
             1, 2, 3, 4, 5, 6, 7, 8, 2, 1, 0, 1,
-            1, 2, 1, 1, 1, 1, 1, 1, 1, 2, 3, 2, 11, 4, 1, 2,
+            1, 2, 1, 1, 1, 1, 1, 1, 1, 2, 3, 2, 11, 4, 1, 2, 3,
         ), pve_stats
 
         equipment_stats = database.execute(
@@ -764,7 +786,7 @@ def main() -> None:
         assert versus_survivor_stats == (
             1, 125, 12, 3, 4, 1, 2, 300, 200, 500, 400, 70, 10, 11, 12,
             2, 1, 3, 1, 1, 4, 1, 2, 80, 90, 2, 1, 125, 2, 300, 2, 1,
-            1, 1, 1, 1, 2, 1, 1, 2,
+            1, 1, 1, 1, 2, 1, 1, 2, 4,
         ), versus_survivor_stats
 
         versus_survivor_class_stats = database.execute(
@@ -930,7 +952,7 @@ def main() -> None:
         database.close()
 
     print(
-        f"SQLite integration passed: {len(statements)} statements, "
+        f"SQLite integration passed: {len(statements) + len(incident_statements)} statements, "
         f"{len(tables)} tables, {len(indexes)} indexes."
     )
 
