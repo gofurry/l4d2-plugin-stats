@@ -12,7 +12,13 @@ Stats 数据库
 Dashboard 运行目录中的 l4d2-stats、config.yaml、dashboard.db
 ```
 
-SQLite 仍在写入时不要直接复制单个 `.sq3` 文件。先停止相关进程，或使用 SQLite 在线备份工具，确保 WAL 中的数据一并处理。
+Dashboard 已运行时可先执行：
+
+```sh
+./l4d2-stats backup create --config ./config.yaml
+```
+
+该命令使用 SQLite 在线备份 API 同时保护 Dashboard DB 和 SQLite Stats DB，不会遗漏 WAL 数据。MySQL/PostgreSQL Stats DB 会在归档中标记为需要外部备份，必须同时使用数据库原生工具完成备份。
 
 ## 升级采集器
 
@@ -55,6 +61,7 @@ Dashboard 启动时会自动迁移自己的 `dashboard.db`。不要使用发布�
 ```sh
 ./l4d2-stats version
 ./l4d2-stats doctor --config ./config.yaml
+./l4d2-stats doctor --deep --config ./config.yaml
 ```
 
 并访问：
@@ -74,6 +81,13 @@ cp ./l4d2-stats.previous ./l4d2-stats
 sudo systemctl start l4d2-stats
 ```
 
-如果新版本已经升级 Stats DB 或 `dashboard.db` 结构，旧二进制未必兼容新 schema。此时应同时恢复升级前数据库备份，不要手工修改迁移版本号。
+如果新版本已经升级 Stats DB 或 `dashboard.db` 结构，旧二进制未必兼容新 schema。此时应停止 Dashboard 服务，并同时恢复升级前数据库备份：
+
+```sh
+sudo systemctl stop l4d2-stats
+./l4d2-stats backup restore ./backup-YYYYMMDDTHHMMSSZ.zip --config ./config.yaml
+```
+
+恢复会先校验归档成员、SHA-256、SQLite 完整性、Dashboard/Stats schema、聚合契约版本与当前 driver。当前数据库、配置和 SQLite sidecar 会保留为 `.pre-restore-*` 副本；MySQL/PostgreSQL Stats DB 必须使用原生工具另行恢复。不要手工修改迁移版本号。
 
 原始数据清理是不可逆操作。执行清理前应确认聚合完成并备份 Stats DB；回滚二进制不会恢复被删除的原始记录。

@@ -125,7 +125,7 @@ sm_lps_flush
 正常结果应包含：
 
 ```text
-version=1.1.0
+version=1.2.0
 state=ready
 schema=1/1
 ```
@@ -302,7 +302,7 @@ journalctl -u l4d2-stats -n 100 --no-pager
 ### 采集器
 
 - `sm plugins list` 显示 `L4D2 Player Stats`；
-- `sm_lps_status` 显示 `version=1.1.0`、`state=ready` 和 `schema=1/1`；
+- `sm_lps_status` 显示 `version=1.2.0`、`state=ready` 和 `schema=1/1`；
 - `sm_lps_server_key` 不再是默认占位值，并在共享 DB 中唯一；
 - 真人进入受支持模式后，`sm_lps_flush` 能写入数据；
 - SourceMod `logs/errors_*.log` 没有持续数据库错误。
@@ -312,6 +312,7 @@ journalctl -u l4d2-stats -n 100 --no-pager
 ```sh
 ./l4d2-stats version
 ./l4d2-stats doctor --config ./config.yaml
+./l4d2-stats doctor --deep --config ./config.yaml
 ```
 
 访问：

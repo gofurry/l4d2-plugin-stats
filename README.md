@@ -171,8 +171,12 @@ Dashboard CLI 提供：
 ```text
 l4d2-stats serve
 l4d2-stats doctor
+l4d2-stats doctor --deep
 l4d2-stats aggregate status
 l4d2-stats aggregate rebuild
+l4d2-stats backup create
+l4d2-stats backup restore <file>
+l4d2-stats diagnostics export
 l4d2-stats migrate status
 l4d2-stats install
 l4d2-stats uninstall

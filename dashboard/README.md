@@ -71,7 +71,7 @@ SQLite Stats DB 的常规连接会以只读模式打开。MySQL/PostgreSQL 若�
 
 启用 Steam 登录后，需要填写玩家实际访问 Dashboard 时使用的完整地址，例如 `https://stats.example.com` 或 `http://203.0.113.10:18848`，供 Steam 验证后返回本站；不支持子路径。没有域名或不启用 Steam 登录都不影响手动 SteamID64 查询。
 
-Dashboard DB 使用内嵌 Goose migration 自动升级。升级前仍应停止服务并同时备份 Dashboard DB、Stats DB 与配置文件；不要通过删除 Stats DB 的方式处理版本变化。
+Dashboard DB 使用内嵌 Goose migration 自动升级，当前 schema 为 9；Stats schema 仍为 1。升级前仍应停止服务并同时备份 Dashboard DB、Stats DB 与配置文件；不要通过删除 Stats DB 的方式处理版本变化。
 
 Dashboard 服务器 UUID 只标识网页中的实时服务器目录，不需要管理员填写。采集器的 `sm_lps_server_key` 仍是 Stats DB 中的数据来源标识，两者边界独立。L4D2 的加入链接和 A2S 状态查询统一使用同一个服务器地址。
 
@@ -95,14 +95,18 @@ l4d2-stats serve
 l4d2-stats install
 l4d2-stats uninstall
 l4d2-stats doctor
+l4d2-stats doctor --deep
 l4d2-stats version
 l4d2-stats migrate status
 l4d2-stats aggregate status
 l4d2-stats aggregate rebuild
 l4d2-stats retention plan
+l4d2-stats backup create
+l4d2-stats backup restore <file>
+l4d2-stats diagnostics export
 ```
 
-`aggregate rebuild` 仅适用于尚未清理原始数据的环境；清理后为保护历史聚合会拒绝全量重建。日常运行和管理页“立即聚合”使用增量模式。`retention plan` 仍是只读 CLI 预览；真正清理由管理员登录网页后在“数据增长监控”页二次确认执行。
+`aggregate rebuild` 仅适用于尚未清理原始数据的环境；清理后为保护历史聚合会拒绝全量重建。日常运行和管理页“立即聚合”使用增量模式。`retention plan` 仍是只读 CLI 预览；真正清理由管理员登录网页后在“数据增长监控”页二次确认执行。备份和诊断归档默认写入当前目录；恢复前必须停止 Dashboard 服务。
 
 统计读模型、永久保留范围和未来清理硬条件见[Dashboard 数据生命周期](../docs/dashboard-data-lifecycle.md)。
 
