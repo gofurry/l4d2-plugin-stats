@@ -101,7 +101,8 @@ Copy-Item -LiteralPath (Join-Path $projectRoot "config\nginx.conf.example") -Des
 
 $packageReadme = Join-Path $stagingRoot "README.md"
 Copy-Item -LiteralPath (Join-Path $projectRoot "README.md") -Destination $packageReadme -Force
-$readmeContent = Get-Content -LiteralPath $packageReadme -Raw
+$utf8NoBom = [System.Text.UTF8Encoding]::new($false)
+$readmeContent = [System.IO.File]::ReadAllText($packageReadme, $utf8NoBom)
 $readmeContent = $readmeContent.Replace(
     "(docs/assets/",
     "(https://raw.githubusercontent.com/gofurry/l4d2-plugin-stats/main/docs/assets/"
@@ -112,7 +113,7 @@ $readmeContent = $readmeContent.Replace(
     "(docs/",
     "(https://github.com/gofurry/l4d2-plugin-stats/blob/main/docs/"
 )
-Set-Content -LiteralPath $packageReadme -Value $readmeContent -Encoding utf8
+[System.IO.File]::WriteAllText($packageReadme, $readmeContent, $utf8NoBom)
 Copy-Item -LiteralPath (Join-Path $projectRoot "INSTALL.zh-CN.md") -Destination $stagingRoot -Force
 Copy-Item -LiteralPath (Join-Path $projectRoot "UPGRADE.zh-CN.md") -Destination $stagingRoot -Force
 Copy-Item -LiteralPath (Join-Path $projectRoot "CHANGELOG.md") -Destination $stagingRoot -Force
