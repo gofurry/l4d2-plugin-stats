@@ -118,7 +118,37 @@ Copy-Item -LiteralPath (Join-Path $projectRoot "UPGRADE.zh-CN.md") -Destination 
 Copy-Item -LiteralPath (Join-Path $projectRoot "CHANGELOG.md") -Destination $stagingRoot -Force
 Copy-Item -LiteralPath (Join-Path $projectRoot "LICENSE") -Destination $stagingRoot -Force
 
-Compress-Archive -Path (Join-Path $stagingRoot "*") -DestinationPath $archivePath -Force
+$resolvedArchivePath = [System.IO.Path]::GetFullPath($archivePath)
+if (-not $resolvedArchivePath.StartsWith($expectedParent, [System.StringComparison]::OrdinalIgnoreCase)) {
+    throw "Unsafe release archive path: $resolvedArchivePath"
+}
+if (Test-Path -LiteralPath $resolvedArchivePath) {
+    Remove-Item -LiteralPath $resolvedArchivePath -Force
+}
+
+Add-Type -AssemblyName System.IO.Compression.FileSystem
+$archive = [System.IO.Compression.ZipFile]::Open(
+    $resolvedArchivePath,
+    [System.IO.Compression.ZipArchiveMode]::Create
+)
+try {
+    Get-ChildItem -LiteralPath $resolvedStagingRoot -Recurse -File |
+        Sort-Object FullName |
+        ForEach-Object {
+            $entryName = [System.IO.Path]::GetRelativePath(
+                $resolvedStagingRoot,
+                $_.FullName
+            ).Replace('\', '/')
+            [System.IO.Compression.ZipFileExtensions]::CreateEntryFromFile(
+                $archive,
+                $_.FullName,
+                $entryName,
+                [System.IO.Compression.CompressionLevel]::Optimal
+            ) | Out-Null
+        }
+} finally {
+    $archive.Dispose()
+}
 
 $archiveHash = (Get-FileHash -Algorithm SHA256 -LiteralPath $archivePath).Hash.ToLowerInvariant()
 $hashPath = "$archivePath.sha256"
