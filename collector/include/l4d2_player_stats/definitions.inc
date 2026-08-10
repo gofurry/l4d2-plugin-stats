@@ -4,7 +4,7 @@
 #define _l4d2_player_stats_definitions_included
 
 #define LPS_VERSION "1.2.0"
-#define LPS_SCHEMA_VERSION 2
+#define LPS_SCHEMA_VERSION 3
 #define LPS_MIGRATION_NAME "initial_schema"
 #define LPS_STATS_VERSION 1
 
@@ -253,6 +253,7 @@ enum LPSVersusSurvivorStat
 	LPSVersusSurvivorStat_TankRocksDestroyed,
 	LPSVersusSurvivorStat_WitchOneShots,
 	LPSVersusSurvivorStat_WitchSoloKills,
+	LPSVersusSurvivorStat_ObjectiveInteractions,
 	LPSVersusSurvivorStat_CarAlarmsTriggered
 };
 

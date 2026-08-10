@@ -19,6 +19,12 @@ bool LPS_GetMigrationMetadata(int version, char[] fileName, int fileNameLength, 
 			strcopy(name, nameLength, "car_alarms_triggered");
 			return true;
 		}
+		case 3:
+		{
+			strcopy(fileName, fileNameLength, "0003_versus_objective_interactions.sql");
+			strcopy(name, nameLength, "versus_objective_interactions");
+			return true;
+		}
 	}
 	return false;
 }

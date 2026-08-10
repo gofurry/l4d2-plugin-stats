@@ -279,7 +279,7 @@ func createStatsFixture(t *testing.T, path string) {
 			}
 		}
 	}
-	if _, err := db.Exec(`INSERT INTO lps_schema_migrations VALUES (1,'initial',1),(2,'car_alarms_triggered',2)`); err != nil {
+	if _, err := db.Exec(`INSERT INTO lps_schema_migrations VALUES (1,'initial',1),(2,'car_alarms_triggered',2),(3,'versus_objective_interactions',3)`); err != nil {
 		t.Fatal(err)
 	}
 }

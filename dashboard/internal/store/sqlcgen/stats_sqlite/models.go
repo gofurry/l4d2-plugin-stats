@@ -315,4 +315,5 @@ type LpsVersusSurvivorStat struct {
 	WitchSoloKills          int64
 	Revision                int64
 	CarAlarmsTriggered      interface{}
+	ObjectiveInteractions   interface{}
 }

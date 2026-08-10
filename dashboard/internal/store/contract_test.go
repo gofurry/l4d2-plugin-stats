@@ -134,7 +134,7 @@ func expectedContractVersus() PlayerVersus {
 		SurvivorMedkitsSelf: 1, SurvivorMedkitsOthers: 2, SurvivorHealingSelf: 30, SurvivorHealingOthers: 50,
 		SurvivorPills: 2, SurvivorAdrenaline: 1, SurvivorTemporaryHealth: 20, SurvivorWitchKills: 1, SurvivorWitchDamage: 90,
 		MolotovsThrown: 1, PipeBombsThrown: 2, VomitJarsThrown: 3, SurvivorIncendiaryPacks: 1, SurvivorExplosivePacks: 2,
-		SurvivorTongueSelfCuts: 1, SurvivorTankRocksDestroyed: 1, SurvivorWitchOneShots: 1, SurvivorWitchSoloKills: 1, SurvivorCarAlarmsTriggered: 2,
+		SurvivorTongueSelfCuts: 1, SurvivorTankRocksDestroyed: 1, SurvivorWitchOneShots: 1, SurvivorWitchSoloKills: 1, SurvivorObjectiveInteractions: 5, SurvivorCarAlarmsTriggered: 2,
 		InfectedSpawns: 6, DamageToHumanSurvivors: 450, DamageToBotSurvivors: 120, HumanSurvivorIncaps: 3, BotSurvivorIncaps: 2,
 		HumanSurvivorKills: 1, BotSurvivorKills: 1, HumanSurvivorControls: 11, HumanSurvivorControlSeconds: 75,
 		SurvivorClasses: []VersusSurvivorClass{{ClassID: 3, HumanControllerKills: 5, BotControllerKills: 2, DamageToHumanControllers: 120, DamageToBotControllers: 60}},

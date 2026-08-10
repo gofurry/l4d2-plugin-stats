@@ -81,8 +81,7 @@ public void LPS_OnObjectiveInteractionCompleted(
 	float delay
 )
 {
-	if (!LPS_CanRecordPvEEvents()
-		|| caller < 1
+	if (caller < 1
 		|| caller > LPS_MAX_ENTITY_INDEX
 		|| g_LPSObjectiveEntityCounted[caller]
 		|| !LPS_IsHumanSurvivorClient(activator))
@@ -90,8 +89,16 @@ public void LPS_OnObjectiveInteractionCompleted(
 		return;
 	}
 
-	g_LPSObjectiveEntityCounted[caller] = true;
-	LPS_AddPvEStat(activator, LPSPvEStat_ObjectiveInteractions, 1);
+	if (LPS_CanRecordPvEEvents())
+	{
+		g_LPSObjectiveEntityCounted[caller] = true;
+		LPS_AddPvEStat(activator, LPSPvEStat_ObjectiveInteractions, 1);
+	}
+	else if (LPS_CanRecordVersusEvents())
+	{
+		g_LPSObjectiveEntityCounted[caller] = true;
+		LPS_AddVersusSurvivorStat(activator, LPSVersusSurvivorStat_ObjectiveInteractions, 1);
+	}
 }
 
 public void LPS_Event_AmmoPickupStats(Event event, const char[] name, bool dontBroadcast)

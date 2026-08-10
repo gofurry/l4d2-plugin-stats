@@ -319,4 +319,5 @@ type LpsVersusSurvivorStat struct {
 	WitchSoloKills          int64
 	Revision                int64
 	CarAlarmsTriggered      sql.NullInt64
+	ObjectiveInteractions   sql.NullInt64
 }

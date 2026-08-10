@@ -8,6 +8,7 @@ PROJECT_ROOT = Path(__file__).resolve().parent.parent
 MIGRATION_ROOT = PROJECT_ROOT / "database" / "migrations" / "sqlite"
 INITIAL_MIGRATION = MIGRATION_ROOT / "0001_initial.sql"
 INCIDENT_MIGRATION = MIGRATION_ROOT / "0002_car_alarms_triggered.sql"
+OBJECTIVE_MIGRATION = MIGRATION_ROOT / "0003_versus_objective_interactions.sql"
 VERSUS_CONTRACT_CHECKS = (
     PROJECT_ROOT / "database" / "queries" / "versus_contract_checks.sql"
 )
@@ -61,6 +62,7 @@ VERSUS_SURVIVOR_STAT_COLUMNS = [
     "incendiary_packs_deployed", "explosive_packs_deployed",
     "melee_tongue_self_cuts", "tank_rocks_destroyed", "witch_oneshots",
     "witch_solo_kills", "revision", "car_alarms_triggered",
+    "objective_interactions",
 ]
 
 VERSUS_SURVIVOR_CLASS_STAT_COLUMNS = [
@@ -154,6 +156,28 @@ def main() -> None:
                 if row[1] == "car_alarms_triggered"
             )
             assert column[3] == 0, column
+
+        objective_statements = [
+            statement.strip()
+            for statement in OBJECTIVE_MIGRATION.read_text(encoding="utf-8").split(
+                "-- statement-breakpoint"
+            )
+            if statement.strip()
+        ]
+        for statement in objective_statements:
+            database.execute(statement)
+        database.execute(
+            "INSERT INTO lps_schema_migrations "
+            "(version, name, applied_at) VALUES "
+            "(3, 'versus_objective_interactions', 3)"
+        )
+        objective_column = next(
+            row for row in database.execute(
+                "PRAGMA table_info(lps_versus_survivor_stats)"
+            )
+            if row[1] == "objective_interactions"
+        )
+        assert objective_column[3] == 0, objective_column
 
         database.execute(
             "INSERT INTO lps_schema_migrations "
@@ -491,7 +515,7 @@ def main() -> None:
             (
                 stale_segment_id, 1, 115, 4, 1, 2, 0, 1, 100, 80, 0, 200,
                 25, 2, 3, 4, 1, 0, 1, 0, 0, 1, 1, 0, 30, 0, 1, 0, 50,
-                0, 0, 1, 0, 0, 0, 0, 0, 0, 0, 0, 1, 0,
+                0, 0, 1, 0, 0, 0, 0, 0, 0, 0, 0, 1, 0, 0,
             ),
         )
         # A retry replaces the absolute snapshot rather than incrementing it.
@@ -500,7 +524,7 @@ def main() -> None:
             (
                 stale_segment_id, 1, 125, 12, 3, 4, 1, 2, 300, 200, 500,
                 400, 70, 10, 11, 12, 2, 1, 3, 1, 1, 4, 1, 2, 80, 90, 2,
-                1, 125, 2, 300, 2, 1, 1, 1, 1, 1, 2, 1, 1, 2, 4,
+                1, 125, 2, 300, 2, 1, 1, 1, 1, 1, 2, 1, 1, 2, 4, 6,
             ),
         )
 
@@ -786,7 +810,7 @@ def main() -> None:
         assert versus_survivor_stats == (
             1, 125, 12, 3, 4, 1, 2, 300, 200, 500, 400, 70, 10, 11, 12,
             2, 1, 3, 1, 1, 4, 1, 2, 80, 90, 2, 1, 125, 2, 300, 2, 1,
-            1, 1, 1, 1, 2, 1, 1, 2, 4,
+            1, 1, 1, 1, 2, 1, 1, 2, 4, 6,
         ), versus_survivor_stats
 
         versus_survivor_class_stats = database.execute(
@@ -952,7 +976,7 @@ def main() -> None:
         database.close()
 
     print(
-        f"SQLite integration passed: {len(statements) + len(incident_statements)} statements, "
+        f"SQLite integration passed: {len(statements) + len(incident_statements) + len(objective_statements)} statements, "
         f"{len(tables)} tables, {len(indexes)} indexes."
     )
 

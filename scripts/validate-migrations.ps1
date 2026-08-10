@@ -243,5 +243,22 @@ foreach ($driver in $drivers) {
         }
     }
 
-    Write-Host "Validated $driver migrations ($($statements.Count + $secondStatements.Count) statements)."
+    $thirdMigration = Join-Path $migrationRoot "$driver\0003_versus_objective_interactions.sql"
+    if (-not (Test-Path -LiteralPath $thirdMigration -PathType Leaf)) {
+        throw "Missing $driver migration: $thirdMigration"
+    }
+    $thirdSQL = Get-Content -LiteralPath $thirdMigration -Raw
+    $thirdStatements = [regex]::Split(
+        $thirdSQL,
+        '(?m)^\s*-- statement-breakpoint\s*$'
+    ) | ForEach-Object { $_.Trim() } | Where-Object { $_ -ne "" }
+    if ($thirdStatements.Count -ne 1) {
+        throw "$driver migration 0003 must contain exactly one statement."
+    }
+    $thirdStatement = [string]$thirdStatements
+    if (-not $thirdStatement.EndsWith(';') -or $thirdStatement -notmatch '(?i)ALTER TABLE\s+lps_versus_survivor_stats\s+ADD COLUMN\s+objective_interactions\b') {
+        throw "$driver migration 0003 must add objective_interactions to lps_versus_survivor_stats."
+    }
+
+    Write-Host "Validated $driver migrations ($($statements.Count + $secondStatements.Count + $thirdStatements.Count) statements)."
 }

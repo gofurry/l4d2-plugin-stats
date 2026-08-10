@@ -174,7 +174,7 @@ func (s *statsStore) enrichPlayerVersus(ctx context.Context, steamID string, fil
 	if err != nil {
 		return PlayerVersus{}, err
 	}
-	survivorIncidents, err := s.queryMetricTotals(queryCtx, "lps_versus_survivor_stats p "+survivorWhere+" AND p.stats_version=1", "p", []string{"car_alarms_triggered"}, args...)
+	survivorIncidents, err := s.queryMetricTotals(queryCtx, "lps_versus_survivor_stats p "+survivorWhere+" AND p.stats_version=1", "p", []string{"objective_interactions", "car_alarms_triggered"}, args...)
 	if err != nil {
 		return PlayerVersus{}, err
 	}
@@ -212,6 +212,7 @@ func (s *statsStore) enrichPlayerVersus(ctx context.Context, steamID string, fil
 	result.SurvivorTankRocksDestroyed = survivor["tank_rocks_destroyed"]
 	result.SurvivorWitchOneShots = survivor["witch_oneshots"]
 	result.SurvivorWitchSoloKills = survivor["witch_solo_kills"]
+	result.SurvivorObjectiveInteractions = survivorIncidents["objective_interactions"]
 	result.SurvivorCarAlarmsTriggered = survivorIncidents["car_alarms_triggered"]
 	survivorClasses, err := s.queryGroupedMetrics(queryCtx, "lps_versus_survivor_infected_class_stats p "+survivorWhere+" AND p.stats_version=1", "p", "p.infected_class", versusSurvivorClassMetrics, args...)
 	if err != nil {

@@ -10,7 +10,7 @@ var ErrServerNotFound = errors.New("game server not found")
 
 const (
 	DashboardSchemaVersion int64 = 9
-	StatsSchemaVersion     int64 = 2
+	StatsSchemaVersion     int64 = 3
 )
 
 type FooterLink struct {
@@ -232,52 +232,53 @@ type VersusInfectedClass struct {
 }
 
 type PlayerVersus struct {
-	SurvivorCommonKills         int64                 `json:"survivor_common_kills"`
-	HumanSpecialKills           int64                 `json:"human_special_kills"`
-	BotSpecialKills             int64                 `json:"bot_special_kills"`
-	HumanTankKills              int64                 `json:"human_tank_kills"`
-	BotTankKills                int64                 `json:"bot_tank_kills"`
-	SurvivorDamage              int64                 `json:"survivor_damage"`
-	SurvivorDeaths              int64                 `json:"survivor_deaths"`
-	SurvivorRevives             int64                 `json:"survivor_revives"`
-	InfectedSpawns              int64                 `json:"infected_spawns"`
-	DamageToHumanSurvivors      int64                 `json:"damage_to_human_survivors"`
-	HumanSurvivorIncaps         int64                 `json:"human_survivor_incaps"`
-	HumanSurvivorKills          int64                 `json:"human_survivor_kills"`
-	HumanSurvivorControls       int64                 `json:"human_survivor_controls"`
-	HumanSurvivorControlSeconds int64                 `json:"human_survivor_control_seconds"`
-	SurvivorDamageTaken         int64                 `json:"survivor_damage_taken"`
-	SurvivorFriendlyFire        int64                 `json:"survivor_friendly_fire"`
-	SurvivorFriendlyFireTaken   int64                 `json:"survivor_friendly_fire_taken"`
-	SurvivorIncapacitations     int64                 `json:"survivor_incapacitations"`
-	SurvivorIncapRevives        int64                 `json:"survivor_incap_revives"`
-	SurvivorLedgeRescues        int64                 `json:"survivor_ledge_rescues"`
-	SurvivorDefibRevives        int64                 `json:"survivor_defib_revives"`
-	SurvivorRescuesReceived     int64                 `json:"survivor_rescues_received"`
-	SurvivorMedkitsSelf         int64                 `json:"survivor_medkits_self"`
-	SurvivorMedkitsOthers       int64                 `json:"survivor_medkits_others"`
-	SurvivorHealingSelf         int64                 `json:"survivor_healing_self"`
-	SurvivorHealingOthers       int64                 `json:"survivor_healing_others"`
-	SurvivorPills               int64                 `json:"survivor_pills"`
-	SurvivorAdrenaline          int64                 `json:"survivor_adrenaline"`
-	SurvivorTemporaryHealth     int64                 `json:"survivor_temporary_health"`
-	SurvivorWitchKills          int64                 `json:"survivor_witch_kills"`
-	SurvivorWitchDamage         int64                 `json:"survivor_witch_damage"`
-	MolotovsThrown              int64                 `json:"molotovs_thrown"`
-	PipeBombsThrown             int64                 `json:"pipe_bombs_thrown"`
-	VomitJarsThrown             int64                 `json:"vomit_jars_thrown"`
-	SurvivorIncendiaryPacks     int64                 `json:"survivor_incendiary_packs"`
-	SurvivorExplosivePacks      int64                 `json:"survivor_explosive_packs"`
-	SurvivorTongueSelfCuts      int64                 `json:"survivor_tongue_self_cuts"`
-	SurvivorTankRocksDestroyed  int64                 `json:"survivor_tank_rocks_destroyed"`
-	SurvivorWitchOneShots       int64                 `json:"survivor_witch_oneshots"`
-	SurvivorWitchSoloKills      int64                 `json:"survivor_witch_solo_kills"`
-	SurvivorCarAlarmsTriggered  int64                 `json:"survivor_car_alarms_triggered"`
-	DamageToBotSurvivors        int64                 `json:"damage_to_bot_survivors"`
-	BotSurvivorIncaps           int64                 `json:"bot_survivor_incaps"`
-	BotSurvivorKills            int64                 `json:"bot_survivor_kills"`
-	SurvivorClasses             []VersusSurvivorClass `json:"survivor_classes"`
-	InfectedClasses             []VersusInfectedClass `json:"infected_classes"`
+	SurvivorCommonKills           int64                 `json:"survivor_common_kills"`
+	HumanSpecialKills             int64                 `json:"human_special_kills"`
+	BotSpecialKills               int64                 `json:"bot_special_kills"`
+	HumanTankKills                int64                 `json:"human_tank_kills"`
+	BotTankKills                  int64                 `json:"bot_tank_kills"`
+	SurvivorDamage                int64                 `json:"survivor_damage"`
+	SurvivorDeaths                int64                 `json:"survivor_deaths"`
+	SurvivorRevives               int64                 `json:"survivor_revives"`
+	InfectedSpawns                int64                 `json:"infected_spawns"`
+	DamageToHumanSurvivors        int64                 `json:"damage_to_human_survivors"`
+	HumanSurvivorIncaps           int64                 `json:"human_survivor_incaps"`
+	HumanSurvivorKills            int64                 `json:"human_survivor_kills"`
+	HumanSurvivorControls         int64                 `json:"human_survivor_controls"`
+	HumanSurvivorControlSeconds   int64                 `json:"human_survivor_control_seconds"`
+	SurvivorDamageTaken           int64                 `json:"survivor_damage_taken"`
+	SurvivorFriendlyFire          int64                 `json:"survivor_friendly_fire"`
+	SurvivorFriendlyFireTaken     int64                 `json:"survivor_friendly_fire_taken"`
+	SurvivorIncapacitations       int64                 `json:"survivor_incapacitations"`
+	SurvivorIncapRevives          int64                 `json:"survivor_incap_revives"`
+	SurvivorLedgeRescues          int64                 `json:"survivor_ledge_rescues"`
+	SurvivorDefibRevives          int64                 `json:"survivor_defib_revives"`
+	SurvivorRescuesReceived       int64                 `json:"survivor_rescues_received"`
+	SurvivorMedkitsSelf           int64                 `json:"survivor_medkits_self"`
+	SurvivorMedkitsOthers         int64                 `json:"survivor_medkits_others"`
+	SurvivorHealingSelf           int64                 `json:"survivor_healing_self"`
+	SurvivorHealingOthers         int64                 `json:"survivor_healing_others"`
+	SurvivorPills                 int64                 `json:"survivor_pills"`
+	SurvivorAdrenaline            int64                 `json:"survivor_adrenaline"`
+	SurvivorTemporaryHealth       int64                 `json:"survivor_temporary_health"`
+	SurvivorWitchKills            int64                 `json:"survivor_witch_kills"`
+	SurvivorWitchDamage           int64                 `json:"survivor_witch_damage"`
+	MolotovsThrown                int64                 `json:"molotovs_thrown"`
+	PipeBombsThrown               int64                 `json:"pipe_bombs_thrown"`
+	VomitJarsThrown               int64                 `json:"vomit_jars_thrown"`
+	SurvivorIncendiaryPacks       int64                 `json:"survivor_incendiary_packs"`
+	SurvivorExplosivePacks        int64                 `json:"survivor_explosive_packs"`
+	SurvivorTongueSelfCuts        int64                 `json:"survivor_tongue_self_cuts"`
+	SurvivorTankRocksDestroyed    int64                 `json:"survivor_tank_rocks_destroyed"`
+	SurvivorWitchOneShots         int64                 `json:"survivor_witch_oneshots"`
+	SurvivorWitchSoloKills        int64                 `json:"survivor_witch_solo_kills"`
+	SurvivorObjectiveInteractions int64                 `json:"survivor_objective_interactions"`
+	SurvivorCarAlarmsTriggered    int64                 `json:"survivor_car_alarms_triggered"`
+	DamageToBotSurvivors          int64                 `json:"damage_to_bot_survivors"`
+	BotSurvivorIncaps             int64                 `json:"bot_survivor_incaps"`
+	BotSurvivorKills              int64                 `json:"bot_survivor_kills"`
+	SurvivorClasses               []VersusSurvivorClass `json:"survivor_classes"`
+	InfectedClasses               []VersusInfectedClass `json:"infected_classes"`
 }
 
 type RankingEntry struct {
