@@ -20,6 +20,20 @@
 - 提供日、月度和终身聚合、数据库增长监控及管理员确认后的分批清理；
 - 应用日志自动轮转，公开 API 不返回玩家 IP，管理写操作使用 JWT、CSRF 和请求限流保护。
 
+## 界面预览
+
+### 服务器概览
+
+![Dashboard 服务器概览](docs/assets/screenshots/dashboard-server-overview.webp)
+
+### 玩家个人页
+
+![Dashboard 玩家个人页](docs/assets/screenshots/dashboard-player-profile.webp)
+
+### 数据运维
+
+![Dashboard 数据运维](docs/assets/screenshots/dashboard-data-maintenance.webp)
+
 ## 运行结构
 
 ![L4D2 Player Stats 多服务器部署架构](docs/assets/l4d2-player-stats-architecture.svg)
