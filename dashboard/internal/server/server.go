@@ -48,7 +48,7 @@ func New(cfg *config.Config, deps Dependencies) *fiber.App {
 			if fiberErr, ok := errors.AsType[*fiber.Error](err); ok {
 				status = fiberErr.Code
 			}
-			deps.Logger.Error("http request failed", zap.String("request_id", c.RequestID()), zap.String("path", c.Path()), zap.Int("status", status), zap.Error(err))
+			logRequestFailure(deps.Logger, status, zap.String("request_id", c.RequestID()), zap.String("path", c.Path()), zap.Error(err))
 			return sendError(c, status, "request_failed", http.StatusText(status))
 		},
 	})
@@ -131,4 +131,16 @@ func New(cfg *config.Config, deps Dependencies) *fiber.App {
 	app.Get("/", assets)
 	app.Get("/*", assets)
 	return app
+}
+
+func logRequestFailure(logger *zap.Logger, status int, fields ...zap.Field) {
+	// Browsers may speculatively open a connection and never send an HTTP
+	// request. Fiber reports the resulting first-byte timeout as 408 and may
+	// retain a stale path in the pooled context; this is connection lifecycle
+	// noise, not an application request failure.
+	if status == fiber.StatusRequestTimeout {
+		logger.Debug("http connection timed out", append(fields, zap.Int("status", status))...)
+		return
+	}
+	logger.Error("http request failed", append(fields, zap.Int("status", status))...)
 }
