@@ -103,6 +103,9 @@ $packageReadme = Join-Path $stagingRoot "README.md"
 Copy-Item -LiteralPath (Join-Path $projectRoot "README.md") -Destination $packageReadme -Force
 $readmeContent = Get-Content -LiteralPath $packageReadme -Raw
 $readmeContent = $readmeContent.Replace(
+    "(docs/assets/",
+    "(https://raw.githubusercontent.com/gofurry/l4d2-plugin-stats/main/docs/assets/"
+).Replace(
     "(contracts/",
     "(https://github.com/gofurry/l4d2-plugin-stats/blob/main/contracts/"
 ).Replace(
