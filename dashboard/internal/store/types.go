@@ -8,6 +8,11 @@ import (
 
 var ErrServerNotFound = errors.New("game server not found")
 
+const (
+	DashboardSchemaVersion int64 = 9
+	StatsSchemaVersion     int64 = 1
+)
+
 type FooterLink struct {
 	ID    string `json:"id,omitempty"`
 	Label string `json:"label"`
@@ -405,6 +410,20 @@ type DatabaseUsage struct {
 	WALBytes int64  `json:"wal_bytes,omitempty"`
 }
 
+type DataQualityFinding struct {
+	Count int64
+	IDs   []string
+}
+
+type StatsDataQuality struct {
+	SourceWatermark     int64
+	StaleActiveBoots    DataQualityFinding
+	UnknownStatsVersion DataQualityFinding
+	LifecycleLinks      DataQualityFinding
+	ModeSideMismatch    DataQualityFinding
+	PVETotalMismatch    DataQualityFinding
+}
+
 type PlayerSession struct {
 	SessionID        string `json:"-"`
 	ServerKey        string `json:"server_key"`
@@ -576,6 +595,10 @@ type StatsStore interface {
 	Close() error
 }
 
+type StatsDoctorStore interface {
+	DeepDataQuality(context.Context, int64) (StatsDataQuality, error)
+}
+
 type StatsAggregateStore interface {
 	AggregateRows(context.Context) ([]AggregateRow, error)
 	AggregateChanges(context.Context, int64) (AggregateChangeSet, error)
@@ -612,6 +635,7 @@ type StatsDatabase interface {
 	StatsAggregateStore
 	StatsFilteredStore
 	StatsPresenceStore
+	StatsDoctorStore
 }
 
 type ServerStatusProvider interface {

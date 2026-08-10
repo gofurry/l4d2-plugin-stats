@@ -80,6 +80,13 @@ func TestDatabaseContract(t *testing.T) {
 	assertContractAggregateMetric(t, changes.Rows, "pve_combat", "", "common_kills", 100)
 	assertContractAggregateMetric(t, changes.Rows, "pve_equipment", "7", "actions", 15)
 	assertContractAggregateMetric(t, changes.Rows, "versus_infected_class", "3", "human_survivor_controls", 11)
+	quality, err := stats.DeepDataQuality(ctx, contractBaseTime-15*60)
+	if err != nil {
+		t.Fatalf("DeepDataQuality: %v", err)
+	}
+	if quality.StaleActiveBoots.Count != 0 || quality.UnknownStatsVersion.Count != 0 || quality.LifecycleLinks.Count != 0 || quality.ModeSideMismatch.Count != 0 || quality.PVETotalMismatch.Count != 1 {
+		t.Fatalf("DeepDataQuality differs: %+v", quality)
+	}
 
 	cutoff := contractBaseTime + 1000
 	plan, err := stats.RetentionPlan(ctx, cutoff, cutoff, cutoff)

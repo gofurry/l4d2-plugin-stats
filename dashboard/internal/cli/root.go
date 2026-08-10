@@ -200,7 +200,8 @@ func writeJSON(cmd *cobra.Command, value any) error {
 }
 
 func doctorCommand(options *rootOptions) *cobra.Command {
-	return &cobra.Command{Use: "doctor", Short: "validate configuration and database connectivity", RunE: func(cmd *cobra.Command, args []string) error {
+	var deep bool
+	command := &cobra.Command{Use: "doctor", Short: "validate configuration and database connectivity", RunE: func(cmd *cobra.Command, args []string) error {
 		cfg, err := config.Load(options.configPath)
 		if err != nil {
 			return err
@@ -248,8 +249,23 @@ func doctorCommand(options *rootOptions) *cobra.Command {
 			return err
 		}
 		fmt.Fprintf(cmd.OutOrStdout(), "config: ok\ndashboard database: ok (schema %d)\nstats database: ok (schema %d)\nadministrator: %t\nsite configured: %t\nenabled servers: %d\nSteam OpenID ready: %t\nruntime monitor: %t\n", dashboardVersion, version, adminConfigured, site.Configured, enabledServers, settings.SteamOpenIDEnabled && settings.PublicOrigin != "", cfg.Monitor.Enabled)
+		cancel()
+		if !deep {
+			return nil
+		}
+		deepCtx, deepCancel := context.WithTimeout(context.Background(), 2*time.Minute)
+		defer deepCancel()
+		report := service.NewDoctorService(dashboard, stats).Deep(deepCtx)
+		for _, check := range report.Checks {
+			fmt.Fprintf(cmd.OutOrStdout(), "[%s] %s: %s\n", check.Status, check.Name, check.Message)
+		}
+		if report.HasErrors() {
+			return errors.New("deep doctor found data quality errors")
+		}
 		return nil
 	}}
+	command.Flags().BoolVar(&deep, "deep", false, "run read-only data quality and aggregate checks")
+	return command
 }
 
 func versionCommand() *cobra.Command {
