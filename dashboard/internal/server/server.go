@@ -120,7 +120,7 @@ func New(cfg *config.Config, deps Dependencies) *fiber.App {
 	registerRankingRoutes(api, deps.Rankings)
 	registerAnnouncementRoutes(api, deps.Dashboard)
 	registerSiteDocumentRoutes(api, deps.Dashboard)
-	registerSteamRoutes(api, deps.Dashboard, deps.Auth)
+	registerSteamRoutes(api, deps.Dashboard, deps.Auth, deps.Logger)
 	registerAdminRoutes(api, deps.Dashboard, deps.Status, deps.Auth, deps.Data, deps.Logger, runtimeMonitor)
 	api.All("/*", func(c fiber.Ctx) error {
 		return sendError(c, fiber.StatusNotFound, "not_found", "API route not found")

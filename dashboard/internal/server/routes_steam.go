@@ -9,13 +9,13 @@ import (
 	"github.com/gofiber/fiber/v3"
 	"github.com/gofurry/l4d2-plugin-stats/dashboard/internal/auth"
 	"github.com/gofurry/l4d2-plugin-stats/dashboard/internal/store"
-	steamopenid "github.com/gofurry/steam-go/addons/openid"
+	"go.uber.org/zap"
 )
 
 const steamStateCookie = "l4d2_stats_steam_state"
 const steamIdentityCookie = "l4d2_stats_steam_identity"
 
-func registerSteamRoutes(api fiber.Router, dashboard store.DashboardStore, authService *auth.Service) {
+func registerSteamRoutes(api fiber.Router, dashboard store.DashboardStore, authService *auth.Service, logger *zap.Logger) {
 	api.Get("/steam/login", func(c fiber.Ctx) error {
 		settings, err := dashboard.SiteSettings(c.Context())
 		if err != nil {
@@ -58,6 +58,7 @@ func registerSteamRoutes(api fiber.Router, dashboard store.DashboardStore, authS
 		}
 		identity, err := verifier.VerifyValues(c.Context(), values)
 		if err != nil {
+			logger.Warn("Steam OpenID verification failed", zap.String("request_id", c.RequestID()), zap.Error(err))
 			return sendError(c, 401, "steam_openid_invalid", "Steam identity verification failed")
 		}
 		state := c.Cookies(steamStateCookie)
@@ -86,15 +87,16 @@ func registerSteamRoutes(api fiber.Router, dashboard store.DashboardStore, authS
 			clearSteamCookie(c, steamIdentityCookie, secure)
 			return sendData(c, 200, nil)
 		}
+		secure := false
+		if settings, settingsErr := dashboard.SiteSettings(c.Context()); settingsErr == nil {
+			secure = isHTTPS(settings.PublicOrigin)
+		}
+		clearSteamCookie(c, steamIdentityCookie, secure)
 		c.Set(fiber.HeaderCacheControl, "no-store")
 		return sendData(c, 200, fiber.Map{"steam_id": steamID})
 	})
 }
 
-func openidVerifier(settings store.SiteSettings) (*steamopenid.Verifier, error) {
-	origin := strings.TrimSuffix(settings.PublicOrigin, "/")
-	return steamopenid.NewVerifier(steamopenid.Config{Realm: origin + "/", ReturnTo: origin + "/api/v1/steam/callback"})
-}
 func isHTTPS(origin string) bool { return strings.HasPrefix(strings.ToLower(origin), "https://") }
 func redirect(c fiber.Ctx, location string) error {
 	c.Set(fiber.HeaderLocation, location)

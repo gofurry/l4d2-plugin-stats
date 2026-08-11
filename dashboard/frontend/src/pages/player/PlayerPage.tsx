@@ -39,7 +39,7 @@ export function PlayerPage() {
   const [server, setServer] = useState('')
   const [gameMode, setGameMode] = useState('')
   const [queryOpen, setQueryOpen] = useState(false)
-  useEffect(() => { if (validSteamID(sharedSteamID())) return; void api.steamIdentity().then(identity => { if (identity?.steam_id) { localStorage.setItem(playerStorageKey, identity.steam_id); setSteamID(identity.steam_id); setInput(identity.steam_id) } }).catch(() => undefined) }, [])
+  useEffect(() => { void api.steamIdentity().then(identity => { if (identity?.steam_id) { localStorage.setItem(playerStorageKey, identity.steam_id); setSteamID(identity.steam_id); setInput(identity.steam_id) } }).catch(() => undefined) }, [])
   const enabled = validSteamID(steamID)
   const summary = useQuery({ queryKey: ['player-summary', steamID], queryFn: () => api.playerSummary(steamID), enabled })
   const activity = useQuery({ queryKey: ['player-activity', steamID, range, server], queryFn: () => api.playerActivity(steamID, range, server), enabled })
