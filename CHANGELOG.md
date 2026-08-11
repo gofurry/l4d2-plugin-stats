@@ -2,7 +2,7 @@
 
 All notable changes to this project are documented in this file.
 
-## Unreleased
+## 1.2.1 - 2026-08-11
 
 ### Added
 
@@ -14,7 +14,9 @@ All notable changes to this project are documented in this file.
 
 ### Fixed
 
-- Keep the player activity chart on daily buckets for all-time views instead of displaying monthly bucket start dates, and improve chart text contrast on dark backgrounds.
+- Keep the player activity chart on daily buckets for all-time views instead of displaying monthly bucket start dates, limit the timeline to 30 daily points, and improve chart text contrast on dark backgrounds.
+- Generate valid systemd path directives for installation directories containing spaces.
+- Accept Steam's HTTP and HTTPS claimed identity forms during OpenID verification and report verification transport failures clearly.
 
 ## 1.2.0 - 2026-08-10
 
