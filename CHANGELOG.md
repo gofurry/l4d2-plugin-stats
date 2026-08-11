@@ -12,6 +12,10 @@ All notable changes to this project are documented in this file.
 
 - Upgrade Dashboard schema from 9 to 10 to persist the optional Steam OpenID proxy port.
 
+### Fixed
+
+- Keep the player activity chart on daily buckets for all-time views instead of displaying monthly bucket start dates, and improve chart text contrast on dark backgrounds.
+
 ## 1.2.0 - 2026-08-10
 
 ### Added

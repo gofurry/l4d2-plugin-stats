@@ -11,6 +11,10 @@ function currentChartTextColor() {
   return getComputedStyle(document.documentElement).getPropertyValue('--text-primary').trim() || '#4e3c32'
 }
 
+function formatActivityDay(day: number) {
+  return new Date(day * 86400_000).toLocaleDateString(undefined, { timeZone: 'UTC' })
+}
+
 function useChartTextColor() {
   const [color, setColor] = useState(currentChartTextColor)
   useEffect(() => {
@@ -25,16 +29,17 @@ function useChartTextColor() {
 
 export function PlayerActivity({ data, loading, copy }: { data?: PlayerActivityData; loading: boolean; copy: PlayerCopy }) {
   const chartTextColor = useChartTextColor()
+  const showSymbols = (data?.timeline.length ?? 0) <= 31
   const activityOption = useMemo<EChartsCoreOption>(() => ({
     ...chartBase,
-    legend: { top: 0, textStyle: { color: '#6f5b50' } },
-    xAxis: { type: 'category', data: data?.timeline.map(point => new Date(point.day * 86400_000).toLocaleDateString()) ?? [], axisLabel: { color: '#806d62', hideOverlap: true }, axisLine: { lineStyle: { color: 'rgba(102,75,60,.22)' } } },
-    yAxis: { type: 'value', axisLabel: { color: '#806d62', formatter: '{value}h' }, splitLine: { lineStyle: { color: 'rgba(102,75,60,.1)' } } },
+    legend: { top: 0, textStyle: { color: chartTextColor } },
+    xAxis: { type: 'category', data: data?.timeline.map(point => formatActivityDay(point.day)) ?? [], axisLabel: { color: chartTextColor, hideOverlap: true }, axisLine: { lineStyle: { color: chartTextColor, opacity: 0.32 } } },
+    yAxis: { type: 'value', axisLabel: { color: chartTextColor, formatter: '{value}h' }, splitLine: { lineStyle: { color: chartTextColor, opacity: 0.14 } } },
     series: [
-      { name: copy.activeTime, type: 'line', smooth: true, showSymbol: false, data: data?.timeline.map(point => +(point.active_play_seconds / 3600).toFixed(2)) ?? [], lineStyle: { width: 3, color: palette[0] }, areaStyle: { color: 'rgba(198,111,59,.12)' } },
-      { name: copy.connected, type: 'line', smooth: true, showSymbol: false, data: data?.timeline.map(point => +(point.connected_seconds / 3600).toFixed(2)) ?? [], lineStyle: { width: 2, color: palette[1] } },
+      { name: copy.activeTime, type: 'line', smooth: true, showSymbol: showSymbols, symbolSize: 6, data: data?.timeline.map(point => +(point.active_play_seconds / 3600).toFixed(2)) ?? [], lineStyle: { width: 3, color: palette[0] }, areaStyle: { color: 'rgba(198,111,59,.12)' } },
+      { name: copy.connected, type: 'line', smooth: true, showSymbol: showSymbols, symbolSize: 6, data: data?.timeline.map(point => +(point.connected_seconds / 3600).toFixed(2)) ?? [], lineStyle: { width: 2, color: palette[1] } },
     ],
-  }), [copy.activeTime, copy.connected, data])
+  }), [chartTextColor, copy.activeTime, copy.connected, data, showSymbols])
   const serverOption = useMemo<EChartsCoreOption>(() => ({
     ...chartBase,
     tooltip: { trigger: 'item', backgroundColor: 'rgba(67,48,38,.94)', borderWidth: 0, textStyle: { color: '#fff7ed' } },

@@ -223,7 +223,14 @@ func (s *PlayerService) ActivityFiltered(ctx context.Context, steamID string, fi
 	if s.aggregates != nil {
 		key := fmt.Sprintf("activity:%s:%d:%s", steamID, filter.Cutoff, filter.ServerKey)
 		value, err := s.cached(ctx, steamID, key, func(ctx context.Context) (any, error) {
-			rows, err := s.aggregateRows(ctx, steamID, filter, []string{"activity"})
+			cutoffDay := int64(0)
+			if filter.Cutoff > 0 {
+				cutoffDay = filter.Cutoff / 86400
+			}
+			rows, err := s.aggregates.ListAggregateRows(ctx, store.AggregateFilter{
+				Grain: store.AggregateGrainDaily, Kinds: []string{"activity"}, SteamID: steamID,
+				ServerKey: filter.ServerKey, CutoffDay: cutoffDay,
+			})
 			if err != nil {
 				return store.PlayerActivity{}, err
 			}
@@ -254,6 +261,9 @@ func (s *PlayerService) ActivityFiltered(ctx context.Context, steamID string, fi
 				result.Servers = append(result.Servers, *server)
 			}
 			sort.Slice(result.Timeline, func(i, j int) bool { return result.Timeline[i].Day < result.Timeline[j].Day })
+			if len(result.Timeline) > 365 {
+				result.Timeline = result.Timeline[len(result.Timeline)-365:]
+			}
 			sort.Slice(result.Servers, func(i, j int) bool { return result.Servers[i].ServerKey < result.Servers[j].ServerKey })
 			return result, nil
 		})
