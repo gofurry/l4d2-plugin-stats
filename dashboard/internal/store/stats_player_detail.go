@@ -6,6 +6,8 @@ import (
 	"strings"
 )
 
+const playerActivityTimelineLimit = 30
+
 func (s *statsStore) PlayerActivity(ctx context.Context, steamID string, cutoff int64) (PlayerActivity, error) {
 	return s.PlayerActivityFiltered(ctx, steamID, PlayerFilter{Cutoff: cutoff})
 }
@@ -48,9 +50,9 @@ GROUP BY %s ORDER BY %s`, day, p1, p2, p2, serverCondition, day, day)
 		return PlayerActivity{}, err
 	}
 	// The summary remains all-time, but charts never need an unbounded number of
-	// daily points. Keep the newest year when range=all.
-	if len(result.Timeline) > 365 {
-		result.Timeline = result.Timeline[len(result.Timeline)-365:]
+	// daily points. Keep at most the newest 30 points for legibility.
+	if len(result.Timeline) > playerActivityTimelineLimit {
+		result.Timeline = result.Timeline[len(result.Timeline)-playerActivityTimelineLimit:]
 	}
 	serverQuery := fmt.Sprintf(`SELECT server_key, COUNT(*), COALESCE(SUM(active_play_seconds),0)
 FROM lps_sessions WHERE steam_id=%s AND (%s=0 OR started_at >= %s)

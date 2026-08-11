@@ -39,7 +39,7 @@ func TestPlayerActivityUsesDailyBucketsAndCapsTimeline(t *testing.T) {
 	if aggregates.filter.Grain != store.AggregateGrainDaily {
 		t.Fatalf("grain=%q, want daily", aggregates.filter.Grain)
 	}
-	if len(result.Timeline) != 365 || result.Timeline[0].Day != 6 || result.Timeline[364].Day != 370 {
+	if len(result.Timeline) != playerActivityTimelineLimit || result.Timeline[0].Day != 341 || result.Timeline[29].Day != 370 {
 		t.Fatalf("unexpected timeline: len=%d first=%d last=%d", len(result.Timeline), result.Timeline[0].Day, result.Timeline[len(result.Timeline)-1].Day)
 	}
 	if len(result.Servers) != 1 || result.Servers[0].ActiveSeconds != 370 {

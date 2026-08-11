@@ -31,6 +31,8 @@ type PlayerService struct {
 	group      singleflight.Group
 }
 
+const playerActivityTimelineLimit = 30
+
 func NewPlayerService(stats store.StatsStore, aggregates ...store.DashboardAggregateStore) *PlayerService {
 	var aggregateStore store.DashboardAggregateStore
 	if len(aggregates) > 0 {
@@ -261,8 +263,8 @@ func (s *PlayerService) ActivityFiltered(ctx context.Context, steamID string, fi
 				result.Servers = append(result.Servers, *server)
 			}
 			sort.Slice(result.Timeline, func(i, j int) bool { return result.Timeline[i].Day < result.Timeline[j].Day })
-			if len(result.Timeline) > 365 {
-				result.Timeline = result.Timeline[len(result.Timeline)-365:]
+			if len(result.Timeline) > playerActivityTimelineLimit {
+				result.Timeline = result.Timeline[len(result.Timeline)-playerActivityTimelineLimit:]
 			}
 			sort.Slice(result.Servers, func(i, j int) bool { return result.Servers[i].ServerKey < result.Servers[j].ServerKey })
 			return result, nil
