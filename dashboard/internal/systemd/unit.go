@@ -42,7 +42,7 @@ func GenerateUnit(options Options) string {
 	fmt.Fprintln(&b, "Type=simple")
 	fmt.Fprintf(&b, "User=%s\n", options.Identity.Username)
 	fmt.Fprintf(&b, "Group=%s\n", options.Identity.Group)
-	fmt.Fprintf(&b, "WorkingDirectory=%s\n", quote(options.Config.Directory))
+	fmt.Fprintf(&b, "WorkingDirectory=%s\n", options.Config.Directory)
 	fmt.Fprintf(&b, "ExecStart=%s serve --config %s\n", quote(options.BinaryPath), quote(options.Config.Path))
 	fmt.Fprintln(&b, "Restart=on-failure")
 	fmt.Fprintln(&b, "RestartSec=3")
@@ -53,7 +53,7 @@ func GenerateUnit(options Options) string {
 	fmt.Fprintln(&b, "ProtectSystem=full")
 	fmt.Fprintln(&b, "ProtectHome=false")
 	for _, path := range writePaths {
-		fmt.Fprintf(&b, "ReadWritePaths=%s\n", quote(path))
+		fmt.Fprintf(&b, "ReadWritePaths=%s\n", path)
 	}
 	fmt.Fprintln(&b, "StandardOutput=journal")
 	fmt.Fprintln(&b, "StandardError=journal")

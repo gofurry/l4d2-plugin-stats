@@ -21,10 +21,21 @@ func TestGenerateUnitUsesInvokerAndAbsolutePaths(t *testing.T) {
 	})
 	for _, expected := range []string{
 		"User=alice", "Group=games", "Restart=on-failure", "NoNewPrivileges=true", "PrivateTmp=true",
+		"WorkingDirectory=" + root,
 		"ExecStart=" + quote(filepath.Join(root, "l4d2-stats")) + " serve --config " + quote(cfg.Path),
+		"ReadWritePaths=" + root,
+		"ReadWritePaths=" + filepath.Join(root, "logs"),
 	} {
 		if !strings.Contains(unit, expected) {
 			t.Fatalf("unit missing %q:\n%s", expected, unit)
+		}
+	}
+	for _, invalid := range []string{
+		`WorkingDirectory="`,
+		`ReadWritePaths="`,
+	} {
+		if strings.Contains(unit, invalid) {
+			t.Fatalf("unit contains an invalid quoted path directive %q:\n%s", invalid, unit)
 		}
 	}
 }
