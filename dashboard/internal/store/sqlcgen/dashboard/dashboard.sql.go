@@ -536,25 +536,25 @@ func (q *Queries) GetSiteDocument(ctx context.Context, key string) (SiteDocument
 }
 
 const getSiteSettings = `-- name: GetSiteSettings :one
-SELECT language, footer_enabled, background_image_url, public_origin, steam_openid_enabled, steam_openid_proxy_port,
+SELECT language, footer_enabled, background_image_url, public_origin, steam_openid_enabled, steam_openid_proxy_url,
        browser_title, theme, a2s_refresh_seconds, a2s_jitter_seconds, a2s_retry_count, updated_at
 FROM site_settings
 WHERE id = 1
 `
 
 type GetSiteSettingsRow struct {
-	Language             string `json:"language"`
-	FooterEnabled        int64  `json:"footer_enabled"`
-	BackgroundImageUrl   string `json:"background_image_url"`
-	PublicOrigin         string `json:"public_origin"`
-	SteamOpenidEnabled   int64  `json:"steam_openid_enabled"`
-	SteamOpenidProxyPort int64  `json:"steam_openid_proxy_port"`
-	BrowserTitle         string `json:"browser_title"`
-	Theme                string `json:"theme"`
-	A2sRefreshSeconds    int64  `json:"a2s_refresh_seconds"`
-	A2sJitterSeconds     int64  `json:"a2s_jitter_seconds"`
-	A2sRetryCount        int64  `json:"a2s_retry_count"`
-	UpdatedAt            int64  `json:"updated_at"`
+	Language            string `json:"language"`
+	FooterEnabled       int64  `json:"footer_enabled"`
+	BackgroundImageUrl  string `json:"background_image_url"`
+	PublicOrigin        string `json:"public_origin"`
+	SteamOpenidEnabled  int64  `json:"steam_openid_enabled"`
+	SteamOpenidProxyUrl string `json:"steam_openid_proxy_url"`
+	BrowserTitle        string `json:"browser_title"`
+	Theme               string `json:"theme"`
+	A2sRefreshSeconds   int64  `json:"a2s_refresh_seconds"`
+	A2sJitterSeconds    int64  `json:"a2s_jitter_seconds"`
+	A2sRetryCount       int64  `json:"a2s_retry_count"`
+	UpdatedAt           int64  `json:"updated_at"`
 }
 
 func (q *Queries) GetSiteSettings(ctx context.Context) (GetSiteSettingsRow, error) {
@@ -566,7 +566,7 @@ func (q *Queries) GetSiteSettings(ctx context.Context) (GetSiteSettingsRow, erro
 		&i.BackgroundImageUrl,
 		&i.PublicOrigin,
 		&i.SteamOpenidEnabled,
-		&i.SteamOpenidProxyPort,
+		&i.SteamOpenidProxyUrl,
 		&i.BrowserTitle,
 		&i.Theme,
 		&i.A2sRefreshSeconds,
@@ -1117,7 +1117,7 @@ func (q *Queries) UpsertSEOSettings(ctx context.Context, arg UpsertSEOSettingsPa
 
 const upsertSiteSettings = `-- name: UpsertSiteSettings :exec
 INSERT INTO site_settings (
-  id, language, footer_enabled, background_image_url, public_origin, steam_openid_enabled, steam_openid_proxy_port,
+  id, language, footer_enabled, background_image_url, public_origin, steam_openid_enabled, steam_openid_proxy_url,
   browser_title, theme, a2s_refresh_seconds, a2s_jitter_seconds, a2s_retry_count, updated_at
 )
 VALUES (1, ?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9, ?10, ?11, ?12)
@@ -1127,7 +1127,7 @@ ON CONFLICT(id) DO UPDATE SET
   background_image_url = excluded.background_image_url,
   public_origin = excluded.public_origin,
   steam_openid_enabled = excluded.steam_openid_enabled,
-  steam_openid_proxy_port = excluded.steam_openid_proxy_port,
+  steam_openid_proxy_url = excluded.steam_openid_proxy_url,
   browser_title = excluded.browser_title,
   theme = excluded.theme,
   a2s_refresh_seconds = excluded.a2s_refresh_seconds,
@@ -1137,18 +1137,18 @@ ON CONFLICT(id) DO UPDATE SET
 `
 
 type UpsertSiteSettingsParams struct {
-	Language             string `json:"language"`
-	FooterEnabled        int64  `json:"footer_enabled"`
-	BackgroundImageUrl   string `json:"background_image_url"`
-	PublicOrigin         string `json:"public_origin"`
-	SteamOpenidEnabled   int64  `json:"steam_openid_enabled"`
-	SteamOpenidProxyPort int64  `json:"steam_openid_proxy_port"`
-	BrowserTitle         string `json:"browser_title"`
-	Theme                string `json:"theme"`
-	A2sRefreshSeconds    int64  `json:"a2s_refresh_seconds"`
-	A2sJitterSeconds     int64  `json:"a2s_jitter_seconds"`
-	A2sRetryCount        int64  `json:"a2s_retry_count"`
-	UpdatedAt            int64  `json:"updated_at"`
+	Language            string `json:"language"`
+	FooterEnabled       int64  `json:"footer_enabled"`
+	BackgroundImageUrl  string `json:"background_image_url"`
+	PublicOrigin        string `json:"public_origin"`
+	SteamOpenidEnabled  int64  `json:"steam_openid_enabled"`
+	SteamOpenidProxyUrl string `json:"steam_openid_proxy_url"`
+	BrowserTitle        string `json:"browser_title"`
+	Theme               string `json:"theme"`
+	A2sRefreshSeconds   int64  `json:"a2s_refresh_seconds"`
+	A2sJitterSeconds    int64  `json:"a2s_jitter_seconds"`
+	A2sRetryCount       int64  `json:"a2s_retry_count"`
+	UpdatedAt           int64  `json:"updated_at"`
 }
 
 func (q *Queries) UpsertSiteSettings(ctx context.Context, arg UpsertSiteSettingsParams) error {
@@ -1158,7 +1158,7 @@ func (q *Queries) UpsertSiteSettings(ctx context.Context, arg UpsertSiteSettings
 		arg.BackgroundImageUrl,
 		arg.PublicOrigin,
 		arg.SteamOpenidEnabled,
-		arg.SteamOpenidProxyPort,
+		arg.SteamOpenidProxyUrl,
 		arg.BrowserTitle,
 		arg.Theme,
 		arg.A2sRefreshSeconds,

@@ -7,7 +7,6 @@ import (
 	"net/http"
 	"net/url"
 	"regexp"
-	"strconv"
 	"strings"
 	"time"
 
@@ -27,28 +26,57 @@ type openIDVerifier struct {
 }
 
 func openidVerifier(settings store.SiteSettings) (*openIDVerifier, error) {
-	client, err := steamOpenIDHTTPClient(settings.SteamOpenIDProxyPort)
+	client, err := steamOpenIDHTTPClient(settings.SteamOpenIDProxyURL)
 	if err != nil {
 		return nil, err
 	}
 	return newOpenIDVerifier(settings, steamOpenIDEndpoint, client)
 }
 
-func steamOpenIDHTTPClient(proxyPort int64) (*http.Client, error) {
-	if proxyPort == 0 {
-		return http.DefaultClient, nil
+func steamOpenIDHTTPClient(proxyAddress string) (*http.Client, error) {
+	_, proxyURL, err := normalizeSteamOpenIDProxyURL(proxyAddress)
+	if err != nil {
+		return nil, err
 	}
-	if proxyPort < 1 || proxyPort > 65535 {
-		return nil, fmt.Errorf("invalid Steam OpenID proxy port %d", proxyPort)
+	if proxyURL == nil {
+		return http.DefaultClient, nil
 	}
 	base, ok := http.DefaultTransport.(*http.Transport)
 	if !ok {
 		return nil, fmt.Errorf("default HTTP transport is unavailable")
 	}
 	transport := base.Clone()
-	transport.Proxy = http.ProxyURL(&url.URL{Scheme: "http", Host: "127.0.0.1:" + strconv.FormatInt(proxyPort, 10)})
+	transport.Proxy = http.ProxyURL(proxyURL)
 	transport.DisableKeepAlives = true
 	return &http.Client{Transport: transport}, nil
+}
+
+func normalizeSteamOpenIDProxyURL(value string) (string, *url.URL, error) {
+	value = strings.TrimSpace(value)
+	if value == "" {
+		return "", nil, nil
+	}
+	if len(value) > 2048 {
+		return "", nil, fmt.Errorf("Steam OpenID proxy URL must not exceed 2048 bytes")
+	}
+	if !strings.Contains(value, "://") {
+		value = "http://" + value
+	}
+	proxyURL, err := url.Parse(value)
+	if err != nil || proxyURL.Host == "" {
+		return "", nil, fmt.Errorf("Steam OpenID proxy URL is invalid")
+	}
+	proxyURL.Scheme = strings.ToLower(proxyURL.Scheme)
+	switch proxyURL.Scheme {
+	case "http", "https", "socks5", "socks5h":
+	default:
+		return "", nil, fmt.Errorf("Steam OpenID proxy URL must use http, https, socks5, or socks5h")
+	}
+	if (proxyURL.Path != "" && proxyURL.Path != "/") || proxyURL.RawQuery != "" || proxyURL.Fragment != "" {
+		return "", nil, fmt.Errorf("Steam OpenID proxy URL must not contain a path, query, or fragment")
+	}
+	proxyURL.Path = ""
+	return proxyURL.String(), proxyURL, nil
 }
 
 func newOpenIDVerifier(settings store.SiteSettings, endpoint string, client *http.Client) (*openIDVerifier, error) {

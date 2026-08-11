@@ -2,6 +2,13 @@
 
 All notable changes to this project are documented in this file.
 
+## Unreleased
+
+### Changed
+
+- Replace the loopback-only Steam OpenID proxy port with an optional full proxy address supporting HTTP, HTTPS, SOCKS5, and SOCKS5H; existing ports migrate automatically to `http://127.0.0.1:<port>`.
+- Upgrade Dashboard schema from 10 to 11 to persist the Steam OpenID proxy URL while retaining the legacy port column for safe downgrade.
+
 ## 1.2.1 - 2026-08-11
 
 ### Added

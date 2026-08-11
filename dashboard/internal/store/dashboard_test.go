@@ -27,7 +27,7 @@ func TestDashboardInitialSchemaAndManagement(t *testing.T) {
 	if err != nil || site.Language != "zh-CN" || site.Theme != "light" || site.Configured || site.FooterEnabled {
 		t.Fatalf("default Site()=%#v err=%v", site, err)
 	}
-	settings := SiteSettings{Language: "en", BrowserTitle: "My Stats", Theme: "dark", FooterEnabled: true, BackgroundImageURL: "https://example.com/background.jpg", PublicOrigin: "https://example.com", SteamOpenIDEnabled: true, SteamOpenIDProxyPort: 7890, A2SRefreshSeconds: 10, A2SJitterSeconds: 5, A2SRetryCount: 2, SEOEnabled: true, SEODescription: "Server statistics", SEOImageURL: "https://example.com/share.jpg", Links: []FooterLink{{Label: "ICP", URL: "https://example.com/icp"}}}
+	settings := SiteSettings{Language: "en", BrowserTitle: "My Stats", Theme: "dark", FooterEnabled: true, BackgroundImageURL: "https://example.com/background.jpg", PublicOrigin: "https://example.com", SteamOpenIDEnabled: true, SteamOpenIDProxyURL: "socks5://10.0.0.8:1080", A2SRefreshSeconds: 10, A2SJitterSeconds: 5, A2SRetryCount: 2, SEOEnabled: true, SEODescription: "Server statistics", SEOImageURL: "https://example.com/share.jpg", Links: []FooterLink{{Label: "ICP", URL: "https://example.com/icp"}}}
 	if err := dashboard.UpdateSite(ctx, settings); err != nil {
 		t.Fatal(err)
 	}
@@ -36,7 +36,7 @@ func TestDashboardInitialSchemaAndManagement(t *testing.T) {
 		t.Fatalf("updated Site()=%#v err=%v", site, err)
 	}
 	savedSettings, err := dashboard.SiteSettings(ctx)
-	if err != nil || savedSettings.Theme != "dark" || savedSettings.SteamOpenIDProxyPort != 7890 || savedSettings.A2SJitterSeconds != 5 || savedSettings.A2SRetryCount != 2 || !savedSettings.SEOEnabled || savedSettings.SEODescription == "" {
+	if err != nil || savedSettings.Theme != "dark" || savedSettings.SteamOpenIDProxyURL != "socks5://10.0.0.8:1080" || savedSettings.A2SJitterSeconds != 5 || savedSettings.A2SRetryCount != 2 || !savedSettings.SEOEnabled || savedSettings.SEODescription == "" {
 		t.Fatalf("updated SiteSettings()=%#v err=%v", savedSettings, err)
 	}
 	document, err := dashboard.UpdateSiteDocument(ctx, SiteDocument{Key: "introduction", Enabled: true, ContentMarkdown: "# Welcome"})
@@ -314,5 +314,44 @@ func TestSteamOpenIDProxyMigrationNineToTen(t *testing.T) {
 	}
 	if _, err := db.ExecContext(ctx, `SELECT steam_openid_proxy_port FROM site_settings`); err == nil {
 		t.Fatal("steam_openid_proxy_port remained after Down migration")
+	}
+}
+
+func TestSteamOpenIDProxyURLMigrationTenToEleven(t *testing.T) {
+	ctx := context.Background()
+	db, err := sql.Open("sqlite", filepath.Join(t.TempDir(), "migration.db"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer db.Close()
+	goose.SetBaseFS(dashboarddb.Migrations)
+	if err := goose.SetDialect("sqlite3"); err != nil {
+		t.Fatal(err)
+	}
+	if err := goose.UpToContext(ctx, db, "migrations", 10); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := db.ExecContext(ctx, `INSERT INTO site_settings (id, language, steam_openid_proxy_port, updated_at) VALUES (1, 'zh-CN', 7890, 1)`); err != nil {
+		t.Fatal(err)
+	}
+	if err := goose.UpToContext(ctx, db, "migrations", 11); err != nil {
+		t.Fatal(err)
+	}
+	var proxyURL string
+	if err := db.QueryRowContext(ctx, `SELECT steam_openid_proxy_url FROM site_settings WHERE id = 1`).Scan(&proxyURL); err != nil || proxyURL != "http://127.0.0.1:7890" {
+		t.Fatalf("migrated proxy URL=%q err=%v", proxyURL, err)
+	}
+	if _, err := db.ExecContext(ctx, `UPDATE site_settings SET steam_openid_proxy_url = 'socks5://10.0.0.8:1080' WHERE id = 1`); err != nil {
+		t.Fatal(err)
+	}
+	if err := goose.DownToContext(ctx, db, "migrations", 10); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := db.ExecContext(ctx, `SELECT steam_openid_proxy_url FROM site_settings`); err == nil {
+		t.Fatal("steam_openid_proxy_url remained after Down migration")
+	}
+	var port int64
+	if err := db.QueryRowContext(ctx, `SELECT steam_openid_proxy_port FROM site_settings WHERE id = 1`).Scan(&port); err != nil || port != 7890 {
+		t.Fatalf("legacy proxy port=%d err=%v", port, err)
 	}
 }

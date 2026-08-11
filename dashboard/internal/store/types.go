@@ -9,7 +9,7 @@ import (
 var ErrServerNotFound = errors.New("game server not found")
 
 const (
-	DashboardSchemaVersion int64 = 10
+	DashboardSchemaVersion int64 = 11
 	StatsSchemaVersion     int64 = 3
 )
 
@@ -33,21 +33,21 @@ type Site struct {
 }
 
 type SiteSettings struct {
-	Language             string       `json:"language"`
-	BrowserTitle         string       `json:"browser_title"`
-	Theme                string       `json:"theme"`
-	FooterEnabled        bool         `json:"footer_enabled"`
-	BackgroundImageURL   string       `json:"background_image_url"`
-	PublicOrigin         string       `json:"public_origin"`
-	SteamOpenIDEnabled   bool         `json:"steam_openid_enabled"`
-	SteamOpenIDProxyPort int64        `json:"steam_openid_proxy_port"`
-	A2SRefreshSeconds    int64        `json:"a2s_refresh_seconds"`
-	A2SJitterSeconds     int64        `json:"a2s_jitter_seconds"`
-	A2SRetryCount        int64        `json:"a2s_retry_count"`
-	SEOEnabled           bool         `json:"seo_enabled"`
-	SEODescription       string       `json:"seo_description"`
-	SEOImageURL          string       `json:"seo_image_url"`
-	Links                []FooterLink `json:"footer_links"`
+	Language            string       `json:"language"`
+	BrowserTitle        string       `json:"browser_title"`
+	Theme               string       `json:"theme"`
+	FooterEnabled       bool         `json:"footer_enabled"`
+	BackgroundImageURL  string       `json:"background_image_url"`
+	PublicOrigin        string       `json:"public_origin"`
+	SteamOpenIDEnabled  bool         `json:"steam_openid_enabled"`
+	SteamOpenIDProxyURL string       `json:"steam_openid_proxy_url"`
+	A2SRefreshSeconds   int64        `json:"a2s_refresh_seconds"`
+	A2SJitterSeconds    int64        `json:"a2s_jitter_seconds"`
+	A2SRetryCount       int64        `json:"a2s_retry_count"`
+	SEOEnabled          bool         `json:"seo_enabled"`
+	SEODescription      string       `json:"seo_description"`
+	SEOImageURL         string       `json:"seo_image_url"`
+	Links               []FooterLink `json:"footer_links"`
 }
 
 type SiteDocument struct {

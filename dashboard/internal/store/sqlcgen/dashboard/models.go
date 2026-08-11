@@ -147,4 +147,5 @@ type SiteSetting struct {
 	A2sRetryCount        int64  `json:"a2s_retry_count"`
 	Theme                string `json:"theme"`
 	SteamOpenidProxyPort int64  `json:"steam_openid_proxy_port"`
+	SteamOpenidProxyUrl  string `json:"steam_openid_proxy_url"`
 }

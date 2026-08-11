@@ -2,7 +2,7 @@
 
 ## Current Position
 
-当前稳定版本为 `v1.2.0`。SourceMod 采集器使用 Stats schema 3 / `stats_version = 1`，支持 SQLite、MySQL 和 PostgreSQL；Dashboard 使用 schema 10 和 Aggregate Contract v1。详细版本变化统一记录在 [`CHANGELOG.md`](../CHANGELOG.md)。
+当前稳定版本为 `v1.2.1`。SourceMod 采集器使用 Stats schema 3 / `stats_version = 1`，支持 SQLite、MySQL 和 PostgreSQL；稳定版 Dashboard 使用 schema 10，当前开发版使用 schema 11，Aggregate Contract 仍为 v1。详细版本变化统一记录在 [`CHANGELOG.md`](../CHANGELOG.md)。
 
 系统已经具备身份与生命周期、PvE/装备、Versus 双阵营/职业和比赛结果采集，以及公开首页、个人中心、排行榜、Steam OpenID、单管理员后台、多服务器 A2S、日/月/终身聚合、安全保留、深度数据检查、备份恢复和脱敏诊断导出。
 
