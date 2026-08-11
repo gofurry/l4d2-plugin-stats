@@ -6,6 +6,7 @@ import (
 	"net/http"
 	"net/http/httptest"
 	"net/url"
+	"strconv"
 	"strings"
 	"testing"
 
@@ -73,6 +74,50 @@ func TestOpenIDVerifierRejectsProviderInvalidHTTPClaimedID(t *testing.T) {
 	values := callbackValues(provider.URL, "http://steamcommunity.com/openid/id/76561198000000000")
 	if _, err := verifier.VerifyValues(context.Background(), values); err == nil || !strings.Contains(err.Error(), "provider rejected") {
 		t.Fatalf("error=%v", err)
+	}
+}
+
+func TestSteamOpenIDHTTPClientUsesConfiguredLoopbackProxy(t *testing.T) {
+	proxied := false
+	proxy := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		proxied = true
+		if r.URL.String() != "http://steam.invalid/openid/login" {
+			t.Fatalf("proxy request URL=%q", r.URL.String())
+		}
+		_, _ = io.WriteString(w, "is_valid:true\n")
+	}))
+	defer proxy.Close()
+	proxyURL, err := url.Parse(proxy.URL)
+	if err != nil {
+		t.Fatal(err)
+	}
+	port, err := strconv.ParseInt(proxyURL.Port(), 10, 64)
+	if err != nil {
+		t.Fatal(err)
+	}
+	client, err := steamOpenIDHTTPClient(port)
+	if err != nil {
+		t.Fatal(err)
+	}
+	settings := store.SiteSettings{PublicOrigin: "https://stats.example.com"}
+	verifier, err := newOpenIDVerifier(settings, "http://steam.invalid/openid/login", client)
+	if err != nil {
+		t.Fatal(err)
+	}
+	identity, err := verifier.VerifyValues(context.Background(), callbackValues("http://steam.invalid/openid/login", "http://steamcommunity.com/openid/id/76561198000000000"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !proxied || identity.SteamID != "76561198000000000" {
+		t.Fatalf("proxied=%t identity=%+v", proxied, identity)
+	}
+}
+
+func TestSteamOpenIDHTTPClientRejectsInvalidProxyPort(t *testing.T) {
+	for _, port := range []int64{-1, 65536} {
+		if _, err := steamOpenIDHTTPClient(port); err == nil {
+			t.Fatalf("proxy port %d should fail", port)
+		}
 	}
 }
 

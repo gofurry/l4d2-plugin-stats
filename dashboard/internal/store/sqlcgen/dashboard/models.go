@@ -134,16 +134,17 @@ type SiteSeoSetting struct {
 }
 
 type SiteSetting struct {
-	ID                 int64  `json:"id"`
-	Language           string `json:"language"`
-	FooterEnabled      int64  `json:"footer_enabled"`
-	BackgroundImageUrl string `json:"background_image_url"`
-	PublicOrigin       string `json:"public_origin"`
-	SteamOpenidEnabled int64  `json:"steam_openid_enabled"`
-	UpdatedAt          int64  `json:"updated_at"`
-	BrowserTitle       string `json:"browser_title"`
-	A2sRefreshSeconds  int64  `json:"a2s_refresh_seconds"`
-	A2sJitterSeconds   int64  `json:"a2s_jitter_seconds"`
-	A2sRetryCount      int64  `json:"a2s_retry_count"`
-	Theme              string `json:"theme"`
+	ID                   int64  `json:"id"`
+	Language             string `json:"language"`
+	FooterEnabled        int64  `json:"footer_enabled"`
+	BackgroundImageUrl   string `json:"background_image_url"`
+	PublicOrigin         string `json:"public_origin"`
+	SteamOpenidEnabled   int64  `json:"steam_openid_enabled"`
+	UpdatedAt            int64  `json:"updated_at"`
+	BrowserTitle         string `json:"browser_title"`
+	A2sRefreshSeconds    int64  `json:"a2s_refresh_seconds"`
+	A2sJitterSeconds     int64  `json:"a2s_jitter_seconds"`
+	A2sRetryCount        int64  `json:"a2s_retry_count"`
+	Theme                string `json:"theme"`
+	SteamOpenidProxyPort int64  `json:"steam_openid_proxy_port"`
 }

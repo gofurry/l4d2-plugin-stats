@@ -2,6 +2,16 @@
 
 All notable changes to this project are documented in this file.
 
+## Unreleased
+
+### Added
+
+- Add an optional loopback HTTP proxy port for Steam OpenID requests, configurable from the site administration page for hosts that cannot reach Steam directly.
+
+### Changed
+
+- Upgrade Dashboard schema from 9 to 10 to persist the optional Steam OpenID proxy port.
+
 ## 1.2.0 - 2026-08-10
 
 ### Added

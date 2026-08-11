@@ -37,7 +37,7 @@ func (s doctorStatsStub) DeepDataQuality(context.Context, int64) (store.StatsDat
 func TestDeepDoctorHealthyAndWarningExitSemantics(t *testing.T) {
 	now := time.Unix(1700000000, 0)
 	healthy := NewDoctorService(
-		doctorDashboardStub{version: 9, status: store.AggregateStatus{AggregateVersion: 1, State: "ready", LastFinishedAt: now.Add(-10 * time.Minute).Unix(), SourceWatermark: 100}, settings: store.DataMaintenanceSettings{AggregateIntervalMinutes: 30}},
+		doctorDashboardStub{version: store.DashboardSchemaVersion, status: store.AggregateStatus{AggregateVersion: 1, State: "ready", LastFinishedAt: now.Add(-10 * time.Minute).Unix(), SourceWatermark: 100}, settings: store.DataMaintenanceSettings{AggregateIntervalMinutes: 30}},
 		doctorStatsStub{version: store.StatsSchemaVersion, quality: store.StatsDataQuality{SourceWatermark: 100}},
 	)
 	healthy.now = func() time.Time { return now }
@@ -52,7 +52,7 @@ func TestDeepDoctorHealthyAndWarningExitSemantics(t *testing.T) {
 	}
 
 	warnings := NewDoctorService(
-		doctorDashboardStub{version: 9, status: store.AggregateStatus{AggregateVersion: 1, State: "empty", SourceWatermark: 50}, settings: store.DataMaintenanceSettings{AggregateIntervalMinutes: 30}},
+		doctorDashboardStub{version: store.DashboardSchemaVersion, status: store.AggregateStatus{AggregateVersion: 1, State: "empty", SourceWatermark: 50}, settings: store.DataMaintenanceSettings{AggregateIntervalMinutes: 30}},
 		doctorStatsStub{version: store.StatsSchemaVersion, quality: store.StatsDataQuality{SourceWatermark: 100, StaleActiveBoots: store.DataQualityFinding{Count: 1, IDs: []string{"boot:b"}}}},
 	)
 	warnings.now = func() time.Time { return now }

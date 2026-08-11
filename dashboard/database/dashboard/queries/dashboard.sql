@@ -13,23 +13,24 @@ VALUES (?1, ?2)
 ON CONFLICT(key) DO UPDATE SET value = excluded.value;
 
 -- name: GetSiteSettings :one
-SELECT language, footer_enabled, background_image_url, public_origin, steam_openid_enabled,
+SELECT language, footer_enabled, background_image_url, public_origin, steam_openid_enabled, steam_openid_proxy_port,
        browser_title, theme, a2s_refresh_seconds, a2s_jitter_seconds, a2s_retry_count, updated_at
 FROM site_settings
 WHERE id = 1;
 
 -- name: UpsertSiteSettings :exec
 INSERT INTO site_settings (
-  id, language, footer_enabled, background_image_url, public_origin, steam_openid_enabled,
+  id, language, footer_enabled, background_image_url, public_origin, steam_openid_enabled, steam_openid_proxy_port,
   browser_title, theme, a2s_refresh_seconds, a2s_jitter_seconds, a2s_retry_count, updated_at
 )
-VALUES (1, ?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9, ?10, ?11)
+VALUES (1, ?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9, ?10, ?11, ?12)
 ON CONFLICT(id) DO UPDATE SET
   language = excluded.language,
   footer_enabled = excluded.footer_enabled,
   background_image_url = excluded.background_image_url,
   public_origin = excluded.public_origin,
   steam_openid_enabled = excluded.steam_openid_enabled,
+  steam_openid_proxy_port = excluded.steam_openid_proxy_port,
   browser_title = excluded.browser_title,
   theme = excluded.theme,
   a2s_refresh_seconds = excluded.a2s_refresh_seconds,

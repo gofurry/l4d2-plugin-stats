@@ -3,7 +3,7 @@ import MDEditor from '@uiw/react-md-editor'
 import '@uiw/react-md-editor/markdown-editor.css'
 import '@uiw/react-markdown-preview/markdown.css'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
-import { Alert, Button, Form, Input, Modal, Popconfirm, Select, Switch, Typography, message } from 'antd'
+import { Alert, Button, Form, Input, InputNumber, Modal, Popconfirm, Select, Switch, Typography, message } from 'antd'
 import { useEffect, useState } from 'react'
 import { useTranslation } from 'react-i18next'
 import { useSearchParams } from 'react-router-dom'
@@ -61,7 +61,7 @@ export function AdminSitePage() {
   })
   useEffect(() => {
     if (!query.data) return
-    form.setFieldsValue(query.data)
+    form.setFieldsValue({ ...query.data, steam_openid_proxy_port: query.data.steam_openid_proxy_port || undefined })
   }, [form, query.data])
   const activeFooterLinks = footerLinks ?? query.data?.footer_links ?? []
   const origin = Form.useWatch('public_origin', form)
@@ -103,7 +103,7 @@ export function AdminSitePage() {
   const saveCurrentSection = async () => {
     const fields: Array<keyof SiteSettings> = activeSection === 'appearance'
       ? ['language', 'theme', 'browser_title', 'background_image_url', 'footer_enabled']
-      : ['a2s_refresh_seconds', 'a2s_jitter_seconds', 'a2s_retry_count', 'steam_openid_enabled', 'seo_enabled']
+      : ['a2s_refresh_seconds', 'a2s_jitter_seconds', 'a2s_retry_count', 'steam_openid_enabled', 'steam_openid_proxy_port', 'seo_enabled']
     if (activeSection === 'services' && (steamLoginEnabled || seoEnabled)) fields.push('public_origin')
     if (activeSection === 'services' && seoEnabled) fields.push('seo_description', 'seo_image_url')
     try {
@@ -202,6 +202,10 @@ export function AdminSitePage() {
           <Form.Item name="public_origin" label={t('publicOrigin')} extra={t('publicOriginHint')} rules={[{ required: true, message: t('requiredField') }, { validator: (_, value) => validPublicOrigin(value) ? Promise.resolve() : Promise.reject(new Error(t('invalidOrigin'))) }]}><Input placeholder={window.location.origin} /></Form.Item>
           {String(origin ?? '').startsWith('http://') && <Alert type="warning" showIcon title={t('insecureOrigin')} />}
         </>}
+        {steamLoginEnabled && <Form.Item name="steam_openid_proxy_port" label={t('steamProxyPort')} extra={t('steamProxyPortHint')}
+          rules={[{ type: 'number', min: 1, max: 65535, message: t('invalidProxyPort') }]}>
+          <InputNumber min={1} max={65535} precision={0} placeholder="7890" style={{ width: '100%' }} />
+        </Form.Item>}
       </section>
       <section className={styles.formSection}>
         <div className={styles.sectionTitleRow}>

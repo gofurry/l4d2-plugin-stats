@@ -139,6 +139,9 @@ func validateSite(settings *store.SiteSettings) error {
 		return err
 	}
 	settings.PublicOrigin = origin
+	if settings.SteamOpenIDProxyPort < 0 || settings.SteamOpenIDProxyPort > 65535 {
+		return errors.New("steam_openid_proxy_port must be empty or between 1 and 65535")
+	}
 	backgroundURL, err := normalizeHTTPURL(settings.BackgroundImageURL, "background_image_url")
 	if err != nil {
 		return err

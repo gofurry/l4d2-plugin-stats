@@ -7,6 +7,7 @@ import (
 	"net/http"
 	"net/url"
 	"regexp"
+	"strconv"
 	"strings"
 	"time"
 
@@ -26,7 +27,28 @@ type openIDVerifier struct {
 }
 
 func openidVerifier(settings store.SiteSettings) (*openIDVerifier, error) {
-	return newOpenIDVerifier(settings, steamOpenIDEndpoint, http.DefaultClient)
+	client, err := steamOpenIDHTTPClient(settings.SteamOpenIDProxyPort)
+	if err != nil {
+		return nil, err
+	}
+	return newOpenIDVerifier(settings, steamOpenIDEndpoint, client)
+}
+
+func steamOpenIDHTTPClient(proxyPort int64) (*http.Client, error) {
+	if proxyPort == 0 {
+		return http.DefaultClient, nil
+	}
+	if proxyPort < 1 || proxyPort > 65535 {
+		return nil, fmt.Errorf("invalid Steam OpenID proxy port %d", proxyPort)
+	}
+	base, ok := http.DefaultTransport.(*http.Transport)
+	if !ok {
+		return nil, fmt.Errorf("default HTTP transport is unavailable")
+	}
+	transport := base.Clone()
+	transport.Proxy = http.ProxyURL(&url.URL{Scheme: "http", Host: "127.0.0.1:" + strconv.FormatInt(proxyPort, 10)})
+	transport.DisableKeepAlives = true
+	return &http.Client{Transport: transport}, nil
 }
 
 func newOpenIDVerifier(settings store.SiteSettings, endpoint string, client *http.Client) (*openIDVerifier, error) {

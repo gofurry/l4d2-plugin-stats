@@ -69,9 +69,9 @@ SQLite Stats DB 的常规连接会以只读模式打开。MySQL/PostgreSQL 若�
 - 通过“运行监控”在新标签页查看当前 Dashboard 和宿主机的短期实时状态。
 - 通过“数据增长监控”查看数据库/日志占用、聚合水位，配置保留期并手动清理已聚合的过期数据。
 
-启用 Steam 登录后，需要填写玩家实际访问 Dashboard 时使用的完整地址，例如 `https://stats.example.com` 或 `http://203.0.113.10:18848`，供 Steam 验证后返回本站；不支持子路径。没有域名或不启用 Steam 登录都不影响手动 SteamID64 查询。
+启用 Steam 登录后，需要填写玩家实际访问 Dashboard 时使用的完整地址，例如 `https://stats.example.com` 或 `http://203.0.113.10:18848`，供 Steam 验证后返回本站；不支持子路径。若服务器无法直连 Steam，可选填本机 HTTP 代理端口，OpenID 请求将通过 `http://127.0.0.1:<端口>` 发出。没有域名或不启用 Steam 登录都不影响手动 SteamID64 查询。
 
-Dashboard DB 使用内嵌 Goose migration 自动升级，当前 schema 为 9；Stats schema 为 3，`stats_version` 仍为 1。升级前仍应停止服务并同时备份 Dashboard DB、Stats DB 与配置文件；不要通过删除 Stats DB 的方式处理版本变化。
+Dashboard DB 使用内嵌 Goose migration 自动升级，当前 schema 为 10；Stats schema 为 3，`stats_version` 仍为 1。升级前仍应停止服务并同时备份 Dashboard DB、Stats DB 与配置文件；不要通过删除 Stats DB 的方式处理版本变化。
 
 Dashboard 服务器 UUID 只标识网页中的实时服务器目录，不需要管理员填写。采集器的 `sm_lps_server_key` 仍是 Stats DB 中的数据来源标识，两者边界独立。L4D2 的加入链接和 A2S 状态查询统一使用同一个服务器地址。
 

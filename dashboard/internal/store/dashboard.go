@@ -357,6 +357,7 @@ func (s *dashboardStore) SiteSettings(ctx context.Context) (SiteSettings, error)
 		settings.BackgroundImageURL = row.BackgroundImageUrl
 		settings.PublicOrigin = row.PublicOrigin
 		settings.SteamOpenIDEnabled = row.SteamOpenidEnabled == 1
+		settings.SteamOpenIDProxyPort = row.SteamOpenidProxyPort
 		settings.A2SRefreshSeconds = row.A2sRefreshSeconds
 		settings.A2SJitterSeconds = row.A2sJitterSeconds
 		settings.A2SRetryCount = row.A2sRetryCount
@@ -390,7 +391,7 @@ func (s *dashboardStore) UpdateSite(ctx context.Context, settings SiteSettings) 
 	now := time.Now().Unix()
 	if err := q.UpsertSiteSettings(ctx, dashsql.UpsertSiteSettingsParams{
 		Language: settings.Language, FooterEnabled: boolInt(settings.FooterEnabled), BackgroundImageUrl: settings.BackgroundImageURL, PublicOrigin: settings.PublicOrigin,
-		SteamOpenidEnabled: boolInt(settings.SteamOpenIDEnabled), BrowserTitle: settings.BrowserTitle, Theme: settings.Theme,
+		SteamOpenidEnabled: boolInt(settings.SteamOpenIDEnabled), SteamOpenidProxyPort: settings.SteamOpenIDProxyPort, BrowserTitle: settings.BrowserTitle, Theme: settings.Theme,
 		A2sRefreshSeconds: settings.A2SRefreshSeconds, A2sJitterSeconds: settings.A2SJitterSeconds,
 		A2sRetryCount: settings.A2SRetryCount, UpdatedAt: now,
 	}); err != nil {
