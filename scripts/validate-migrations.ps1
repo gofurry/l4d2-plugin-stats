@@ -144,6 +144,13 @@ $requiredVersusRunResultColumns = @(
     "result_status",
     "finalized_at"
 )
+$requiredAnalysisIndexes = @(
+    "lps_idx_round_contexts_saved",
+    "lps_idx_incidents_occurred",
+    "lps_idx_incidents_actor_time",
+    "lps_idx_incidents_target_time",
+    "lps_idx_rounds_server_started_map"
+)
 
 foreach ($driver in $drivers) {
     $migration = Join-Path $migrationRoot "$driver\0001_initial.sql"
@@ -260,5 +267,33 @@ foreach ($driver in $drivers) {
         throw "$driver migration 0003 must add objective_interactions to lps_versus_survivor_stats."
     }
 
-    Write-Host "Validated $driver migrations ($($statements.Count + $secondStatements.Count + $thirdStatements.Count) statements)."
+    $fourthMigration = Join-Path $migrationRoot "$driver\0004_analysis_foundation.sql"
+    if (-not (Test-Path -LiteralPath $fourthMigration -PathType Leaf)) {
+        throw "Missing $driver migration: $fourthMigration"
+    }
+    $fourthSQL = Get-Content -LiteralPath $fourthMigration -Raw
+    $fourthStatements = [regex]::Split(
+        $fourthSQL,
+        '(?m)^\s*-- statement-breakpoint\s*$'
+    ) | ForEach-Object { $_.Trim() } | Where-Object { $_ -ne "" }
+    if ($fourthStatements.Count -ne 7) {
+        throw "$driver migration 0004 must contain exactly seven statements."
+    }
+    foreach ($statement in $fourthStatements) {
+        if (-not $statement.EndsWith(';')) {
+            throw "$driver migration 0004 contains a statement without a terminating semicolon."
+        }
+    }
+    foreach ($table in @("lps_round_contexts", "lps_incidents")) {
+        if ($fourthSQL -notmatch "(?i)CREATE TABLE IF NOT EXISTS\s+$table\b") {
+            throw "$driver migration 0004 is missing table $table."
+        }
+    }
+    foreach ($index in $requiredAnalysisIndexes) {
+        if ($fourthSQL -notmatch "(?i)\b$index\b") {
+            throw "$driver migration 0004 is missing index $index."
+        }
+    }
+
+    Write-Host "Validated $driver migrations ($($statements.Count + $secondStatements.Count + $thirdStatements.Count + $fourthStatements.Count) statements)."
 }

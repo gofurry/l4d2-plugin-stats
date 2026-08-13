@@ -25,6 +25,12 @@ bool LPS_GetMigrationMetadata(int version, char[] fileName, int fileNameLength, 
 			strcopy(name, nameLength, "versus_objective_interactions");
 			return true;
 		}
+		case 4:
+		{
+			strcopy(fileName, fileNameLength, "0004_analysis_foundation.sql");
+			strcopy(name, nameLength, "analysis_foundation");
+			return true;
+		}
 	}
 	return false;
 }

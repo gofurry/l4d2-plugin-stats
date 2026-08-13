@@ -408,3 +408,9 @@ Stats schema 3 通过增量迁移为 `lps_versus_survivor_stats` 增加可空的
 `objective_interactions`。对抗幸存者与 PvE 使用 5.12 节相同的白名单实体、完成输出、
 真人归属和“同一实体每个 Round 最多一次”规则；历史 `NULL` 同样表示当时尚未采集。
 该字段只在个人页从原始 Stats 行读取，不加入首页、成就或 Aggregate Contract v1。
+
+Stats schema 4 通过加法迁移新增永久 Round Context 与低频语义 Incident，不改变任何
+玩法累计字段或 `stats_version=1` 的含义。稳定 Incident ID、参与者和完整性见
+[`incidents-v1.md`](incidents-v1.md)，规则快照见
+[`round-context-v1.md`](round-context-v1.md)，读取侧派生口径见
+[`analysis-derived-v1.md`](analysis-derived-v1.md)。Aggregate Contract 仍为 v1。
