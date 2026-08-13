@@ -96,7 +96,9 @@ func analysisRangeCutoff(value string) (int64, error) {
 		return time.Now().AddDate(0, 0, -90).Unix(), nil
 	case "180d":
 		return time.Now().AddDate(0, 0, -180).Unix(), nil
+	case "365d":
+		return time.Now().AddDate(-1, 0, 0).Unix(), nil
 	default:
-		return 0, errors.New("range must be 30d, 90d, 180d or all")
+		return 0, errors.New("range must be 30d, 90d, 180d, 365d or all")
 	}
 }

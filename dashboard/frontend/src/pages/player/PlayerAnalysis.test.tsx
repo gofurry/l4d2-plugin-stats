@@ -28,12 +28,16 @@ const data: PlayerAnalysisData = {
 describe('PlayerAnalysis', () => {
   it('explains incident coverage and control perspectives in Chinese', () => {
     render(<PlayerAnalysis data={data} loading={false} view="versus_infected" onView={() => undefined} zh />)
-    expect(screen.getByText('战局事件统计')).toBeInTheDocument()
+    expect(screen.getByText('最近战局统计')).toBeInTheDocument()
     expect(screen.getByText('数据覆盖时间')).toBeInTheDocument()
-    expect(screen.getByText('作为感染者参与多人同时控制')).toBeInTheDocument()
+    expect(screen.getByText('幸存者被控明细与救援者（PvE + 对抗）')).toBeInTheDocument()
+    expect(screen.getByText('对抗感染者多人控制')).toBeInTheDocument()
+    expect(screen.getByText('参与多人同时控制')).toBeInTheDocument()
     expect(screen.getByText('被 Jockey 控制')).toBeInTheDocument()
     expect(screen.getByText('4 次 · 平均 9.3 秒')).toBeInTheDocument()
     expect(screen.getByText('救起你 3 次')).toBeInTheDocument()
+    expect(screen.queryByText(/最低样本门槛/)).not.toBeInTheDocument()
+    expect(screen.queryByText(/只统计 v1\.3/)).not.toBeInTheDocument()
     expect(screen.queryByText(/—/)).not.toBeInTheDocument()
   })
 })

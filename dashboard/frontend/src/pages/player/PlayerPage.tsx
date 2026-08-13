@@ -47,7 +47,7 @@ export function PlayerPage() {
   const activity = useQuery({ queryKey: ['player-activity', steamID, range, server], queryFn: () => api.playerActivity(steamID, range, server), enabled })
   const pve = useQuery({ queryKey: ['player-pve', steamID, range, server, gameMode], queryFn: () => api.playerPVE(steamID, range, server, gameMode), enabled })
   const versus = useQuery({ queryKey: ['player-versus', steamID, range, server], queryFn: () => api.playerVersus(steamID, range, server), enabled })
-  const analysis = useQuery({ queryKey: ['player-analysis', steamID, range, server, analysisView], queryFn: () => api.playerAnalysis(steamID, range === '365d' ? 'all' : range, server, analysisView), enabled })
+  const analysis = useQuery({ queryKey: ['player-analysis', steamID, range, server, analysisView], queryFn: () => api.playerAnalysis(steamID, range, server, analysisView), enabled })
   const sessionPage = useInfiniteQuery({ queryKey: ['player-sessions', steamID], queryFn: ({ pageParam }) => api.playerSessions(steamID, pageParam), initialPageParam: '', getNextPageParam: last => last.next_cursor, enabled })
   const chapterPage = useInfiniteQuery({ queryKey: ['player-chapters', steamID], queryFn: ({ pageParam }) => api.playerChapters(steamID, pageParam), initialPageParam: '', getNextPageParam: last => last.next_cursor, enabled })
   const sessions = sessionPage.data?.pages.flatMap(page => page.items) ?? []

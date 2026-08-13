@@ -53,7 +53,6 @@
 .loading, .empty { margin-top: 16px; padding: 58px 20px; text-align: center; }
 .analysisStack { display: grid; grid-template-columns: repeat(2,minmax(0,1fr)); gap: 14px; margin-top: 18px; }
 .analysisHeader { display: flex; align-items: flex-start; justify-content: space-between; gap: 20px; }
-.analysisHeader p, .analysisHint { margin: 0; color: var(--text-secondary); font-size: 12px; }
 .analysisWindow { display: flex; justify-content: space-between; gap: 14px; margin: 12px 0 0; padding: 10px 12px; border-radius: 10px; color: var(--text-secondary); font-size: 12px; background: var(--surface-row); }
 .analysisWindow strong { color: var(--text-primary); }
 .analysisRows { display: grid; gap: 1px; overflow: hidden; border-radius: 12px; }
