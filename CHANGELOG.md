@@ -4,7 +4,7 @@ All notable changes to this project are documented in this file.
 
 ## Unreleased
 
-## 1.3.0 - 2026-08-13
+## 1.3.0 - 2026-08-14
 
 ### Added
 
@@ -21,7 +21,14 @@ All notable changes to this project are documented in this file.
 - Replace the loopback-only Steam OpenID proxy port with an optional full proxy address supporting HTTP, HTTPS, SOCKS5, and SOCKS5H; existing ports migrate automatically to `http://127.0.0.1:<port>`.
 - Upgrade Dashboard schema from 10 to 11 to persist the Steam OpenID proxy URL while retaining the legacy port column for safe downgrade.
 - Upgrade the Collector and Dashboard to `1.3.0`, Stats schema from 3 to 4, and Dashboard schema from 11 to 12; existing gameplay `stats_version=1` and Aggregate Contract v1 meanings remain unchanged.
+- Upgrade Dashboard schema from 12 to 13 to persist the latest successful A2S server snapshot, serve cached status immediately, and refresh stale servers in the background.
 - Keep core statistics authoritative when analysis capture is disabled, incomplete, dropped, or temporarily fails; analysis readers never interpret incomplete Incident rounds as zero-event samples.
+- Paginate map and rule-context analysis on the server and expose validated sorting for every displayed analysis metric.
+
+### Fixed
+
+- Align battle-analysis terminology, spacing, date presentation, chart annotations, announcement previews, and leaderboard table surfaces with the rest of the Dashboard.
+- Show explicit first-refresh progress when no A2S snapshot exists instead of making the home page appear stalled.
 
 ## 1.2.1 - 2026-08-11
 
