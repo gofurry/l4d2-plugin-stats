@@ -195,7 +195,10 @@ public void LPS_Event_TongueStoppedStats(Event event, const char[] name, bool do
 	}
 	if (recordPvE)
 	{
-		LPS_EndControl(victim);
+		LPSIncidentEndReason reason = rescuer == victim
+			? LPSIncidentEnd_SelfFreed
+			: (rescuer > 0 ? LPSIncidentEnd_Rescued : LPSIncidentEnd_Released);
+		LPS_EndControl(victim, reason, rescuer);
 	}
 }
 
@@ -221,7 +224,7 @@ public void LPS_Event_PounceStoppedStats(Event event, const char[] name, bool do
 	int rescuer = GetClientOfUserId(event.GetInt("userid"));
 	int victim = GetClientOfUserId(event.GetInt("victim"));
 	LPS_AwardControlSave(rescuer, victim, LPSControlType_Hunter);
-	LPS_EndControl(victim);
+	LPS_EndControl(victim, rescuer > 0 ? LPSIncidentEnd_Rescued : LPSIncidentEnd_Released, rescuer);
 }
 
 public void LPS_Event_JockeyRideStats(Event event, const char[] name, bool dontBroadcast)
@@ -319,9 +322,15 @@ public Action LPS_Timer_EndControl(Handle timer, DataPack pack)
 void LPS_StartControl(int victim, int controller, LPSControlType type)
 {
 	if (!LPS_CanRecordPvEEvents()
-		|| !LPS_IsHumanSurvivorClient(victim)
+		|| victim < 1
+		|| victim > MaxClients
+		|| !IsClientInGame(victim)
+		|| GetClientTeam(victim) != LPS_TEAM_SURVIVOR
 		|| controller < 1
-		|| controller > MaxClients)
+		|| controller > MaxClients
+		|| !IsClientInGame(controller)
+		|| GetClientTeam(controller) != LPS_TEAM_INFECTED
+		|| (IsFakeClient(victim) && IsFakeClient(controller)))
 	{
 		return;
 	}
@@ -337,6 +346,7 @@ void LPS_StartControl(int victim, int controller, LPSControlType type)
 	g_LPSControlStartedAt[victim] = GetGameTime();
 	g_LPSControlControllerUserId[victim] = GetClientUserId(controller);
 	g_LPSControlSaveAwarded[victim] = false;
+	LPS_StartControlIncident(victim, controller, type, LPS_ControlTypeToZombieClass(type));
 
 	switch (type)
 	{
@@ -347,10 +357,15 @@ void LPS_StartControl(int victim, int controller, LPSControlType type)
 	}
 }
 
-void LPS_EndControl(int victim)
+void LPS_EndControl(int victim, LPSIncidentEndReason reason = LPSIncidentEnd_Released, int helper = 0)
 {
-	if (victim < 1 || victim > MaxClients || g_LPSControlType[victim] == LPSControlType_None)
+	if (victim < 1 || victim > MaxClients)
 	{
+		return;
+	}
+	if (g_LPSControlType[victim] == LPSControlType_None)
+	{
+		LPS_EndControlIncident(victim, LPSControlType_None, reason, helper);
 		return;
 	}
 
@@ -366,6 +381,7 @@ void LPS_EndControl(int victim)
 			case LPSControlType_Charger: LPS_AddPvEStat(victim, LPSPvEStat_ChargerControlledSeconds, seconds);
 		}
 	}
+	LPS_EndControlIncident(victim, g_LPSControlType[victim], reason, helper);
 
 	g_LPSControlType[victim] = LPSControlType_None;
 	g_LPSControlStartedAt[victim] = 0.0;
@@ -395,7 +411,19 @@ void LPS_AwardControlSave(int rescuer, int victim, LPSControlType expectedType)
 	g_LPSControlSaveAwarded[victim] = true;
 }
 
-void LPS_OnSpecialInfectedDeathForExtendedStats(int infected, int attacker)
+int LPS_ControlTypeToZombieClass(LPSControlType type)
+{
+	switch (type)
+	{
+		case LPSControlType_Smoker: return 1;
+		case LPSControlType_Hunter: return 3;
+		case LPSControlType_Jockey: return 5;
+		case LPSControlType_Charger: return 6;
+	}
+	return 0;
+}
+
+void LPS_OnSpecialInfectedDeathForExtendedStats(int infected, int attacker, bool aborted = false)
 {
 	if (infected < 1 || infected > MaxClients)
 	{
@@ -410,7 +438,7 @@ void LPS_OnSpecialInfectedDeathForExtendedStats(int infected, int attacker)
 			continue;
 		}
 		LPS_AwardControlSave(attacker, victim, g_LPSControlType[victim]);
-		LPS_EndControl(victim);
+		LPS_EndControl(victim, aborted ? LPSIncidentEnd_Released : LPSIncidentEnd_ControllerKilled, aborted ? 0 : attacker);
 	}
 }
 
@@ -517,11 +545,13 @@ public void LPS_Event_TankSpawnStats(Event event, const char[] name, bool dontBr
 		tank = GetClientOfUserId(event.GetInt("userid"));
 	}
 	LPS_ResetBossTracking(tank);
+	LPS_RecordBossSpawnIncident(tank, true);
 }
 
 public void LPS_Event_WitchSpawnStats(Event event, const char[] name, bool dontBroadcast)
 {
 	LPS_ResetBossTracking(event.GetInt("witchid"));
+	LPS_RecordBossSpawnIncident(event.GetInt("witchid"), false);
 }
 
 public void LPS_Event_UpgradePackBeginStats(Event event, const char[] name, bool dontBroadcast)
@@ -602,7 +632,7 @@ void LPS_OnClientExtendedSegmentStarted(int client)
 
 void LPS_OnClientExtendedSegmentEnding(int client)
 {
-	LPS_EndControl(client);
+	LPS_EndControl(client, LPSIncidentEnd_LifecycleEnd);
 	LPS_ResetClientExtendedPvEState(client);
 }
 

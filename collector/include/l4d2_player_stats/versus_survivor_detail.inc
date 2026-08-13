@@ -41,6 +41,7 @@ void LPS_RecordVersusWitchKilled(Event event)
 
 	int killer = GetClientOfUserId(event.GetInt("userid"));
 	int witch = event.GetInt("witchid");
+	LPS_RecordBossDeathIncident(witch, killer, false, event.GetBool("oneshot"));
 	if (!LPS_IsHumanClientOnTeam(killer, LPS_TEAM_SURVIVOR))
 	{
 		LPS_ResetBossTracking(witch);

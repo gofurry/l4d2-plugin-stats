@@ -14,6 +14,8 @@
 #include <l4d2_player_stats/versus_results>
 #include <l4d2_player_stats/sessions>
 #include <l4d2_player_stats/segments>
+#include <l4d2_player_stats/round_context>
+#include <l4d2_player_stats/incidents>
 #include <l4d2_player_stats/pve_stats>
 #include <l4d2_player_stats/versus_stats>
 #include <l4d2_player_stats/versus_abilities>
@@ -22,6 +24,7 @@
 #include <l4d2_player_stats/versus_survivor_detail>
 #include <l4d2_player_stats/pve_interactions>
 #include <l4d2_player_stats/survivor_incidents>
+#include <l4d2_player_stats/analysis_persistence>
 #include <l4d2_player_stats/migrations>
 #include <l4d2_player_stats/database>
 #include <l4d2_player_stats/commands>
@@ -54,6 +57,9 @@ public void OnPluginStart()
 	LPS_InitializeVersusResults();
 	LPS_InitializeLifecycles();
 	LPS_InitializeSegments();
+	LPS_InitializeRoundContext();
+	LPS_InitializeIncidents();
+	LPS_InitializeAnalysisPersistence();
 	LPS_InitializeSessions();
 	LPS_InitializePvEStats();
 	LPS_InitializeVersusStats();

@@ -85,6 +85,7 @@ public void OnEntityDestroyed(int entity)
 	LPS_OnExtendedEntityDestroyed(entity);
 	LPS_OnInteractionEntityDestroyed(entity);
 	LPS_OnVersusAbilityEntityDestroyed(entity);
+	LPS_OnIncidentEntityDestroyed(entity);
 	g_LPSDamageHooked[entity] = false;
 	g_LPSDamageHealthCaptured[entity] = false;
 	g_LPSDamageVictimWasIncapacitated[entity] = false;

@@ -120,7 +120,12 @@ public void LPS_Event_VersusTongueRelease(Event event, const char[] name, bool d
 
 public void LPS_Event_VersusTongueStopped(Event event, const char[] name, bool dontBroadcast)
 {
-	LPS_EndVersusControl(GetClientOfUserId(event.GetInt("victim")), LPSControlType_Smoker);
+	int victim = GetClientOfUserId(event.GetInt("victim"));
+	int rescuer = GetClientOfUserId(event.GetInt("userid"));
+	LPSIncidentEndReason reason = rescuer == victim
+		? LPSIncidentEnd_SelfFreed
+		: (rescuer > 0 ? LPSIncidentEnd_Rescued : LPSIncidentEnd_Released);
+	LPS_EndVersusControl(victim, LPSControlType_Smoker, reason, rescuer);
 }
 
 public void LPS_Event_VersusLungePounce(Event event, const char[] name, bool dontBroadcast)
@@ -140,7 +145,8 @@ public void LPS_Event_VersusPounceEnd(Event event, const char[] name, bool dontB
 
 public void LPS_Event_VersusPounceStopped(Event event, const char[] name, bool dontBroadcast)
 {
-	LPS_EndVersusControl(GetClientOfUserId(event.GetInt("victim")), LPSControlType_Hunter);
+	int rescuer = GetClientOfUserId(event.GetInt("userid"));
+	LPS_EndVersusControl(GetClientOfUserId(event.GetInt("victim")), LPSControlType_Hunter, rescuer > 0 ? LPSIncidentEnd_Rescued : LPSIncidentEnd_Released, rescuer);
 }
 
 public void LPS_Event_VersusJockeyRide(Event event, const char[] name, bool dontBroadcast)
@@ -155,7 +161,8 @@ public void LPS_Event_VersusJockeyRide(Event event, const char[] name, bool dont
 
 public void LPS_Event_VersusJockeyRideEnd(Event event, const char[] name, bool dontBroadcast)
 {
-	LPS_EndVersusControl(GetClientOfUserId(event.GetInt("victim")), LPSControlType_Jockey);
+	int rescuer = GetClientOfUserId(event.GetInt("rescuer"));
+	LPS_EndVersusControl(GetClientOfUserId(event.GetInt("victim")), LPSControlType_Jockey, rescuer > 0 ? LPSIncidentEnd_Rescued : LPSIncidentEnd_Released, rescuer);
 }
 
 public void LPS_Event_VersusChargerCarryStart(Event event, const char[] name, bool dontBroadcast)
@@ -283,9 +290,12 @@ void LPS_StartVersusControl(
 		|| victim > MaxClients
 		|| !IsClientInGame(victim)
 		|| GetClientTeam(victim) != LPS_TEAM_SURVIVOR
-		|| !LPS_IsHumanClientOnTeam(controller, LPS_TEAM_INFECTED)
+		|| controller < 1
+		|| controller > MaxClients
+		|| !IsClientInGame(controller)
+		|| GetClientTeam(controller) != LPS_TEAM_INFECTED
 		|| LPS_GetZombieClass(controller) != zombieClass
-		|| !LPS_CanOwnVersusAbilityStats(controller))
+		)
 	{
 		return;
 	}
@@ -303,18 +313,22 @@ void LPS_StartVersusControl(
 	g_LPSVersusControlControllerUserId[victim] = controllerUserId;
 	g_LPSVersusControlZombieClass[victim] = zombieClass;
 	g_LPSVersusControlVictimIsBot[victim] = IsFakeClient(victim);
+	LPS_StartControlIncident(victim, controller, type, zombieClass);
 
-	LPS_AddVersusInfectedAbilityStat(
-		controller,
-		zombieClass,
-		g_LPSVersusControlVictimIsBot[victim]
-			? LPSVersusInfectedAbilityStat_BotSurvivorControls
-			: LPSVersusInfectedAbilityStat_HumanSurvivorControls,
-		1
-	);
+	if (LPS_CanOwnVersusAbilityStats(controller))
+	{
+		LPS_AddVersusInfectedAbilityStat(
+			controller,
+			zombieClass,
+			g_LPSVersusControlVictimIsBot[victim]
+				? LPSVersusInfectedAbilityStat_BotSurvivorControls
+				: LPSVersusInfectedAbilityStat_HumanSurvivorControls,
+			1
+		);
+	}
 }
 
-void LPS_EndVersusControl(int victim, LPSControlType expectedType)
+void LPS_EndVersusControl(int victim, LPSControlType expectedType, LPSIncidentEndReason reason = LPSIncidentEnd_Released, int helper = 0)
 {
 	if (victim < 1
 		|| victim > MaxClients
@@ -339,18 +353,19 @@ void LPS_EndVersusControl(int victim, LPSControlType expectedType)
 			seconds
 		);
 	}
+	LPS_EndControlIncident(victim, g_LPSVersusControlType[victim], reason, helper);
 	LPS_ResetVersusControlVictim(victim);
 }
 
-void LPS_OnVersusAbilityPlayerDeath(int client)
+void LPS_OnVersusAbilityPlayerDeath(int client, int attacker, bool aborted = false)
 {
 	if (client < 1 || client > MaxClients)
 	{
 		return;
 	}
 
-	LPS_EndVersusControl(client, LPSControlType_None);
-	LPS_EndVersusControlsByControllerUserId(GetClientUserId(client));
+	LPS_EndVersusControl(client, LPSControlType_None, aborted ? LPSIncidentEnd_Released : LPSIncidentEnd_TargetDied);
+	LPS_EndVersusControlsByControllerUserId(GetClientUserId(client), aborted ? LPSIncidentEnd_Released : LPSIncidentEnd_ControllerKilled, aborted ? 0 : attacker);
 }
 
 void LPS_OnClientVersusAbilitySegmentStarted(int client)
@@ -376,11 +391,11 @@ void LPS_OnClientVersusAbilitySegmentEnding(int client)
 		return;
 	}
 
-	LPS_EndVersusControl(client, LPSControlType_None);
-	LPS_EndVersusControlsByControllerUserId(GetClientUserId(client));
+	LPS_EndVersusControl(client, LPSControlType_None, LPSIncidentEnd_LifecycleEnd);
+	LPS_EndVersusControlsByControllerUserId(GetClientUserId(client), LPSIncidentEnd_LifecycleEnd, 0);
 }
 
-void LPS_EndVersusControlsByControllerUserId(int controllerUserId)
+void LPS_EndVersusControlsByControllerUserId(int controllerUserId, LPSIncidentEndReason reason = LPSIncidentEnd_Released, int helper = 0)
 {
 	if (controllerUserId <= 0)
 	{
@@ -391,7 +406,7 @@ void LPS_EndVersusControlsByControllerUserId(int controllerUserId)
 	{
 		if (g_LPSVersusControlControllerUserId[victim] == controllerUserId)
 		{
-			LPS_EndVersusControl(victim, LPSControlType_None);
+			LPS_EndVersusControl(victim, LPSControlType_None, reason, helper);
 		}
 	}
 }

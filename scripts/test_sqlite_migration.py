@@ -9,6 +9,7 @@ MIGRATION_ROOT = PROJECT_ROOT / "database" / "migrations" / "sqlite"
 INITIAL_MIGRATION = MIGRATION_ROOT / "0001_initial.sql"
 INCIDENT_MIGRATION = MIGRATION_ROOT / "0002_car_alarms_triggered.sql"
 OBJECTIVE_MIGRATION = MIGRATION_ROOT / "0003_versus_objective_interactions.sql"
+ANALYSIS_MIGRATION = MIGRATION_ROOT / "0004_analysis_foundation.sql"
 VERSUS_CONTRACT_CHECKS = (
     PROJECT_ROOT / "database" / "queries" / "versus_contract_checks.sql"
 )
@@ -178,6 +179,21 @@ def main() -> None:
             if row[1] == "objective_interactions"
         )
         assert objective_column[3] == 0, objective_column
+
+        analysis_statements = [
+            statement.strip()
+            for statement in ANALYSIS_MIGRATION.read_text(encoding="utf-8").split(
+                "-- statement-breakpoint"
+            )
+            if statement.strip()
+        ]
+        for statement in analysis_statements:
+            database.execute(statement)
+        database.execute(
+            "INSERT INTO lps_schema_migrations "
+            "(version, name, applied_at) VALUES "
+            "(4, 'analysis_foundation', 4)"
+        )
 
         database.execute(
             "INSERT INTO lps_schema_migrations "
@@ -684,8 +700,8 @@ def main() -> None:
             )
         }
 
-        assert len(tables) == 16, tables
-        assert len(indexes) == 31, indexes
+        assert len(tables) == 18, tables
+        assert len(indexes) == 36, indexes
         status = database.execute(
             "SELECT status FROM lps_server_boots WHERE boot_id = 'test-01:1:a'"
         ).fetchone()
@@ -976,7 +992,7 @@ def main() -> None:
         database.close()
 
     print(
-        f"SQLite integration passed: {len(statements) + len(incident_statements) + len(objective_statements)} statements, "
+        f"SQLite integration passed: {len(statements) + len(incident_statements) + len(objective_statements) + len(analysis_statements)} statements, "
         f"{len(tables)} tables, {len(indexes)} indexes."
     )
 

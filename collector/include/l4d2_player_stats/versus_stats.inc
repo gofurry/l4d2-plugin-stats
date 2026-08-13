@@ -414,20 +414,20 @@ public void LPS_Event_VersusPlayerDeathStats(Event event, const char[] name, boo
 	{
 		return;
 	}
-	LPS_OnVersusAbilityPlayerDeath(victim);
-
 	int victimTeam = GetClientTeam(victim);
+	int attacker = GetClientOfUserId(event.GetInt("attacker"));
+	bool aborted = event.GetBool("abort");
+	LPS_OnVersusAbilityPlayerDeath(victim, attacker, aborted);
 	if (victimTeam == LPS_TEAM_INFECTED)
 	{
 		g_LPSClientVersusInfectedSpawnPending[victim] = false;
 	}
 
-	if (event.GetBool("abort"))
+	if (aborted)
 	{
 		return;
 	}
 
-	int attacker = GetClientOfUserId(event.GetInt("attacker"));
 	if (victimTeam == LPS_TEAM_SURVIVOR)
 	{
 		LPS_AddVersusSurvivorStat(victim, LPSVersusSurvivorStat_Deaths, 1);
@@ -445,8 +445,15 @@ public void LPS_Event_VersusPlayerDeathStats(Event event, const char[] name, boo
 		return;
 	}
 
-	if (victimTeam != LPS_TEAM_INFECTED
-		|| !LPS_IsHumanClientOnTeam(attacker, LPS_TEAM_SURVIVOR))
+	if (victimTeam != LPS_TEAM_INFECTED)
+	{
+		return;
+	}
+	if (LPS_GetZombieClass(victim) == 8)
+	{
+		LPS_RecordBossDeathIncident(victim, attacker, true);
+	}
+	if (!LPS_IsHumanClientOnTeam(attacker, LPS_TEAM_SURVIVOR))
 	{
 		return;
 	}
