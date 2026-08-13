@@ -65,3 +65,39 @@ func TestSQLiteCompanionsRequireSameSidePositiveOverlap(t *testing.T) {
 		t.Fatalf("companions=%#v", items)
 	}
 }
+
+func TestSQLiteAnalysisOptionsFollowRangeAndMode(t *testing.T) {
+	ctx := context.Background()
+	path := filepath.Join(t.TempDir(), "analysis-options.sq3")
+	db, err := sql.Open("sqlite", path)
+	if err != nil {
+		t.Fatal(err)
+	}
+	applyCollectorSchema(t, db)
+	statements := []string{
+		`INSERT INTO lps_server_boots (boot_id,server_key,started_at,last_heartbeat_at,status) VALUES ('b1','one',1,1,'closed'),('b2','two',1,1,'closed')`,
+		`INSERT INTO lps_runs (run_id,boot_id,server_key,mode_family,game_mode,campaign_key,started_at,last_saved_at,status) VALUES ('r1','b1','one','pve','coop','c1',100,100,'completed'),('r2','b2','two','pve','realism','c2',200,200,'completed'),('r3','b1','one','versus','versus','c5',300,300,'completed')`,
+		`INSERT INTO lps_rounds (round_id,run_id,server_key,mode_family,map_name,round_seq,map_seq,attempt_no,started_at,last_saved_at,status) VALUES ('round-1','r1','one','pve','m1',1,1,1,100,100,'completed'),('round-2','r2','two','pve','m2',1,1,1,200,200,'completed'),('round-3','r3','one','versus','m3',1,1,1,300,300,'completed')`,
+		`INSERT INTO lps_player_segments (segment_id,session_id,run_id,round_id,server_key,steam_id,side,started_at,last_saved_at,status) VALUES ('s1','x','r1','round-1','one','1','survivor',100,100,'closed'),('s2','x','r2','round-2','two','1','survivor',200,200,'closed'),('s3','x','r3','round-3','one','1','infected',300,300,'closed')`,
+	}
+	for _, statement := range statements {
+		if _, err := db.Exec(statement); err != nil {
+			t.Fatal(err)
+		}
+	}
+	if err := db.Close(); err != nil {
+		t.Fatal(err)
+	}
+	stats, err := OpenStats(ctx, config.StatsDatabaseConfig{Driver: "sqlite", DSN: path, QueryTimeout: config.Duration(5 * time.Second), MaxOpenConns: 2, MaxIdleConns: 1, ConnMaxLifetime: config.Duration(time.Minute)})
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer stats.Close()
+	options, err := stats.(StatsAnalysisStore).AnalysisOptions(ctx, AnalysisFilter{Mode: "pve", Cutoff: 150, ServerKey: "ignored", CampaignKey: "ignored"})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(options.Servers) != 1 || options.Servers[0] != "two" || len(options.Campaigns) != 1 || options.Campaigns[0] != "c2" {
+		t.Fatalf("options=%#v", options)
+	}
+}

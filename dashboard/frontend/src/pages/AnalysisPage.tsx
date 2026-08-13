@@ -18,9 +18,12 @@ export function AnalysisPage() {
   const zh = i18n.language !== 'en'
   const [range, setRange] = useState('90d')
   const [mode, setMode] = useState('pve')
+  const [server, setServer] = useState<string>()
+  const [campaign, setCampaign] = useState<string>()
   const [tab, setTab] = useState('maps')
   const [selectedMap, setSelectedMap] = useState('')
-  const filters = { range, mode }
+  const filters = { range, mode, server, campaign }
+  const options = useQuery({ queryKey: ['analysis-options', range, mode], queryFn: () => api.analysisOptions({ range, mode }) })
   const maps = useQuery({ queryKey: ['analysis-maps', filters], queryFn: () => api.analysisMaps(filters), enabled: tab === 'maps' })
   const contexts = useQuery({ queryKey: ['analysis-contexts', filters], queryFn: () => api.analysisContexts(filters), enabled: tab === 'contexts' })
   const detail = useQuery({ queryKey: ['analysis-map-detail', filters, selectedMap], queryFn: () => api.analysisMapDetail(filters, selectedMap), enabled: selectedMap !== '' })
@@ -40,7 +43,7 @@ export function AnalysisPage() {
 
   const mapColumns = [
     { title: zh ? '地图' : 'Map', dataIndex: 'map_name', render: (value: string, row: AnalysisMapRow) => <Button type="link" onClick={() => setSelectedMap(row.map_name)}>{value}</Button> },
-    { title: zh ? '样本 Round' : 'Rounds', dataIndex: 'eligible_rounds' },
+    { title: zh ? '样本 Round' : 'Rounds', render: (_: unknown, row: AnalysisMapRow) => <>{row.eligible_rounds}{row.eligible_rounds < 10 && <Tag color="warning">{zh ? '小样本' : 'Small sample'}</Tag>}</> },
     { title: zh ? '完成率' : 'Completion', render: (_: unknown, row: AnalysisMapRow) => mode === 'pve' && row.completed_rounds + row.failed_rounds ? percent(row.completed_rounds / (row.completed_rounds + row.failed_rounds)) : '—', sorter: mode === 'pve' ? (a: AnalysisMapRow, b: AnalysisMapRow) => (a.completed_rounds / Math.max(1, a.completed_rounds + a.failed_rounds)) - (b.completed_rounds / Math.max(1, b.completed_rounds + b.failed_rounds)) : undefined, defaultSortOrder: mode === 'pve' ? 'ascend' as const : undefined },
     { title: zh ? '完成时平均尝试' : 'Avg completed attempt', render: (_: unknown, row: AnalysisMapRow) => mode === 'pve' ? row.average_completed_attempt?.toFixed(2) ?? '—' : '—' },
     { title: zh ? '平均时长' : 'Avg duration', render: (_: unknown, row: AnalysisMapRow) => duration(row.average_duration_seconds) },
@@ -51,14 +54,14 @@ export function AnalysisPage() {
   const contextColumns = [
     { title: zh ? '规则环境' : 'Context', render: (_: unknown, row: AnalysisContextRow) => <div><strong>{row.ruleset_name || row.difficulty || (zh ? '未命名规则' : 'Unnamed rules')}</strong><br/><Tag>{row.fingerprint}</Tag></div> },
     { title: zh ? 'Round 数' : 'Rounds', dataIndex: 'round_count' },
-    { title: zh ? '完成率' : 'Completion', render: (_: unknown, row: AnalysisContextRow) => row.completed_rounds + row.failed_rounds ? percent(row.completed_rounds / (row.completed_rounds + row.failed_rounds)) : '—' },
+    { title: zh ? '完成率' : 'Completion', render: (_: unknown, row: AnalysisContextRow) => mode === 'pve' && row.completed_rounds + row.failed_rounds ? percent(row.completed_rounds / (row.completed_rounds + row.failed_rounds)) : '—' },
     { title: zh ? '平均时长' : 'Average duration', render: (_: unknown, row: AnalysisContextRow) => duration(row.average_duration_seconds) },
     { title: zh ? 'Incident 覆盖' : 'Incident coverage', render: (_: unknown, row: AnalysisContextRow) => percent(row.complete_incident_rounds / Math.max(1, row.round_count)) },
     { title: zh ? '关键参数' : 'Tracked values', render: (_: unknown, row: AnalysisContextRow) => `${row.difficulty || '—'} · ${row.survivor_limit}P · SI ${row.max_player_zombies} · CI ${row.common_limit} · Tank ${row.tank_health} · Witch ${row.witch_health}` },
   ]
 
   return <Layout className={styles.layout}><FloatingNav/><Layout.Content className={styles.content}>
-    <header className={styles.header}><div><h1>{zh ? '战局分析' : 'Analysis'}</h1><p>{zh ? '基于已验证的 Round Context 与低频 Incident，按地图和规则环境观察战局。' : 'Inspect verified round context and low-frequency incidents by map and rule environment.'}</p></div><div className={styles.filters}><Segmented value={range} onChange={value => setRange(String(value))} options={[['30d', zh ? '近 30 天' : '30d'], ['90d', zh ? '近 90 天' : '90d'], ['180d', zh ? '近 180 天' : '180d'], ['all', zh ? '全部可用' : 'All available']].map(([value,label])=>({value,label}))}/><Select value={mode} onChange={setMode} options={[{value:'pve',label:'PvE'},{value:'versus',label:zh?'对抗':'Versus'}]}/></div></header>
+    <header className={styles.header}><div><h1>{zh ? '战局分析' : 'Analysis'}</h1><p>{zh ? '基于已验证的 Round Context 与低频 Incident，按地图和规则环境观察战局。' : 'Inspect verified round context and low-frequency incidents by map and rule environment.'}</p></div><div className={styles.filters}><Segmented value={range} onChange={value => setRange(String(value))} options={[['30d', zh ? '近 30 天' : '30d'], ['90d', zh ? '近 90 天' : '90d'], ['180d', zh ? '近 180 天' : '180d'], ['all', zh ? '全部可用' : 'All available']].map(([value,label])=>({value,label}))}/><Select value={mode} onChange={value => { setMode(value); setServer(undefined); setCampaign(undefined) }} options={[{value:'pve',label:'PvE'},{value:'versus',label:zh?'对抗':'Versus'}]}/><Select allowClear showSearch value={server} onChange={setServer} placeholder={zh?'全部服务器':'All servers'} options={options.data?.servers.map(value=>({value,label:value}))}/><Select allowClear showSearch value={campaign} onChange={setCampaign} placeholder={zh?'全部战役':'All campaigns'} options={options.data?.campaigns.map(value=>({value,label:value}))}/></div></header>
     <Tabs className={styles.tabs} activeKey={tab} onChange={setTab} items={[{key:'maps',label:zh?'地图与战役':'Maps & campaigns'},{key:'contexts',label:zh?'规则环境':'Rule contexts'}]}/>
     {tab === 'maps' && <>{maps.isLoading ? <State loading/> : maps.data ? <>
       <section className={styles.cards}><Metric label={zh?'有效 Round':'Eligible rounds'} value={integer.format(maps.data.eligible_rounds)}/><Metric label={zh?'完成率':'Completion rate'} value={mode==='pve'?percent(maps.data.completion_rate):'—'}/><Metric label={zh?'完成时平均尝试':'Avg completed attempt'} value={mode==='pve'?maps.data.average_completed_attempt?.toFixed(2)??'—':'—'}/><Metric label={zh?'完整 Incident 覆盖':'Complete incident coverage'} value={percent(maps.data.complete_incident_coverage)}/></section>

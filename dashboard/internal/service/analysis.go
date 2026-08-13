@@ -27,6 +27,16 @@ func NewAnalysisService(stats store.StatsAnalysisStore) *AnalysisService {
 	return &AnalysisService{stats: stats, ttl: 60 * time.Second, cache: make(map[string]analysisCacheEntry)}
 }
 
+func (s *AnalysisService) Options(ctx context.Context, filter store.AnalysisFilter) (store.AnalysisOptions, error) {
+	value, err := s.cached(ctx, fmt.Sprintf("options:%+v", filter), func(ctx context.Context) (any, error) {
+		return s.stats.AnalysisOptions(ctx, filter)
+	})
+	if err != nil {
+		return store.AnalysisOptions{}, err
+	}
+	return value.(store.AnalysisOptions), nil
+}
+
 func (s *AnalysisService) Maps(ctx context.Context, filter store.AnalysisFilter) (store.AnalysisMaps, error) {
 	value, err := s.cached(ctx, fmt.Sprintf("maps:%+v", filter), func(ctx context.Context) (any, error) {
 		return s.stats.AnalysisMaps(ctx, filter)

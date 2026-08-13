@@ -71,6 +71,48 @@ func (s *statsStore) analysisWhere(filter AnalysisFilter, alias string) (string,
 	return strings.Join(clauses, " AND "), args
 }
 
+func (s *statsStore) AnalysisOptions(ctx context.Context, filter AnalysisFilter) (AnalysisOptions, error) {
+	queryCtx, cancel := context.WithTimeout(ctx, s.timeout)
+	defer cancel()
+	filter.ServerKey = ""
+	filter.CampaignKey = ""
+	where, args := s.analysisWhere(filter, "r")
+	rows, err := s.db.QueryContext(queryCtx, `SELECT DISTINCT r.server_key,ru.campaign_key
+FROM lps_rounds r JOIN lps_runs ru ON ru.run_id=r.run_id WHERE `+where+`
+AND EXISTS(SELECT 1 FROM lps_player_segments ps WHERE ps.round_id=r.round_id)
+ORDER BY r.server_key ASC,ru.campaign_key ASC`, args...)
+	if err != nil {
+		return AnalysisOptions{}, fmt.Errorf("query analysis options: %w", err)
+	}
+	defer rows.Close()
+	serverSet, campaignSet := make(map[string]struct{}), make(map[string]struct{})
+	for rows.Next() {
+		var serverKey, campaignKey string
+		if err := rows.Scan(&serverKey, &campaignKey); err != nil {
+			return AnalysisOptions{}, err
+		}
+		if serverKey != "" {
+			serverSet[serverKey] = struct{}{}
+		}
+		if campaignKey != "" {
+			campaignSet[campaignKey] = struct{}{}
+		}
+	}
+	if err := rows.Err(); err != nil {
+		return AnalysisOptions{}, err
+	}
+	result := AnalysisOptions{Servers: make([]string, 0, len(serverSet)), Campaigns: make([]string, 0, len(campaignSet))}
+	for value := range serverSet {
+		result.Servers = append(result.Servers, value)
+	}
+	for value := range campaignSet {
+		result.Campaigns = append(result.Campaigns, value)
+	}
+	sort.Strings(result.Servers)
+	sort.Strings(result.Campaigns)
+	return result, nil
+}
+
 func (s *statsStore) AnalysisMaps(ctx context.Context, filter AnalysisFilter) (AnalysisMaps, error) {
 	queryCtx, cancel := context.WithTimeout(ctx, s.timeout)
 	defer cancel()

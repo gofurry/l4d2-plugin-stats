@@ -343,6 +343,11 @@ type AnalysisFilter struct {
 	CampaignKey string
 }
 
+type AnalysisOptions struct {
+	Servers   []string `json:"servers"`
+	Campaigns []string `json:"campaigns"`
+}
+
 type AnalysisMapRow struct {
 	MapName                 string   `json:"map_name"`
 	EligibleRounds          int64    `json:"eligible_rounds"`
@@ -836,6 +841,7 @@ type StatsIncidentRankingStore interface {
 
 type StatsAnalysisStore interface {
 	PlayerCompanions(context.Context, string) ([]PlayerCompanion, error)
+	AnalysisOptions(context.Context, AnalysisFilter) (AnalysisOptions, error)
 	AnalysisMaps(context.Context, AnalysisFilter) (AnalysisMaps, error)
 	AnalysisMapDetail(context.Context, AnalysisFilter, string) (AnalysisMapDetail, error)
 	AnalysisContexts(context.Context, AnalysisFilter) (AnalysisContexts, error)

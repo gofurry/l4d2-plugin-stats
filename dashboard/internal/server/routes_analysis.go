@@ -15,6 +15,17 @@ func registerAnalysisRoutes(api fiber.Router, analysis *service.AnalysisService)
 		return
 	}
 	group := api.Group("/analysis")
+	group.Get("/options", func(c fiber.Ctx) error {
+		filter, ok := analysisFilter(c)
+		if !ok {
+			return nil
+		}
+		result, err := analysis.Options(c.Context(), filter)
+		if err != nil {
+			return statsError(c, err)
+		}
+		return sendData(c, 200, result)
+	})
 	group.Get("/maps", func(c fiber.Ctx) error {
 		filter, ok := analysisFilter(c)
 		if !ok {
