@@ -95,6 +95,17 @@ func (q *Queries) CountGameServers(ctx context.Context) (int64, error) {
 	return count, err
 }
 
+const countIncidentRetentionRuns = `-- name: CountIncidentRetentionRuns :one
+SELECT COUNT(*) FROM incident_retention_runs
+`
+
+func (q *Queries) CountIncidentRetentionRuns(ctx context.Context) (int64, error) {
+	row := q.db.QueryRowContext(ctx, countIncidentRetentionRuns)
+	var count int64
+	err := row.Scan(&count)
+	return count, err
+}
+
 const countRetentionRuns = `-- name: CountRetentionRuns :one
 SELECT COUNT(*) FROM retention_runs
 `
@@ -212,6 +223,31 @@ func (q *Queries) CreateGameServer(ctx context.Context, arg CreateGameServerPara
 		arg.Address,
 		arg.SortOrder,
 		arg.CreatedAt,
+	)
+	return err
+}
+
+const createIncidentRetentionRun = `-- name: CreateIncidentRetentionRun :exec
+INSERT INTO incident_retention_runs (
+  id, executed_at, incident_version, cutoff, incident_rows
+) VALUES (?1, ?2, ?3, ?4, ?5)
+`
+
+type CreateIncidentRetentionRunParams struct {
+	ID              string `json:"id"`
+	ExecutedAt      int64  `json:"executed_at"`
+	IncidentVersion int64  `json:"incident_version"`
+	Cutoff          int64  `json:"cutoff"`
+	IncidentRows    int64  `json:"incident_rows"`
+}
+
+func (q *Queries) CreateIncidentRetentionRun(ctx context.Context, arg CreateIncidentRetentionRunParams) error {
+	_, err := q.db.ExecContext(ctx, createIncidentRetentionRun,
+		arg.ID,
+		arg.ExecutedAt,
+		arg.IncidentVersion,
+		arg.Cutoff,
+		arg.IncidentRows,
 	)
 	return err
 }
@@ -410,7 +446,7 @@ func (q *Queries) GetAnnouncement(ctx context.Context, id string) (Announcement,
 
 const getDataMaintenanceSettings = `-- name: GetDataMaintenanceSettings :one
 SELECT aggregate_interval_minutes, detail_retention_days,
-       session_retention_days, result_retention_days, updated_at
+       session_retention_days, result_retention_days, incident_retention_days, updated_at
 FROM data_maintenance_settings WHERE id = 1
 `
 
@@ -419,6 +455,7 @@ type GetDataMaintenanceSettingsRow struct {
 	DetailRetentionDays      int64 `json:"detail_retention_days"`
 	SessionRetentionDays     int64 `json:"session_retention_days"`
 	ResultRetentionDays      int64 `json:"result_retention_days"`
+	IncidentRetentionDays    int64 `json:"incident_retention_days"`
 	UpdatedAt                int64 `json:"updated_at"`
 }
 
@@ -430,6 +467,7 @@ func (q *Queries) GetDataMaintenanceSettings(ctx context.Context) (GetDataMainte
 		&i.DetailRetentionDays,
 		&i.SessionRetentionDays,
 		&i.ResultRetentionDays,
+		&i.IncidentRetentionDays,
 		&i.UpdatedAt,
 	)
 	return i, err
@@ -996,7 +1034,8 @@ UPDATE data_maintenance_settings SET
   detail_retention_days = ?2,
   session_retention_days = ?3,
   result_retention_days = ?4,
-  updated_at = ?5
+  incident_retention_days = ?5,
+  updated_at = ?6
 WHERE id = 1
 `
 
@@ -1005,6 +1044,7 @@ type UpdateDataMaintenanceSettingsParams struct {
 	DetailRetentionDays      int64 `json:"detail_retention_days"`
 	SessionRetentionDays     int64 `json:"session_retention_days"`
 	ResultRetentionDays      int64 `json:"result_retention_days"`
+	IncidentRetentionDays    int64 `json:"incident_retention_days"`
 	UpdatedAt                int64 `json:"updated_at"`
 }
 
@@ -1014,6 +1054,7 @@ func (q *Queries) UpdateDataMaintenanceSettings(ctx context.Context, arg UpdateD
 		arg.DetailRetentionDays,
 		arg.SessionRetentionDays,
 		arg.ResultRetentionDays,
+		arg.IncidentRetentionDays,
 		arg.UpdatedAt,
 	)
 	return err

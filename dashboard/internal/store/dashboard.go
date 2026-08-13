@@ -198,6 +198,7 @@ func (s *dashboardStore) DataMaintenanceSettings(ctx context.Context) (DataMaint
 		DetailRetentionDays:      row.DetailRetentionDays,
 		SessionRetentionDays:     row.SessionRetentionDays,
 		ResultRetentionDays:      row.ResultRetentionDays,
+		IncidentRetentionDays:    row.IncidentRetentionDays,
 		UpdatedAt:                row.UpdatedAt,
 	}, nil
 }
@@ -209,6 +210,7 @@ func (s *dashboardStore) UpdateDataMaintenanceSettings(ctx context.Context, valu
 		DetailRetentionDays:      value.DetailRetentionDays,
 		SessionRetentionDays:     value.SessionRetentionDays,
 		ResultRetentionDays:      value.ResultRetentionDays,
+		IncidentRetentionDays:    value.IncidentRetentionDays,
 		UpdatedAt:                value.UpdatedAt,
 	})
 }
@@ -243,6 +245,20 @@ func (s *dashboardStore) RecordRetentionRun(ctx context.Context, plan RetentionP
 
 func (s *dashboardStore) RetentionRunCount(ctx context.Context) (int64, error) {
 	return s.q.CountRetentionRuns(ctx)
+}
+
+func (s *dashboardStore) RecordIncidentRetentionRun(ctx context.Context, plan IncidentRetentionPlan, result IncidentRetentionResult) error {
+	if plan.IncidentVersion != incidentContractVersion {
+		return fmt.Errorf("record incident retention run: unsupported incident version %d", plan.IncidentVersion)
+	}
+	return s.q.CreateIncidentRetentionRun(ctx, dashsql.CreateIncidentRetentionRunParams{
+		ID: result.RunID, ExecutedAt: result.ExecutedAt, IncidentVersion: plan.IncidentVersion,
+		Cutoff: plan.Cutoff, IncidentRows: result.IncidentRows,
+	})
+}
+
+func (s *dashboardStore) IncidentRetentionRunCount(ctx context.Context) (int64, error) {
+	return s.q.CountIncidentRetentionRuns(ctx)
 }
 
 func (s *dashboardStore) ListAggregateRows(ctx context.Context, filter AggregateFilter) ([]AggregateRow, error) {

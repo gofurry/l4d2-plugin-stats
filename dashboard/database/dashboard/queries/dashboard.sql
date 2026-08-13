@@ -235,7 +235,7 @@ INSERT INTO aggregate_rows (
 
 -- name: GetDataMaintenanceSettings :one
 SELECT aggregate_interval_minutes, detail_retention_days,
-       session_retention_days, result_retention_days, updated_at
+       session_retention_days, result_retention_days, incident_retention_days, updated_at
 FROM data_maintenance_settings WHERE id = 1;
 
 -- name: UpdateDataMaintenanceSettings :exec
@@ -244,7 +244,8 @@ UPDATE data_maintenance_settings SET
   detail_retention_days = ?2,
   session_retention_days = ?3,
   result_retention_days = ?4,
-  updated_at = ?5
+  incident_retention_days = ?5,
+  updated_at = ?6
 WHERE id = 1;
 
 -- name: CreateRetentionRun :exec
@@ -256,3 +257,11 @@ INSERT INTO retention_runs (
 
 -- name: CountRetentionRuns :one
 SELECT COUNT(*) FROM retention_runs;
+
+-- name: CreateIncidentRetentionRun :exec
+INSERT INTO incident_retention_runs (
+  id, executed_at, incident_version, cutoff, incident_rows
+) VALUES (?1, ?2, ?3, ?4, ?5);
+
+-- name: CountIncidentRetentionRuns :one
+SELECT COUNT(*) FROM incident_retention_runs;

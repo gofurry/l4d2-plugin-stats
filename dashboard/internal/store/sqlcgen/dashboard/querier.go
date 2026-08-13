@@ -14,12 +14,14 @@ type Querier interface {
 	CountAggregateRows(ctx context.Context) (int64, error)
 	CountAnnouncements(ctx context.Context, arg CountAnnouncementsParams) (int64, error)
 	CountGameServers(ctx context.Context) (int64, error)
+	CountIncidentRetentionRuns(ctx context.Context) (int64, error)
 	CountRetentionRuns(ctx context.Context) (int64, error)
 	CountSiteSettings(ctx context.Context) (int64, error)
 	CreateAdminAccount(ctx context.Context, arg CreateAdminAccountParams) error
 	CreateAnnouncement(ctx context.Context, arg CreateAnnouncementParams) error
 	CreateFooterLink(ctx context.Context, arg CreateFooterLinkParams) error
 	CreateGameServer(ctx context.Context, arg CreateGameServerParams) error
+	CreateIncidentRetentionRun(ctx context.Context, arg CreateIncidentRetentionRunParams) error
 	CreateRetentionRun(ctx context.Context, arg CreateRetentionRunParams) error
 	DeleteAggregateRows(ctx context.Context) error
 	DeleteAggregateRowsForDay(ctx context.Context, day int64) error

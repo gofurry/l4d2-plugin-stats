@@ -33,6 +33,7 @@ export function AdminDataPage() {
   const save = useMutation({ mutationFn: api.saveDataSettings, onSuccess: () => { void message.success(t('saved')); refresh() } })
   const aggregate = useMutation({ mutationFn: api.aggregateNow, onSuccess: () => { void message.success(t('aggregateCompleted')); refresh() }, onError: () => void message.error(t('operationFailed')) })
   const cleanup = useMutation({ mutationFn: (planID: string) => api.applyRetention(planID), onSuccess: result => { void message.success(t('cleanupCompleted', { count: result.equipment_rows + result.versus_class_rows + result.session_rows + result.versus_round_result_rows + result.versus_run_result_rows })); refresh() }, onError: () => { void message.error(t('cleanupPreviewChanged')); refresh() } })
+  const incidentCleanup = useMutation({ mutationFn: (planID: string) => api.applyIncidentRetention(planID), onSuccess: result => { void message.success(t('cleanupCompleted', { count: result.incident_rows })); refresh() }, onError: () => { void message.error(t('cleanupPreviewChanged')); refresh() } })
   const openPlayerPreview = () => {
     const steamID = previewInput.trim()
     if (!/^7656119\d{10}$/.test(steamID)) return
@@ -82,6 +83,7 @@ export function AdminDataPage() {
           <Form.Item name="detail_retention_days" label={t('detailRetention')} rules={[{ required: true }]}><InputNumber min={30} max={3650} addonAfter={t('days')} /></Form.Item>
           <Form.Item name="session_retention_days" label={t('sessionRetention')} rules={[{ required: true }]}><InputNumber min={30} max={3650} addonAfter={t('days')} /></Form.Item>
           <Form.Item name="result_retention_days" label={t('resultRetention')} rules={[{ required: true }]}><InputNumber min={30} max={3650} addonAfter={t('days')} /></Form.Item>
+          <Form.Item name="incident_retention_days" label={t('incidentRetention')} rules={[{ required: true }]}><InputNumber min={30} max={3650} addonAfter={t('days')} /></Form.Item>
         </div>
         <Button type="primary" htmlType="submit" loading={save.isPending}>{t('save')}</Button>
       </section>
@@ -100,6 +102,23 @@ export function AdminDataPage() {
         <Button danger icon={<DeleteOutlined />} loading={cleanup.isPending} disabled={!plan.deletion_enabled || cleanupRows === 0}>{t('cleanupEligibleRows', { count: cleanupRows })}</Button>
       </Popconfirm>
       <Typography.Text type="secondary" className={styles.cleanupAudit}>{t('cleanupRuns', { count: data.retention_runs })}</Typography.Text>
+    </section>
+
+    <section className={styles.dataSection}>
+      <div className={styles.sectionTitleRow}><div className={styles.formSectionHeading}><strong>{t('analysisData')}</strong><span>{t('analysisDataHint')}</span></div></div>
+      <div className={styles.dataStatusRows}>
+        <span>Incident Contract</span><strong>v{data.analysis.incident_version}</strong>
+        <span>{t('incidentRows')}</span><strong>{data.analysis.incident_rows.toLocaleString()}</strong>
+        <span>{t('completeRounds')}</span><strong>{data.analysis.complete_rounds.toLocaleString()} / {data.analysis.capture_enabled_rounds.toLocaleString()} ({(data.analysis.complete_ratio * 100).toFixed(1)}%)</strong>
+        <span>{t('incidentRows30d')}</span><strong>{data.analysis.rows_last_30d.toLocaleString()}</strong>
+        <span>{t('incidentWindow')}</span><strong>{dateTime(data.analysis.earliest_incident_at)} — {dateTime(data.analysis.latest_incident_at)}</strong>
+        <span>{t('projectedIncidentRows')}</span><strong>{data.analysis.projected_rows_for_retention.toLocaleString()}</strong>
+      </div>
+      {data.incident_retention_plan.unknown_version_rows > 0 && <Alert type="error" showIcon message={t('unknownIncidentVersion')} />}
+      <Popconfirm title={t('confirmIncidentCleanup')} description={t('confirmIncidentCleanupHint', { count: data.incident_retention_plan.incident_rows_eligible })} okButtonProps={{ danger: true }} okText={t('confirmCleanup')} cancelText={t('cancel')} onConfirm={() => incidentCleanup.mutate(data.incident_retention_plan.plan_id)} disabled={!data.incident_retention_plan.deletion_enabled || data.incident_retention_plan.incident_rows_eligible === 0}>
+        <Button danger icon={<DeleteOutlined />} loading={incidentCleanup.isPending} disabled={!data.incident_retention_plan.deletion_enabled || data.incident_retention_plan.incident_rows_eligible === 0}>{t('cleanupIncidentRows', { count: data.incident_retention_plan.incident_rows_eligible })}</Button>
+      </Popconfirm>
+      <Typography.Text type="secondary" className={styles.cleanupAudit}>{t('cleanupRuns', { count: data.analysis.cleanup_runs })}</Typography.Text>
     </section>
 
     <Modal title={t('previewPlayerCard')} open={previewPromptOpen} okText={t('preview')} cancelText={t('cancel')}

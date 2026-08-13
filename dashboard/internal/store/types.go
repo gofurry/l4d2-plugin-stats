@@ -9,7 +9,7 @@ import (
 var ErrServerNotFound = errors.New("game server not found")
 
 const (
-	DashboardSchemaVersion int64 = 11
+	DashboardSchemaVersion int64 = 12
 	StatsSchemaVersion     int64 = 4
 )
 
@@ -555,7 +555,39 @@ type DataMaintenanceSettings struct {
 	DetailRetentionDays      int64 `json:"detail_retention_days"`
 	SessionRetentionDays     int64 `json:"session_retention_days"`
 	ResultRetentionDays      int64 `json:"result_retention_days"`
+	IncidentRetentionDays    int64 `json:"incident_retention_days"`
 	UpdatedAt                int64 `json:"updated_at"`
+}
+
+type AnalysisStatus struct {
+	IncidentVersion           int64   `json:"incident_version"`
+	IncidentRows              int64   `json:"incident_rows"`
+	CaptureEnabledRounds      int64   `json:"capture_enabled_rounds"`
+	CompleteRounds            int64   `json:"complete_rounds"`
+	CompleteRatio             float64 `json:"complete_ratio"`
+	RowsLast30Days            int64   `json:"rows_last_30d"`
+	EarliestIncidentAt        int64   `json:"earliest_incident_at"`
+	LatestIncidentAt          int64   `json:"latest_incident_at"`
+	ProjectedRowsForRetention int64   `json:"projected_rows_for_retention"`
+	RetentionDays             int64   `json:"retention_days"`
+	CleanupRuns               int64   `json:"cleanup_runs"`
+}
+
+type IncidentRetentionPlan struct {
+	IncidentVersion      int64  `json:"incident_version"`
+	GeneratedAt          int64  `json:"generated_at"`
+	Cutoff               int64  `json:"cutoff"`
+	IncidentRowsEligible int64  `json:"incident_rows_eligible"`
+	UnknownVersionRows   int64  `json:"unknown_version_rows"`
+	CandidateWatermark   int64  `json:"candidate_watermark"`
+	PlanID               string `json:"plan_id"`
+	DeletionEnabled      bool   `json:"deletion_enabled"`
+}
+
+type IncidentRetentionResult struct {
+	RunID        string `json:"run_id"`
+	ExecutedAt   int64  `json:"executed_at"`
+	IncidentRows int64  `json:"incident_rows"`
 }
 
 type DatabaseUsage struct {
@@ -570,12 +602,15 @@ type DataQualityFinding struct {
 }
 
 type StatsDataQuality struct {
-	SourceWatermark     int64
-	StaleActiveBoots    DataQualityFinding
-	UnknownStatsVersion DataQualityFinding
-	LifecycleLinks      DataQualityFinding
-	ModeSideMismatch    DataQualityFinding
-	PVETotalMismatch    DataQualityFinding
+	SourceWatermark      int64
+	StaleActiveBoots     DataQualityFinding
+	UnknownStatsVersion  DataQualityFinding
+	LifecycleLinks       DataQualityFinding
+	ModeSideMismatch     DataQualityFinding
+	PVETotalMismatch     DataQualityFinding
+	ContextContract      DataQualityFinding
+	IncidentContract     DataQualityFinding
+	IncidentCompleteness DataQualityFinding
 }
 
 type PlayerSession struct {
@@ -708,6 +743,8 @@ type DashboardAggregateStore interface {
 	DatabaseUsage(context.Context) (DatabaseUsage, error)
 	RecordRetentionRun(context.Context, RetentionPlan, RetentionResult) error
 	RetentionRunCount(context.Context) (int64, error)
+	RecordIncidentRetentionRun(context.Context, IncidentRetentionPlan, IncidentRetentionResult) error
+	IncidentRetentionRunCount(context.Context) (int64, error)
 }
 
 type DashboardDatabase interface {
@@ -760,6 +797,11 @@ type StatsAggregateStore interface {
 	DatabaseUsage(context.Context) (DatabaseUsage, error)
 }
 
+type StatsAnalysisMaintenanceStore interface {
+	AnalysisStatus(context.Context, int64) (AnalysisStatus, error)
+	IncidentRetentionPlan(context.Context, int64) (IncidentRetentionPlan, error)
+}
+
 type AggregateChangeSet struct {
 	Rows            []AggregateRow
 	Days            []int64
@@ -770,7 +812,9 @@ type AggregateChangeSet struct {
 
 type StatsMaintenanceStore interface {
 	StatsAggregateStore
+	StatsAnalysisMaintenanceStore
 	ApplyRetention(context.Context, RetentionPlan) (RetentionResult, error)
+	ApplyIncidentRetention(context.Context, IncidentRetentionPlan) (IncidentRetentionResult, error)
 	Close() error
 }
 

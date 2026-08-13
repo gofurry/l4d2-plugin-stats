@@ -82,6 +82,7 @@ type DataMaintenanceSetting struct {
 	SessionRetentionDays     int64 `json:"session_retention_days"`
 	ResultRetentionDays      int64 `json:"result_retention_days"`
 	UpdatedAt                int64 `json:"updated_at"`
+	IncidentRetentionDays    int64 `json:"incident_retention_days"`
 }
 
 type FooterLink struct {
@@ -101,6 +102,14 @@ type GameServer struct {
 	SortOrder   int64  `json:"sort_order"`
 	CreatedAt   int64  `json:"created_at"`
 	UpdatedAt   int64  `json:"updated_at"`
+}
+
+type IncidentRetentionRun struct {
+	ID              string `json:"id"`
+	ExecutedAt      int64  `json:"executed_at"`
+	IncidentVersion int64  `json:"incident_version"`
+	Cutoff          int64  `json:"cutoff"`
+	IncidentRows    int64  `json:"incident_rows"`
 }
 
 type RetentionRun struct {
