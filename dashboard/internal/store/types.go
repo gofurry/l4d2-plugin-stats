@@ -480,12 +480,14 @@ type PlayerAnalysis struct {
 }
 
 type RankingPage struct {
-	Metric      string         `json:"metric"`
-	Mode        string         `json:"mode"`
-	Items       []RankingEntry `json:"items"`
-	Total       int64          `json:"total"`
-	Self        *RankingEntry  `json:"self,omitempty"`
-	GeneratedAt time.Time      `json:"generated_at"`
+	Metric         string         `json:"metric"`
+	Mode           string         `json:"mode"`
+	HigherIsBetter bool           `json:"higher_is_better"`
+	LowerIsBetter  bool           `json:"lower_is_better"`
+	Items          []RankingEntry `json:"items"`
+	Total          int64          `json:"total"`
+	Self           *RankingEntry  `json:"self,omitempty"`
+	GeneratedAt    time.Time      `json:"generated_at"`
 }
 
 type RankingQuery struct {

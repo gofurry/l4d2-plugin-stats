@@ -269,6 +269,7 @@ func (s *RankingService) load(ctx context.Context, query store.RankingQuery) (st
 	if minimum == 0 {
 		minimum = definition.defaultMinimum
 	}
+	minimum = max(minimum, definition.hardMinimumActive)
 	entries := make([]store.RankingEntry, 0, len(players))
 	for steamID, accumulator := range players {
 		if accumulator.active < minimum {
@@ -281,7 +282,17 @@ func (s *RankingService) load(ctx context.Context, query store.RankingQuery) (st
 			}
 			value = value * 3600 / float64(accumulator.active)
 		}
-		if value <= 0 {
+		if definition.minimumSample != nil && !definition.minimumSample(accumulator.metrics) {
+			continue
+		}
+		if definition.denominator != nil {
+			denominator := definition.denominator(accumulator.metrics)
+			if denominator <= 0 {
+				continue
+			}
+			value /= denominator
+		}
+		if value < 0 || (value == 0 && definition.higherIsBetter) {
 			continue
 		}
 		entries = append(entries, store.RankingEntry{SteamID: steamID, Value: value, ActiveSeconds: accumulator.active})
@@ -290,7 +301,10 @@ func (s *RankingService) load(ctx context.Context, query store.RankingQuery) (st
 		if entries[i].Value == entries[j].Value {
 			return entries[i].SteamID < entries[j].SteamID
 		}
-		return entries[i].Value > entries[j].Value
+		if definition.higherIsBetter {
+			return entries[i].Value > entries[j].Value
+		}
+		return entries[i].Value < entries[j].Value
 	})
 	for i := range entries {
 		entries[i].Rank = int64(i + 1)
@@ -338,16 +352,21 @@ func (s *RankingService) finishRanking(ctx context.Context, query store.RankingQ
 			self.PlayerName = player.LastName
 		}
 	}
-	return store.RankingPage{Metric: query.Metric, Mode: query.Mode, Items: pageEntries, Total: int64(total), Self: self, GeneratedAt: time.Now().UTC()}
+	definition := rankingDefinitions[query.Mode+":"+query.Metric]
+	return store.RankingPage{Metric: query.Metric, Mode: query.Mode, HigherIsBetter: definition.higherIsBetter, LowerIsBetter: !definition.higherIsBetter, Items: pageEntries, Total: int64(total), Self: self, GeneratedAt: time.Now().UTC()}
 }
 
 type rankingDefinition struct {
-	kinds          []string
-	defaultMinimum int64
-	perHour        bool
-	rawIncident    bool
-	accept         func(store.AggregateRow) bool
-	value          func(map[string]int64) float64
+	kinds             []string
+	defaultMinimum    int64
+	hardMinimumActive int64
+	perHour           bool
+	rawIncident       bool
+	higherIsBetter    bool
+	denominator       func(map[string]int64) float64
+	minimumSample     func(map[string]int64) bool
+	accept            func(store.AggregateRow) bool
+	value             func(map[string]int64) float64
 }
 
 func sumMetrics(names ...string) func(map[string]int64) float64 {
@@ -379,11 +398,32 @@ func modeRows(mode string, side string) func(store.AggregateRow) bool {
 }
 
 func definition(kinds []string, minimum int64, perHour bool, accept func(store.AggregateRow) bool, metrics ...string) rankingDefinition {
-	return rankingDefinition{kinds: kinds, defaultMinimum: minimum, perHour: perHour, accept: accept, value: sumMetrics(metrics...)}
+	return rankingDefinition{kinds: kinds, defaultMinimum: minimum, perHour: perHour, higherIsBetter: true, accept: accept, value: sumMetrics(metrics...)}
 }
 
 func incidentDefinition() rankingDefinition {
-	return rankingDefinition{rawIncident: true}
+	return rankingDefinition{rawIncident: true, higherIsBetter: true}
+}
+
+func derivedDefinition(kinds []string, minimum int64, higher bool, accept func(store.AggregateRow) bool, numerator []string, denominator string, sample int64) rankingDefinition {
+	definition := definition(kinds, minimum, false, accept, numerator...)
+	definition.higherIsBetter = higher
+	definition.denominator = sumMetrics(denominator)
+	definition.minimumSample = func(metrics map[string]int64) bool { return metrics[denominator] >= sample }
+	return definition
+}
+
+func lowerPerHour(kinds []string, accept func(store.AggregateRow) bool, metrics ...string) rankingDefinition {
+	definition := definition(kinds, 2*3600, true, accept, metrics...)
+	definition.hardMinimumActive = 2 * 3600
+	definition.higherIsBetter = false
+	return definition
+}
+
+func higherPerHour(kinds []string, accept func(store.AggregateRow) bool, metrics ...string) rankingDefinition {
+	definition := definition(kinds, 2*3600, true, accept, metrics...)
+	definition.hardMinimumActive = 2 * 3600
+	return definition
 }
 
 var rankingDefinitions = func() map[string]rankingDefinition {
@@ -406,16 +446,27 @@ var rankingDefinitions = func() map[string]rankingDefinition {
 		"pve:car_alarms_triggered":                incidentDefinition(),
 		"pve:common_kills_per_hour":               definition([]string{"mode_activity", "pve_combat"}, 5*3600, true, pve, "common_kills"),
 		"pve:special_kills_per_hour":              definition([]string{"mode_activity", "pve_combat"}, 5*3600, true, pve, "special_kills"),
+		"pve:rescues_per_hour":                    higherPerHour([]string{"mode_activity", "pve_combat"}, pve, "incap_revives", "ledge_rescues", "defib_revives"),
+		"pve:incaps_per_hour":                     lowerPerHour([]string{"mode_activity", "pve_combat"}, pve, "incapacitations"),
+		"pve:deaths_per_hour":                     lowerPerHour([]string{"mode_activity", "pve_combat"}, pve, "deaths"),
+		"pve:friendly_fire_per_hour":              lowerPerHour([]string{"mode_activity", "pve_combat"}, pve, "friendly_fire_to_humans", "friendly_fire_to_bots"),
+		"pve:tank_participation_rate":             derivedDefinition([]string{"mode_activity", "pve_detail"}, 0, true, pve, []string{"tank_kill_participations"}, "tank_encounters", 5),
+		"pve:witch_participation_rate":            derivedDefinition([]string{"mode_activity", "pve_detail"}, 0, true, pve, []string{"witch_kill_participations"}, "witch_encounters", 5),
 		"versus_survivor:human_si_kills":          definition([]string{"mode_activity", "versus_survivor"}, 0, false, vs, "human_special_kills", "human_tank_kills"),
 		"versus_survivor:damage":                  definition([]string{"mode_activity", "versus_survivor"}, 0, false, vs, "damage_to_human_special", "damage_to_human_tank"),
 		"versus_survivor:rescues":                 definition([]string{"mode_activity", "versus_survivor"}, 0, false, vs, "incap_revives", "ledge_rescues", "defib_revives"),
 		"versus_survivor:car_alarms_triggered":    incidentDefinition(),
 		"versus_survivor:human_si_kills_per_hour": definition([]string{"mode_activity", "versus_survivor"}, 3*3600, true, vs, "human_special_kills", "human_tank_kills"),
+		"versus_survivor:rescues_per_hour":        higherPerHour([]string{"mode_activity", "versus_survivor"}, vs, "incap_revives", "ledge_rescues", "defib_revives"),
+		"versus_survivor:incaps_per_hour":         lowerPerHour([]string{"mode_activity", "versus_survivor"}, vs, "incapacitations"),
 		"versus_infected:damage":                  definition([]string{"mode_activity", "versus_infected"}, 0, false, vi, "damage_to_human_survivors"),
 		"versus_infected:incaps":                  definition([]string{"mode_activity", "versus_infected"}, 0, false, vi, "human_survivor_incaps"),
 		"versus_infected:kills":                   definition([]string{"mode_activity", "versus_infected"}, 0, false, vi, "human_survivor_kills"),
 		"versus_infected:controls":                definition([]string{"mode_activity", "versus_infected_class"}, 0, false, vi, "human_survivor_controls"),
 		"versus_infected:damage_per_hour":         definition([]string{"mode_activity", "versus_infected"}, 3*3600, true, vi, "damage_to_human_survivors"),
+		"versus_infected:incaps_per_spawn":        derivedDefinition([]string{"mode_activity", "versus_infected"}, 0, true, vi, []string{"human_survivor_incaps"}, "spawn_count", 20),
+		"versus_infected:kills_per_spawn":         derivedDefinition([]string{"mode_activity", "versus_infected"}, 0, true, vi, []string{"human_survivor_kills"}, "spawn_count", 20),
+		"versus_infected:controls_per_spawn":      derivedDefinition([]string{"mode_activity", "versus_infected_class"}, 0, true, vi, []string{"human_survivor_controls"}, "spawn_count", 20),
 	}
 	return definitions
 }()
