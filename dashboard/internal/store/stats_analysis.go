@@ -176,7 +176,10 @@ GROUP BY e.map_name ORDER BY e.map_name ASC`
 	if result.EligibleRounds > 0 {
 		result.CompleteIncidentCoverage /= float64(result.EligibleRounds)
 	}
-	if err := s.db.QueryRowContext(queryCtx, `SELECT COALESCE(MIN(occurred_at),0),COALESCE(MAX(occurred_at),0) FROM lps_incidents WHERE incident_version=1`).Scan(&result.EarliestIncidentAt, &result.LatestIncidentAt); err != nil {
+	incidentWindow := `SELECT COALESCE(MIN(i.occurred_at),0),COALESCE(MAX(i.occurred_at),0)
+FROM lps_incidents i JOIN lps_rounds r ON r.round_id=i.round_id JOIN lps_runs ru ON ru.run_id=r.run_id
+WHERE i.incident_version=1 AND ` + where
+	if err := s.db.QueryRowContext(queryCtx, incidentWindow, args...).Scan(&result.EarliestIncidentAt, &result.LatestIncidentAt); err != nil {
 		return AnalysisMaps{}, err
 	}
 	return result, nil

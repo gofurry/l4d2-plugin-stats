@@ -58,6 +58,8 @@
 .analysisRows { display: grid; gap: 1px; overflow: hidden; border-radius: 12px; }
 .analysisRows > div { display: flex; justify-content: space-between; gap: 12px; padding: 11px 13px; background: var(--surface-row); }
 .analysisRows span { color: var(--text-secondary); }
+.analysisRows .multiControlRow { padding-block: 9px; }
+.multiControlRow strong { overflow-wrap: anywhere; }
 
 @media (max-width: 980px) {
   .content { width: calc(100% - 250px); margin-right: 76px; }
