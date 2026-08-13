@@ -25,6 +25,7 @@
 .table :global(.ant-table-tbody > tr > td) { color: #59473d; border-bottom: 0; background: rgba(255, 250, 243, .34) !important; }
 .table :global(.ant-table-tbody > tr:nth-child(even) > td) { background: rgba(201, 181, 162, .2) !important; }
 .table :global(.ant-table-tbody > tr:hover > td) { background: rgba(211, 132, 76, .2) !important; }
+.table :global(.ant-pagination) { margin: 16px 18px !important; }
 .state { display: grid; min-height: 340px; place-items: center; }
 .detail { display: grid; gap: 14px; }
 .detailCards { grid-template-columns: repeat(3, 1fr); border-radius: 16px; }

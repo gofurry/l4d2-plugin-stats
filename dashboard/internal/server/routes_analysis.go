@@ -2,6 +2,7 @@ package server
 
 import (
 	"errors"
+	"strconv"
 	"strings"
 	"time"
 
@@ -31,6 +32,10 @@ func registerAnalysisRoutes(api fiber.Router, analysis *service.AnalysisService)
 		if !ok {
 			return nil
 		}
+		filter, ok = analysisPageFilter(c, filter, mapAnalysisSorts, "map_name", "asc")
+		if !ok {
+			return nil
+		}
 		result, err := analysis.Maps(c.Context(), filter)
 		if err != nil {
 			return statsError(c, err)
@@ -57,12 +62,50 @@ func registerAnalysisRoutes(api fiber.Router, analysis *service.AnalysisService)
 		if !ok {
 			return nil
 		}
+		filter, ok = analysisPageFilter(c, filter, contextAnalysisSorts, "round_count", "desc")
+		if !ok {
+			return nil
+		}
 		result, err := analysis.Contexts(c.Context(), filter)
 		if err != nil {
 			return statsError(c, err)
 		}
 		return sendData(c, 200, result)
 	})
+}
+
+var mapAnalysisSorts = map[string]struct{}{
+	"map_name": {}, "eligible_rounds": {}, "completion_rate": {}, "average_completed_attempt": {},
+	"average_duration_seconds": {}, "incaps_per_complete_round": {}, "deaths_per_complete_round": {}, "controls_per_complete_round": {},
+}
+
+var contextAnalysisSorts = map[string]struct{}{
+	"ruleset_name": {}, "round_count": {}, "completion_rate": {}, "average_duration_seconds": {}, "complete_incident_coverage": {},
+}
+
+func analysisPageFilter(c fiber.Ctx, filter store.AnalysisFilter, allowed map[string]struct{}, defaultSort, defaultOrder string) (store.AnalysisFilter, bool) {
+	page, err := strconv.ParseInt(c.Query("page", "1"), 10, 64)
+	if err != nil || page < 1 {
+		_ = sendError(c, 400, "invalid_page", "page must be a positive integer")
+		return filter, false
+	}
+	pageSize, err := strconv.ParseInt(c.Query("page_size", "20"), 10, 64)
+	if err != nil || pageSize < 1 || pageSize > 100 {
+		_ = sendError(c, 400, "invalid_page_size", "page_size must be between 1 and 100")
+		return filter, false
+	}
+	sortName := c.Query("sort", defaultSort)
+	if _, exists := allowed[sortName]; !exists {
+		_ = sendError(c, 400, "invalid_sort", "unsupported analysis sort field")
+		return filter, false
+	}
+	order := c.Query("order", defaultOrder)
+	if order != "asc" && order != "desc" {
+		_ = sendError(c, 400, "invalid_order", "order must be asc or desc")
+		return filter, false
+	}
+	filter.Page, filter.PageSize, filter.Sort, filter.Order = page, pageSize, sortName, order
+	return filter, true
 }
 
 func analysisFilter(c fiber.Ctx) (store.AnalysisFilter, bool) {

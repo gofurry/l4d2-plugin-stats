@@ -79,6 +79,9 @@ func TestSQLiteAnalysisOptionsFollowRangeAndMode(t *testing.T) {
 		`INSERT INTO lps_runs (run_id,boot_id,server_key,mode_family,game_mode,campaign_key,started_at,last_saved_at,status) VALUES ('r1','b1','one','pve','coop','c1',100,100,'completed'),('r2','b2','two','pve','realism','c2',200,200,'completed'),('r3','b1','one','versus','versus','c5',300,300,'completed')`,
 		`INSERT INTO lps_rounds (round_id,run_id,server_key,mode_family,map_name,round_seq,map_seq,attempt_no,started_at,last_saved_at,status) VALUES ('round-1','r1','one','pve','m1',1,1,1,100,100,'completed'),('round-2','r2','two','pve','m2',1,1,1,200,200,'completed'),('round-3','r3','one','versus','m3',1,1,1,300,300,'completed')`,
 		`INSERT INTO lps_player_segments (segment_id,session_id,run_id,round_id,server_key,steam_id,side,started_at,last_saved_at,status) VALUES ('s1','x','r1','round-1','one','1','survivor',100,100,'closed'),('s2','x','r2','round-2','two','1','survivor',200,200,'closed'),('s3','x','r3','round-3','one','1','infected',300,300,'closed')`,
+		`INSERT INTO lps_round_contexts (round_id,context_version,captured_at,last_saved_at,collector_version,ruleset_name,difficulty,survivor_limit,max_player_zombies,common_limit,tank_health,witch_health,change_mask,incident_capture_enabled,incident_capture_complete,incident_expected_count,incident_dropped_count,revision) VALUES
+		('round-1',1,100,100,'1.3.0','Alpha','Normal',4,4,30,4000,1000,0,1,1,0,0,1),
+		('round-2',1,200,200,'1.3.0','Bravo','Hard',8,8,20,8000,2000,0,1,1,0,0,1)`,
 	}
 	for _, statement := range statements {
 		if _, err := db.Exec(statement); err != nil {
@@ -99,5 +102,33 @@ func TestSQLiteAnalysisOptionsFollowRangeAndMode(t *testing.T) {
 	}
 	if len(options.Servers) != 1 || options.Servers[0] != "two" || len(options.Campaigns) != 1 || options.Campaigns[0] != "c2" {
 		t.Fatalf("options=%#v", options)
+	}
+	maps, err := stats.(StatsAnalysisStore).AnalysisMaps(ctx, AnalysisFilter{Mode: "pve", Page: 1, PageSize: 1, Sort: "map_name", Order: "desc"})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if maps.Page != 1 || maps.PageSize != 1 || maps.Total != 2 || maps.EligibleRounds != 2 || len(maps.Maps) != 1 || maps.Maps[0].MapName != "m2" {
+		t.Fatalf("paginated maps=%#v", maps)
+	}
+	for _, sortName := range []string{"map_name", "eligible_rounds", "completion_rate", "average_completed_attempt", "average_duration_seconds", "incaps_per_complete_round", "deaths_per_complete_round", "controls_per_complete_round"} {
+		if _, err := stats.(StatsAnalysisStore).AnalysisMaps(ctx, AnalysisFilter{Mode: "pve", Page: 1, PageSize: 1, Sort: sortName, Order: "desc"}); err != nil {
+			t.Errorf("sort maps by %s: %v", sortName, err)
+		}
+	}
+	detail, err := stats.(StatsAnalysisStore).AnalysisMapDetail(ctx, AnalysisFilter{Mode: "pve", Page: 2, PageSize: 1, Sort: "map_name", Order: "desc"}, "m1")
+	if err != nil || detail.Summary.MapName != "m1" {
+		t.Fatalf("map detail=%#v err=%v", detail, err)
+	}
+	contexts, err := stats.(StatsAnalysisStore).AnalysisContexts(ctx, AnalysisFilter{Mode: "pve", Page: 2, PageSize: 1, Sort: "ruleset_name", Order: "asc"})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if contexts.Page != 2 || contexts.PageSize != 1 || contexts.Total != 2 || contexts.EligibleRounds != 2 || len(contexts.Contexts) != 1 || contexts.Contexts[0].RulesetName != "Bravo" {
+		t.Fatalf("paginated contexts=%#v", contexts)
+	}
+	for _, sortName := range []string{"ruleset_name", "round_count", "completion_rate", "average_duration_seconds", "complete_incident_coverage"} {
+		if _, err := stats.(StatsAnalysisStore).AnalysisContexts(ctx, AnalysisFilter{Mode: "pve", Page: 1, PageSize: 1, Sort: sortName, Order: "asc"}); err != nil {
+			t.Errorf("sort contexts by %s: %v", sortName, err)
+		}
 	}
 }

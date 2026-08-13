@@ -48,7 +48,7 @@ ORDER BY SUM(o.overlap_seconds) DESC, COUNT(DISTINCT o.round_id) DESC, o.peer_st
 
 func (s *statsStore) analysisWhere(filter AnalysisFilter, alias string) (string, []any) {
 	clauses := []string{"1=1"}
-	args := make([]any, 0, 4)
+	args := make([]any, 0, 5)
 	add := func(column string, value any) {
 		args = append(args, value)
 		clauses = append(clauses, column+"="+s.bind(len(args)))
@@ -68,7 +68,26 @@ func (s *statsStore) analysisWhere(filter AnalysisFilter, alias string) (string,
 	if filter.CampaignKey != "" {
 		add("ru.campaign_key", filter.CampaignKey)
 	}
+	if filter.MapName != "" {
+		add(alias+".map_name", filter.MapName)
+	}
 	return strings.Join(clauses, " AND "), args
+}
+
+func normalizeAnalysisPage(filter AnalysisFilter, defaultSort, defaultOrder string) AnalysisFilter {
+	if filter.Page < 1 {
+		filter.Page = 1
+	}
+	if filter.PageSize < 1 {
+		filter.PageSize = 20
+	}
+	if filter.Sort == "" {
+		filter.Sort = defaultSort
+	}
+	if filter.Order != "asc" && filter.Order != "desc" {
+		filter.Order = defaultOrder
+	}
+	return filter
 }
 
 func (s *statsStore) AnalysisOptions(ctx context.Context, filter AnalysisFilter) (AnalysisOptions, error) {
@@ -116,8 +135,9 @@ ORDER BY r.server_key ASC,ru.campaign_key ASC`, args...)
 func (s *statsStore) AnalysisMaps(ctx context.Context, filter AnalysisFilter) (AnalysisMaps, error) {
 	queryCtx, cancel := context.WithTimeout(ctx, s.timeout)
 	defer cancel()
+	filter = normalizeAnalysisPage(filter, "map_name", "asc")
 	where, args := s.analysisWhere(filter, "r")
-	statement := `WITH eligible AS (
+	base := `WITH eligible AS (
 SELECT r.round_id,r.map_name,r.status,r.attempt_no,r.started_at,COALESCE(r.ended_at,r.last_saved_at)-r.started_at duration_seconds
 FROM lps_rounds r JOIN lps_runs ru ON ru.run_id=r.run_id WHERE ` + where + `
 AND EXISTS(SELECT 1 FROM lps_player_segments ps WHERE ps.round_id=r.round_id)),
@@ -127,20 +147,50 @@ incident_counts AS (SELECT i.round_id,
 SUM(CASE WHEN i.incident_type=1 THEN 1 ELSE 0 END) controls,
 SUM(CASE WHEN i.incident_type=2 THEN 1 ELSE 0 END) incaps,
 SUM(CASE WHEN i.incident_type=3 THEN 1 ELSE 0 END) deaths
-FROM lps_incidents i JOIN complete c ON c.round_id=i.round_id WHERE i.incident_version=1 GROUP BY i.round_id)
-SELECT e.map_name,COUNT(*),SUM(CASE WHEN e.status='completed' THEN 1 ELSE 0 END),SUM(CASE WHEN e.status='failed' THEN 1 ELSE 0 END),
-AVG(CASE WHEN e.status='completed' THEN e.attempt_no END),AVG(CASE WHEN e.duration_seconds>=0 THEN e.duration_seconds END),
-COUNT(c.round_id),COALESCE(SUM(ic.controls),0),COALESCE(SUM(ic.incaps),0),COALESCE(SUM(ic.deaths),0)
+FROM lps_incidents i JOIN complete c ON c.round_id=i.round_id WHERE i.incident_version=1 GROUP BY i.round_id),
+grouped AS (SELECT e.map_name,COUNT(*) eligible_rounds,SUM(CASE WHEN e.status='completed' THEN 1 ELSE 0 END) completed_rounds,SUM(CASE WHEN e.status='failed' THEN 1 ELSE 0 END) failed_rounds,
+AVG(CASE WHEN e.status='completed' THEN e.attempt_no END) average_completed_attempt,AVG(CASE WHEN e.duration_seconds>=0 THEN e.duration_seconds END) average_duration_seconds,
+COUNT(c.round_id) complete_incident_rounds,COALESCE(SUM(ic.controls),0) controls,COALESCE(SUM(ic.incaps),0) incaps,COALESCE(SUM(ic.deaths),0) deaths
 FROM eligible e LEFT JOIN complete c ON c.round_id=e.round_id LEFT JOIN incident_counts ic ON ic.round_id=e.round_id
-GROUP BY e.map_name ORDER BY e.map_name ASC`
-	rows, err := s.db.QueryContext(queryCtx, statement, args...)
+GROUP BY e.map_name) `
+	result := AnalysisMaps{IncidentVersion: incidentContractVersion, Page: filter.Page, PageSize: filter.PageSize, Maps: make([]AnalysisMapRow, 0)}
+	var completed, failed int64
+	var completedAttemptSum sql.NullFloat64
+	summary := base + `SELECT COUNT(*),COALESCE(SUM(eligible_rounds),0),COALESCE(SUM(completed_rounds),0),COALESCE(SUM(failed_rounds),0),
+SUM(CASE WHEN completed_rounds>0 THEN completed_rounds*average_completed_attempt END),COALESCE(SUM(complete_incident_rounds),0) FROM grouped`
+	if err := s.db.QueryRowContext(queryCtx, summary, args...).Scan(&result.Total, &result.EligibleRounds, &completed, &failed, &completedAttemptSum, &result.CompleteIncidentCoverage); err != nil {
+		return AnalysisMaps{}, fmt.Errorf("query analysis map summary: %w", err)
+	}
+	if completed+failed > 0 {
+		value := float64(completed) / float64(completed+failed)
+		result.CompletionRate = &value
+	}
+	if completed > 0 && completedAttemptSum.Valid {
+		value := completedAttemptSum.Float64 / float64(completed)
+		result.AverageCompletedAttempt = &value
+	}
+	if result.EligibleRounds > 0 {
+		result.CompleteIncidentCoverage /= float64(result.EligibleRounds)
+	}
+	sortExpressions := map[string]string{
+		"map_name": "map_name", "eligible_rounds": "eligible_rounds",
+		"completion_rate":           "completed_rounds*1.0/NULLIF(completed_rounds+failed_rounds,0)",
+		"average_completed_attempt": "average_completed_attempt", "average_duration_seconds": "average_duration_seconds",
+		"incaps_per_complete_round": "incaps*1.0/NULLIF(complete_incident_rounds,0)", "deaths_per_complete_round": "deaths*1.0/NULLIF(complete_incident_rounds,0)",
+		"controls_per_complete_round": "controls*1.0/NULLIF(complete_incident_rounds,0)",
+	}
+	sortExpression, ok := sortExpressions[filter.Sort]
+	if !ok {
+		return AnalysisMaps{}, fmt.Errorf("unsupported analysis map sort %q", filter.Sort)
+	}
+	pageArgs := append(append([]any{}, args...), filter.PageSize, (filter.Page-1)*filter.PageSize)
+	statement := base + `SELECT map_name,eligible_rounds,completed_rounds,failed_rounds,average_completed_attempt,average_duration_seconds,complete_incident_rounds,controls,incaps,deaths FROM grouped
+ORDER BY (` + sortExpression + ` IS NULL) ASC,` + sortExpression + ` ` + strings.ToUpper(filter.Order) + `,map_name ASC LIMIT ` + s.bind(len(pageArgs)-1) + ` OFFSET ` + s.bind(len(pageArgs))
+	rows, err := s.db.QueryContext(queryCtx, statement, pageArgs...)
 	if err != nil {
 		return AnalysisMaps{}, fmt.Errorf("query analysis maps: %w", err)
 	}
 	defer rows.Close()
-	result := AnalysisMaps{IncidentVersion: incidentContractVersion, Maps: make([]AnalysisMapRow, 0)}
-	var completedAttempts float64
-	var completedForAttempts int64
 	for rows.Next() {
 		var item AnalysisMapRow
 		var averageAttempt, averageDuration sql.NullFloat64
@@ -149,32 +199,10 @@ GROUP BY e.map_name ORDER BY e.map_name ASC`
 		}
 		item.AverageCompletedAttempt = nullableFloat(averageAttempt)
 		item.AverageDurationSeconds = nullableFloat(averageDuration)
-		result.EligibleRounds += item.EligibleRounds
-		result.CompleteIncidentCoverage += float64(item.CompleteIncidentRounds)
-		if item.AverageCompletedAttempt != nil {
-			completedAttempts += *item.AverageCompletedAttempt * float64(item.CompletedRounds)
-			completedForAttempts += item.CompletedRounds
-		}
 		result.Maps = append(result.Maps, item)
 	}
 	if err := rows.Err(); err != nil {
 		return AnalysisMaps{}, err
-	}
-	var completed, failed int64
-	for _, item := range result.Maps {
-		completed += item.CompletedRounds
-		failed += item.FailedRounds
-	}
-	if completed+failed > 0 {
-		value := float64(completed) / float64(completed+failed)
-		result.CompletionRate = &value
-	}
-	if completedForAttempts > 0 {
-		value := completedAttempts / float64(completedForAttempts)
-		result.AverageCompletedAttempt = &value
-	}
-	if result.EligibleRounds > 0 {
-		result.CompleteIncidentCoverage /= float64(result.EligibleRounds)
 	}
 	incidentWindow := `SELECT COALESCE(MIN(i.occurred_at),0),COALESCE(MAX(i.occurred_at),0)
 FROM lps_incidents i JOIN lps_rounds r ON r.round_id=i.round_id JOIN lps_runs ru ON ru.run_id=r.run_id
@@ -186,6 +214,9 @@ WHERE i.incident_version=1 AND ` + where
 }
 
 func (s *statsStore) AnalysisMapDetail(ctx context.Context, filter AnalysisFilter, mapName string) (AnalysisMapDetail, error) {
+	filter.MapName = mapName
+	filter.Page, filter.PageSize = 1, 1
+	filter.Sort, filter.Order = "map_name", "asc"
 	maps, err := s.AnalysisMaps(ctx, filter)
 	if err != nil {
 		return AnalysisMapDetail{}, err
@@ -204,11 +235,9 @@ func (s *statsStore) AnalysisMapDetail(ctx context.Context, filter AnalysisFilte
 	queryCtx, cancel := context.WithTimeout(ctx, s.timeout)
 	defer cancel()
 	where, args := s.analysisWhere(filter, "r")
-	args = append(args, mapName)
-	mapBind := s.bind(len(args))
 	base := `WITH complete AS (SELECT r.round_id,COALESCE(r.ended_at,r.last_saved_at)-r.started_at duration_seconds
 FROM lps_rounds r JOIN lps_runs ru ON ru.run_id=r.run_id JOIN lps_round_contexts c ON c.round_id=r.round_id
-WHERE ` + where + ` AND r.map_name=` + mapBind + ` AND c.context_version=1 AND c.incident_capture_enabled=1
+WHERE ` + where + ` AND c.context_version=1 AND c.incident_capture_enabled=1
 AND c.incident_capture_complete=1 AND c.incident_dropped_count=0
 AND EXISTS(SELECT 1 FROM lps_player_segments ps WHERE ps.round_id=r.round_id)) `
 	composition := base + `SELECT
@@ -283,6 +312,7 @@ FROM complete c LEFT JOIN lps_incidents i ON i.round_id=c.round_id AND i.inciden
 func (s *statsStore) AnalysisContexts(ctx context.Context, filter AnalysisFilter) (AnalysisContexts, error) {
 	queryCtx, cancel := context.WithTimeout(ctx, s.timeout)
 	defer cancel()
+	filter = normalizeAnalysisPage(filter, "round_count", "desc")
 	where, args := s.analysisWhere(filter, "r")
 	base := `WITH eligible AS (SELECT r.round_id,r.status,COALESCE(r.ended_at,r.last_saved_at)-r.started_at duration_seconds
 FROM lps_rounds r JOIN lps_runs ru ON ru.run_id=r.run_id WHERE ` + where + `
@@ -294,13 +324,31 @@ COALESCE(SUM(CASE WHEN c.round_id IS NULL THEN 1 ELSE 0 END),0) FROM eligible e 
 	if err := s.db.QueryRowContext(queryCtx, counts, args...).Scan(&result.EligibleRounds, &result.StableContextRounds, &result.ChangedRuleRounds, &result.NoContextRounds); err != nil {
 		return result, err
 	}
-	statement := base + `SELECT c.context_version,c.ruleset_name,c.difficulty,c.survivor_limit,c.max_player_zombies,c.common_limit,c.tank_health,c.witch_health,
-COUNT(*),SUM(CASE WHEN e.status='completed' THEN 1 ELSE 0 END),SUM(CASE WHEN e.status='failed' THEN 1 ELSE 0 END),
-AVG(CASE WHEN e.duration_seconds>=0 THEN e.duration_seconds END),SUM(CASE WHEN c.incident_capture_enabled=1 AND c.incident_capture_complete=1 AND c.incident_dropped_count=0 THEN 1 ELSE 0 END)
+	result.Page, result.PageSize = filter.Page, filter.PageSize
+	grouped := base + `, grouped AS (SELECT c.context_version,c.ruleset_name,c.difficulty,c.survivor_limit,c.max_player_zombies,c.common_limit,c.tank_health,c.witch_health,
+COUNT(*) round_count,SUM(CASE WHEN e.status='completed' THEN 1 ELSE 0 END) completed_rounds,SUM(CASE WHEN e.status='failed' THEN 1 ELSE 0 END) failed_rounds,
+AVG(CASE WHEN e.duration_seconds>=0 THEN e.duration_seconds END) average_duration_seconds,SUM(CASE WHEN c.incident_capture_enabled=1 AND c.incident_capture_complete=1 AND c.incident_dropped_count=0 THEN 1 ELSE 0 END) complete_incident_rounds
 FROM eligible e JOIN lps_round_contexts c ON c.round_id=e.round_id WHERE c.context_version=1 AND c.change_mask=0
 GROUP BY c.context_version,c.ruleset_name,c.difficulty,c.survivor_limit,c.max_player_zombies,c.common_limit,c.tank_health,c.witch_health
-ORDER BY COUNT(*) DESC,c.ruleset_name ASC,c.difficulty ASC`
-	rows, err := s.db.QueryContext(queryCtx, statement, args...)
+) `
+	if err := s.db.QueryRowContext(queryCtx, grouped+`SELECT COUNT(*) FROM grouped`, args...).Scan(&result.Total); err != nil {
+		return result, err
+	}
+	sortExpressions := map[string]string{
+		"ruleset_name": "ruleset_name", "round_count": "round_count",
+		"completion_rate":          "completed_rounds*1.0/NULLIF(completed_rounds+failed_rounds,0)",
+		"average_duration_seconds": "average_duration_seconds", "complete_incident_coverage": "complete_incident_rounds*1.0/NULLIF(round_count,0)",
+	}
+	sortExpression, ok := sortExpressions[filter.Sort]
+	if !ok {
+		return result, fmt.Errorf("unsupported analysis context sort %q", filter.Sort)
+	}
+	pageArgs := append(append([]any{}, args...), filter.PageSize, (filter.Page-1)*filter.PageSize)
+	statement := grouped + `SELECT context_version,ruleset_name,difficulty,survivor_limit,max_player_zombies,common_limit,tank_health,witch_health,
+round_count,completed_rounds,failed_rounds,average_duration_seconds,complete_incident_rounds FROM grouped
+ORDER BY (` + sortExpression + ` IS NULL) ASC,` + sortExpression + ` ` + strings.ToUpper(filter.Order) + `,ruleset_name ASC,difficulty ASC,survivor_limit ASC,max_player_zombies ASC,common_limit ASC,tank_health ASC,witch_health ASC
+LIMIT ` + s.bind(len(pageArgs)-1) + ` OFFSET ` + s.bind(len(pageArgs))
+	rows, err := s.db.QueryContext(queryCtx, statement, pageArgs...)
 	if err != nil {
 		return result, err
 	}

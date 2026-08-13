@@ -341,6 +341,11 @@ type AnalysisFilter struct {
 	ServerKey   string
 	Mode        string
 	CampaignKey string
+	MapName     string
+	Page        int64
+	PageSize    int64
+	Sort        string
+	Order       string
 }
 
 type AnalysisOptions struct {
@@ -369,6 +374,9 @@ type AnalysisMaps struct {
 	CompleteIncidentCoverage float64          `json:"complete_incident_coverage"`
 	EarliestIncidentAt       int64            `json:"earliest_incident_at"`
 	LatestIncidentAt         int64            `json:"latest_incident_at"`
+	Page                     int64            `json:"page"`
+	PageSize                 int64            `json:"page_size"`
+	Total                    int64            `json:"total"`
 	Maps                     []AnalysisMapRow `json:"maps"`
 }
 
@@ -428,6 +436,9 @@ type AnalysisContexts struct {
 	StableContextRounds int64                `json:"stable_context_rounds"`
 	ChangedRuleRounds   int64                `json:"changed_rule_rounds"`
 	NoContextRounds     int64                `json:"no_context_rounds"`
+	Page                int64                `json:"page"`
+	PageSize            int64                `json:"page_size"`
+	Total               int64                `json:"total"`
 	Contexts            []AnalysisContextRow `json:"contexts"`
 }
 
