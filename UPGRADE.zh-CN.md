@@ -36,6 +36,8 @@ sm_lps_status
 
 v1.2 的采集器会按顺序执行 `0001_initial.sql`、`0002_car_alarms_triggered.sql` 和 `0003_versus_objective_interactions.sql`，把 Stats schema 从 1 升至 3。`0002` 为 PvE 与对抗增加警报车计数，`0003` 为对抗幸存者增加机关互动计数。旧统计行的新字段保持 `NULL`（表示当时尚未采集），新快照写入明确的 0 或正整数；不要手工把历史 `NULL` 回填为 0。
 
+v1.3 继续执行 `0004_analysis_foundation.sql`，把 Stats schema 升至 4 并新增 `lps_round_contexts` 与 `lps_incidents`。升级前的历史核心统计保持有效，但没有历史 Context/Incident 明细；Dashboard 必须把这些 Round 显示为“分析不可用”，不能解释为零事件。Dashboard DB 会从 schema 11 升至 12，以保存独立的 Incident 保留设置和清理审计。既有 `stats_version=1` 与 Aggregate Contract v1 不变。
+
 ## 升级 Dashboard
 
 Linux systemd：
@@ -73,6 +75,8 @@ Dashboard 启动时会自动迁移自己的 `dashboard.db`。不要使用发布�
 /api/v1/health/ready
 ```
 
+进入至少一个真人参与的完整 Round 后，还应检查 `/analysis`、个人页“分析”标签和管理后台的数据运维页。`sm_lps_status` 应为 `version=1.3.0`、`schema=4/4`；深度检查不应报告 Context/Incident 契约错误。
+
 ## 回滚
 
 如果新版本仅修改二进制且没有执行不可逆数据库迁移，可停止服务并恢复上一份二进制：
@@ -83,7 +87,7 @@ cp ./l4d2-stats.previous ./l4d2-stats
 sudo systemctl start l4d2-stats
 ```
 
-如果新版本已经升级 Stats DB 或 `dashboard.db` 结构，旧二进制未必兼容新 schema。此时应停止 Dashboard 服务，并同时恢复升级前数据库备份：
+如果新版本已经升级 Stats DB 或 `dashboard.db` 结构，旧二进制未必兼容新 schema。v1.3 已验证的安全回滚边界是同时恢复 v1.2 二进制与升级前 Stats/Dashboard 数据库备份；不要只回退 Collector 或只手工删除 schema 4 表。此时应停止 Dashboard 服务，并同时恢复升级前数据库备份：
 
 ```sh
 sudo systemctl stop l4d2-stats

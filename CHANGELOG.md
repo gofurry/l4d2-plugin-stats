@@ -4,10 +4,24 @@ All notable changes to this project are documented in this file.
 
 ## Unreleased
 
+## 1.3.0 - 2026-08-13
+
+### Added
+
+- Add Stats schema 4 with permanent Round Context v1 facts and independently retained low-frequency Incident v1 records for controls, incapacitations, deaths, rescues, car alarms, Tank, and Witch lifecycle events.
+- Add an isolated Analysis Flush pipeline with bounded queues, 256-Incident capture batches, idempotent writes, completeness accounting, and failure isolation from core cumulative statistics.
+- Add the public `/analysis` experience with range, server, mode, and campaign filters; map samples, PvE completion semantics, normalized Incident timelines, Boss lifetime analysis, and stable rule-context fingerprints.
+- Add player analysis for normalized PvE and Versus metrics, synchronized multi-control episodes, recent Incident detail, and Top-3 same-Round/same-side co-play summaries in player previews.
+- Add derived leaderboards for rescue, incap, death, friendly-fire, Boss-participation, and per-spawn metrics with frozen sample gates and explicit higher/lower-is-better metadata.
+- Add independent Incident retention settings, preview/confirmation, batched deletion, audit history, storage projection, admin status, and deep-doctor Context/Incident contract checks.
+- Add Incident, Round Context, and derived-analysis v1 contract documents plus cross-dialect migration and query coverage.
+
 ### Changed
 
 - Replace the loopback-only Steam OpenID proxy port with an optional full proxy address supporting HTTP, HTTPS, SOCKS5, and SOCKS5H; existing ports migrate automatically to `http://127.0.0.1:<port>`.
 - Upgrade Dashboard schema from 10 to 11 to persist the Steam OpenID proxy URL while retaining the legacy port column for safe downgrade.
+- Upgrade the Collector and Dashboard to `1.3.0`, Stats schema from 3 to 4, and Dashboard schema from 11 to 12; existing gameplay `stats_version=1` and Aggregate Contract v1 meanings remain unchanged.
+- Keep core statistics authoritative when analysis capture is disabled, incomplete, dropped, or temporarily fails; analysis readers never interpret incomplete Incident rounds as zero-event samples.
 
 ## 1.2.1 - 2026-08-11
 

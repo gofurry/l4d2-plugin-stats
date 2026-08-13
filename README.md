@@ -4,7 +4,7 @@
 [![React](https://github.com/gofurry/l4d2-plugin-stats/actions/workflows/frontend.yml/badge.svg)](https://github.com/gofurry/l4d2-plugin-stats/actions/workflows/frontend.yml)
 [![License](https://img.shields.io/github/license/gofurry/l4d2-plugin-stats)](LICENSE)
 
-面向《求生之路 2》服务器的玩家统计系统，由 SourceMod 数据采集插件和可选的 Web Dashboard 组成。采集器记录真人玩家在合作、写实和对抗模式中的身份、会话与玩法数据；Dashboard 提供服务器状态、个人中心、排行榜、更新公告和数据维护后台。
+面向《求生之路 2》服务器的玩家统计系统，由 SourceMod 数据采集插件和可选的 Web Dashboard 组成。采集器记录真人玩家在合作、写实和对抗模式中的身份、会话、玩法数据与低频战局事实；Dashboard 提供服务器状态、个人中心、排行榜、战局分析、更新公告和数据维护后台。
 
 > 第一次部署请阅读[中文部署手册](INSTALL.zh-CN.md)；升级已有安装请阅读[升级与回滚](UPGRADE.zh-CN.md)。
 
@@ -13,10 +13,12 @@
 - 只统计通过 Steam 验证的真人玩家，不为 Bot 创建玩家档案；
 - 合作与写实共用 PvE 统计口径，对抗模式使用独立的幸存者、感染者、半场和比赛模型；
 - 记录连接时间、实际操作时间、章节与战役成绩、击杀、伤害、生存、救援、治疗、装备和技巧数据；
+- 保存每个 Round 的规则环境，并以可验证、低频的 Incident 分析控制、倒地、死亡、救援、警报车和 Boss 生命周期；
 - 支持 SQLite、MySQL 和 PostgreSQL，三种数据库使用一致的结构与统计契约；
 - 通过绝对快照、异步保存、有界队列、重试和日志抑制降低数据库故障对游戏线程的影响；
 - 提供内嵌 React 的 Go 单二进制 Dashboard，无需单独部署前端；
 - 支持 Steam OpenID、手动 SteamID64 查询、全服排行榜、多服务器 A2S 状态和单管理员后台；
+- 提供地图/战役、规则环境、标准化时间线、Boss 生存时间和玩家效率分析；
 - 提供日、月度和终身聚合、数据库增长监控及管理员确认后的分批清理；
 - 应用日志自动轮转，公开 API 不返回玩家 IP，管理写操作使用 JWT、CSRF 和请求限流保护。
 
@@ -122,7 +124,7 @@ sm plugins reload l4d2_player_stats
 sm_lps_status
 ```
 
-正常状态应显示数据库驱动、`schema=3/3` 和 `state=ready`。完整步骤见[中文部署手册](INSTALL.zh-CN.md)。
+正常状态应显示数据库驱动、`schema=4/4` 和 `state=ready`。完整步骤见[中文部署手册](INSTALL.zh-CN.md)。
 
 ### 2. 启动 Dashboard
 
@@ -193,7 +195,7 @@ l4d2-stats uninstall
 - Stats DB 是游戏采集事实来源，Dashboard DB 保存网页配置、管理员和可重建的聚合数据；
 - 采集器保存服务器观察到的玩家 IP，用于会话审计，但公开 API 和网页不会查询或展示该字段；
 - 常规 Dashboard 查询只读 Stats DB；执行原始数据清理时才使用具备 `DELETE` 权限的维护连接；
-- 过期装备/职业明细、已关闭 Session 和比赛结果只有在聚合覆盖校验通过并由管理员确认后才会分批删除；
+- 过期装备/职业明细、已关闭 Session 和比赛结果只有在聚合覆盖校验通过并由管理员确认后才会分批删除；Incident 使用独立的默认 180 天保留策略；
 - 数据库密码只应保存在服务器本地配置中，不应提交到仓库。
 
 详细规则见[数据生命周期](docs/dashboard-data-lifecycle.md)。
