@@ -134,12 +134,17 @@
 .dataSection { margin-top: 28px; padding-top: 4px; }
 .dataSection + .dataSection, .dataSection + form, form + .dataSection { margin-top: 34px; }
 .dataStatusRows { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); overflow: hidden; margin: 12px 0 18px; border-radius: 12px; background: rgba(255, 250, 243, .3); }
+.threePairRows { grid-template-columns: repeat(6, minmax(0, 1fr)); }
 .dataStatusRows > * { padding: 12px 14px; }
 .dataStatusRows span { color: #9a8578; background: rgba(207, 188, 169, .16); }
 .dataStatusRows strong { color: #5a4337; font-family: "JetBrains Mono", Consolas, monospace; font-weight: 600; }
-.dataSettingsGrid { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 14px; }
+.dataSettingsGrid { display: grid; grid-template-columns: repeat(5, minmax(0, 1fr)); gap: 14px; }
 .dataSettingsGrid :global(.ant-input-number) { width: 100%; }
 .cleanupAudit { margin-left: 14px; }
+
+@media (max-width: 1100px) {
+  .threePairRows, .dataSettingsGrid { grid-template-columns: repeat(4, minmax(0, 1fr)); }
+}
 
 @media (max-width: 720px) {
   .content { width: min(100% - 22px, 1120px); padding: 28px 0 96px; }
@@ -154,7 +159,7 @@
   .playerMetrics :global(.ant-statistic:nth-child(2n)) { border-right: 0; }
   .footerLinkRow { grid-template-columns: 30px minmax(0, 1fr) auto; }
   .accountGrid { grid-template-columns: 1fr; }
-	.dataUsageGrid, .dataStatusRows, .dataSettingsGrid { grid-template-columns: 1fr; }
+	.dataUsageGrid, .dataStatusRows, .threePairRows, .dataSettingsGrid { grid-template-columns: 1fr; }
 	.dataUsageGrid > div { border-right: 0; border-bottom: 1px solid rgba(139, 105, 82, .14); }
   .querySettingsGrid { grid-template-columns: 1fr; gap: 0; }
   .serverAdminRow { grid-template-columns: 1fr; gap: 10px; padding: 12px 4px; }

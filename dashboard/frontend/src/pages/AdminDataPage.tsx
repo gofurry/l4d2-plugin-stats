@@ -65,7 +65,7 @@ export function AdminDataPage() {
 
     <section className={styles.dataSection}>
       <div className={styles.sectionTitleRow}><div className={styles.formSectionHeading}><strong>{t('incrementalAggregate')}</strong><span>{t('incrementalAggregateHint')}</span></div><Button icon={<SyncOutlined />} loading={aggregate.isPending} onClick={() => aggregate.mutate()}>{t('aggregateNow')}</Button></div>
-      <div className={styles.dataStatusRows}>
+      <div className={`${styles.dataStatusRows} ${styles.threePairRows}`}>
         <span>{t('aggregateContract')}</span><strong>v{data.aggregate.aggregate_version}</strong>
         <span>{t('aggregateState')}</span><strong>{data.aggregate.state}</strong>
         <span>{t('lastAggregate')}</span><strong>{dateTime(data.aggregate.last_finished_at)}</strong>
@@ -111,7 +111,7 @@ export function AdminDataPage() {
         <span>{t('incidentRows')}</span><strong>{data.analysis.incident_rows.toLocaleString()}</strong>
         <span>{t('completeRounds')}</span><strong>{data.analysis.complete_rounds.toLocaleString()} / {data.analysis.capture_enabled_rounds.toLocaleString()} ({(data.analysis.complete_ratio * 100).toFixed(1)}%)</strong>
         <span>{t('incidentRows30d')}</span><strong>{data.analysis.rows_last_30d.toLocaleString()}</strong>
-        <span>{t('incidentWindow')}</span><strong>{dateTime(data.analysis.earliest_incident_at)} — {dateTime(data.analysis.latest_incident_at)}</strong>
+        <span>{t('incidentWindow')}</span><strong>{dateTime(data.analysis.earliest_incident_at)} - {dateTime(data.analysis.latest_incident_at)}</strong>
         <span>{t('projectedIncidentRows')}</span><strong>{data.analysis.projected_rows_for_retention.toLocaleString()}</strong>
       </div>
       {data.incident_retention_plan.unknown_version_rows > 0 && <Alert type="error" showIcon message={t('unknownIncidentVersion')} />}
