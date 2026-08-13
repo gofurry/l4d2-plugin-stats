@@ -12,6 +12,11 @@ const integer = new Intl.NumberFormat()
 const percent = (value?: number) => value === undefined ? '—' : `${(value * 100).toFixed(1)}%`
 const duration = (value?: number) => value === undefined ? '—' : value < 60 ? `${value.toFixed(0)}s` : `${(value / 60).toFixed(1)}m`
 const rate = (value: number, sample: number) => sample > 0 ? (value / sample).toFixed(2) : '—'
+const shortDate = (value: number) => {
+  if (!value) return '—'
+  const date = new Date(value * 1000)
+  return `${String(date.getFullYear()).slice(-2)}/${date.getMonth() + 1}/${date.getDate()}`
+}
 const difficulty = (value: string, zh: boolean) => ({ Easy: zh ? '简单' : 'Easy', Normal: zh ? '普通' : 'Normal', Hard: zh ? '高级' : 'Advanced', Impossible: zh ? '专家' : 'Expert' }[value] ?? value) || (zh ? '未知' : 'Unknown')
 const incidentLabels: Record<string, [string, string]> = {
   controls: ['被特感控制', 'Controls'], incaps: ['倒地', 'Incapacitations'], deaths: ['死亡', 'Deaths'], revives: ['倒地救起', 'Revives'], ledge_rescues: ['挂边救援', 'Ledge rescues'], defib_revives: ['电击复活', 'Defibrillator revives'], car_alarms: ['触发警报车', 'Car alarms'],
@@ -34,10 +39,11 @@ export function AnalysisPage() {
 
   const timeline = useMemo<EChartsCoreOption>(() => ({
     tooltip: { trigger: 'axis', backgroundColor: 'rgba(39,39,38,.95)', borderWidth: 0, textStyle: { color: '#f5efe7' } },
-    legend: { data: [zh ? '控制' : 'Controls', zh ? '倒地' : 'Incaps', zh ? '死亡' : 'Deaths'], textStyle: { color: '#d8d0c7' } },
-    grid: { left: 12, right: 18, top: 44, bottom: 18, containLabel: true },
+    legend: { top: 12, right: 16, data: [zh ? '控制' : 'Controls', zh ? '倒地' : 'Incaps', zh ? '死亡' : 'Deaths'], textStyle: { color: '#d8d0c7' } },
+    graphic: [{ type: 'text', left: 16, top: 15, silent: true, style: { text: zh ? '每 100 场事件次数' : 'Events per 100 matches', fill: '#c7beb5', fontSize: 12 } }],
+    grid: { left: 16, right: 18, top: 54, bottom: 18, containLabel: true },
     xAxis: { type: 'category', data: detail.data?.timeline.map(item => `${item.bucket_seconds / 60}m`) ?? [], axisLabel: { color: '#c7beb5' } },
-    yAxis: { type: 'value', name: zh ? '每 100 场进行到该时段的对局' : 'Per 100 matches reaching this time', nameTextStyle: { color: '#c7beb5' }, axisLabel: { color: '#c7beb5' }, splitLine: { lineStyle: { color: 'rgba(255,255,255,.1)' } } },
+    yAxis: { type: 'value', axisLabel: { color: '#c7beb5' }, splitLine: { lineStyle: { color: 'rgba(255,255,255,.1)' } } },
     series: [
       { name: zh ? '控制' : 'Controls', type: 'line', data: detail.data?.timeline.map(item => item.controls_per_100_rounds) ?? [], smooth: true },
       { name: zh ? '倒地' : 'Incaps', type: 'line', data: detail.data?.timeline.map(item => item.incaps_per_100_rounds) ?? [], smooth: true },
@@ -65,10 +71,9 @@ export function AnalysisPage() {
   ]
 
   return <Layout className={styles.layout}><FloatingNav/><Layout.Content className={styles.content}>
-    <section className={styles.filterBar}><Segmented value={range} onChange={value => setRange(String(value))} options={[['30d', zh ? '近 30 天' : '30d'], ['90d', zh ? '近 90 天' : '90d'], ['180d', zh ? '近 180 天' : '180d'], ['all', zh ? '全部' : 'All']].map(([value,label])=>({value,label}))}/><div className={styles.filters}><Select value={mode} onChange={value => { setMode(value); setServer(undefined); setCampaign(undefined) }} options={[{value:'pve',label:'PvE'},{value:'versus',label:zh?'对抗':'Versus'}]}/><Select allowClear showSearch value={server} onChange={setServer} placeholder={zh?'全部服务器':'All servers'} options={options.data?.servers.map(value=>({value,label:value}))}/><Select allowClear showSearch value={campaign} onChange={setCampaign} placeholder={zh?'全部战役':'All campaigns'} options={options.data?.campaigns.map(value=>({value,label:value}))}/></div></section>
-    <Tabs className={styles.tabs} activeKey={tab} onChange={setTab} items={[{key:'maps',label:zh?'地图与战役':'Maps & campaigns'},{key:'contexts',label:zh?'规则环境':'Rule contexts'}]}/>
+    <section className={styles.controlCard}><div className={styles.filterBar}><Segmented value={range} onChange={value => setRange(String(value))} options={[['30d', zh ? '近 30 天' : '30d'], ['90d', zh ? '近 90 天' : '90d'], ['180d', zh ? '近 180 天' : '180d'], ['all', zh ? '全部' : 'All']].map(([value,label])=>({value,label}))}/><div className={styles.filters}><Select value={mode} onChange={value => { setMode(value); setServer(undefined); setCampaign(undefined) }} options={[{value:'pve',label:'PvE'},{value:'versus',label:zh?'对抗':'Versus'}]}/><Select allowClear showSearch value={server} onChange={setServer} placeholder={zh?'全部服务器':'All servers'} options={options.data?.servers.map(value=>({value,label:value}))}/><Select allowClear showSearch value={campaign} onChange={setCampaign} placeholder={zh?'全部战役':'All campaigns'} options={options.data?.campaigns.map(value=>({value,label:value}))}/></div></div><Tabs className={styles.tabs} activeKey={tab} onChange={setTab} items={[{key:'maps',label:zh?'地图与战役':'Maps & campaigns'},{key:'contexts',label:zh?'规则环境':'Rule contexts'}]}/></section>
     {tab === 'maps' && <>{maps.isLoading ? <State loading/> : maps.data ? <>
-      <section className={styles.cards}><Metric label={zh?'有效对局':'Eligible matches'} value={integer.format(maps.data.eligible_rounds)}/><Metric label={zh?'通关率':'Completion rate'} value={mode==='pve'?percent(maps.data.completion_rate):'—'}/><Metric label={zh?'平均通关所需尝试':'Average attempts to complete'} value={mode==='pve'?maps.data.average_completed_attempt?.toFixed(2)??'—':'—'}/><Metric label={zh?'战局明细完整率':'Complete battle-detail rate'} value={percent(maps.data.complete_incident_coverage)}/><Metric label={zh?'统计日期':'Statistics period'} value={`${maps.data.earliest_incident_at ? new Date(maps.data.earliest_incident_at*1000).toLocaleDateString() : '—'} - ${maps.data.latest_incident_at ? new Date(maps.data.latest_incident_at*1000).toLocaleDateString() : '—'}`}/></section>
+      <section className={styles.cards}><Metric label={zh?'有效对局':'Eligible matches'} value={integer.format(maps.data.eligible_rounds)}/><Metric label={zh?'通关率':'Completion rate'} value={mode==='pve'?percent(maps.data.completion_rate):'—'}/><Metric label={zh?'平均通关所需尝试':'Average attempts to complete'} value={mode==='pve'?maps.data.average_completed_attempt?.toFixed(2)??'—':'—'}/><Metric label={zh?'战局明细完整率':'Complete battle-detail rate'} value={percent(maps.data.complete_incident_coverage)}/><Metric label={zh?'统计日期':'Statistics period'} value={`${shortDate(maps.data.earliest_incident_at)} - ${shortDate(maps.data.latest_incident_at)}`}/></section>
       <section className={styles.table}><Table dataSource={maps.data.maps} columns={mapColumns} rowKey="map_name" pagination={false} scroll={{x:1050}}/></section>
     </> : <State/>}</>}
     {tab === 'contexts' && <>{contexts.isLoading ? <State loading/> : contexts.data ? <><section className={`${styles.cards} ${styles.contextCards}`}><Metric label={zh?'全程规则未变化':'Rules unchanged throughout'} value={`${integer.format(contexts.data.stable_context_rounds)} (${percent(contexts.data.stable_context_rounds/Math.max(1,contexts.data.eligible_rounds))})`}/><Metric label={zh?'中途修改规则':'Rules changed mid-match'} value={`${integer.format(contexts.data.changed_rule_rounds)} (${percent(contexts.data.changed_rule_rounds/Math.max(1,contexts.data.eligible_rounds))})`}/><Metric label={zh?'缺少规则记录':'Missing rule records'} value={`${integer.format(contexts.data.no_context_rounds)} (${percent(contexts.data.no_context_rounds/Math.max(1,contexts.data.eligible_rounds))})`}/></section><section className={styles.table}><Table dataSource={contexts.data.contexts} columns={contextColumns} rowKey="fingerprint" pagination={false} scroll={{x:1100}}/></section></> : <State/>}</>}
