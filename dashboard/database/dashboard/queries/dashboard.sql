@@ -134,6 +134,19 @@ UPDATE game_servers SET sort_order = ?2, updated_at = ?3 WHERE id = ?1;
 -- name: DeleteGameServer :execrows
 DELETE FROM game_servers WHERE id = ?1;
 
+-- name: ListA2SStatusSnapshots :many
+SELECT status_json
+FROM a2s_status_snapshots
+ORDER BY server_id;
+
+-- name: UpsertA2SStatusSnapshot :exec
+INSERT INTO a2s_status_snapshots (server_id, status_json, checked_at, updated_at)
+VALUES (?1, ?2, ?3, ?4)
+ON CONFLICT(server_id) DO UPDATE SET
+  status_json = excluded.status_json,
+  checked_at = excluded.checked_at,
+  updated_at = excluded.updated_at;
+
 -- name: CountAdminAccounts :one
 SELECT COUNT(*) FROM admin_account;
 

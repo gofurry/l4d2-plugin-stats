@@ -9,7 +9,7 @@ import (
 var ErrServerNotFound = errors.New("game server not found")
 
 const (
-	DashboardSchemaVersion int64 = 12
+	DashboardSchemaVersion int64 = 13
 	StatsSchemaVersion     int64 = 4
 )
 
@@ -687,6 +687,7 @@ type ServerStatus struct {
 	Address       string         `json:"address"`
 	Online        bool           `json:"online"`
 	Stale         bool           `json:"stale"`
+	Checking      bool           `json:"checking"`
 	Name          string         `json:"name,omitempty"`
 	Map           string         `json:"map,omitempty"`
 	Players       int            `json:"players"`
@@ -757,6 +758,7 @@ type DashboardAggregateStore interface {
 type DashboardDatabase interface {
 	DashboardStore
 	DashboardAggregateStore
+	ServerStatusSnapshotStore
 }
 
 type AggregateRow struct {
@@ -862,4 +864,9 @@ type ServerStatusProvider interface {
 	LastStatus(context.Context, string) (ServerStatus, bool, error)
 	RefreshStatus(context.Context, string) (ServerStatus, error)
 	InvalidateServer(string)
+}
+
+type ServerStatusSnapshotStore interface {
+	ListServerStatusSnapshots(context.Context) ([]ServerStatus, error)
+	UpsertServerStatusSnapshot(context.Context, ServerStatus) error
 }

@@ -4,6 +4,13 @@
 
 package dashsql
 
+type A2sStatusSnapshot struct {
+	ServerID   string `json:"server_id"`
+	StatusJson string `json:"status_json"`
+	CheckedAt  int64  `json:"checked_at"`
+	UpdatedAt  int64  `json:"updated_at"`
+}
+
 type AdminAccount struct {
 	ID                int64  `json:"id"`
 	Username          string `json:"username"`

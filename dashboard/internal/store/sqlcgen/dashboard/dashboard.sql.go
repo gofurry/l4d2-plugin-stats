@@ -646,6 +646,35 @@ func (q *Queries) InsertAggregateRow(ctx context.Context, arg InsertAggregateRow
 	return err
 }
 
+const listA2SStatusSnapshots = `-- name: ListA2SStatusSnapshots :many
+SELECT status_json
+FROM a2s_status_snapshots
+ORDER BY server_id
+`
+
+func (q *Queries) ListA2SStatusSnapshots(ctx context.Context) ([]string, error) {
+	rows, err := q.db.QueryContext(ctx, listA2SStatusSnapshots)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	items := []string{}
+	for rows.Next() {
+		var status_json string
+		if err := rows.Scan(&status_json); err != nil {
+			return nil, err
+		}
+		items = append(items, status_json)
+	}
+	if err := rows.Close(); err != nil {
+		return nil, err
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
 const listAnnouncementYears = `-- name: ListAnnouncementYears :many
 SELECT DISTINCT CAST(strftime('%Y', updated_at, 'unixepoch') AS INTEGER) AS year
 FROM announcements
@@ -1111,6 +1140,32 @@ func (q *Queries) UpdateSiteDocument(ctx context.Context, arg UpdateSiteDocument
 		return 0, err
 	}
 	return result.RowsAffected()
+}
+
+const upsertA2SStatusSnapshot = `-- name: UpsertA2SStatusSnapshot :exec
+INSERT INTO a2s_status_snapshots (server_id, status_json, checked_at, updated_at)
+VALUES (?1, ?2, ?3, ?4)
+ON CONFLICT(server_id) DO UPDATE SET
+  status_json = excluded.status_json,
+  checked_at = excluded.checked_at,
+  updated_at = excluded.updated_at
+`
+
+type UpsertA2SStatusSnapshotParams struct {
+	ServerID   string `json:"server_id"`
+	StatusJson string `json:"status_json"`
+	CheckedAt  int64  `json:"checked_at"`
+	UpdatedAt  int64  `json:"updated_at"`
+}
+
+func (q *Queries) UpsertA2SStatusSnapshot(ctx context.Context, arg UpsertA2SStatusSnapshotParams) error {
+	_, err := q.db.ExecContext(ctx, upsertA2SStatusSnapshot,
+		arg.ServerID,
+		arg.StatusJson,
+		arg.CheckedAt,
+		arg.UpdatedAt,
+	)
+	return err
 }
 
 const upsertMetadata = `-- name: UpsertMetadata :exec

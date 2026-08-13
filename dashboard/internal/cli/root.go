@@ -156,6 +156,7 @@ func serveCommand(options *rootOptions) *cobra.Command {
 		aggregates.Start(runCtx)
 		a2sClient := a2s.SteamClient{}
 		status := a2s.NewProvider(dashboard, a2sClient, stats)
+		status.Start(runCtx)
 		app := server.New(cfg, server.Dependencies{Dashboard: dashboard, Stats: stats, Overview: overview, Status: status, Players: players, Analysis: analysis, Rankings: rankings, Data: dataMaintenance, Auth: authService, Logger: logger, Assets: assets})
 		logger.Info("dashboard starting", zap.String("listen", cfg.Server.Listen), zap.String("config", cfg.Path))
 		errCh := make(chan error, 1)

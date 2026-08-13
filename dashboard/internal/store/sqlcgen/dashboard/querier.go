@@ -40,6 +40,7 @@ type Querier interface {
 	GetSiteDocument(ctx context.Context, key string) (SiteDocument, error)
 	GetSiteSettings(ctx context.Context) (GetSiteSettingsRow, error)
 	InsertAggregateRow(ctx context.Context, arg InsertAggregateRowParams) error
+	ListA2SStatusSnapshots(ctx context.Context) ([]string, error)
 	ListAnnouncementYears(ctx context.Context) ([]int64, error)
 	ListAnnouncements(ctx context.Context, arg ListAnnouncementsParams) ([]Announcement, error)
 	ListFooterLinks(ctx context.Context) ([]ListFooterLinksRow, error)
@@ -58,6 +59,7 @@ type Querier interface {
 	UpdateDataMaintenanceSettings(ctx context.Context, arg UpdateDataMaintenanceSettingsParams) error
 	UpdateGameServer(ctx context.Context, arg UpdateGameServerParams) (int64, error)
 	UpdateSiteDocument(ctx context.Context, arg UpdateSiteDocumentParams) (int64, error)
+	UpsertA2SStatusSnapshot(ctx context.Context, arg UpsertA2SStatusSnapshotParams) error
 	UpsertMetadata(ctx context.Context, arg UpsertMetadataParams) error
 	UpsertSEOSettings(ctx context.Context, arg UpsertSEOSettingsParams) error
 	UpsertSiteSettings(ctx context.Context, arg UpsertSiteSettingsParams) error

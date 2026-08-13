@@ -62,6 +62,19 @@ func TestDashboardInitialSchemaAndManagement(t *testing.T) {
 	if err != nil || len(servers) != 2 || servers[0].ID != created.ID || servers[1].ID != second.ID {
 		t.Fatalf("ListServers()=%#v err=%v", servers, err)
 	}
+	snapshotTime := time.Now().UTC().Truncate(time.Second)
+	if err := dashboard.UpsertServerStatusSnapshot(ctx, ServerStatus{
+		ServerID: created.ID, DisplayName: created.DisplayName, Address: created.Address,
+		Online: true, Name: "Main A2S", Map: "c1m1_hotel", Players: 2, MaxPlayers: 8,
+		LastSuccessAt: snapshotTime, CheckedAt: snapshotTime,
+		PlayerList: []ServerPlayer{{Name: "private live player"}}, Rules: []ServerRule{{Name: "secret", Value: "value"}},
+	}); err != nil {
+		t.Fatal(err)
+	}
+	snapshots, err := dashboard.ListServerStatusSnapshots(ctx)
+	if err != nil || len(snapshots) != 1 || snapshots[0].Name != "Main A2S" || len(snapshots[0].PlayerList) != 0 || len(snapshots[0].Rules) != 0 {
+		t.Fatalf("A2S snapshots=%#v err=%v", snapshots, err)
+	}
 	created.DisplayName = "Main updated"
 	if err := dashboard.UpdateServer(ctx, created); err != nil {
 		t.Fatal(err)

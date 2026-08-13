@@ -606,6 +606,40 @@ func (s *dashboardStore) DeleteServer(ctx context.Context, id string) error {
 	return nil
 }
 
+func (s *dashboardStore) ListServerStatusSnapshots(ctx context.Context) ([]ServerStatus, error) {
+	rows, err := s.q.ListA2SStatusSnapshots(ctx)
+	if err != nil {
+		return nil, fmt.Errorf("list A2S status snapshots: %w", err)
+	}
+	statuses := make([]ServerStatus, 0, len(rows))
+	for _, value := range rows {
+		var status ServerStatus
+		if err := json.Unmarshal([]byte(value), &status); err != nil {
+			return nil, fmt.Errorf("decode A2S status snapshot: %w", err)
+		}
+		statuses = append(statuses, status)
+	}
+	return statuses, nil
+}
+
+func (s *dashboardStore) UpsertServerStatusSnapshot(ctx context.Context, status ServerStatus) error {
+	status.Checking = false
+	status.Stale = false
+	status.PlayerList = nil
+	status.Rules = nil
+	encoded, err := json.Marshal(status)
+	if err != nil {
+		return fmt.Errorf("encode A2S status snapshot: %w", err)
+	}
+	now := time.Now().Unix()
+	if err := s.q.UpsertA2SStatusSnapshot(ctx, dashsql.UpsertA2SStatusSnapshotParams{
+		ServerID: status.ServerID, StatusJson: string(encoded), CheckedAt: status.CheckedAt.Unix(), UpdatedAt: now,
+	}); err != nil {
+		return fmt.Errorf("upsert A2S status snapshot: %w", err)
+	}
+	return nil
+}
+
 func (s *dashboardStore) AdminConfigured(ctx context.Context) (bool, error) {
 	count, err := s.q.CountAdminAccounts(ctx)
 	return count > 0, err
