@@ -1,6 +1,6 @@
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
-import { render, screen, waitFor } from '@testing-library/react'
-import { beforeEach, describe, expect, it, vi } from 'vitest'
+import { cleanup, render, screen, waitFor } from '@testing-library/react'
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { MemoryRouter } from 'react-router-dom'
 import i18n from '../i18n'
 import { HomePage } from './HomePage'
@@ -13,7 +13,7 @@ const overview = {
   generated_at: '2026-08-03T00:00:00Z',
 }
 const status = {
-  server_id: '199d4525-a1af-472d-a1f0-4b35592caf1b', display_name: '一号服务器', address: '127.0.0.1:27015', online: true, stale: false,
+  server_id: '199d4525-a1af-472d-a1f0-4b35592caf1b', display_name: '一号服务器', address: '127.0.0.1:27015', online: true, stale: false, checking: false,
   name: '真实服名', map: 'c5m1_waterfront', players: 5, max_players: 8, bots: 1, latency_ms: 18,
   player_list: [{ name: 'Coach', score: 12, duration_seconds: 90 }],
   checked_at: '2026-08-03T00:00:00Z', last_success_at: '2026-08-03T00:00:00Z',
@@ -35,6 +35,8 @@ describe('HomePage', () => {
   beforeEach(async () => {
     await i18n.changeLanguage('zh-CN')
   })
+
+  afterEach(() => cleanup())
 
   it('renders the server, historical overview, and custom footer', async () => {
     vi.stubGlobal('fetch', vi.fn((input: RequestInfo | URL) => {
@@ -65,6 +67,18 @@ describe('HomePage', () => {
     expect(await screen.findByText('真实服名')).toBeInTheDocument()
     expect(await screen.findByText(/统计数据暂时不可用/, {}, { timeout: 3_000 })).toBeInTheDocument()
     await waitFor(() => expect(overviewCalls).toBeGreaterThanOrEqual(1))
+  })
+
+  it('shows a server card immediately while the first A2S query runs', async () => {
+    vi.stubGlobal('fetch', vi.fn((input: RequestInfo | URL) => {
+      const path = String(input)
+      if (path.endsWith('/site')) return Promise.resolve(response(site))
+      if (path.endsWith('/overview')) return Promise.resolve(response(overview))
+      return Promise.resolve(response([{ ...status, name: undefined, map: undefined, online: false, checking: true, checked_at: '0001-01-01T00:00:00Z' }]))
+    }))
+    renderPage()
+    expect((await screen.findAllByText('一号服务器')).length).toBeGreaterThan(0)
+    expect(await screen.findByText('正在查询')).toBeInTheDocument()
   })
 
   it('explains an empty statistics database without hiding zero metrics', async () => {

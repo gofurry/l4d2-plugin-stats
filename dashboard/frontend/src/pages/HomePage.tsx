@@ -25,7 +25,7 @@ function ServerRow({ status }: { status: ServerStatus }) {
   const { t } = useTranslation()
   const [expanded, setExpanded] = useState(false)
 	const [selectedPlayer, setSelectedPlayer] = useState<ServerPlayer | null>(null)
-  const state = status.stale ? 'stale' : status.online ? 'online' : 'offline'
+  const state = status.stale ? 'stale' : status.checking ? 'checking' : status.online ? 'online' : 'offline'
   const players = status.player_list ?? []
   const toggle = () => setExpanded(value => !value)
 
@@ -40,7 +40,7 @@ function ServerRow({ status }: { status: ServerStatus }) {
         {status.name && status.name !== status.display_name && <span>{status.display_name}</span>}
       </div>
       <div className={styles.serverFacts}>
-        <div><span>{t('map')}</span><strong>{status.map || '—'}</strong></div>
+        <div><span>{t('map')}</span><strong>{status.map || (status.checking ? t('checking') : '—')}</strong></div>
         <div><span>{t('players')}</span><strong>{status.players} / {status.max_players}</strong></div>
         <div><span>{t('latency')}</span><strong>{status.latency_ms == null ? '—' : `${status.latency_ms} ms`}</strong></div>
       </div>
@@ -50,7 +50,8 @@ function ServerRow({ status }: { status: ServerStatus }) {
     </div>
     <div className={`${styles.playerExpandRegion} ${expanded ? styles.open : ''}`}><div className={styles.playerExpandInner}>
       {expanded && <div className={styles.playerPanel}>
-        {!status.online && <span className={styles.playerNotice}>{t('playerDetailsUnavailable')}</span>}
+        {status.checking && !status.stale && <span className={styles.playerNotice}>{t('serverChecking')}</span>}
+        {!status.checking && !status.online && <span className={styles.playerNotice}>{t('playerDetailsUnavailable')}</span>}
         {status.online && players.length === 0 && <span className={styles.playerNotice}>{status.players === 0 ? t('noOnlinePlayers') : t('noPlayerDetails')}</span>}
         {players.length > 0 && <div className={styles.playerList}>
           <div className={styles.playerListHeader}><span>{t('playerName')}</span><span>{t('score')}</span><span>{t('onlineDuration')}</span></div>
@@ -107,7 +108,12 @@ export function HomePage() {
   const site = useQuery({ queryKey: ['site'], queryFn: api.site, staleTime: 5 * 60_000 })
   const overview = useQuery({ queryKey: ['overview'], queryFn: api.overview, staleTime: 60_000, retry: 1 })
   const statusRefreshMS = (site.data?.a2s_refresh_seconds ?? 30) * 1000
-  const statuses = useQuery({ queryKey: ['server-statuses'], queryFn: api.serverStatuses, refetchInterval: statusRefreshMS, retry: 1 })
+  const statuses = useQuery({
+    queryKey: ['server-statuses'],
+    queryFn: api.serverStatuses,
+    refetchInterval: query => query.state.data?.some(status => status.checking) ? 1000 : statusRefreshMS,
+    retry: 1,
+  })
   const document = useQuery({
     queryKey: ['site-document', selectedDocument],
     queryFn: () => api.siteDocument(selectedDocument!),

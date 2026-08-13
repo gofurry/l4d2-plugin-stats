@@ -40,7 +40,7 @@ export function AnalysisPage() {
   const timeline = useMemo<EChartsCoreOption>(() => ({
     tooltip: { trigger: 'axis', backgroundColor: 'rgba(39,39,38,.95)', borderWidth: 0, textStyle: { color: '#f5efe7' } },
     legend: { top: 12, right: 16, data: [zh ? '控制' : 'Controls', zh ? '倒地' : 'Incaps', zh ? '死亡' : 'Deaths'], textStyle: { color: '#d8d0c7' } },
-    graphic: [{ type: 'text', left: 16, top: 15, silent: true, style: { text: zh ? '每 100 场事件次数' : 'Events per 100 matches', fill: '#c7beb5', fontSize: 12 } }],
+    graphic: [{ type: 'text', left: 16, top: 15, silent: true, style: { text: zh ? '事件频率' : 'Event frequency', fill: '#c7beb5', fontSize: 12 } }],
     grid: { left: 16, right: 18, top: 54, bottom: 18, containLabel: true },
     xAxis: { type: 'category', data: detail.data?.timeline.map(item => `${item.bucket_seconds / 60}m`) ?? [], axisLabel: { color: '#c7beb5' } },
     yAxis: { type: 'value', axisLabel: { color: '#c7beb5' }, splitLine: { lineStyle: { color: 'rgba(255,255,255,.1)' } } },

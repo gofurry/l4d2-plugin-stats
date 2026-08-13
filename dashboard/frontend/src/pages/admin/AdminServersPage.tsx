@@ -33,7 +33,7 @@ export function AdminServersPage() {
     <div className={styles.serverAdminList}>{query.data?.map((server, index, servers) => {
       const expanded = expandedID === server.id
       const status = statuses.data?.find(item => item.server_id === server.id)
-      const statusState = !status ? 'unknown' : status.stale ? 'stale' : status.online ? 'online' : 'offline'
+      const statusState = !status ? 'unknown' : status.stale ? 'stale' : status.checking ? 'checking' : status.online ? 'online' : 'offline'
       return <article className={`${styles.serverAdminItem} ${expanded ? styles.expanded : ''}`} key={server.id}>
         <div className={styles.serverAdminRow}>
           <button className={styles.serverAdminToggle} type="button" aria-expanded={expanded} onClick={() => setExpandedID(expanded ? null : server.id!)}>

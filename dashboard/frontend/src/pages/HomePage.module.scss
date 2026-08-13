@@ -14,6 +14,9 @@
 .statusDot_online { background: #71875b; box-shadow: 0 0 0 3px rgba(113, 135, 91, .14); }
 .statusDot_offline { background: #b86558; box-shadow: 0 0 0 3px rgba(184, 101, 88, .14); }
 .statusDot_stale { background: #c08a4d; box-shadow: 0 0 0 3px rgba(192, 138, 77, .14); }
+.statusDot_checking { background: #8a9298; box-shadow: 0 0 0 3px rgba(138, 146, 152, .14); animation: statusPulse 1.2s ease-in-out infinite; }
+
+@keyframes statusPulse { 50% { opacity: .45; } }
 .serverFacts { display: grid; grid-template-columns: 1.5fr repeat(2, 1fr); gap: 18px; }
 .serverFacts span, .serverFacts strong { display: block; }
 .serverFacts span { margin-bottom: 3px; color: #715d51; font-size: 12px; }

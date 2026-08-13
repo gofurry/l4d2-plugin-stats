@@ -2,7 +2,7 @@ import { adminWrite, request } from './client'
 
 export interface ServerPlayer { name: string; steam_id?: string; score: number; duration_seconds: number }
 export interface ServerRule { name: string; value: string }
-export interface ServerStatus { server_id: string; display_name: string; address: string; online: boolean; stale: boolean; name?: string; map?: string; players: number; max_players: number; bots: number; latency_ms?: number; last_success_at?: string; checked_at: string; player_list?: ServerPlayer[]; rules?: ServerRule[] }
+export interface ServerStatus { server_id: string; display_name: string; address: string; online: boolean; stale: boolean; checking: boolean; name?: string; map?: string; players: number; max_players: number; bots: number; latency_ms?: number; last_success_at?: string; checked_at: string; player_list?: ServerPlayer[]; rules?: ServerRule[] }
 export interface ServerA2SState { available: boolean; status?: ServerStatus }
 export interface GameServer { id?: string; display_name: string; address: string; enabled: boolean; sort_order: number }
 export interface GameServerInput { display_name: string; address: string }
