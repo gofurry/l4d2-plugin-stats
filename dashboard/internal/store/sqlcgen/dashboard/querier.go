@@ -14,12 +14,14 @@ type Querier interface {
 	CountAggregateRows(ctx context.Context) (int64, error)
 	CountAnnouncements(ctx context.Context, arg CountAnnouncementsParams) (int64, error)
 	CountGameServers(ctx context.Context) (int64, error)
+	CountIncidentRetentionRuns(ctx context.Context) (int64, error)
 	CountRetentionRuns(ctx context.Context) (int64, error)
 	CountSiteSettings(ctx context.Context) (int64, error)
 	CreateAdminAccount(ctx context.Context, arg CreateAdminAccountParams) error
 	CreateAnnouncement(ctx context.Context, arg CreateAnnouncementParams) error
 	CreateFooterLink(ctx context.Context, arg CreateFooterLinkParams) error
 	CreateGameServer(ctx context.Context, arg CreateGameServerParams) error
+	CreateIncidentRetentionRun(ctx context.Context, arg CreateIncidentRetentionRunParams) error
 	CreateRetentionRun(ctx context.Context, arg CreateRetentionRunParams) error
 	DeleteAggregateRows(ctx context.Context) error
 	DeleteAggregateRowsForDay(ctx context.Context, day int64) error
@@ -38,6 +40,7 @@ type Querier interface {
 	GetSiteDocument(ctx context.Context, key string) (SiteDocument, error)
 	GetSiteSettings(ctx context.Context) (GetSiteSettingsRow, error)
 	InsertAggregateRow(ctx context.Context, arg InsertAggregateRowParams) error
+	ListA2SStatusSnapshots(ctx context.Context) ([]string, error)
 	ListAnnouncementYears(ctx context.Context) ([]int64, error)
 	ListAnnouncements(ctx context.Context, arg ListAnnouncementsParams) ([]Announcement, error)
 	ListFooterLinks(ctx context.Context) ([]ListFooterLinksRow, error)
@@ -56,6 +59,7 @@ type Querier interface {
 	UpdateDataMaintenanceSettings(ctx context.Context, arg UpdateDataMaintenanceSettingsParams) error
 	UpdateGameServer(ctx context.Context, arg UpdateGameServerParams) (int64, error)
 	UpdateSiteDocument(ctx context.Context, arg UpdateSiteDocumentParams) (int64, error)
+	UpsertA2SStatusSnapshot(ctx context.Context, arg UpsertA2SStatusSnapshotParams) error
 	UpsertMetadata(ctx context.Context, arg UpsertMetadataParams) error
 	UpsertSEOSettings(ctx context.Context, arg UpsertSEOSettingsParams) error
 	UpsertSiteSettings(ctx context.Context, arg UpsertSiteSettingsParams) error

@@ -23,6 +23,9 @@ func (s *statsStore) DeepDataQuality(ctx context.Context, staleBootBefore int64)
 		{"lifecycle links", lifecycleLinkQuery(), &result.LifecycleLinks},
 		{"mode and side", modeSideQuery(), &result.ModeSideMismatch},
 		{"PvE totals", pveTotalQuery(), &result.PVETotalMismatch},
+		{"round context contract", contextContractQuery(), &result.ContextContract},
+		{"incident contract", incidentContractQuery(), &result.IncidentContract},
+		{"incident completeness", incidentCompletenessQuery(), &result.IncidentCompleteness},
 	}
 	for _, check := range checks {
 		*check.target, err = s.dataQualityFinding(ctx, check.query)
@@ -31,6 +34,32 @@ func (s *statsStore) DeepDataQuality(ctx context.Context, staleBootBefore int64)
 		}
 	}
 	return result, nil
+}
+
+func contextContractQuery() string {
+	return `SELECT 'context' AS source_name, round_id AS internal_id FROM lps_round_contexts
+WHERE context_version<>1 OR incident_expected_count<0 OR incident_dropped_count<0
+OR incident_dropped_count>incident_expected_count
+OR (incident_capture_complete=1 AND (incident_capture_enabled<>1 OR incident_dropped_count<>0))`
+}
+
+func incidentContractQuery() string {
+	return `SELECT 'incident' AS source_name, i.round_id AS internal_id FROM lps_incidents i
+WHERE i.incident_version<>1 OR i.incident_type NOT BETWEEN 1 AND 11
+OR i.actor_kind NOT BETWEEN 0 AND 9 OR i.target_kind NOT BETWEEN 0 AND 9 OR i.helper_kind NOT BETWEEN 0 AND 9
+OR i.round_offset_ms<0 OR i.duration_ms<0 OR i.end_reason NOT BETWEEN 0 AND 6
+OR (i.incident_type=11 AND (i.detail_flags<0 OR i.detail_flags>1)) OR (i.incident_type<>11 AND i.detail_flags<>0)
+OR (i.related_incident_seq<>0 AND NOT EXISTS (
+  SELECT 1 FROM lps_incidents spawn WHERE spawn.round_id=i.round_id AND spawn.incident_seq=i.related_incident_seq
+  AND ((i.incident_type=9 AND spawn.incident_type=8) OR (i.incident_type=11 AND spawn.incident_type=10))
+))`
+}
+
+func incidentCompletenessQuery() string {
+	return `SELECT 'context_count' AS source_name, c.round_id AS internal_id
+FROM lps_round_contexts c LEFT JOIN lps_incidents i ON i.round_id=c.round_id AND i.incident_version=1
+WHERE c.context_version=1 AND c.incident_capture_complete=1
+GROUP BY c.round_id,c.incident_expected_count HAVING COUNT(i.incident_seq)<>c.incident_expected_count`
 }
 
 func (s *statsStore) dataQualityFinding(ctx context.Context, query string) (DataQualityFinding, error) {

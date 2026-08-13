@@ -5,7 +5,9 @@ export interface PlayerPreview {
   steam_id: string; player_name: string; session_count: number; active_play_seconds: number; last_seen_at: number
   pve: { available: boolean; special_kills: number; boss_kills: number; rescues: number; campaign_completions: number }
   versus: { available: boolean; human_si_kills: number; infected_damage: number; survivor_controls: number; survivor_incapacitations: number }
+  companions: { player_name: string; shared_seconds: number; shared_rounds: number }[]
 }
+export interface PlayerAnalysis { view: string; active_play_seconds: number; metrics: Record<string, number | null>; samples: Record<string, number>; recent_incidents: { earliest_incident_at: number; latest_incident_at: number; controls_received: number; average_control_seconds?: number; incaps: number; deaths: number; teammates_rescued: number; rescued_by_teammates: number; control_classes: { infected_class: number; controls: number; average_duration_seconds: number }[]; top_rescuers: { player_name: string; rescues: number }[]; two_cap_episodes: number; three_cap_episodes: number; four_cap_episodes: number } }
 export interface PlayerActivityPoint { day: number; session_count: number; connected_seconds: number; active_play_seconds: number }
 export interface PlayerServerActivity { server_key: string; session_count: number; active_play_seconds: number }
 export interface PlayerActivity { timeline: PlayerActivityPoint[]; servers: PlayerServerActivity[] }
@@ -40,6 +42,7 @@ export const playersAPI = {
   playerActivity: (id: string, range: string, server = '') => request<PlayerActivity>(`/api/v1/players/${id}/activity?${queryString({ range, server })}`),
   playerPVE: (id: string, range: string, server = '', mode = '') => request<PlayerPVE>(`/api/v1/players/${id}/pve?${queryString({ range, server, mode })}`),
   playerVersus: (id: string, range: string, server = '') => request<PlayerVersus>(`/api/v1/players/${id}/versus?${queryString({ range, server })}`),
+  playerAnalysis: (id: string, range: string, server = '', view = 'pve') => request<PlayerAnalysis>(`/api/v1/players/${id}/analysis?${queryString({ range, server, view })}`),
   playerSessions: (id: string, cursor = '') => request<Page<PlayerSession>>(`/api/v1/players/${id}/sessions?${queryString({ limit: 20, cursor })}`),
   playerChapters: (id: string, cursor = '') => request<Page<PlayerChapter>>(`/api/v1/players/${id}/chapters?${queryString({ limit: 20, cursor })}`),
 }

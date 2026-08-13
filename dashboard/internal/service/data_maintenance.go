@@ -26,6 +26,8 @@ type DataGrowthStatus struct {
 	LogBytes      int64                         `json:"log_bytes"`
 	RetentionRuns int64                         `json:"retention_runs"`
 	RetentionPlan store.RetentionPlan           `json:"retention_plan"`
+	Analysis      store.AnalysisStatus          `json:"analysis"`
+	IncidentPlan  store.IncidentRetentionPlan   `json:"incident_retention_plan"`
 }
 
 type DataMaintenanceService struct {
@@ -66,7 +68,25 @@ func (s *DataMaintenanceService) Status(ctx context.Context) (DataGrowthStatus, 
 	if err != nil {
 		return DataGrowthStatus{}, err
 	}
-	return DataGrowthStatus{Aggregate: aggregate, Settings: settings, StatsDatabase: statsUsage, DashboardDB: dashboardUsage, LogBytes: logDirectoryBytes(s.logFile), RetentionRuns: runs, RetentionPlan: plan}, nil
+	analysisStore, ok := s.stats.(store.StatsAnalysisMaintenanceStore)
+	if !ok {
+		return DataGrowthStatus{}, fmt.Errorf("analysis maintenance is unavailable")
+	}
+	analysis, err := analysisStore.AnalysisStatus(ctx, settings.IncidentRetentionDays)
+	if err != nil {
+		return DataGrowthStatus{}, err
+	}
+	incidentRuns, err := s.dashboard.IncidentRetentionRunCount(ctx)
+	if err != nil {
+		return DataGrowthStatus{}, err
+	}
+	analysis.CleanupRuns = incidentRuns
+	incidentPlan, err := analysisStore.IncidentRetentionPlan(ctx, time.Now().UTC().AddDate(0, 0, -int(settings.IncidentRetentionDays)).Unix())
+	if err != nil {
+		return DataGrowthStatus{}, err
+	}
+	incidentPlan.PlanID = incidentRetentionPlanID(incidentPlan)
+	return DataGrowthStatus{Aggregate: aggregate, Settings: settings, StatsDatabase: statsUsage, DashboardDB: dashboardUsage, LogBytes: logDirectoryBytes(s.logFile), RetentionRuns: runs, RetentionPlan: plan, Analysis: analysis, IncidentPlan: incidentPlan}, nil
 }
 
 func (s *DataMaintenanceService) Settings(ctx context.Context) (store.DataMaintenanceSettings, error) {
@@ -77,7 +97,7 @@ func (s *DataMaintenanceService) UpdateSettings(ctx context.Context, value store
 	if _, ok := allowedAggregateIntervals[value.AggregateIntervalMinutes]; !ok {
 		return fmt.Errorf("unsupported aggregate interval")
 	}
-	if value.DetailRetentionDays < 30 || value.DetailRetentionDays > 3650 || value.SessionRetentionDays < 30 || value.SessionRetentionDays > 3650 || value.ResultRetentionDays < 30 || value.ResultRetentionDays > 3650 {
+	if value.DetailRetentionDays < 30 || value.DetailRetentionDays > 3650 || value.SessionRetentionDays < 30 || value.SessionRetentionDays > 3650 || value.ResultRetentionDays < 30 || value.ResultRetentionDays > 3650 || value.IncidentRetentionDays < 30 || value.IncidentRetentionDays > 3650 {
 		return fmt.Errorf("retention days must be between 30 and 3650")
 	}
 	if err := s.dashboard.UpdateDataMaintenanceSettings(ctx, value); err != nil {
@@ -85,6 +105,53 @@ func (s *DataMaintenanceService) UpdateSettings(ctx context.Context, value store
 	}
 	s.aggregates.Reschedule()
 	return nil
+}
+
+func (s *DataMaintenanceService) ApplyIncidentRetention(ctx context.Context, planID string) (store.IncidentRetentionResult, error) {
+	settings, err := s.dashboard.DataMaintenanceSettings(ctx)
+	if err != nil {
+		return store.IncidentRetentionResult{}, err
+	}
+	cutoff := time.Now().UTC().AddDate(0, 0, -int(settings.IncidentRetentionDays)).Unix()
+	analysisStore, ok := s.stats.(store.StatsAnalysisMaintenanceStore)
+	if !ok {
+		return store.IncidentRetentionResult{}, fmt.Errorf("analysis maintenance is unavailable")
+	}
+	plan, err := analysisStore.IncidentRetentionPlan(ctx, cutoff)
+	if err != nil {
+		return store.IncidentRetentionResult{}, err
+	}
+	plan.PlanID = incidentRetentionPlanID(plan)
+	if planID == "" || planID != plan.PlanID {
+		return store.IncidentRetentionResult{}, fmt.Errorf("incident cleanup preview has changed; refresh and confirm again")
+	}
+	if !plan.DeletionEnabled {
+		return store.IncidentRetentionResult{}, fmt.Errorf("unknown incident version in deletion candidates")
+	}
+	maintenance, err := store.OpenStatsMaintenance(ctx, s.statsCfg)
+	if err != nil {
+		return store.IncidentRetentionResult{}, err
+	}
+	defer maintenance.Close()
+	latest, err := maintenance.IncidentRetentionPlan(ctx, cutoff)
+	if err != nil {
+		return store.IncidentRetentionResult{}, err
+	}
+	latest.PlanID = incidentRetentionPlanID(latest)
+	if latest.PlanID != plan.PlanID {
+		return store.IncidentRetentionResult{}, fmt.Errorf("incident candidates changed; refresh cleanup preview")
+	}
+	result, err := maintenance.ApplyIncidentRetention(ctx, latest)
+	if err != nil {
+		return store.IncidentRetentionResult{}, err
+	}
+	if err := s.dashboard.RecordIncidentRetentionRun(ctx, latest, result); err != nil {
+		return store.IncidentRetentionResult{}, fmt.Errorf("record incident cleanup audit: %w", err)
+	}
+	if s.logger != nil {
+		s.logger.Info("incident analysis data cleaned", zap.String("retention_run_id", result.RunID), zap.Int64("incident_rows", result.IncidentRows))
+	}
+	return result, nil
 }
 
 func (s *DataMaintenanceService) AggregateNow(ctx context.Context) error {
@@ -170,6 +237,13 @@ func retentionPlanID(plan store.RetentionPlan) string {
 	value := struct {
 		Version, Detail, Session, Result, Equipment, Classes, Sessions, Rounds, Runs, Watermark int64
 	}{plan.AggregateVersion, plan.DetailCutoff, plan.SessionCutoff, plan.ResultCutoff, plan.EquipmentRowsEligible, plan.VersusClassRowsEligible, plan.SessionRowsEligible, plan.VersusRoundResultsEligible, plan.VersusRunResultsEligible, plan.SourceWatermark}
+	encoded, _ := json.Marshal(value)
+	digest := sha256.Sum256(encoded)
+	return hex.EncodeToString(digest[:16])
+}
+
+func incidentRetentionPlanID(plan store.IncidentRetentionPlan) string {
+	value := struct{ Version, Cutoff, Rows, Unknown, Watermark int64 }{plan.IncidentVersion, plan.Cutoff, plan.IncidentRowsEligible, plan.UnknownVersionRows, plan.CandidateWatermark}
 	encoded, _ := json.Marshal(value)
 	digest := sha256.Sum256(encoded)
 	return hex.EncodeToString(digest[:16])

@@ -76,7 +76,23 @@ func registerAdminRoutes(api fiber.Router, dashboard store.DashboardStore, statu
 		admin.Post("/data/aggregate", r.aggregateData)
 		admin.Get("/data/retention/plan", r.retentionPlan)
 		admin.Post("/data/retention/apply", r.applyRetention)
+		admin.Post("/data/incidents/retention/apply", r.applyIncidentRetention)
 	}
+}
+
+func (r *adminRoutes) applyIncidentRetention(c fiber.Ctx) error {
+	var body struct {
+		PlanID string `json:"plan_id"`
+	}
+	if err := c.Bind().Body(&body); err != nil || body.PlanID == "" {
+		return sendError(c, 400, "invalid_body", "plan_id is required")
+	}
+	result, err := r.data.ApplyIncidentRetention(c.Context(), body.PlanID)
+	if err != nil {
+		return sendError(c, 409, "incident_retention_failed", err.Error())
+	}
+	r.logger.Info("incident cleanup requested", zap.String("retention_run_id", result.RunID), zap.String("request_id", c.RequestID()))
+	return sendData(c, 200, result)
 }
 
 func (r *adminRoutes) dataStatus(c fiber.Ctx) error {

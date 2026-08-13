@@ -6,7 +6,7 @@ import (
 	"github.com/gofurry/l4d2-plugin-stats/dashboard/internal/store"
 )
 
-func registerPlayerRoutes(api fiber.Router, players *service.PlayerService) {
+func registerPlayerRoutes(api fiber.Router, players *service.PlayerService, analysis *service.AnalysisService) {
 	group := api.Group("/players/:steam_id")
 	group.Get("/preview", func(c fiber.Ctx) error {
 		steamID, ok := playerID(c)
@@ -107,6 +107,37 @@ func registerPlayerRoutes(api fiber.Router, players *service.PlayerService) {
 			return sendError(c, 400, "invalid_server", "server is too long")
 		}
 		result, err := players.ActivityFiltered(c.Context(), steamID, store.PlayerFilter{Cutoff: cutoff, ServerKey: serverKey})
+		if err != nil {
+			return statsError(c, err)
+		}
+		return sendData(c, 200, result)
+	})
+	group.Get("/analysis", func(c fiber.Ctx) error {
+		steamID, ok := playerID(c)
+		if !ok {
+			return nil
+		}
+		if players == nil || analysis == nil {
+			return sendError(c, 503, "analysis_unavailable", "player analysis is temporarily unavailable")
+		}
+		if exists, err := players.Summary(c.Context(), steamID); err != nil {
+			return statsError(c, err)
+		} else if exists == nil {
+			return sendError(c, 404, "player_not_found", "player was not found")
+		}
+		cutoff, err := analysisRangeCutoff(c.Query("range"))
+		if err != nil {
+			return sendError(c, 400, "invalid_range", err.Error())
+		}
+		serverKey := c.Query("server")
+		if len(serverKey) > 64 {
+			return sendError(c, 400, "invalid_server", "server is too long")
+		}
+		view := c.Query("view", "pve")
+		if view != "pve" && view != "versus_survivor" && view != "versus_infected" {
+			return sendError(c, 400, "invalid_view", "view must be pve, versus_survivor or versus_infected")
+		}
+		result, err := analysis.Player(c.Context(), steamID, store.PlayerFilter{Cutoff: cutoff, ServerKey: serverKey}, view)
 		if err != nil {
 			return statsError(c, err)
 		}

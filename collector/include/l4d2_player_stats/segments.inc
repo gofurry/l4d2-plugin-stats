@@ -152,6 +152,7 @@ void LPS_StartClientSegment(int client, const char[] side)
 	g_LPSClientSegmentPersistedRevision[client] = 0;
 	g_LPSClientSegmentDirty[client] = true;
 	g_LPSClientSegmentActive[client] = true;
+	LPS_OnHumanSegmentStartedForAnalysis();
 	LPS_OnClientSegmentStartedForStats(client);
 
 	LPS_RequestFlush();

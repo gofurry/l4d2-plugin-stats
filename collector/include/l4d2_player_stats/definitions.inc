@@ -3,8 +3,8 @@
 #endif
 #define _l4d2_player_stats_definitions_included
 
-#define LPS_VERSION "1.2.1"
-#define LPS_SCHEMA_VERSION 3
+#define LPS_VERSION "1.3.0"
+#define LPS_SCHEMA_VERSION 4
 #define LPS_MIGRATION_NAME "initial_schema"
 #define LPS_STATS_VERSION 1
 
@@ -32,6 +32,11 @@
 #define LPS_MAX_SIDE_NAME 16
 #define LPS_SESSION_TRANSFER_TIMEOUT 120
 #define LPS_MAX_ENTITY_INDEX 2048
+#define LPS_MAX_RULESET_NAME 65
+#define LPS_MAX_DIFFICULTY 17
+#define LPS_INCIDENT_VERSION 1
+#define LPS_CONTEXT_VERSION 1
+#define LPS_ANALYSIS_FLUSH_INCIDENT_LIMIT 256
 
 #define LPS_TEAM_SPECTATOR 1
 #define LPS_TEAM_SURVIVOR 2
@@ -212,6 +217,48 @@ enum LPSControlType
 	LPSControlType_Hunter,
 	LPSControlType_Jockey,
 	LPSControlType_Charger
+};
+
+// Stable Incident Contract v1 IDs. Never reuse a persisted value.
+enum LPSIncidentType
+{
+	LPSIncident_None = 0,
+	LPSIncident_SurvivorControl = 1,
+	LPSIncident_SurvivorIncap = 2,
+	LPSIncident_SurvivorDeath = 3,
+	LPSIncident_SurvivorRevive = 4,
+	LPSIncident_LedgeRescue = 5,
+	LPSIncident_DefibRevive = 6,
+	LPSIncident_CarAlarm = 7,
+	LPSIncident_TankSpawn = 8,
+	LPSIncident_TankDeath = 9,
+	LPSIncident_WitchSpawn = 10,
+	LPSIncident_WitchDeath = 11
+};
+
+enum LPSParticipantKind
+{
+	LPSParticipant_None = 0,
+	LPSParticipant_HumanSurvivor = 1,
+	LPSParticipant_BotSurvivor = 2,
+	LPSParticipant_HumanInfected = 3,
+	LPSParticipant_BotInfected = 4,
+	LPSParticipant_CommonInfected = 5,
+	LPSParticipant_Witch = 6,
+	LPSParticipant_World = 7,
+	LPSParticipant_Other = 8,
+	LPSParticipant_Unknown = 9
+};
+
+enum LPSIncidentEndReason
+{
+	LPSIncidentEnd_Unknown = 0,
+	LPSIncidentEnd_Released = 1,
+	LPSIncidentEnd_Rescued = 2,
+	LPSIncidentEnd_SelfFreed = 3,
+	LPSIncidentEnd_ControllerKilled = 4,
+	LPSIncidentEnd_TargetDied = 5,
+	LPSIncidentEnd_LifecycleEnd = 6
 };
 
 enum LPSVersusSurvivorStat

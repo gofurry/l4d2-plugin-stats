@@ -9,7 +9,7 @@
 .modeTabs :global(.ant-tabs-tab) { color: #604d42; font-size: 15px; }
 .modeTabs :global(.ant-tabs-tab:hover), .modeTabs :global(.ant-tabs-tab-active .ant-tabs-tab-btn) { color: #b86032 !important; }
 .modeTabs :global(.ant-tabs-content-holder) { display: none; }
-.chartPanel, .tablePanel, .statePanel { overflow: hidden; margin-top: 14px; border-radius: 22px; background: rgba(247, 241, 232, .84); box-shadow: 0 16px 44px rgba(71, 47, 34, .12); backdrop-filter: blur(20px) saturate(1.08); -webkit-backdrop-filter: blur(20px) saturate(1.08); }
+.chartPanel, .tablePanel, .statePanel { overflow: hidden; margin-top: 14px; border: 1px solid rgba(103, 72, 55, .13); border-radius: 22px; background: var(--surface); box-shadow: var(--panel-shadow); backdrop-filter: blur(20px) saturate(1.08); -webkit-backdrop-filter: blur(20px) saturate(1.08); }
 .chartPanel { padding: 22px 24px; }
 .tablePanel { padding: 0; }
 .panelHeading { display: flex; align-items: baseline; justify-content: space-between; gap: 14px; }
@@ -18,7 +18,7 @@
 .chart { width: 100%; height: 400px; }
 .statePanel { display: grid; min-height: 390px; place-items: center; padding: 34px; text-align: center; }
 .stateActions { display: flex; justify-content: center; gap: 10px; margin-top: 16px; }
-.rankingList { background: rgba(235, 229, 221, .58) !important; }
+.rankingList { background: transparent !important; }
 .rankingList :global(.ant-table), .rankingList :global(.ant-table-container), .rankingList :global(.ant-table-content) { background: transparent !important; }
 .rankingList :global(.ant-table-thead > tr > th) { color: #4d392f; border-bottom: 0; background: rgba(201, 181, 162, .26) !important; }
 .rankingList :global(.ant-table-thead > tr > th::before) { display: none !important; }
@@ -63,6 +63,6 @@
   .rankingList :global(.ant-table-tbody > tr > td) { color: var(--text-secondary); background: var(--surface-row) !important; }
   .rankingList :global(.ant-table-tbody > tr:nth-child(even) > td) { background: var(--surface-row-alt) !important; }
   .rankingList :global(.ant-table-tbody > tr:hover > td) { background: var(--surface-hover) !important; }
-  .rankingList { background: rgba(218, 218, 218, .11) !important; }
+  .rankingList { background: transparent !important; }
   .myRankNumber { color: #f09a62; }
 }

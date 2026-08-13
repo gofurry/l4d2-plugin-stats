@@ -13,14 +13,14 @@ VALUES (?1, ?2)
 ON CONFLICT(key) DO UPDATE SET value = excluded.value;
 
 -- name: GetSiteSettings :one
-SELECT language, footer_enabled, background_image_url, public_origin, steam_openid_enabled, steam_openid_proxy_port,
+SELECT language, footer_enabled, background_image_url, public_origin, steam_openid_enabled, steam_openid_proxy_url,
        browser_title, theme, a2s_refresh_seconds, a2s_jitter_seconds, a2s_retry_count, updated_at
 FROM site_settings
 WHERE id = 1;
 
 -- name: UpsertSiteSettings :exec
 INSERT INTO site_settings (
-  id, language, footer_enabled, background_image_url, public_origin, steam_openid_enabled, steam_openid_proxy_port,
+  id, language, footer_enabled, background_image_url, public_origin, steam_openid_enabled, steam_openid_proxy_url,
   browser_title, theme, a2s_refresh_seconds, a2s_jitter_seconds, a2s_retry_count, updated_at
 )
 VALUES (1, ?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9, ?10, ?11, ?12)
@@ -30,7 +30,7 @@ ON CONFLICT(id) DO UPDATE SET
   background_image_url = excluded.background_image_url,
   public_origin = excluded.public_origin,
   steam_openid_enabled = excluded.steam_openid_enabled,
-  steam_openid_proxy_port = excluded.steam_openid_proxy_port,
+  steam_openid_proxy_url = excluded.steam_openid_proxy_url,
   browser_title = excluded.browser_title,
   theme = excluded.theme,
   a2s_refresh_seconds = excluded.a2s_refresh_seconds,
@@ -134,6 +134,19 @@ UPDATE game_servers SET sort_order = ?2, updated_at = ?3 WHERE id = ?1;
 -- name: DeleteGameServer :execrows
 DELETE FROM game_servers WHERE id = ?1;
 
+-- name: ListA2SStatusSnapshots :many
+SELECT status_json
+FROM a2s_status_snapshots
+ORDER BY server_id;
+
+-- name: UpsertA2SStatusSnapshot :exec
+INSERT INTO a2s_status_snapshots (server_id, status_json, checked_at, updated_at)
+VALUES (?1, ?2, ?3, ?4)
+ON CONFLICT(server_id) DO UPDATE SET
+  status_json = excluded.status_json,
+  checked_at = excluded.checked_at,
+  updated_at = excluded.updated_at;
+
 -- name: CountAdminAccounts :one
 SELECT COUNT(*) FROM admin_account;
 
@@ -235,7 +248,7 @@ INSERT INTO aggregate_rows (
 
 -- name: GetDataMaintenanceSettings :one
 SELECT aggregate_interval_minutes, detail_retention_days,
-       session_retention_days, result_retention_days, updated_at
+       session_retention_days, result_retention_days, incident_retention_days, updated_at
 FROM data_maintenance_settings WHERE id = 1;
 
 -- name: UpdateDataMaintenanceSettings :exec
@@ -244,7 +257,8 @@ UPDATE data_maintenance_settings SET
   detail_retention_days = ?2,
   session_retention_days = ?3,
   result_retention_days = ?4,
-  updated_at = ?5
+  incident_retention_days = ?5,
+  updated_at = ?6
 WHERE id = 1;
 
 -- name: CreateRetentionRun :exec
@@ -256,3 +270,11 @@ INSERT INTO retention_runs (
 
 -- name: CountRetentionRuns :one
 SELECT COUNT(*) FROM retention_runs;
+
+-- name: CreateIncidentRetentionRun :exec
+INSERT INTO incident_retention_runs (
+  id, executed_at, incident_version, cutoff, incident_rows
+) VALUES (?1, ?2, ?3, ?4, ?5);
+
+-- name: CountIncidentRetentionRuns :one
+SELECT COUNT(*) FROM incident_retention_runs;

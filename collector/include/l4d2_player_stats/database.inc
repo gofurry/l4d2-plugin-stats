@@ -69,6 +69,7 @@ void LPS_StartConnection(bool resetBackoff)
 	}
 
 	LPS_CancelRetryTimer();
+	LPS_OnAnalysisConnectionLost();
 	LPS_CloseDatabaseHandle();
 	g_LPSConnectionGeneration++;
 	g_LPSDatabaseState = LPSDatabaseState_Connecting;
@@ -626,6 +627,7 @@ public void LPS_OnFlushSucceeded(
 	LPS_OnPvEStatsFlushSucceeded();
 	LPS_OnVersusStatsFlushSucceeded();
 	LPS_OnEquipmentStatsFlushSucceeded();
+	LPS_RequestAnalysisFlush();
 
 	if (g_LPSHeartbeatQueued)
 	{
@@ -648,6 +650,7 @@ public void LPS_OnFlushFailed(
 	}
 
 	g_LPSHeartbeatInFlight = false;
+	LPS_OnAnalysisConnectionLost();
 	// A driver may include parts of a rejected query in its error text. Session
 	// queries contain private IP data, so never forward this raw error to logs.
 	LPS_HandleDatabaseFailure(

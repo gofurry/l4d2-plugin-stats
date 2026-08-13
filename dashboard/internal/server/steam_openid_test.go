@@ -6,7 +6,6 @@ import (
 	"net/http"
 	"net/http/httptest"
 	"net/url"
-	"strconv"
 	"strings"
 	"testing"
 
@@ -77,7 +76,7 @@ func TestOpenIDVerifierRejectsProviderInvalidHTTPClaimedID(t *testing.T) {
 	}
 }
 
-func TestSteamOpenIDHTTPClientUsesConfiguredLoopbackProxy(t *testing.T) {
+func TestSteamOpenIDHTTPClientUsesConfiguredProxyURL(t *testing.T) {
 	proxied := false
 	proxy := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		proxied = true
@@ -87,15 +86,7 @@ func TestSteamOpenIDHTTPClientUsesConfiguredLoopbackProxy(t *testing.T) {
 		_, _ = io.WriteString(w, "is_valid:true\n")
 	}))
 	defer proxy.Close()
-	proxyURL, err := url.Parse(proxy.URL)
-	if err != nil {
-		t.Fatal(err)
-	}
-	port, err := strconv.ParseInt(proxyURL.Port(), 10, 64)
-	if err != nil {
-		t.Fatal(err)
-	}
-	client, err := steamOpenIDHTTPClient(port)
+	client, err := steamOpenIDHTTPClient(proxy.URL)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -113,10 +104,23 @@ func TestSteamOpenIDHTTPClientUsesConfiguredLoopbackProxy(t *testing.T) {
 	}
 }
 
-func TestSteamOpenIDHTTPClientRejectsInvalidProxyPort(t *testing.T) {
-	for _, port := range []int64{-1, 65536} {
-		if _, err := steamOpenIDHTTPClient(port); err == nil {
-			t.Fatalf("proxy port %d should fail", port)
+func TestNormalizeSteamOpenIDProxyURL(t *testing.T) {
+	valid := map[string]string{
+		"":                              "",
+		"127.0.0.1:7890":                "http://127.0.0.1:7890",
+		"http://proxy.example.com:8080": "http://proxy.example.com:8080",
+		"https://user:pass@proxy.example.com:8443": "https://user:pass@proxy.example.com:8443",
+		"socks5://10.0.0.8:1080":                   "socks5://10.0.0.8:1080",
+	}
+	for input, want := range valid {
+		got, _, err := normalizeSteamOpenIDProxyURL(input)
+		if err != nil || got != want {
+			t.Fatalf("normalize %q=%q err=%v, want %q", input, got, err, want)
+		}
+	}
+	for _, input := range []string{"ftp://proxy.example.com:21", "http://", "http://proxy.example.com/path", "http://proxy.example.com?x=1", "http://proxy.example.com#x", strings.Repeat("a", 2049)} {
+		if _, _, err := normalizeSteamOpenIDProxyURL(input); err == nil {
+			t.Fatalf("proxy URL %q should fail", input)
 		}
 	}
 }

@@ -39,7 +39,7 @@ public void LPS_Event_PlayerDeathStats(Event event, const char[] name, bool dont
 	int victimTeam = GetClientTeam(victim);
 	if (victimTeam == LPS_TEAM_SURVIVOR)
 	{
-		LPS_EndControl(victim);
+		LPS_EndControl(victim, event.GetBool("abort") ? LPSIncidentEnd_Released : LPSIncidentEnd_TargetDied);
 		if (!event.GetBool("abort"))
 		{
 			LPS_AddPvEStat(victim, LPSPvEStat_Deaths, 1);
@@ -54,12 +54,16 @@ public void LPS_Event_PlayerDeathStats(Event event, const char[] name, bool dont
 
 	int attacker = GetClientOfUserId(event.GetInt("attacker"));
 	int zombieClass = LPS_GetZombieClass(victim);
-	LPS_OnSpecialInfectedDeathForExtendedStats(victim, attacker);
+	LPS_OnSpecialInfectedDeathForExtendedStats(victim, attacker, event.GetBool("abort"));
 
 	char weaponName[64];
 	event.GetString("weapon", weaponName, sizeof(weaponName));
 	if (zombieClass == 8)
 	{
+		if (!event.GetBool("abort"))
+		{
+			LPS_RecordBossDeathIncident(victim, attacker, true);
+		}
 		LPS_AddPvEStat(attacker, LPSPvEStat_TankKills, 1);
 		LPS_RecordEquipmentKill(
 			victim,
@@ -99,6 +103,7 @@ public void LPS_Event_WitchKilledStats(Event event, const char[] name, bool dont
 	int attacker = GetClientOfUserId(event.GetInt("userid"));
 	LPS_AddPvEStat(attacker, LPSPvEStat_WitchKills, 1);
 	int witch = event.GetInt("witchid");
+	LPS_RecordBossDeathIncident(witch, attacker, false, event.GetBool("oneshot"));
 	LPS_RecordEquipmentKill(
 		witch,
 		attacker,

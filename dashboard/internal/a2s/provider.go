@@ -93,6 +93,7 @@ func (SteamClient) Query(ctx context.Context, address string, timeout time.Durat
 
 type Provider struct {
 	dashboard store.DashboardStore
+	snapshots store.ServerStatusSnapshotStore
 	presence  store.StatsPresenceStore
 	client    Client
 	timeout   time.Duration
@@ -102,6 +103,8 @@ type Provider struct {
 	mu        sync.RWMutex
 	entries   map[string]cacheEntry
 	group     singleflight.Group
+	hydrateMu sync.Mutex
+	hydrated  bool
 }
 
 type cacheEntry struct {
@@ -124,10 +127,34 @@ func NewProvider(dashboard store.DashboardStore, client Client, presence ...stor
 	if len(presence) > 0 {
 		provider.presence = presence[0]
 	}
+	provider.snapshots, _ = dashboard.(store.ServerStatusSnapshotStore)
 	return provider
 }
 
+// Start keeps the in-memory status snapshot warm independently of homepage
+// traffic. The first pass runs immediately; later passes follow the refresh
+// interval from the current site settings.
+func (p *Provider) Start(ctx context.Context) {
+	go func() {
+		first := true
+		for {
+			policy := p.refreshEnabled(ctx, first)
+			first = false
+			timer := time.NewTimer(policy.refresh)
+			select {
+			case <-ctx.Done():
+				if !timer.Stop() {
+					<-timer.C
+				}
+				return
+			case <-timer.C:
+			}
+		}
+	}()
+}
+
 func (p *Provider) Statuses(ctx context.Context) ([]store.ServerStatus, error) {
+	p.hydrate(ctx)
 	settings, err := p.dashboard.SiteSettings(ctx)
 	if err != nil {
 		return nil, err
@@ -145,21 +172,43 @@ func (p *Provider) Statuses(ctx context.Context) ([]store.ServerStatus, error) {
 		}
 	}
 	statuses := make([]store.ServerStatus, len(enabled))
-	group, groupCtx := errgroup.WithContext(ctx)
 	for i := range enabled {
-		i := i
-		group.Go(func() error {
-			status, err := p.status(groupCtx, enabled[i], policy)
-			if err == nil {
-				statuses[i] = status
-			}
-			return err
-		})
-	}
-	if err := group.Wait(); err != nil {
-		return nil, err
+		statuses[i] = p.status(enabled[i], policy)
 	}
 	return statuses, nil
+}
+
+func (p *Provider) refreshEnabled(ctx context.Context, immediate bool) queryPolicy {
+	p.hydrate(ctx)
+	settings, err := p.dashboard.SiteSettings(ctx)
+	if err != nil {
+		return normalizePolicy(store.SiteSettings{})
+	}
+	policy := normalizePolicy(settings)
+	refreshPolicy := policy
+	if immediate {
+		refreshPolicy.jitter = 0
+	}
+	servers, err := p.dashboard.ListServers(ctx)
+	if err != nil {
+		return policy
+	}
+	p.removeUnknownServers(servers)
+	group, groupCtx := errgroup.WithContext(ctx)
+	for _, server := range servers {
+		if !server.Enabled {
+			continue
+		}
+		server := server
+		group.Go(func() error {
+			_, _, _ = p.group.Do(serverCacheKey(server), func() (any, error) {
+				return p.refresh(groupCtx, server, refreshPolicy)
+			})
+			return nil
+		})
+	}
+	_ = group.Wait()
+	return policy
 }
 
 func (p *Provider) InvalidateServer(serverID string) {
@@ -187,6 +236,7 @@ func (p *Provider) removeUnknownServers(servers []store.GameServer) {
 }
 
 func (p *Provider) LastStatus(ctx context.Context, serverID string) (store.ServerStatus, bool, error) {
+	p.hydrate(ctx)
 	server, err := p.serverByID(ctx, serverID)
 	if err != nil {
 		return store.ServerStatus{}, false, err
@@ -206,10 +256,10 @@ func (p *Provider) RefreshStatus(ctx context.Context, serverID string) (store.Se
 	if err != nil {
 		return store.ServerStatus{}, err
 	}
-	key := "refresh\x00" + serverCacheKey(server)
+	key := serverCacheKey(server)
 	policy := normalizePolicy(settings)
 	policy.jitter = 0
-	result := p.group.DoChan(key, func() (any, error) { return p.refresh(server, policy) })
+	result := p.group.DoChan(key, func() (any, error) { return p.refresh(ctx, server, policy) })
 	select {
 	case <-ctx.Done():
 		return store.ServerStatus{}, ctx.Err()
@@ -234,34 +284,49 @@ func (p *Provider) serverByID(ctx context.Context, serverID string) (store.GameS
 	return store.GameServer{}, store.ErrServerNotFound
 }
 
-func (p *Provider) status(ctx context.Context, server store.GameServer, policy queryPolicy) (store.ServerStatus, error) {
+func (p *Provider) status(server store.GameServer, policy queryPolicy) store.ServerStatus {
 	now := time.Now()
 	key := serverCacheKey(server)
 	p.mu.RLock()
 	entry, exists := p.entries[key]
 	p.mu.RUnlock()
 	if exists && now.Before(entry.expires) {
-		return entry.status, nil
+		return entry.status
 	}
-	ch := p.group.DoChan(key, func() (any, error) {
-		return p.refresh(server, policy)
+	backgroundPolicy := policy
+	backgroundPolicy.jitter = 0
+	p.group.DoChan(key, func() (any, error) {
+		return p.refresh(context.Background(), server, backgroundPolicy)
 	})
-	select {
-	case <-ctx.Done():
-		return store.ServerStatus{}, ctx.Err()
-	case result := <-ch:
-		if result.Err != nil {
-			return store.ServerStatus{}, result.Err
-		}
-		return result.Val.(store.ServerStatus), nil
+	if exists {
+		status := entry.status
+		status.Stale = true
+		status.Checking = true
+		return status
+	}
+	return store.ServerStatus{
+		ServerID: server.ID, DisplayName: server.DisplayName, Address: server.Address,
+		Checking: true,
 	}
 }
 
-func (p *Provider) refresh(server store.GameServer, policy queryPolicy) (store.ServerStatus, error) {
+func (p *Provider) refresh(ctx context.Context, server store.GameServer, policy queryPolicy) (store.ServerStatus, error) {
 	if policy.jitter > 0 {
-		time.Sleep(time.Duration(rand.Int64N(int64(policy.jitter) + 1)))
+		timer := time.NewTimer(time.Duration(rand.Int64N(int64(policy.jitter) + 1)))
+		select {
+		case <-ctx.Done():
+			if !timer.Stop() {
+				<-timer.C
+			}
+			return store.ServerStatus{}, ctx.Err()
+		case <-timer.C:
+		}
 	}
-	p.semaphore <- struct{}{}
+	select {
+	case <-ctx.Done():
+		return store.ServerStatus{}, ctx.Err()
+	case p.semaphore <- struct{}{}:
+	}
 	defer func() { <-p.semaphore }()
 	var info Info
 	var players []Player
@@ -269,8 +334,8 @@ func (p *Provider) refresh(server store.GameServer, policy queryPolicy) (store.S
 	var latency time.Duration
 	var err error
 	for attempt := 0; attempt <= policy.retries; attempt++ {
-		ctx, cancel := context.WithTimeout(context.Background(), p.timeout)
-		info, players, rules, latency, err = p.client.Query(ctx, server.Address, p.timeout)
+		attemptCtx, cancel := context.WithTimeout(ctx, p.timeout)
+		info, players, rules, latency, err = p.client.Query(attemptCtx, server.Address, p.timeout)
 		cancel()
 		if err == nil {
 			break
@@ -288,12 +353,13 @@ func (p *Provider) refresh(server store.GameServer, policy queryPolicy) (store.S
 		p.mu.RUnlock()
 		status := store.ServerStatus{
 			ServerID: server.ID, DisplayName: server.DisplayName, Address: server.Address,
-			Online: false, CheckedAt: now,
+			Online: false, Checking: false, CheckedAt: now,
 		}
 		if exists && !previous.status.LastSuccessAt.IsZero() && now.Sub(previous.status.LastSuccessAt) <= p.staleTTL {
 			status = previous.status
 			status.Online = false
 			status.Stale = true
+			status.Checking = false
 			status.CheckedAt = now
 		}
 		p.mu.Lock()
@@ -305,7 +371,7 @@ func (p *Provider) refresh(server store.GameServer, policy queryPolicy) (store.S
 		ServerID: server.ID, DisplayName: server.DisplayName, Address: server.Address,
 		Online: true, Name: info.Name, Map: info.Map, Players: info.Players,
 		MaxPlayers: info.MaxPlayers, Bots: info.Bots, LatencyMS: latency.Milliseconds(),
-		LastSuccessAt: now, CheckedAt: now,
+		LastSuccessAt: now, CheckedAt: now, Checking: false,
 	}
 	status.Rules = make([]store.ServerRule, 0, len(rules))
 	for _, rule := range rules {
@@ -316,7 +382,43 @@ func (p *Provider) refresh(server store.GameServer, policy queryPolicy) (store.S
 	p.mu.Lock()
 	p.entries[key] = cacheEntry{status: status, expires: now.Add(cacheTTL)}
 	p.mu.Unlock()
+	p.persist(status)
 	return status, nil
+}
+
+func (p *Provider) hydrate(ctx context.Context) {
+	if p.snapshots == nil {
+		return
+	}
+	p.hydrateMu.Lock()
+	defer p.hydrateMu.Unlock()
+	if p.hydrated {
+		return
+	}
+	statuses, err := p.snapshots.ListServerStatusSnapshots(ctx)
+	if err != nil {
+		return
+	}
+	p.mu.Lock()
+	for _, status := range statuses {
+		if status.ServerID == "" || status.Address == "" || status.LastSuccessAt.IsZero() {
+			continue
+		}
+		status.Stale = true
+		status.Checking = false
+		p.entries[status.ServerID+"\x00"+status.Address] = cacheEntry{status: status}
+	}
+	p.mu.Unlock()
+	p.hydrated = true
+}
+
+func (p *Provider) persist(status store.ServerStatus) {
+	if p.snapshots == nil || !status.Online || status.LastSuccessAt.IsZero() {
+		return
+	}
+	ctx, cancel := context.WithTimeout(context.Background(), 2*time.Second)
+	defer cancel()
+	_ = p.snapshots.UpsertServerStatusSnapshot(ctx, status)
 }
 
 func (p *Provider) linkPlayers(serverKey string, a2sPlayers []Player, now time.Time) []store.ServerPlayer {

@@ -7,6 +7,7 @@
 - 只有管理员明确确认“原始数据清理”时，程序才临时打开独立维护连接；不会后台自动删除。
 - 公开 API 不读取或返回 Session IP、boot ID、内部数据库主键、DSN 或管理员数据。
 - PvE 只包含 `coop`/`realism` 幸存者数据；Versus 的幸存者和感染者分别聚合。
+- Round Context 是永久事实；Incident 是可保留的低频分析明细。不完整或历史无 Incident 的 Round 不按零事件处理。
 
 ## 增量聚合
 
@@ -29,9 +30,15 @@
 
 不会清理玩家身份、Run、Round、Player Segment、PvE/Versus 核心总计或正在进行的 Session。IP 随被清理的旧 Session 一并消失，程序不会单独导出或展示它。
 
+v1.3 为 Incident 引入独立保留策略，默认 180 天。它不依赖 Aggregate 覆盖，只能删除
+已结束 Round 且早于截止时间的 Incident；候选空间出现未知 Incident Contract 版本时
+必须拒绝清理。删除仍按每批 500 行短事务执行，并使用独立确认与审计。Round Context、
+核心统计和所有生命周期事实不受影响。
+
 ## 仍会增长的数据
 
 - 玩家身份、Run、Round、Player Segment 和核心统计永久增长；
+- Round Context 永久增长；Incident 按管理员配置的保留窗口增长和清理；
 - UTC 日聚合按活跃玩家、服务器和维度线性增长；
 - 清理审计、公告和站点配置由管理员操作增长；
 - SQLite 删除行后文件大小不保证立即回落，页面展示的是实际数据库文件占用；

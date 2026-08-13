@@ -85,6 +85,13 @@ func (s *PlayerService) Preview(ctx context.Context, steamID string) (*store.Pla
 		pveRescues := pve.IncapRevives + pve.LedgeRescues + pve.DefibRevives
 		pveBossKills := pve.TankKills + pve.WitchKills
 		versusHumanKills := versus.HumanSpecialKills + versus.HumanTankKills
+		var companions []store.PlayerCompanion
+		if analysis, ok := s.stats.(store.StatsAnalysisStore); ok {
+			companions, err = analysis.PlayerCompanions(ctx, steamID)
+			if err != nil {
+				return nil, err
+			}
+		}
 		return &store.PlayerPreview{
 			SteamID: summary.SteamID, PlayerName: summary.LastName, SessionCount: summary.SessionCount,
 			ActivePlaySeconds: summary.ActiveSeconds, LastSeenAt: summary.LastSeenAt,
@@ -98,6 +105,7 @@ func (s *PlayerService) Preview(ctx context.Context, steamID string) (*store.Pla
 				HumanSIKills: versusHumanKills, InfectedDamage: versus.DamageToHumanSurvivors,
 				SurvivorControls: versus.HumanSurvivorControls, SurvivorIncapacitations: versus.HumanSurvivorIncaps,
 			},
+			Companions: companions,
 		}, nil
 	})
 	if err != nil || value == nil {

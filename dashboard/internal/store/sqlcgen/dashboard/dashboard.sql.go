@@ -95,6 +95,17 @@ func (q *Queries) CountGameServers(ctx context.Context) (int64, error) {
 	return count, err
 }
 
+const countIncidentRetentionRuns = `-- name: CountIncidentRetentionRuns :one
+SELECT COUNT(*) FROM incident_retention_runs
+`
+
+func (q *Queries) CountIncidentRetentionRuns(ctx context.Context) (int64, error) {
+	row := q.db.QueryRowContext(ctx, countIncidentRetentionRuns)
+	var count int64
+	err := row.Scan(&count)
+	return count, err
+}
+
 const countRetentionRuns = `-- name: CountRetentionRuns :one
 SELECT COUNT(*) FROM retention_runs
 `
@@ -212,6 +223,31 @@ func (q *Queries) CreateGameServer(ctx context.Context, arg CreateGameServerPara
 		arg.Address,
 		arg.SortOrder,
 		arg.CreatedAt,
+	)
+	return err
+}
+
+const createIncidentRetentionRun = `-- name: CreateIncidentRetentionRun :exec
+INSERT INTO incident_retention_runs (
+  id, executed_at, incident_version, cutoff, incident_rows
+) VALUES (?1, ?2, ?3, ?4, ?5)
+`
+
+type CreateIncidentRetentionRunParams struct {
+	ID              string `json:"id"`
+	ExecutedAt      int64  `json:"executed_at"`
+	IncidentVersion int64  `json:"incident_version"`
+	Cutoff          int64  `json:"cutoff"`
+	IncidentRows    int64  `json:"incident_rows"`
+}
+
+func (q *Queries) CreateIncidentRetentionRun(ctx context.Context, arg CreateIncidentRetentionRunParams) error {
+	_, err := q.db.ExecContext(ctx, createIncidentRetentionRun,
+		arg.ID,
+		arg.ExecutedAt,
+		arg.IncidentVersion,
+		arg.Cutoff,
+		arg.IncidentRows,
 	)
 	return err
 }
@@ -410,7 +446,7 @@ func (q *Queries) GetAnnouncement(ctx context.Context, id string) (Announcement,
 
 const getDataMaintenanceSettings = `-- name: GetDataMaintenanceSettings :one
 SELECT aggregate_interval_minutes, detail_retention_days,
-       session_retention_days, result_retention_days, updated_at
+       session_retention_days, result_retention_days, incident_retention_days, updated_at
 FROM data_maintenance_settings WHERE id = 1
 `
 
@@ -419,6 +455,7 @@ type GetDataMaintenanceSettingsRow struct {
 	DetailRetentionDays      int64 `json:"detail_retention_days"`
 	SessionRetentionDays     int64 `json:"session_retention_days"`
 	ResultRetentionDays      int64 `json:"result_retention_days"`
+	IncidentRetentionDays    int64 `json:"incident_retention_days"`
 	UpdatedAt                int64 `json:"updated_at"`
 }
 
@@ -430,6 +467,7 @@ func (q *Queries) GetDataMaintenanceSettings(ctx context.Context) (GetDataMainte
 		&i.DetailRetentionDays,
 		&i.SessionRetentionDays,
 		&i.ResultRetentionDays,
+		&i.IncidentRetentionDays,
 		&i.UpdatedAt,
 	)
 	return i, err
@@ -536,25 +574,25 @@ func (q *Queries) GetSiteDocument(ctx context.Context, key string) (SiteDocument
 }
 
 const getSiteSettings = `-- name: GetSiteSettings :one
-SELECT language, footer_enabled, background_image_url, public_origin, steam_openid_enabled, steam_openid_proxy_port,
+SELECT language, footer_enabled, background_image_url, public_origin, steam_openid_enabled, steam_openid_proxy_url,
        browser_title, theme, a2s_refresh_seconds, a2s_jitter_seconds, a2s_retry_count, updated_at
 FROM site_settings
 WHERE id = 1
 `
 
 type GetSiteSettingsRow struct {
-	Language             string `json:"language"`
-	FooterEnabled        int64  `json:"footer_enabled"`
-	BackgroundImageUrl   string `json:"background_image_url"`
-	PublicOrigin         string `json:"public_origin"`
-	SteamOpenidEnabled   int64  `json:"steam_openid_enabled"`
-	SteamOpenidProxyPort int64  `json:"steam_openid_proxy_port"`
-	BrowserTitle         string `json:"browser_title"`
-	Theme                string `json:"theme"`
-	A2sRefreshSeconds    int64  `json:"a2s_refresh_seconds"`
-	A2sJitterSeconds     int64  `json:"a2s_jitter_seconds"`
-	A2sRetryCount        int64  `json:"a2s_retry_count"`
-	UpdatedAt            int64  `json:"updated_at"`
+	Language            string `json:"language"`
+	FooterEnabled       int64  `json:"footer_enabled"`
+	BackgroundImageUrl  string `json:"background_image_url"`
+	PublicOrigin        string `json:"public_origin"`
+	SteamOpenidEnabled  int64  `json:"steam_openid_enabled"`
+	SteamOpenidProxyUrl string `json:"steam_openid_proxy_url"`
+	BrowserTitle        string `json:"browser_title"`
+	Theme               string `json:"theme"`
+	A2sRefreshSeconds   int64  `json:"a2s_refresh_seconds"`
+	A2sJitterSeconds    int64  `json:"a2s_jitter_seconds"`
+	A2sRetryCount       int64  `json:"a2s_retry_count"`
+	UpdatedAt           int64  `json:"updated_at"`
 }
 
 func (q *Queries) GetSiteSettings(ctx context.Context) (GetSiteSettingsRow, error) {
@@ -566,7 +604,7 @@ func (q *Queries) GetSiteSettings(ctx context.Context) (GetSiteSettingsRow, erro
 		&i.BackgroundImageUrl,
 		&i.PublicOrigin,
 		&i.SteamOpenidEnabled,
-		&i.SteamOpenidProxyPort,
+		&i.SteamOpenidProxyUrl,
 		&i.BrowserTitle,
 		&i.Theme,
 		&i.A2sRefreshSeconds,
@@ -606,6 +644,35 @@ func (q *Queries) InsertAggregateRow(ctx context.Context, arg InsertAggregateRow
 		arg.AggregateVersion,
 	)
 	return err
+}
+
+const listA2SStatusSnapshots = `-- name: ListA2SStatusSnapshots :many
+SELECT status_json
+FROM a2s_status_snapshots
+ORDER BY server_id
+`
+
+func (q *Queries) ListA2SStatusSnapshots(ctx context.Context) ([]string, error) {
+	rows, err := q.db.QueryContext(ctx, listA2SStatusSnapshots)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	items := []string{}
+	for rows.Next() {
+		var status_json string
+		if err := rows.Scan(&status_json); err != nil {
+			return nil, err
+		}
+		items = append(items, status_json)
+	}
+	if err := rows.Close(); err != nil {
+		return nil, err
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
 }
 
 const listAnnouncementYears = `-- name: ListAnnouncementYears :many
@@ -996,7 +1063,8 @@ UPDATE data_maintenance_settings SET
   detail_retention_days = ?2,
   session_retention_days = ?3,
   result_retention_days = ?4,
-  updated_at = ?5
+  incident_retention_days = ?5,
+  updated_at = ?6
 WHERE id = 1
 `
 
@@ -1005,6 +1073,7 @@ type UpdateDataMaintenanceSettingsParams struct {
 	DetailRetentionDays      int64 `json:"detail_retention_days"`
 	SessionRetentionDays     int64 `json:"session_retention_days"`
 	ResultRetentionDays      int64 `json:"result_retention_days"`
+	IncidentRetentionDays    int64 `json:"incident_retention_days"`
 	UpdatedAt                int64 `json:"updated_at"`
 }
 
@@ -1014,6 +1083,7 @@ func (q *Queries) UpdateDataMaintenanceSettings(ctx context.Context, arg UpdateD
 		arg.DetailRetentionDays,
 		arg.SessionRetentionDays,
 		arg.ResultRetentionDays,
+		arg.IncidentRetentionDays,
 		arg.UpdatedAt,
 	)
 	return err
@@ -1072,6 +1142,32 @@ func (q *Queries) UpdateSiteDocument(ctx context.Context, arg UpdateSiteDocument
 	return result.RowsAffected()
 }
 
+const upsertA2SStatusSnapshot = `-- name: UpsertA2SStatusSnapshot :exec
+INSERT INTO a2s_status_snapshots (server_id, status_json, checked_at, updated_at)
+VALUES (?1, ?2, ?3, ?4)
+ON CONFLICT(server_id) DO UPDATE SET
+  status_json = excluded.status_json,
+  checked_at = excluded.checked_at,
+  updated_at = excluded.updated_at
+`
+
+type UpsertA2SStatusSnapshotParams struct {
+	ServerID   string `json:"server_id"`
+	StatusJson string `json:"status_json"`
+	CheckedAt  int64  `json:"checked_at"`
+	UpdatedAt  int64  `json:"updated_at"`
+}
+
+func (q *Queries) UpsertA2SStatusSnapshot(ctx context.Context, arg UpsertA2SStatusSnapshotParams) error {
+	_, err := q.db.ExecContext(ctx, upsertA2SStatusSnapshot,
+		arg.ServerID,
+		arg.StatusJson,
+		arg.CheckedAt,
+		arg.UpdatedAt,
+	)
+	return err
+}
+
 const upsertMetadata = `-- name: UpsertMetadata :exec
 INSERT INTO dashboard_metadata (key, value)
 VALUES (?1, ?2)
@@ -1117,7 +1213,7 @@ func (q *Queries) UpsertSEOSettings(ctx context.Context, arg UpsertSEOSettingsPa
 
 const upsertSiteSettings = `-- name: UpsertSiteSettings :exec
 INSERT INTO site_settings (
-  id, language, footer_enabled, background_image_url, public_origin, steam_openid_enabled, steam_openid_proxy_port,
+  id, language, footer_enabled, background_image_url, public_origin, steam_openid_enabled, steam_openid_proxy_url,
   browser_title, theme, a2s_refresh_seconds, a2s_jitter_seconds, a2s_retry_count, updated_at
 )
 VALUES (1, ?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9, ?10, ?11, ?12)
@@ -1127,7 +1223,7 @@ ON CONFLICT(id) DO UPDATE SET
   background_image_url = excluded.background_image_url,
   public_origin = excluded.public_origin,
   steam_openid_enabled = excluded.steam_openid_enabled,
-  steam_openid_proxy_port = excluded.steam_openid_proxy_port,
+  steam_openid_proxy_url = excluded.steam_openid_proxy_url,
   browser_title = excluded.browser_title,
   theme = excluded.theme,
   a2s_refresh_seconds = excluded.a2s_refresh_seconds,
@@ -1137,18 +1233,18 @@ ON CONFLICT(id) DO UPDATE SET
 `
 
 type UpsertSiteSettingsParams struct {
-	Language             string `json:"language"`
-	FooterEnabled        int64  `json:"footer_enabled"`
-	BackgroundImageUrl   string `json:"background_image_url"`
-	PublicOrigin         string `json:"public_origin"`
-	SteamOpenidEnabled   int64  `json:"steam_openid_enabled"`
-	SteamOpenidProxyPort int64  `json:"steam_openid_proxy_port"`
-	BrowserTitle         string `json:"browser_title"`
-	Theme                string `json:"theme"`
-	A2sRefreshSeconds    int64  `json:"a2s_refresh_seconds"`
-	A2sJitterSeconds     int64  `json:"a2s_jitter_seconds"`
-	A2sRetryCount        int64  `json:"a2s_retry_count"`
-	UpdatedAt            int64  `json:"updated_at"`
+	Language            string `json:"language"`
+	FooterEnabled       int64  `json:"footer_enabled"`
+	BackgroundImageUrl  string `json:"background_image_url"`
+	PublicOrigin        string `json:"public_origin"`
+	SteamOpenidEnabled  int64  `json:"steam_openid_enabled"`
+	SteamOpenidProxyUrl string `json:"steam_openid_proxy_url"`
+	BrowserTitle        string `json:"browser_title"`
+	Theme               string `json:"theme"`
+	A2sRefreshSeconds   int64  `json:"a2s_refresh_seconds"`
+	A2sJitterSeconds    int64  `json:"a2s_jitter_seconds"`
+	A2sRetryCount       int64  `json:"a2s_retry_count"`
+	UpdatedAt           int64  `json:"updated_at"`
 }
 
 func (q *Queries) UpsertSiteSettings(ctx context.Context, arg UpsertSiteSettingsParams) error {
@@ -1158,7 +1254,7 @@ func (q *Queries) UpsertSiteSettings(ctx context.Context, arg UpsertSiteSettings
 		arg.BackgroundImageUrl,
 		arg.PublicOrigin,
 		arg.SteamOpenidEnabled,
-		arg.SteamOpenidProxyPort,
+		arg.SteamOpenidProxyUrl,
 		arg.BrowserTitle,
 		arg.Theme,
 		arg.A2sRefreshSeconds,

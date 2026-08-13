@@ -25,7 +25,7 @@
 .editorModal :global(.w-md-editor) { width: 100%; border: 0; border-radius: 0; background: var(--editor-bg); box-shadow: none; }
 .editorModal :global(.w-md-editor-toolbar) { border-bottom-color: rgba(108, 76, 59, .14); background: #f4ecdf; }
 .editorModal :global(.w-md-editor-content) { background: var(--editor-bg); }
-.editorModal :global(.wmde-markdown) { background: var(--editor-preview-bg); }
+.editorModal :global(.w-md-editor-preview), .editorModal :global(.wmde-markdown) { background: transparent !important; }
 .editorModal :global(.wmde-markdown h1), .editorModal :global(.wmde-markdown h2) { border-bottom: 0; }
 .editorModal :global(.w-md-editor-text-pre > code), .editorModal :global(.w-md-editor-text-input) { font-size: 14px !important; line-height: 1.7 !important; }
 

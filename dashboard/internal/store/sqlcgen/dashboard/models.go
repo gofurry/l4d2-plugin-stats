@@ -4,6 +4,13 @@
 
 package dashsql
 
+type A2sStatusSnapshot struct {
+	ServerID   string `json:"server_id"`
+	StatusJson string `json:"status_json"`
+	CheckedAt  int64  `json:"checked_at"`
+	UpdatedAt  int64  `json:"updated_at"`
+}
+
 type AdminAccount struct {
 	ID                int64  `json:"id"`
 	Username          string `json:"username"`
@@ -82,6 +89,7 @@ type DataMaintenanceSetting struct {
 	SessionRetentionDays     int64 `json:"session_retention_days"`
 	ResultRetentionDays      int64 `json:"result_retention_days"`
 	UpdatedAt                int64 `json:"updated_at"`
+	IncidentRetentionDays    int64 `json:"incident_retention_days"`
 }
 
 type FooterLink struct {
@@ -101,6 +109,14 @@ type GameServer struct {
 	SortOrder   int64  `json:"sort_order"`
 	CreatedAt   int64  `json:"created_at"`
 	UpdatedAt   int64  `json:"updated_at"`
+}
+
+type IncidentRetentionRun struct {
+	ID              string `json:"id"`
+	ExecutedAt      int64  `json:"executed_at"`
+	IncidentVersion int64  `json:"incident_version"`
+	Cutoff          int64  `json:"cutoff"`
+	IncidentRows    int64  `json:"incident_rows"`
 }
 
 type RetentionRun struct {
@@ -147,4 +163,5 @@ type SiteSetting struct {
 	A2sRetryCount        int64  `json:"a2s_retry_count"`
 	Theme                string `json:"theme"`
 	SteamOpenidProxyPort int64  `json:"steam_openid_proxy_port"`
+	SteamOpenidProxyUrl  string `json:"steam_openid_proxy_url"`
 }

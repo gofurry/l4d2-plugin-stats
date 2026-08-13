@@ -110,6 +110,28 @@ public Action LPS_Command_Status(int client, int args)
 		LPS_GetPendingClosedVersusInfectedStatsCount(),
 		g_LPSClosedLifecycleQueueLimit.IntValue
 	);
+	ReplyToCommand(
+		client,
+		"[LPS] incidents_enabled=%d pending_incidents=%d/%d peak=%d dropped=%d pending_round_contexts=%d",
+		g_LPSRoundContextActive && g_LPSActiveRoundContext.incidentCaptureEnabled,
+		LPS_GetPendingIncidentCount(),
+		g_LPSIncidentQueueLimit.IntValue,
+		g_LPSIncidentQueuePeak,
+		g_LPSIncidentDroppedTotal,
+		LPS_GetPendingRoundContextCount()
+	);
+	ReplyToCommand(
+		client,
+		"[LPS] analysis_flush_in_flight=%d last_rows=%d last_ms=%d last_success=%d",
+		g_LPSAnalysisFlushInFlight,
+		g_LPSLastAnalysisFlushRows,
+		g_LPSLastAnalysisFlushMs,
+		g_LPSLastAnalysisSuccess
+	);
+	if (g_LPSLastAnalysisError[0] != '\0')
+	{
+		ReplyToCommand(client, "[LPS] last_analysis_error=%s", g_LPSLastAnalysisError);
+	}
 
 	if (g_LPSLastDatabaseError[0] != '\0')
 	{

@@ -111,7 +111,7 @@ func insertContractFixture(t *testing.T, db *sql.DB) {
 	b := contractBaseTime
 	w := contractWatermark
 	statements := []string{
-		fmt.Sprintf(`INSERT INTO lps_schema_migrations (version,name,applied_at) VALUES (1,'initial',%d),(2,'car_alarms_triggered',%d),(3,'versus_objective_interactions',%d)`, b, b+1, b+2),
+		fmt.Sprintf(`INSERT INTO lps_schema_migrations (version,name,applied_at) VALUES (1,'initial',%d),(2,'car_alarms_triggered',%d),(3,'versus_objective_interactions',%d),(4,'analysis_foundation',%d)`, b, b+1, b+2, b+3),
 		fmt.Sprintf(`INSERT INTO lps_servers (server_key,display_name,first_seen_at,last_seen_at) VALUES ('one','Server One',%d,%d),('two','Server Two',%d,%d)`, b-100, b+500, b-100, b+500),
 		fmt.Sprintf(`INSERT INTO lps_server_boots (boot_id,server_key,started_at,ended_at,last_heartbeat_at,status) VALUES ('boot-one','one',%d,%d,%d,'closed'),('boot-two','two',%d,%d,%d,'closed')`, b-10, b+400, b+400, b-10, b+400, b+400),
 		fmt.Sprintf(`INSERT INTO lps_players (steam_id,last_name,first_seen_at,last_seen_at) VALUES ('1','Alice',%d,%d),('2','Bob',%d,%d)`, b-100, b+400, b-50, b+200),

@@ -198,6 +198,7 @@ func (s *dashboardStore) DataMaintenanceSettings(ctx context.Context) (DataMaint
 		DetailRetentionDays:      row.DetailRetentionDays,
 		SessionRetentionDays:     row.SessionRetentionDays,
 		ResultRetentionDays:      row.ResultRetentionDays,
+		IncidentRetentionDays:    row.IncidentRetentionDays,
 		UpdatedAt:                row.UpdatedAt,
 	}, nil
 }
@@ -209,6 +210,7 @@ func (s *dashboardStore) UpdateDataMaintenanceSettings(ctx context.Context, valu
 		DetailRetentionDays:      value.DetailRetentionDays,
 		SessionRetentionDays:     value.SessionRetentionDays,
 		ResultRetentionDays:      value.ResultRetentionDays,
+		IncidentRetentionDays:    value.IncidentRetentionDays,
 		UpdatedAt:                value.UpdatedAt,
 	})
 }
@@ -243,6 +245,20 @@ func (s *dashboardStore) RecordRetentionRun(ctx context.Context, plan RetentionP
 
 func (s *dashboardStore) RetentionRunCount(ctx context.Context) (int64, error) {
 	return s.q.CountRetentionRuns(ctx)
+}
+
+func (s *dashboardStore) RecordIncidentRetentionRun(ctx context.Context, plan IncidentRetentionPlan, result IncidentRetentionResult) error {
+	if plan.IncidentVersion != incidentContractVersion {
+		return fmt.Errorf("record incident retention run: unsupported incident version %d", plan.IncidentVersion)
+	}
+	return s.q.CreateIncidentRetentionRun(ctx, dashsql.CreateIncidentRetentionRunParams{
+		ID: result.RunID, ExecutedAt: result.ExecutedAt, IncidentVersion: plan.IncidentVersion,
+		Cutoff: plan.Cutoff, IncidentRows: result.IncidentRows,
+	})
+}
+
+func (s *dashboardStore) IncidentRetentionRunCount(ctx context.Context) (int64, error) {
+	return s.q.CountIncidentRetentionRuns(ctx)
 }
 
 func (s *dashboardStore) ListAggregateRows(ctx context.Context, filter AggregateFilter) ([]AggregateRow, error) {
@@ -357,7 +373,7 @@ func (s *dashboardStore) SiteSettings(ctx context.Context) (SiteSettings, error)
 		settings.BackgroundImageURL = row.BackgroundImageUrl
 		settings.PublicOrigin = row.PublicOrigin
 		settings.SteamOpenIDEnabled = row.SteamOpenidEnabled == 1
-		settings.SteamOpenIDProxyPort = row.SteamOpenidProxyPort
+		settings.SteamOpenIDProxyURL = row.SteamOpenidProxyUrl
 		settings.A2SRefreshSeconds = row.A2sRefreshSeconds
 		settings.A2SJitterSeconds = row.A2sJitterSeconds
 		settings.A2SRetryCount = row.A2sRetryCount
@@ -391,7 +407,7 @@ func (s *dashboardStore) UpdateSite(ctx context.Context, settings SiteSettings) 
 	now := time.Now().Unix()
 	if err := q.UpsertSiteSettings(ctx, dashsql.UpsertSiteSettingsParams{
 		Language: settings.Language, FooterEnabled: boolInt(settings.FooterEnabled), BackgroundImageUrl: settings.BackgroundImageURL, PublicOrigin: settings.PublicOrigin,
-		SteamOpenidEnabled: boolInt(settings.SteamOpenIDEnabled), SteamOpenidProxyPort: settings.SteamOpenIDProxyPort, BrowserTitle: settings.BrowserTitle, Theme: settings.Theme,
+		SteamOpenidEnabled: boolInt(settings.SteamOpenIDEnabled), SteamOpenidProxyUrl: settings.SteamOpenIDProxyURL, BrowserTitle: settings.BrowserTitle, Theme: settings.Theme,
 		A2sRefreshSeconds: settings.A2SRefreshSeconds, A2sJitterSeconds: settings.A2SJitterSeconds,
 		A2sRetryCount: settings.A2SRetryCount, UpdatedAt: now,
 	}); err != nil {
@@ -586,6 +602,40 @@ func (s *dashboardStore) DeleteServer(ctx context.Context, id string) error {
 	}
 	if rows == 0 {
 		return sql.ErrNoRows
+	}
+	return nil
+}
+
+func (s *dashboardStore) ListServerStatusSnapshots(ctx context.Context) ([]ServerStatus, error) {
+	rows, err := s.q.ListA2SStatusSnapshots(ctx)
+	if err != nil {
+		return nil, fmt.Errorf("list A2S status snapshots: %w", err)
+	}
+	statuses := make([]ServerStatus, 0, len(rows))
+	for _, value := range rows {
+		var status ServerStatus
+		if err := json.Unmarshal([]byte(value), &status); err != nil {
+			return nil, fmt.Errorf("decode A2S status snapshot: %w", err)
+		}
+		statuses = append(statuses, status)
+	}
+	return statuses, nil
+}
+
+func (s *dashboardStore) UpsertServerStatusSnapshot(ctx context.Context, status ServerStatus) error {
+	status.Checking = false
+	status.Stale = false
+	status.PlayerList = nil
+	status.Rules = nil
+	encoded, err := json.Marshal(status)
+	if err != nil {
+		return fmt.Errorf("encode A2S status snapshot: %w", err)
+	}
+	now := time.Now().Unix()
+	if err := s.q.UpsertA2SStatusSnapshot(ctx, dashsql.UpsertA2SStatusSnapshotParams{
+		ServerID: status.ServerID, StatusJson: string(encoded), CheckedAt: status.CheckedAt.Unix(), UpdatedAt: now,
+	}); err != nil {
+		return fmt.Errorf("upsert A2S status snapshot: %w", err)
 	}
 	return nil
 }

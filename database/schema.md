@@ -2,7 +2,7 @@
 
 状态：已确认；Versus v1 自 collector v0.6.6 起冻结
 
-本文定义SQLite、MySQL和PostgreSQL必须共同表达的数据模型。具体DDL由后续`database/migrations/<driver>/`实现。
+本文定义SQLite、MySQL和PostgreSQL必须共同表达的数据模型。具体DDL由`database/migrations/<driver>/`实现。Stats schema 当前为 4。
 
 ## 1. 总体规则
 
@@ -484,6 +484,20 @@ revision
 Boomer 使用能力命中人数；Spitter 使用酸液有效伤害。每项均拆分真人与 Bot 幸存者
 目标。其他职业对应字段必须为 0，Spitter 能力伤害不得大于该职业的总有效伤害。
 
+### 4.17 `lps_round_contexts`
+
+主键为 `round_id`，保存 `context_version=1` 的 Round 开始规则快照、只增不减的
+`change_mask`、Incident 捕获完整性计数和 revision。Context 永久保留；开始值不会因
+中途 CVar 变化被覆盖。字段与严格指纹规则见
+[`round-context-v1.md`](../contracts/round-context-v1.md)。
+
+### 4.18 `lps_incidents`
+
+复合主键为 `(round_id, incident_seq)`。每行保存 `incident_version=1` 的低频不可变语义
+事实、Unix 秒、Round 相对毫秒、参与者、职业、结束原因、关联 Spawn 序号及可空起止
+坐标。写入幂等，序号可因有界队列丢弃出现空洞。稳定 ID 和完整性规则见
+[`incidents-v1.md`](../contracts/incidents-v1.md)。
+
 ## 5. 逻辑关联和外键
 
 第一阶段只定义逻辑外键，不要求数据库建立物理`FOREIGN KEY`约束。
@@ -516,6 +530,11 @@ lps_player_segments(steam_id, started_at)
 lps_pve_segment_equipment_stats(equipment_id, segment_id)
 lps_versus_survivor_infected_class_stats(infected_class, segment_id)
 lps_versus_infected_class_stats(infected_class, segment_id)
+lps_round_contexts(last_saved_at, round_id)
+lps_incidents(occurred_at, round_id, incident_seq)
+lps_incidents(actor_steam_id, occurred_at)
+lps_incidents(target_steam_id, occurred_at)
+lps_rounds(server_key, started_at, map_name)
 ```
 
 不同数据库允许使用不同建索引语法，但索引语义必须一致。

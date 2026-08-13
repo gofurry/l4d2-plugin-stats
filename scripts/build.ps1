@@ -14,6 +14,7 @@ $distDirectory = Join-Path $projectRoot "dist"
 $outputFile = Join-Path $distDirectory "l4d2_player_stats.smx"
 $migrationValidator = Join-Path $PSScriptRoot "validate-migrations.ps1"
 $versusContractValidator = Join-Path $PSScriptRoot "validate_versus_contract.py"
+$analysisContractValidator = Join-Path $PSScriptRoot "validate_analysis_contract.py"
 
 foreach ($requiredPath in @($CompilerPath, $SourceModInclude, $sourceFile)) {
     if (-not (Test-Path -LiteralPath $requiredPath)) {
@@ -43,6 +44,10 @@ New-Item -ItemType Directory -Path $distDirectory -Force | Out-Null
 python $versusContractValidator
 if ($LASTEXITCODE -ne 0) {
     throw "Versus contract validation failed. Exit code: $LASTEXITCODE"
+}
+python $analysisContractValidator
+if ($LASTEXITCODE -ne 0) {
+    throw "Analysis contract validation failed. Exit code: $LASTEXITCODE"
 }
 
 Write-Host "Building L4D2 Player Stats..."

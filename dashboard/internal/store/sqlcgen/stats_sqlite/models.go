@@ -4,6 +4,32 @@
 
 package statssqlite
 
+type LpsIncident struct {
+	RoundID            string
+	IncidentSeq        int64
+	IncidentVersion    int64
+	IncidentType       int64
+	OccurredAt         int64
+	RoundOffsetMs      int64
+	DurationMs         int64
+	ActorKind          int64
+	ActorSteamID       string
+	TargetKind         int64
+	TargetSteamID      string
+	HelperKind         int64
+	HelperSteamID      string
+	InfectedClass      int64
+	EndReason          int64
+	DetailFlags        int64
+	RelatedIncidentSeq int64
+	PosX               interface{}
+	PosY               interface{}
+	PosZ               interface{}
+	EndPosX            interface{}
+	EndPosY            interface{}
+	EndPosZ            interface{}
+}
+
 type LpsPlayer struct {
 	SteamID     string
 	LastName    string
@@ -134,6 +160,27 @@ type LpsRound struct {
 	LastSavedAt int64
 	Status      string
 	Revision    int64
+}
+
+type LpsRoundContext struct {
+	RoundID                 string
+	ContextVersion          int64
+	CapturedAt              int64
+	LastSavedAt             int64
+	CollectorVersion        string
+	RulesetName             string
+	Difficulty              string
+	SurvivorLimit           int64
+	MaxPlayerZombies        int64
+	CommonLimit             int64
+	TankHealth              int64
+	WitchHealth             int64
+	ChangeMask              int64
+	IncidentCaptureEnabled  int64
+	IncidentCaptureComplete int64
+	IncidentExpectedCount   int64
+	IncidentDroppedCount    int64
+	Revision                int64
 }
 
 type LpsRun struct {

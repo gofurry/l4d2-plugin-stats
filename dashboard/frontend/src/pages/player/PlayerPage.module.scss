@@ -51,6 +51,15 @@
 .recordStatus :global(.ant-tag) { margin-inline-end: 0; }
 .historyGrid .dataSection { align-self: start; }
 .loading, .empty { margin-top: 16px; padding: 58px 20px; text-align: center; }
+.analysisStack { display: grid; grid-template-columns: repeat(2,minmax(0,1fr)); gap: 14px; margin-top: 18px; }
+.analysisHeader { display: flex; align-items: flex-start; justify-content: space-between; gap: 20px; }
+.analysisWindow { display: flex; justify-content: space-between; gap: 14px; margin: 12px 0 0; padding: 10px 12px; border-radius: 10px; color: var(--text-secondary); font-size: 12px; background: var(--surface-row); }
+.analysisWindow strong { color: var(--text-primary); }
+.analysisRows { display: grid; gap: 1px; overflow: hidden; border-radius: 12px; }
+.analysisRows > div { display: flex; justify-content: space-between; gap: 12px; padding: 11px 13px; background: var(--surface-row); }
+.analysisRows span { color: var(--text-secondary); }
+.analysisRows .multiControlRow { padding-block: 9px; }
+.multiControlRow strong { overflow-wrap: anywhere; }
 
 @media (max-width: 980px) {
   .content { width: calc(100% - 250px); margin-right: 76px; }
@@ -68,6 +77,9 @@
   .identityFilters { width: 100%; justify-content: flex-start; }
   .metricList { grid-template-columns: repeat(2, minmax(0, 1fr)); }
   .chartGrid, .sectionGrid, .historyGrid { grid-template-columns: 1fr; }
+  .analysisStack { grid-template-columns: 1fr; }
+  .analysisHeader { flex-direction: column; }
+  .analysisWindow { align-items: flex-start; flex-direction: column; gap: 4px; }
   .wide { grid-column: auto; }
   .chart { height: 260px; }
   .largeChart { height: 320px; }

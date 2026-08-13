@@ -91,7 +91,10 @@
 .statusDot_online { background: #70855a; box-shadow: 0 0 0 3px rgba(112, 133, 90, .13); }
 .statusDot_offline { background: #b86a5d; box-shadow: 0 0 0 3px rgba(184, 106, 93, .13); }
 .statusDot_stale { background: #c38a4e; box-shadow: 0 0 0 3px rgba(195, 138, 78, .13); }
+.statusDot_checking { background: #8a9298; box-shadow: 0 0 0 3px rgba(138, 146, 152, .13); animation: statusPulse 1.2s ease-in-out infinite; }
 .statusDot_unknown { background: #b7aaa1; box-shadow: 0 0 0 3px rgba(183, 170, 161, .13); }
+
+@keyframes statusPulse { 50% { opacity: .45; } }
 .serverAdminActions { display: flex; align-items: center; justify-content: flex-end; gap: 4px; }
 .iconAction { width: 34px; height: 34px; display: grid; padding: 0; place-items: center; border: 0; border-radius: 50%; color: #9a8577; cursor: pointer; background: transparent; transition: color .15s ease, background .15s ease; }
 .iconAction:hover { color: #b85f2e; background: rgba(213, 126, 68, .1); }
@@ -134,12 +137,17 @@
 .dataSection { margin-top: 28px; padding-top: 4px; }
 .dataSection + .dataSection, .dataSection + form, form + .dataSection { margin-top: 34px; }
 .dataStatusRows { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); overflow: hidden; margin: 12px 0 18px; border-radius: 12px; background: rgba(255, 250, 243, .3); }
+.threePairRows { grid-template-columns: repeat(6, minmax(0, 1fr)); }
 .dataStatusRows > * { padding: 12px 14px; }
 .dataStatusRows span { color: #9a8578; background: rgba(207, 188, 169, .16); }
 .dataStatusRows strong { color: #5a4337; font-family: "JetBrains Mono", Consolas, monospace; font-weight: 600; }
-.dataSettingsGrid { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 14px; }
+.dataSettingsGrid { display: grid; grid-template-columns: repeat(5, minmax(0, 1fr)); gap: 14px; }
 .dataSettingsGrid :global(.ant-input-number) { width: 100%; }
 .cleanupAudit { margin-left: 14px; }
+
+@media (max-width: 1100px) {
+  .threePairRows, .dataSettingsGrid { grid-template-columns: repeat(4, minmax(0, 1fr)); }
+}
 
 @media (max-width: 720px) {
   .content { width: min(100% - 22px, 1120px); padding: 28px 0 96px; }
@@ -154,7 +162,7 @@
   .playerMetrics :global(.ant-statistic:nth-child(2n)) { border-right: 0; }
   .footerLinkRow { grid-template-columns: 30px minmax(0, 1fr) auto; }
   .accountGrid { grid-template-columns: 1fr; }
-	.dataUsageGrid, .dataStatusRows, .dataSettingsGrid { grid-template-columns: 1fr; }
+	.dataUsageGrid, .dataStatusRows, .threePairRows, .dataSettingsGrid { grid-template-columns: 1fr; }
 	.dataUsageGrid > div { border-right: 0; border-bottom: 1px solid rgba(139, 105, 82, .14); }
   .querySettingsGrid { grid-template-columns: 1fr; gap: 0; }
   .serverAdminRow { grid-template-columns: 1fr; gap: 10px; padding: 12px 4px; }

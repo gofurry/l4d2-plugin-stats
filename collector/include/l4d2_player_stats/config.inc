@@ -15,6 +15,9 @@ ConVar g_LPSClosedSessionQueueLimit;
 ConVar g_LPSClosedLifecycleQueueLimit;
 ConVar g_LPSClosedEquipmentQueueLimit;
 ConVar g_LPSVersusStatsEnabled;
+ConVar g_LPSIncidentsEnabled;
+ConVar g_LPSIncidentQueueLimit;
+ConVar g_LPSRulesetName;
 
 void LPS_CreateConfig()
 {
@@ -134,6 +137,34 @@ void LPS_CreateConfig()
 		0.0,
 		true,
 		1.0
+	);
+
+	g_LPSIncidentsEnabled = CreateConVar(
+		"sm_lps_incidents_enabled",
+		"1",
+		"Collect low-frequency Incident Contract v1 analysis facts. Latched at Round start.",
+		FCVAR_NONE,
+		true,
+		0.0,
+		true,
+		1.0
+	);
+
+	g_LPSIncidentQueueLimit = CreateConVar(
+		"sm_lps_incident_queue_limit",
+		"2048",
+		"Maximum pending Incident rows retained in memory; overflow drops analysis only.",
+		FCVAR_NONE,
+		true,
+		256.0,
+		true,
+		16384.0
+	);
+
+	g_LPSRulesetName = CreateConVar(
+		"sm_lps_ruleset_name",
+		"",
+		"Optional operator label stored in Round Context v1 (maximum 64 characters)."
 	);
 }
 

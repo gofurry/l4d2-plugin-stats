@@ -8,6 +8,32 @@ import (
 	"database/sql"
 )
 
+type LpsIncident struct {
+	RoundID            string
+	IncidentSeq        int64
+	IncidentVersion    int32
+	IncidentType       int32
+	OccurredAt         int64
+	RoundOffsetMs      int64
+	DurationMs         int64
+	ActorKind          int32
+	ActorSteamID       string
+	TargetKind         int32
+	TargetSteamID      string
+	HelperKind         int32
+	HelperSteamID      string
+	InfectedClass      int32
+	EndReason          int32
+	DetailFlags        int64
+	RelatedIncidentSeq int64
+	PosX               sql.NullInt32
+	PosY               sql.NullInt32
+	PosZ               sql.NullInt32
+	EndPosX            sql.NullInt32
+	EndPosY            sql.NullInt32
+	EndPosZ            sql.NullInt32
+}
+
 type LpsPlayer struct {
 	SteamID     string
 	LastName    string
@@ -138,6 +164,27 @@ type LpsRound struct {
 	LastSavedAt int64
 	Status      string
 	Revision    int64
+}
+
+type LpsRoundContext struct {
+	RoundID                 string
+	ContextVersion          int32
+	CapturedAt              int64
+	LastSavedAt             int64
+	CollectorVersion        string
+	RulesetName             string
+	Difficulty              string
+	SurvivorLimit           int32
+	MaxPlayerZombies        int32
+	CommonLimit             int32
+	TankHealth              int32
+	WitchHealth             int32
+	ChangeMask              int64
+	IncidentCaptureEnabled  int32
+	IncidentCaptureComplete int32
+	IncidentExpectedCount   int64
+	IncidentDroppedCount    int64
+	Revision                int64
 }
 
 type LpsRun struct {

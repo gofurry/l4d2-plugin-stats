@@ -105,6 +105,16 @@ left4dead2/cfg/sourcemod/l4d2_player_stats.cfg
 sm_lps_server_key "community-coop-01"
 ```
 
+v1.3 默认启用低频 Incident 分析，并允许为规则环境填写可选标签：
+
+```text
+sm_lps_incidents_enabled "1"
+sm_lps_incident_queue_limit "2048"
+sm_lps_ruleset_name "vanilla-coop"
+```
+
+`sm_lps_incidents_enabled` 在 Round 开始时锁存，中途修改只影响下一 Round；分析队列溢出只会把该 Round 标记为分析不完整，不会阻断核心累计统计。`sm_lps_ruleset_name` 最多 64 个字符，留空也会采集其余可用规则参数。
+
 规则：
 
 - 长度为 1–64 个字符；
@@ -125,9 +135,9 @@ sm_lps_flush
 正常结果应包含：
 
 ```text
-version=1.2.0
+version=1.3.0
 state=ready
-schema=3/3
+schema=4/4
 ```
 
 进入受支持模式游玩一段时间，再执行 `sm_lps_flush`。确认数据库中出现 `lps_players`、`lps_sessions` 和相关统计表记录。
@@ -302,9 +312,10 @@ journalctl -u l4d2-stats -n 100 --no-pager
 ### 采集器
 
 - `sm plugins list` 显示 `L4D2 Player Stats`；
-- `sm_lps_status` 显示 `version=1.2.0`、`state=ready` 和 `schema=3/3`；
+- `sm_lps_status` 显示 `version=1.3.0`、`state=ready` 和 `schema=4/4`；
 - `sm_lps_server_key` 不再是默认占位值，并在共享 DB 中唯一；
 - 真人进入受支持模式后，`sm_lps_flush` 能写入数据；
+- 完成一个真人参与的 Round 后，`lps_round_contexts` 出现一行规则快照；启用 Incident 时，状态中的分析队列与 expected/dropped 计数合理；
 - SourceMod `logs/errors_*.log` 没有持续数据库错误。
 
 ### Dashboard

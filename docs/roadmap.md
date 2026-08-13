@@ -2,9 +2,9 @@
 
 ## Current Position
 
-当前稳定版本为 `v1.2.0`。SourceMod 采集器使用 Stats schema 3 / `stats_version = 1`，支持 SQLite、MySQL 和 PostgreSQL；Dashboard 使用 schema 10 和 Aggregate Contract v1。详细版本变化统一记录在 [`CHANGELOG.md`](../CHANGELOG.md)。
+当前版本为 `v1.3.0`。SourceMod 采集器使用 Stats schema 4 / `stats_version = 1`，支持 SQLite、MySQL 和 PostgreSQL；Dashboard 使用 schema 13，Aggregate Contract 仍为 v1。详细版本变化统一记录在 [`CHANGELOG.md`](../CHANGELOG.md)。
 
-系统已经具备身份与生命周期、PvE/装备、Versus 双阵营/职业和比赛结果采集，以及公开首页、个人中心、排行榜、Steam OpenID、单管理员后台、多服务器 A2S、日/月/终身聚合、安全保留、深度数据检查、备份恢复和脱敏诊断导出。
+系统已经具备身份与生命周期、PvE/装备、Versus 双阵营/职业和比赛结果采集，以及 Round Context、低频 Incident、地图/Boss/玩家分析、并肩作战预览、公开首页、个人中心、排行榜、Steam OpenID、单管理员后台、多服务器 A2S、日/月/终身聚合、安全保留、深度数据检查、备份恢复和脱敏诊断导出。
 
 ## Compatibility Principles
 
@@ -19,6 +19,7 @@
 
 - 在首次推送后运行 SQLite、MySQL 8.4 和 PostgreSQL 17 数据库契约矩阵，并处理真实方言差异。
 - 使用中型和大型真实服务器数据评估个人页、排行榜、聚合与 deep doctor 的 P50/P95/P99。
+- 测量 2048 Incident 队列恢复、256 条批量 SQL 构造、SQLite 写锁时长和真实 Incident 行增长。
 - 验证长时间运行时的断线恢复、Dashboard DB 锁等待、并发聚合读取和原始数据分批清理。
 - 完成桌面与移动端真实数据视觉回归、空数据和局部故障状态检查。
 - 持续审计公开 API、日志、备份和诊断包的隐私边界。
@@ -34,5 +35,6 @@
 
 - 玩家账号密码体系、多管理员和细粒度 RBAC。
 - 微服务、队列、分布式缓存或多实例聚合锁。
-- 逐事件流水、比赛回放、逐时刻推进曲线和当前契约无法可靠表达的个人胜率。
+- 高频事件流水、比赛回放、轨迹/逐时刻推进曲线、伪坐标热力图和当前契约无法可靠表达的个人胜率。
+- Aggregate Contract v2、Context 维度排行榜、综合技能分和完整社交关系图。
 - 未经独立契约设计和迁移方案的新玩法统计或 Aggregate Contract v2。
