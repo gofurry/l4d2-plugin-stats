@@ -60,7 +60,12 @@
 .previewMetrics strong { margin-top: 3px; color: #543b30; font-size: 17px; }
 .previewSection { margin-top: 18px; }
 .previewSection h4 { margin: 0 0 8px; color: #65493a; font-size: 13px; }
+.previewSection h4 small { color: #8a756a; font-weight: 400; }
 .previewEmpty { display: block; padding: 14px; border-radius: 12px; color: #8a756a; font-size: 12px; background: rgba(255, 250, 243, .42); }
+.previewCompanions { display: grid; gap: 1px; overflow: hidden; border-radius: 12px; background: rgba(105, 78, 62, .12); }
+.previewCompanions > div { display: flex; align-items: center; justify-content: space-between; gap: 12px; padding: 10px 14px; background: rgba(255, 250, 243, .58); }
+.previewCompanions strong { overflow: hidden; color: #543b30; text-overflow: ellipsis; white-space: nowrap; }
+.previewCompanions span { color: #796256; font-size: 12px; white-space: nowrap; }
 .previewActions { display: flex; justify-content: flex-end; gap: 10px; margin-top: 22px; }
 
 @media (max-width: 1020px) {
@@ -95,9 +100,11 @@
   .playerEntry:nth-child(odd) { background: var(--surface-row-alt); }
   .playerEntry:hover { background: var(--surface-hover); }
 	.playerPreviewModal :global(.ant-modal-content) { border-color: var(--border-soft); background: rgba(24, 27, 29, .94); box-shadow: 0 24px 70px rgba(0, 0, 0, .48); }
-	.previewHeader strong, .previewMetrics strong, .previewSection h4 { color: var(--text-primary); }
-	.previewHeader code, .previewHeader > span, .previewMetrics span, .previewEmpty { color: var(--text-secondary); }
+	.previewHeader strong, .previewMetrics strong, .previewSection h4, .previewCompanions strong { color: var(--text-primary); }
+	.previewHeader code, .previewHeader > span, .previewMetrics span, .previewEmpty, .previewSection h4 small, .previewCompanions span { color: var(--text-secondary); }
 	.previewMetrics { background: rgba(255, 255, 255, .1); }
 	.previewMetrics > div, .previewEmpty { background: rgba(255, 255, 255, .055); }
+	.previewCompanions { background: rgba(255, 255, 255, .1); }
+	.previewCompanions > div { background: rgba(255, 255, 255, .055); }
   .metricValue > strong { color: #f09a62; }
 }

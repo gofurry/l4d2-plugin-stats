@@ -1,6 +1,7 @@
 import {
   DashboardOutlined,
   DatabaseOutlined,
+  AreaChartOutlined,
   GithubOutlined,
   HomeOutlined,
   LogoutOutlined,
@@ -51,6 +52,7 @@ export function FloatingNav({ mode = 'public', loggingOut = false, onLogout, mon
           { path: '/', label: t('home'), icon: <HomeOutlined /> },
           { path: '/player', label: t('playerCenter'), icon: <TeamOutlined /> },
           { path: '/rankings', label: t('rankings'), icon: <TrophyOutlined /> },
+          { path: '/analysis', label: t('analysis'), icon: <AreaChartOutlined /> },
           { path: '/announcements', label: t('announcements'), icon: <NotificationOutlined /> },
           { path: '/admin', label: t('admin'), icon: <SettingOutlined /> },
           { path: 'https://github.com/gofurry/l4d2-plugin-stats', label: 'GitHub', icon: <GithubOutlined />, external: true },

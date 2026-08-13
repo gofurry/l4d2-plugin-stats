@@ -8,6 +8,7 @@ import { HomePage } from './pages/HomePage'
 import { PageScrollOrb } from './components/PageScrollOrb'
 
 const PlayerPage=lazy(()=>import('./pages/player/PlayerPage').then(module=>({default:module.PlayerPage})))
+const AnalysisPage=lazy(()=>import('./pages/AnalysisPage').then(module=>({default:module.AnalysisPage})))
 const RankingsPage=lazy(()=>import('./pages/RankingsPage').then(module=>({default:module.RankingsPage})))
 const AnnouncementsPage=lazy(()=>import('./pages/AnnouncementsPage').then(module=>({default:module.AnnouncementsPage})))
 const AdminSetupPage=lazy(()=>import('./pages/AdminSetupPage').then(module=>({default:module.AdminSetupPage})))
@@ -45,6 +46,7 @@ function AppRoutes() {
   return <><SiteAppearanceSync/><div className="app-scroll" ref={scrollerRef}><Suspense fallback={<div style={{display:'grid',placeItems:'center',minHeight:'60vh'}}><Spin size="large"/></div>}><Routes>
     <Route path="/" element={<HomePage />} />
     <Route path="/player" element={<PlayerPage />} />
+    <Route path="/analysis" element={<AnalysisPage />} />
     <Route path="/rankings" element={<RankingsPage />} />
     <Route path="/announcements" element={<AnnouncementsPage />} />
     <Route path="/admin/setup" element={<AdminSetupPage />} />

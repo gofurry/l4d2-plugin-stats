@@ -47,6 +47,10 @@ export function PlayerPreviewModal({ open, steamID, playerName, contextLabel, on
         </div> : <span className={styles.previewEmpty}>{t('noData')}</span>}
       </div>
       <div className={styles.previewSection}>
+        <h4>{t('companions')} <small>· {t('allServersLifetime')}</small></h4>
+        {data.companions?.length ? <div className={styles.previewCompanions}>{data.companions.map((item, index) => <div key={`${item.player_name}-${index}`}><strong>{item.player_name}</strong><span>{formatDuration(item.shared_seconds)} · {integer.format(item.shared_rounds)} {t('rounds')}</span></div>)}</div> : <span className={styles.previewEmpty}>{t('noCompanions')}</span>}
+      </div>
+      <div className={styles.previewSection}>
         <h4>{t('versusSummary')}</h4>
         {data.versus.available ? <div className={styles.previewMetrics}>
           <PreviewMetric label={t('humanSIKills')} value={integer.format(data.versus.human_si_kills)} />

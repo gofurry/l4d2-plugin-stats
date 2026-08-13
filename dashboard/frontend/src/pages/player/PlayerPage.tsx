@@ -8,6 +8,7 @@ import { FloatingNav } from '../../components/FloatingNav'
 import { FloatingToolbar } from '../../components/FloatingToolbar'
 import { PlayerActivity } from './PlayerActivity'
 import { PlayerHistory } from './PlayerHistory'
+import { PlayerAnalysis } from './PlayerAnalysis'
 import { PlayerPVE } from './PlayerPVE'
 import { MetricList } from './PlayerShared'
 import { PlayerVersus } from './PlayerVersus'
@@ -39,12 +40,14 @@ export function PlayerPage() {
   const [server, setServer] = useState('')
   const [gameMode, setGameMode] = useState('')
   const [queryOpen, setQueryOpen] = useState(false)
+  const [analysisView, setAnalysisView] = useState('pve')
   useEffect(() => { void api.steamIdentity().then(identity => { if (identity?.steam_id) { localStorage.setItem(playerStorageKey, identity.steam_id); setSteamID(identity.steam_id); setInput(identity.steam_id) } }).catch(() => undefined) }, [])
   const enabled = validSteamID(steamID)
   const summary = useQuery({ queryKey: ['player-summary', steamID], queryFn: () => api.playerSummary(steamID), enabled })
   const activity = useQuery({ queryKey: ['player-activity', steamID, range, server], queryFn: () => api.playerActivity(steamID, range, server), enabled })
   const pve = useQuery({ queryKey: ['player-pve', steamID, range, server, gameMode], queryFn: () => api.playerPVE(steamID, range, server, gameMode), enabled })
   const versus = useQuery({ queryKey: ['player-versus', steamID, range, server], queryFn: () => api.playerVersus(steamID, range, server), enabled })
+  const analysis = useQuery({ queryKey: ['player-analysis', steamID, range, server, analysisView], queryFn: () => api.playerAnalysis(steamID, range === '365d' ? 'all' : range, server, analysisView), enabled })
   const sessionPage = useInfiniteQuery({ queryKey: ['player-sessions', steamID], queryFn: ({ pageParam }) => api.playerSessions(steamID, pageParam), initialPageParam: '', getNextPageParam: last => last.next_cursor, enabled })
   const chapterPage = useInfiniteQuery({ queryKey: ['player-chapters', steamID], queryFn: ({ pageParam }) => api.playerChapters(steamID, pageParam), initialPageParam: '', getNextPageParam: last => last.next_cursor, enabled })
   const sessions = sessionPage.data?.pages.flatMap(page => page.items) ?? []
@@ -71,6 +74,7 @@ export function PlayerPage() {
       </section>
       <Tabs className={styles.tabs} items={[
         { key: 'overview', label: zh ? '概览' : 'Overview', children: <PlayerActivity data={activity.data} loading={activity.isLoading} copy={copy} /> },
+        { key: 'analysis', label: zh ? '分析' : 'Analysis', children: <PlayerAnalysis data={analysis.data} loading={analysis.isLoading} view={analysisView} onView={setAnalysisView} zh={zh} /> },
         { key: 'pve', label: copy.pveTab, children: <PlayerPVE data={pve.data} loading={pve.isLoading} copy={copy} zh={zh} /> },
         { key: 'pve-details', label: zh ? 'PvE 明细' : 'PvE details', children: <PlayerPVE data={pve.data} loading={pve.isLoading} copy={copy} zh={zh} details /> },
         { key: 'versus-survivor', label: copy.versusSurvivor, children: <PlayerVersus data={versus.data} loading={versus.isLoading} view="survivor" copy={copy} zh={zh} /> },
