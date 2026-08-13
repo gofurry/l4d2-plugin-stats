@@ -319,6 +319,12 @@ type PlayerPreviewVersus struct {
 	SurvivorIncapacitations int64 `json:"survivor_incapacitations"`
 }
 
+type PlayerCompanion struct {
+	PlayerName    string `json:"player_name"`
+	SharedSeconds int64  `json:"shared_seconds"`
+	SharedRounds  int64  `json:"shared_rounds"`
+}
+
 type PlayerPreview struct {
 	SteamID           string              `json:"steam_id"`
 	PlayerName        string              `json:"player_name"`
@@ -327,6 +333,150 @@ type PlayerPreview struct {
 	LastSeenAt        int64               `json:"last_seen_at"`
 	PVE               PlayerPreviewPVE    `json:"pve"`
 	Versus            PlayerPreviewVersus `json:"versus"`
+	Companions        []PlayerCompanion   `json:"companions"`
+}
+
+type AnalysisFilter struct {
+	Cutoff      int64
+	ServerKey   string
+	Mode        string
+	CampaignKey string
+}
+
+type AnalysisMapRow struct {
+	MapName                 string   `json:"map_name"`
+	EligibleRounds          int64    `json:"eligible_rounds"`
+	CompletedRounds         int64    `json:"completed_rounds"`
+	FailedRounds            int64    `json:"failed_rounds"`
+	AverageCompletedAttempt *float64 `json:"average_completed_attempt,omitempty"`
+	AverageDurationSeconds  *float64 `json:"average_duration_seconds,omitempty"`
+	CompleteIncidentRounds  int64    `json:"complete_incident_rounds"`
+	Controls                int64    `json:"controls"`
+	Incaps                  int64    `json:"incaps"`
+	Deaths                  int64    `json:"deaths"`
+}
+
+type AnalysisMaps struct {
+	IncidentVersion          int64            `json:"incident_version"`
+	EligibleRounds           int64            `json:"eligible_rounds"`
+	CompletionRate           *float64         `json:"completion_rate,omitempty"`
+	AverageCompletedAttempt  *float64         `json:"average_completed_attempt,omitempty"`
+	CompleteIncidentCoverage float64          `json:"complete_incident_coverage"`
+	EarliestIncidentAt       int64            `json:"earliest_incident_at"`
+	LatestIncidentAt         int64            `json:"latest_incident_at"`
+	Maps                     []AnalysisMapRow `json:"maps"`
+}
+
+type IncidentComposition struct {
+	Controls     int64 `json:"controls"`
+	Incaps       int64 `json:"incaps"`
+	Deaths       int64 `json:"deaths"`
+	Revives      int64 `json:"revives"`
+	LedgeRescues int64 `json:"ledge_rescues"`
+	DefibRevives int64 `json:"defib_revives"`
+	CarAlarms    int64 `json:"car_alarms"`
+}
+
+type AnalysisTimelinePoint struct {
+	BucketSeconds int64   `json:"bucket_seconds"`
+	RoundsReached int64   `json:"rounds_reached"`
+	Controls      float64 `json:"controls_per_100_rounds"`
+	Incaps        float64 `json:"incaps_per_100_rounds"`
+	Deaths        float64 `json:"deaths_per_100_rounds"`
+}
+
+type BossAnalysis struct {
+	SpawnCount      int64    `json:"spawn_count"`
+	DeathCount      int64    `json:"death_count"`
+	MatchedPairs    int64    `json:"matched_pairs"`
+	AverageLifetime *float64 `json:"average_lifetime_seconds,omitempty"`
+	MaximumLifetime *float64 `json:"maximum_lifetime_seconds,omitempty"`
+	OneShotDeaths   int64    `json:"one_shot_deaths,omitempty"`
+}
+
+type AnalysisMapDetail struct {
+	Summary     AnalysisMapRow          `json:"summary"`
+	Composition IncidentComposition     `json:"incident_composition"`
+	Timeline    []AnalysisTimelinePoint `json:"timeline"`
+	Tank        BossAnalysis            `json:"tank"`
+	Witch       BossAnalysis            `json:"witch"`
+}
+
+type AnalysisContextRow struct {
+	Fingerprint            string   `json:"fingerprint"`
+	RulesetName            string   `json:"ruleset_name"`
+	Difficulty             string   `json:"difficulty"`
+	SurvivorLimit          int64    `json:"survivor_limit"`
+	MaxPlayerZombies       int64    `json:"max_player_zombies"`
+	CommonLimit            int64    `json:"common_limit"`
+	TankHealth             int64    `json:"tank_health"`
+	WitchHealth            int64    `json:"witch_health"`
+	RoundCount             int64    `json:"round_count"`
+	CompletedRounds        int64    `json:"completed_rounds"`
+	FailedRounds           int64    `json:"failed_rounds"`
+	AverageDurationSeconds *float64 `json:"average_duration_seconds,omitempty"`
+	CompleteIncidentRounds int64    `json:"complete_incident_rounds"`
+}
+
+type AnalysisContexts struct {
+	EligibleRounds      int64                `json:"eligible_rounds"`
+	StableContextRounds int64                `json:"stable_context_rounds"`
+	ChangedRuleRounds   int64                `json:"changed_rule_rounds"`
+	NoContextRounds     int64                `json:"no_context_rounds"`
+	Contexts            []AnalysisContextRow `json:"contexts"`
+}
+
+type PlayerAnalysisTotals struct {
+	ActiveSeconds       int64
+	SpecialKills        int64
+	Rescues             int64
+	Incaps              int64
+	Deaths              int64
+	FriendlyFire        int64
+	TankEncounters      int64
+	TankParticipations  int64
+	WitchEncounters     int64
+	WitchParticipations int64
+	Damage              int64
+	Spawns              int64
+	Controls            int64
+	Kills               int64
+	ControlSeconds      int64
+}
+
+type PlayerIncidentClass struct {
+	InfectedClass          int64   `json:"infected_class"`
+	Controls               int64   `json:"controls"`
+	AverageDurationSeconds float64 `json:"average_duration_seconds"`
+}
+
+type PlayerRescuer struct {
+	PlayerName string `json:"player_name"`
+	Rescues    int64  `json:"rescues"`
+}
+
+type PlayerIncidentAnalysis struct {
+	EarliestIncidentAt    int64                 `json:"earliest_incident_at"`
+	LatestIncidentAt      int64                 `json:"latest_incident_at"`
+	ControlsReceived      int64                 `json:"controls_received"`
+	AverageControlSeconds *float64              `json:"average_control_seconds,omitempty"`
+	Incaps                int64                 `json:"incaps"`
+	Deaths                int64                 `json:"deaths"`
+	TeammatesRescued      int64                 `json:"teammates_rescued"`
+	RescuedByTeammates    int64                 `json:"rescued_by_teammates"`
+	ControlClasses        []PlayerIncidentClass `json:"control_classes"`
+	TopRescuers           []PlayerRescuer       `json:"top_rescuers"`
+	TwoCapEpisodes        int64                 `json:"two_cap_episodes"`
+	ThreeCapEpisodes      int64                 `json:"three_cap_episodes"`
+	FourCapEpisodes       int64                 `json:"four_cap_episodes"`
+}
+
+type PlayerAnalysis struct {
+	View          string                 `json:"view"`
+	ActiveSeconds int64                  `json:"active_play_seconds"`
+	Metrics       map[string]*float64    `json:"metrics"`
+	Samples       map[string]int64       `json:"samples"`
+	Incidents     PlayerIncidentAnalysis `json:"recent_incidents"`
 }
 
 type RankingPage struct {
@@ -636,6 +786,15 @@ type StatsPresenceStore interface {
 
 type StatsIncidentRankingStore interface {
 	CarAlarmRanking(context.Context, RankingQuery) ([]RankingEntry, error)
+}
+
+type StatsAnalysisStore interface {
+	PlayerCompanions(context.Context, string) ([]PlayerCompanion, error)
+	AnalysisMaps(context.Context, AnalysisFilter) (AnalysisMaps, error)
+	AnalysisMapDetail(context.Context, AnalysisFilter, string) (AnalysisMapDetail, error)
+	AnalysisContexts(context.Context, AnalysisFilter) (AnalysisContexts, error)
+	PlayerAnalysisTotals(context.Context, string, PlayerFilter, string) (PlayerAnalysisTotals, error)
+	PlayerIncidentAnalysis(context.Context, string, PlayerFilter) (PlayerIncidentAnalysis, error)
 }
 
 type StatsDatabase interface {

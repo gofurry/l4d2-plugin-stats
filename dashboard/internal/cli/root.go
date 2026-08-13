@@ -144,6 +144,10 @@ func serveCommand(options *rootOptions) *cobra.Command {
 		}
 		overview := service.NewOverviewService(stats, 60*time.Second, dashboard)
 		players := service.NewPlayerService(stats, dashboard)
+		var analysis *service.AnalysisService
+		if analysisStore, ok := stats.(store.StatsAnalysisStore); ok {
+			analysis = service.NewAnalysisService(analysisStore)
+		}
 		aggregates := service.NewAggregateService(dashboard, stats, logger)
 		dataMaintenance := service.NewDataMaintenanceService(dashboard, stats, aggregates, cfg.StatsDatabase, cfg.Logging.File, logger)
 		rankings := service.NewRankingService(dashboard, stats)
@@ -152,7 +156,7 @@ func serveCommand(options *rootOptions) *cobra.Command {
 		aggregates.Start(runCtx)
 		a2sClient := a2s.SteamClient{}
 		status := a2s.NewProvider(dashboard, a2sClient, stats)
-		app := server.New(cfg, server.Dependencies{Dashboard: dashboard, Stats: stats, Overview: overview, Status: status, Players: players, Rankings: rankings, Data: dataMaintenance, Auth: authService, Logger: logger, Assets: assets})
+		app := server.New(cfg, server.Dependencies{Dashboard: dashboard, Stats: stats, Overview: overview, Status: status, Players: players, Analysis: analysis, Rankings: rankings, Data: dataMaintenance, Auth: authService, Logger: logger, Assets: assets})
 		logger.Info("dashboard starting", zap.String("listen", cfg.Server.Listen), zap.String("config", cfg.Path))
 		errCh := make(chan error, 1)
 		go func() { errCh <- app.Listen(cfg.Server.Listen, fiber.ListenConfig{DisableStartupMessage: true}) }()

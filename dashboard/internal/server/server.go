@@ -25,6 +25,7 @@ type Dependencies struct {
 	Overview  *service.OverviewService
 	Status    store.ServerStatusProvider
 	Players   *service.PlayerService
+	Analysis  *service.AnalysisService
 	Rankings  *service.RankingService
 	Data      *service.DataMaintenanceService
 	Auth      *auth.Service
@@ -116,7 +117,8 @@ func New(cfg *config.Config, deps Dependencies) *fiber.App {
 		}
 		return sendData(c, fiber.StatusOK, statuses)
 	})
-	registerPlayerRoutes(api, deps.Players)
+	registerPlayerRoutes(api, deps.Players, deps.Analysis)
+	registerAnalysisRoutes(api, deps.Analysis)
 	registerRankingRoutes(api, deps.Rankings)
 	registerAnnouncementRoutes(api, deps.Dashboard)
 	registerSiteDocumentRoutes(api, deps.Dashboard)

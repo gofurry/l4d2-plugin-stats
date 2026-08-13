@@ -37,6 +37,7 @@ int g_LPSIncidentQueuePeak;
 int g_LPSIncidentDroppedTotal;
 bool g_LPSIncidentOverflowReported;
 int g_LPSBossSpawnIncidentSequence[LPS_MAX_ENTITY_INDEX + 1];
+int g_LPSBossSpawnIncidentOffsetMs[LPS_MAX_ENTITY_INDEX + 1];
 bool g_LPSControlIncidentActive[MAXPLAYERS + 1];
 char g_LPSControlIncidentRoundId[MAXPLAYERS + 1][LPS_MAX_ROUND_ID];
 float g_LPSControlIncidentStartedGameTime[MAXPLAYERS + 1];
@@ -61,6 +62,7 @@ void LPS_InitializeIncidents()
 	for (int entity = 1; entity <= LPS_MAX_ENTITY_INDEX; entity++)
 	{
 		g_LPSBossSpawnIncidentSequence[entity] = 0;
+		g_LPSBossSpawnIncidentOffsetMs[entity] = 0;
 	}
 	for (int client = 1; client <= MaxClients; client++)
 	{
@@ -81,6 +83,7 @@ void LPS_OnIncidentRoundStarted()
 	for (int entity = 1; entity <= LPS_MAX_ENTITY_INDEX; entity++)
 	{
 		g_LPSBossSpawnIncidentSequence[entity] = 0;
+		g_LPSBossSpawnIncidentOffsetMs[entity] = 0;
 	}
 	for (int client = 1; client <= MaxClients; client++)
 	{
@@ -427,6 +430,7 @@ void LPS_RecordBossSpawnIncident(int entity, bool tank)
 	if (LPS_QueueIncident(incident))
 	{
 		g_LPSBossSpawnIncidentSequence[entity] = incident.sequence;
+		g_LPSBossSpawnIncidentOffsetMs[entity] = incident.roundOffsetMs;
 	}
 }
 
@@ -451,9 +455,14 @@ void LPS_RecordBossDeathIncident(int entity, int attacker, bool tank, bool oneSh
 		incident.detailFlags = oneShot ? 1 : 0;
 	}
 	incident.relatedSequence = g_LPSBossSpawnIncidentSequence[entity];
+	if (incident.relatedSequence > 0 && incident.roundOffsetMs >= g_LPSBossSpawnIncidentOffsetMs[entity])
+	{
+		incident.durationMs = incident.roundOffsetMs - g_LPSBossSpawnIncidentOffsetMs[entity];
+	}
 	LPS_CaptureIncidentPosition(entity, incident, false);
 	LPS_QueueIncident(incident);
 	g_LPSBossSpawnIncidentSequence[entity] = 0;
+	g_LPSBossSpawnIncidentOffsetMs[entity] = 0;
 }
 
 void LPS_OnIncidentEntityDestroyed(int entity)
@@ -461,6 +470,7 @@ void LPS_OnIncidentEntityDestroyed(int entity)
 	if (entity >= 1 && entity <= LPS_MAX_ENTITY_INDEX)
 	{
 		g_LPSBossSpawnIncidentSequence[entity] = 0;
+		g_LPSBossSpawnIncidentOffsetMs[entity] = 0;
 	}
 }
 
