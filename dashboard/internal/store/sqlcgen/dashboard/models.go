@@ -11,6 +11,38 @@ type A2sStatusSnapshot struct {
 	UpdatedAt  int64  `json:"updated_at"`
 }
 
+type AchievementEngineState struct {
+	SingletonID                int64  `json:"singleton_id"`
+	AchievementContractVersion int64  `json:"achievement_contract_version"`
+	GlobalSourceWatermark      int64  `json:"global_source_watermark"`
+	DirtyCursorWatermark       int64  `json:"dirty_cursor_watermark"`
+	DirtyCursorSteamID         string `json:"dirty_cursor_steam_id"`
+	BackfillCursor             string `json:"backfill_cursor"`
+	BackfillComplete           int64  `json:"backfill_complete"`
+	LastRunAt                  int64  `json:"last_run_at"`
+	LastSuccessAt              int64  `json:"last_success_at"`
+	LastError                  string `json:"last_error"`
+	UpdatedAt                  int64  `json:"updated_at"`
+}
+
+type AchievementEvaluationState struct {
+	SteamID                    string `json:"steam_id"`
+	AchievementContractVersion int64  `json:"achievement_contract_version"`
+	SourceWatermark            int64  `json:"source_watermark"`
+	EvaluatedAt                int64  `json:"evaluated_at"`
+}
+
+type AchievementUnlock struct {
+	SteamID                    string `json:"steam_id"`
+	AchievementKey             string `json:"achievement_key"`
+	AchievementContractVersion int64  `json:"achievement_contract_version"`
+	UnlockedAt                 int64  `json:"unlocked_at"`
+	GrantKind                  string `json:"grant_kind"`
+	ValueAtUnlock              int64  `json:"value_at_unlock"`
+	EvidenceSteamID            string `json:"evidence_steam_id"`
+	SeenAt                     int64  `json:"seen_at"`
+}
+
 type AdminAccount struct {
 	ID                int64  `json:"id"`
 	Username          string `json:"username"`
@@ -117,6 +149,13 @@ type IncidentRetentionRun struct {
 	IncidentVersion int64  `json:"incident_version"`
 	Cutoff          int64  `json:"cutoff"`
 	IncidentRows    int64  `json:"incident_rows"`
+}
+
+type PlayerBadgeShowcase struct {
+	SteamID        string `json:"steam_id"`
+	Slot           int64  `json:"slot"`
+	AchievementKey string `json:"achievement_key"`
+	UpdatedAt      int64  `json:"updated_at"`
 }
 
 type RetentionRun struct {
