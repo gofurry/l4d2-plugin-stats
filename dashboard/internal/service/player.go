@@ -100,8 +100,8 @@ func (s *PlayerService) Preview(ctx context.Context, steamID string) (*store.Pla
 			SteamID: summary.SteamID, PlayerName: summary.LastName, SessionCount: summary.SessionCount,
 			ActivePlaySeconds: summary.ActiveSeconds, LastSeenAt: summary.LastSeenAt,
 			PVE: store.PlayerPreviewPVE{
-				Available:    pve.CommonKills+pve.SpecialKills+pveBossKills+headshotKills+pveRescues+pve.CampaignCompletions > 0,
-				CommonKills:  pve.CommonKills, SpecialKills: pve.SpecialKills, BossKills: pveBossKills, HeadshotKills: headshotKills,
+				Available:   pve.CommonKills+pve.SpecialKills+pveBossKills+headshotKills+pveRescues+pve.CampaignCompletions > 0,
+				CommonKills: pve.CommonKills, SpecialKills: pve.SpecialKills, BossKills: pveBossKills, HeadshotKills: headshotKills,
 				Rescues: pveRescues, CampaignCompletions: pve.CampaignCompletions,
 			},
 			Versus: store.PlayerPreviewVersus{
