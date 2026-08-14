@@ -1,0 +1,13 @@
+.badge { position: relative; flex: 0 0 auto; display: inline-grid; place-items: center; overflow: hidden; border-radius: 22%; background: rgba(24, 26, 28, .82); box-shadow: 0 0 0 2px rgba(137, 111, 91, .42), 0 5px 16px rgba(28, 21, 17, .22); }
+.sprite { width: 100%; height: 100%; display: block; background-repeat: no-repeat; }
+.tier1 { box-shadow: 0 0 0 2px #a86d45, 0 5px 16px rgba(90, 52, 29, .3); }
+.tier2 { box-shadow: 0 0 0 2px #b8c1c8, 0 5px 16px rgba(88, 102, 111, .28); }
+.tier3 { box-shadow: 0 0 0 2px #e2b74e, 0 5px 18px rgba(160, 113, 26, .34); }
+.tier4 { box-shadow: 0 0 0 2px #8b9ff3, 0 0 14px rgba(126, 104, 239, .45), 0 5px 20px rgba(65, 54, 132, .34); }
+.locked .sprite { filter: grayscale(1) brightness(.52); opacity: .66; }
+.mystery { color: rgba(242, 230, 210, .86); border: 1px dashed rgba(242, 230, 210, .48); background: linear-gradient(145deg, #303438, #171a1d); font-weight: 750; }
+
+@media (prefers-reduced-motion: no-preference) {
+  .tier4 { animation: diamondGlow 3.2s ease-in-out infinite; }
+}
+@keyframes diamondGlow { 50% { box-shadow: 0 0 0 2px #a4b2ff, 0 0 20px rgba(145, 115, 255, .62), 0 5px 22px rgba(65, 54, 132, .42); } }

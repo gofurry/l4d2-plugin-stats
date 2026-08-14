@@ -8,6 +8,10 @@
 .identityPanel { margin-top: 16px; padding: 25px 30px 5px; }
 .identity { display: flex; align-items: center; justify-content: space-between; gap: 20px; }
 .identity > div:first-child { min-width: 0; display: flex; align-items: center; gap: 10px; }
+.identity .identityPrimary { min-width: 0; display: grid; align-items: initial; gap: 6px; }
+.identityNameLine, .identityMeta { min-width: 0; display: flex; align-items: center; gap: 8px; }
+.identityMeta button { padding: 0; color: var(--accent-strong); border: 0; background: transparent; font: inherit; font-size: 12px; cursor: pointer; }
+.identityMeta button:hover { text-decoration: underline; }
 .identity > div:first-child :global(.ant-tag) { display: inline-flex; min-height: 24px; margin: 0; align-items: center; color: #624a3d; border-color: rgba(105, 74, 58, .22); background: rgba(255, 250, 242, .56); }
 .identityFilters { display: flex; align-items: center; justify-content: flex-end; gap: 8px; flex-wrap: wrap; }
 .identityFilters :global(.ant-select) { min-width: 132px; }
@@ -70,6 +74,37 @@
 .relationshipDrawer dt { color: var(--text-secondary); }
 .relationshipDrawer dd { margin: 0; color: var(--text-primary); font-weight: 600; }
 .relationshipProfileLink { justify-self: end; }
+.achievementStack { display: grid; gap: 14px; margin-top: 18px; }
+.achievementLoading { min-height: 260px; display: grid; place-items: center; }
+.achievementOverview, .achievementFilters, .achievementCard { border: 1px solid rgba(103, 72, 55, .13); background: rgba(247, 241, 232, .88); box-shadow: 0 10px 28px rgba(71, 47, 34, .09); }
+.achievementOverview { display: grid; grid-template-columns: 1.2fr 1fr 1.25fr; gap: 24px; padding: 22px 24px; border-radius: 18px; }
+.achievementProgress > div { display: flex; align-items: baseline; justify-content: space-between; gap: 12px; }
+.achievementProgress span, .achievementSummary > span, .badgeShowcase small { color: var(--text-secondary); }
+.achievementProgress strong { color: var(--text-primary); font-size: 24px; }
+.achievementSummary { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 10px; }
+.achievementSummary > span { min-width: 0; display: grid; gap: 3px; font-size: 12px; }
+.achievementSummary > span:last-child { grid-column: 1 / -1; }
+.achievementSummary strong { overflow: hidden; color: var(--text-primary); font-size: 15px; text-overflow: ellipsis; white-space: nowrap; }
+.badgeShowcase { min-width: 0; display: grid; grid-template-columns: minmax(110px, 1fr) auto; align-items: center; gap: 14px; }
+.badgeShowcase > div:first-child { display: grid; gap: 4px; }
+.badgeShowcase > div:last-child { min-width: 150px; display: flex; align-items: center; justify-content: flex-end; gap: 10px; }
+.badgeShowcase :global(.ant-empty) { margin: 0; }
+.badgeShowcase :global(.ant-empty-image) { display: none; }
+.badgeShowcase :global(.ant-empty-description) { color: var(--text-muted); font-size: 12px; }
+.achievementFilters { padding: 10px; border-radius: 16px; }
+.achievementGrid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 12px; }
+.achievementCard { position: relative; min-width: 0; display: grid; grid-template-columns: auto minmax(0, 1fr); align-items: start; gap: 16px; padding: 19px; border-radius: 17px; }
+.achievementUnlocked { border-color: rgba(212, 118, 59, .3); }
+.achievementCardBody { min-width: 0; }
+.achievementTitleRow { display: flex; align-items: center; gap: 7px; }
+.achievementTitleRow strong { overflow: hidden; color: var(--text-primary); font-size: 16px; text-overflow: ellipsis; white-space: nowrap; }
+.achievementTitleRow :global(.ant-tag) { margin: 0; }
+.achievementCardBody p { min-height: 40px; margin: 7px 0 10px; color: var(--text-secondary); font-size: 13px; line-height: 1.55; }
+.achievementMeta { display: flex; flex-wrap: wrap; gap: 6px 12px; color: var(--text-muted); font-size: 11px; }
+.achievementMeta span { overflow-wrap: anywhere; }
+.achievementValue { display: flex; justify-content: space-between; color: var(--text-secondary); font-size: 12px; }
+.nextTier { display: block; margin-top: 7px; color: var(--text-muted); }
+.badgeAction { grid-column: 2; justify-self: end; }
 .loading, .empty { margin-top: 16px; padding: 58px 20px; text-align: center; }
 .analysisStack { display: grid; grid-template-columns: repeat(2,minmax(0,1fr)); gap: 14px; margin-top: 18px; }
 .analysisHeader { display: flex; align-items: flex-start; justify-content: space-between; gap: 20px; }
@@ -86,6 +121,8 @@
   .queryPanel { grid-template-columns: 1fr; }
   .chartGrid { grid-template-columns: 1fr; }
   .relationshipSummaries { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  .achievementOverview { grid-template-columns: 1fr 1fr; }
+  .badgeShowcase { grid-column: 1 / -1; }
 }
 @media (max-width: 1100px) {
   .historyGrid { grid-template-columns: 1fr; }
@@ -110,6 +147,10 @@
   .recordSecondary, .recordDate, .recordDuration { display: none; }
   .relationshipSummaries { grid-template-columns: 1fr; }
   .relationshipDrawer dl { grid-template-columns: 1fr; }
+  .achievementOverview, .achievementGrid { grid-template-columns: 1fr; }
+  .badgeShowcase { grid-column: auto; }
+  .achievementFilters { overflow-x: auto; }
+  .achievementFilters :global(.ant-segmented) { min-width: 690px; }
 }
 
 :global(html[data-theme='dark']) {
@@ -123,4 +164,5 @@
   .embeddedTable :global(.ant-table-tbody > tr:nth-child(even) > td), .compactTable > div:nth-child(even), .recordList > div:nth-child(even) { background: var(--surface-row-alt) !important; }
   .embeddedTable :global(.ant-table-tbody > tr:hover > td), .compactTable > div:hover, .recordList > div:hover { background: var(--surface-hover) !important; }
   .relationshipSummaries > div { border-color: var(--border-soft); background: var(--surface); box-shadow: var(--panel-shadow); }
+  .achievementOverview, .achievementFilters, .achievementCard { border-color: var(--border-soft); background: var(--surface); box-shadow: var(--panel-shadow); }
 }

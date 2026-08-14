@@ -118,7 +118,7 @@ func New(cfg *config.Config, deps Dependencies) *fiber.App {
 		}
 		return sendData(c, fiber.StatusOK, statuses)
 	})
-	registerPlayerRoutes(api, deps.Players, deps.Analysis)
+	registerPlayerRoutes(api, deps.Players, deps.Analysis, deps.Achievements)
 	registerAchievementRoutes(api, deps.Achievements, deps.Auth)
 	registerAnalysisRoutes(api, deps.Analysis)
 	registerRankingRoutes(api, deps.Rankings)

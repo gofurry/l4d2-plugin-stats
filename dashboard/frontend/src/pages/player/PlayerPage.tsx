@@ -1,12 +1,15 @@
 import { DeleteOutlined, FilterOutlined, IdcardOutlined, LoginOutlined, SearchOutlined } from '@ant-design/icons'
 import { useInfiniteQuery, useQuery } from '@tanstack/react-query'
-import { Alert, Empty, Input, Layout, Modal, Segmented, Select, Spin, Tabs, Tag, Typography } from 'antd'
-import { useEffect, useState } from 'react'
+import { Alert, Empty, Input, Layout, Modal, Segmented, Select, Spin, Tabs, Tag, Typography, message } from 'antd'
+import { useEffect, useRef, useState } from 'react'
 import { useTranslation } from 'react-i18next'
 import { api, APIError } from '../../api'
+import { isAchievementArtworkKey } from '../../assets/achievements/achievementArtwork'
 import { FloatingNav } from '../../components/FloatingNav'
 import { FloatingToolbar } from '../../components/FloatingToolbar'
+import { AchievementBadge } from '../../components/AchievementBadge'
 import { PlayerPreviewModal } from '../../components/PlayerPreviewModal'
+import { PlayerAchievements } from './PlayerAchievements'
 import { PlayerActivity } from './PlayerActivity'
 import { PlayerHistory } from './PlayerHistory'
 import { PlayerAnalysis } from './PlayerAnalysis'
@@ -48,13 +51,16 @@ export function PlayerPage() {
   const [relationshipMode, setRelationshipMode] = useState('all')
   const [relationshipFilterOpen, setRelationshipFilterOpen] = useState(false)
   const [analysisView, setAnalysisView] = useState('pve')
-  useEffect(() => { void api.steamIdentity().then(identity => { if (identity?.steam_id) { localStorage.setItem(playerStorageKey, identity.steam_id); setSavedSteamID(identity.steam_id); setSteamID(identity.steam_id); setInput(identity.steam_id) } }).catch(() => undefined) }, [])
+  const [authenticatedSteamID, setAuthenticatedSteamID] = useState('')
+  const achievementToastKey = useRef('')
+  useEffect(() => { void api.steamIdentity().then(identity => { if (identity?.steam_id) { setAuthenticatedSteamID(identity.steam_id); localStorage.setItem(playerStorageKey, identity.steam_id); setSavedSteamID(identity.steam_id); setSteamID(identity.steam_id); setInput(identity.steam_id) } }).catch(() => undefined) }, [])
   const enabled = validSteamID(steamID)
   const summary = useQuery({ queryKey: ['player-summary', steamID], queryFn: () => api.playerSummary(steamID), enabled })
   const activity = useQuery({ queryKey: ['player-activity', steamID, range, server], queryFn: () => api.playerActivity(steamID, range, server), enabled })
   const pve = useQuery({ queryKey: ['player-pve', steamID, range, server, gameMode], queryFn: () => api.playerPVE(steamID, range, server, gameMode), enabled })
   const versus = useQuery({ queryKey: ['player-versus', steamID, range, server], queryFn: () => api.playerVersus(steamID, range, server), enabled })
   const analysis = useQuery({ queryKey: ['player-analysis', steamID, range, server, analysisView], queryFn: () => api.playerAnalysis(steamID, range, server, analysisView), enabled })
+  const achievements = useQuery({ queryKey: ['player-achievements', steamID], queryFn: () => api.playerAchievements(steamID), enabled })
   const sessionPage = useInfiniteQuery({ queryKey: ['player-sessions', steamID], queryFn: ({ pageParam }) => api.playerSessions(steamID, pageParam), initialPageParam: '', getNextPageParam: last => last.next_cursor, enabled })
   const chapterPage = useInfiniteQuery({ queryKey: ['player-chapters', steamID], queryFn: ({ pageParam }) => api.playerChapters(steamID, pageParam), initialPageParam: '', getNextPageParam: last => last.next_cursor, enabled })
   const sessions = sessionPage.data?.pages.flatMap(page => page.items) ?? []
@@ -63,6 +69,15 @@ export function PlayerPage() {
   const clear = () => { localStorage.removeItem(playerStorageKey); setSavedSteamID(''); setSteamID(''); setInput(''); setPreviewOpen(false) }
   const notFound = summary.error instanceof APIError && summary.error.code === 'player_not_found'
   const activeRatio = summary.data?.connected_seconds ? `${Math.round(summary.data.active_play_seconds / summary.data.connected_seconds * 100)}%` : '—'
+  useEffect(() => {
+    const data = achievements.data
+    if (!data || authenticatedSteamID !== steamID) return
+    const key = `${steamID}:${data.unseen_live?.map(item => item.achievement_key).join(',') ?? ''}:${data.unseen_backfill_count ?? 0}`
+    if (key === achievementToastKey.current || (!data.unseen_live?.length && !data.unseen_backfill_count)) return
+    achievementToastKey.current = key
+    data.unseen_live?.forEach(item => void message.success(`🏆 ${zh ? '解锁新成就' : 'Achievement unlocked'}：${item.title}`))
+    if (data.unseen_backfill_count) void message.success(`🏆 ${zh ? `已确认 ${data.unseen_backfill_count} 项历史成就` : `${data.unseen_backfill_count} historical achievements confirmed`}`)
+  }, [achievements.data, authenticatedSteamID, steamID, zh])
   const toolbarItems = [
     { key: 'query', label: t('query'), icon: <SearchOutlined />, onClick: () => { setInput(steamID); setQueryOpen(true) } },
     ...(activeTab === 'relationships' && enabled ? [{ key: 'relationship-filter', label: zh ? '筛选玩家关系' : 'Filter player relationships', icon: <FilterOutlined />, active: relationshipMode !== 'all', onClick: () => setRelationshipFilterOpen(true) }] : []),
@@ -78,11 +93,12 @@ export function PlayerPage() {
     {summary.isLoading && <div className={styles.loading}><Spin /></div>}
     {summary.data && <>
       <section className={styles.identityPanel}>
-        <div className={styles.identity}><div><Typography.Title level={2}>{summary.data.last_name || summary.data.steam_id}</Typography.Title><Tag>{summary.data.steam_id}</Tag></div><div className={styles.identityFilters}><Segmented value={range} onChange={value => setRange(String(value))} options={[['all', t('allTime')], ['30d', t('days30')], ['90d', t('days90')], ['365d', t('days365')]].map(([value, label]) => ({ value, label }))} /><Select value={server} onChange={setServer} options={[{ value: '', label: zh ? '全部服务器' : 'All servers' }, ...(activity.data?.servers ?? []).map(item => ({ value: item.server_key, label: item.server_key }))]} /><Select value={gameMode} onChange={setGameMode} options={[{ value: '', label: zh ? '合作 + 写实' : 'Co-op + Realism' }, { value: 'coop', label: zh ? '合作' : 'Co-op' }, { value: 'realism', label: zh ? '写实' : 'Realism' }]} /></div></div>
+        <div className={styles.identity}><div className={styles.identityPrimary}><div className={styles.identityNameLine}><Typography.Title level={2}>{summary.data.last_name || summary.data.steam_id}</Typography.Title>{achievements.data?.overview.badges.map(item => <AchievementBadge key={item.achievement_key} artworkKey={isAchievementArtworkKey(item.artwork_key) ? item.artwork_key : undefined} tier={item.tier} size={28} label={item.title} />)}</div><div className={styles.identityMeta}><Tag>{summary.data.steam_id}</Tag>{achievements.data && <button type="button" onClick={() => setActiveTab('achievements')}>{zh ? '成就' : 'Achievements'} {achievements.data.overview.unlocked}/{achievements.data.overview.total} · {zh ? '彩蛋' : 'Easter eggs'} {achievements.data.overview.easter_eggs}</button>}</div></div><div className={styles.identityFilters}><Segmented value={range} onChange={value => setRange(String(value))} options={[['all', t('allTime')], ['30d', t('days30')], ['90d', t('days90')], ['365d', t('days365')]].map(([value, label]) => ({ value, label }))} /><Select value={server} onChange={setServer} options={[{ value: '', label: zh ? '全部服务器' : 'All servers' }, ...(activity.data?.servers ?? []).map(item => ({ value: item.server_key, label: item.server_key }))]} /><Select value={gameMode} onChange={setGameMode} options={[{ value: '', label: zh ? '合作 + 写实' : 'Co-op + Realism' }, { value: 'coop', label: zh ? '合作' : 'Co-op' }, { value: 'realism', label: zh ? '写实' : 'Realism' }]} /></div></div>
         <MetricList items={[[copy.sessions, summary.data.session_count], [copy.connected, hours(summary.data.connected_seconds)], [copy.activeTime, hours(summary.data.active_play_seconds)], [copy.activeRatio, activeRatio], [copy.firstSeen, date(summary.data.first_seen_at)], [t('lastSeen'), date(summary.data.last_seen_at)]]} />
       </section>
       <Tabs className={styles.tabs} activeKey={activeTab} onChange={setActiveTab} items={[
         { key: 'overview', label: zh ? '概览' : 'Overview', children: <PlayerActivity data={activity.data} loading={activity.isLoading} copy={copy} /> },
+        { key: 'achievements', label: zh ? '成就' : 'Achievements', children: <PlayerAchievements steamID={steamID} data={achievements.data} loading={achievements.isLoading} self={authenticatedSteamID === steamID} zh={zh} /> },
         { key: 'analysis', label: zh ? '分析' : 'Analysis', children: <PlayerAnalysis data={analysis.data} loading={analysis.isLoading} view={analysisView} onView={setAnalysisView} zh={zh} /> },
         { key: 'pve', label: copy.pveTab, children: <PlayerPVE data={pve.data} loading={pve.isLoading} copy={copy} zh={zh} /> },
         { key: 'pve-details', label: zh ? 'PvE 明细' : 'PvE details', children: <PlayerPVE data={pve.data} loading={pve.isLoading} copy={copy} zh={zh} details /> },

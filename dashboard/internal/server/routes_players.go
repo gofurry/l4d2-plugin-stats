@@ -9,7 +9,7 @@ import (
 	"github.com/gofurry/l4d2-plugin-stats/dashboard/internal/store"
 )
 
-func registerPlayerRoutes(api fiber.Router, players *service.PlayerService, analysis *service.AnalysisService) {
+func registerPlayerRoutes(api fiber.Router, players *service.PlayerService, analysis *service.AnalysisService, achievements *service.AchievementService) {
 	group := api.Group("/players/:steam_id")
 	group.Get("/preview", func(c fiber.Ctx) error {
 		steamID, ok := playerID(c)
@@ -22,6 +22,13 @@ func registerPlayerRoutes(api fiber.Router, players *service.PlayerService, anal
 		}
 		if result == nil {
 			return sendError(c, 404, "player_not_found", "player was not found")
+		}
+		if achievements != nil {
+			badges, badgeErr := achievements.Badges(c.Context(), steamID)
+			if badgeErr == nil && len(badges.Items) > 0 {
+				badge := badges.Items[0]
+				result.MainBadge = &store.PlayerPreviewBadge{AchievementKey: badge.AchievementKey, Title: badge.Title, ArtworkKey: badge.ArtworkKey, Tier: badge.Tier}
+			}
 		}
 		return sendData(c, 200, result)
 	})

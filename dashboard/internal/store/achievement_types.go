@@ -73,6 +73,7 @@ type DashboardAchievementStore interface {
 	InsertAchievementUnlocks(context.Context, []AchievementUnlock) ([]AchievementUnlock, error)
 	MarkAchievementUnlocksSeen(context.Context, string, int64) error
 	AchievementUnlockRates(context.Context) ([]AchievementUnlockRate, error)
+	AchievementEvaluatedPlayerCount(context.Context) (int64, error)
 	BadgeShowcase(context.Context, string) ([]BadgeShowcaseSlot, error)
 	ReplaceBadgeShowcase(context.Context, string, []BadgeShowcaseSlot, int64) error
 }

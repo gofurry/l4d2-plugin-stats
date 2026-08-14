@@ -6,7 +6,20 @@ export interface PlayerPreview {
   pve: { available: boolean; common_kills: number; special_kills: number; boss_kills: number; headshot_kills: number; rescues: number; campaign_completions: number }
   versus: { available: boolean; human_si_kills: number; infected_damage: number; survivor_controls: number; survivor_incapacitations: number }
   companions: { player_name: string; shared_seconds: number; shared_rounds: number }[]
+  main_badge?: AchievementBadge
 }
+export interface AchievementBadge { slot?: number; achievement_key: string; title: string; artwork_key: string; tier?: number }
+export interface AchievementCard {
+  achievement_key: string; group_key: string; title: string; description: string; category: string; metric_id?: string
+  threshold?: number; tier?: number; visibility: 'public' | 'mystery' | 'secret'; counts_toward_completion: boolean; artwork_key?: string
+  unlocked: boolean; current_value?: number; unlocked_at?: number; grant_kind?: 'live' | 'backfill'; value_at_unlock?: number; evidence_steam_id?: string; global_unlock_rate: number
+}
+export interface PlayerAchievements {
+  achievement_contract_version: number
+  overview: { unlocked: number; total: number; completion_percent: number; easter_eggs: number; recent_unlock?: { achievement_key: string; unlocked_at: number }; badges: AchievementBadge[] }
+  items: AchievementCard[]; unseen_live?: AchievementCard[]; unseen_backfill_count?: number
+}
+export interface PlayerBadges { achievement_contract_version: number; items: AchievementBadge[] }
 export interface PlayerAnalysis { view: string; active_play_seconds: number; metrics: Record<string, number | null>; samples: Record<string, number>; recent_incidents: { earliest_incident_at: number; latest_incident_at: number; controls_received: number; average_control_seconds?: number; incaps: number; deaths: number; teammates_rescued: number; rescued_by_teammates: number; control_classes: { infected_class: number; controls: number; average_duration_seconds: number }[]; top_rescuers: { player_name: string; rescues: number }[]; two_cap_episodes: number; three_cap_episodes: number; four_cap_episodes: number } }
 export interface PlayerActivityPoint { day: number; session_count: number; connected_seconds: number; active_play_seconds: number }
 export interface PlayerServerActivity { server_key: string; session_count: number; active_play_seconds: number }
@@ -51,6 +64,9 @@ export const playersAPI = {
   playerVersus: (id: string, range: string, server = '') => request<PlayerVersus>(`/api/v1/players/${id}/versus?${queryString({ range, server })}`),
   playerAnalysis: (id: string, range: string, server = '', view = 'pve') => request<PlayerAnalysis>(`/api/v1/players/${id}/analysis?${queryString({ range, server, view })}`),
   playerRelationships: (id: string, range: string, server = '', mode = 'all', page = 1, pageSize = 20, sort = 'shared_rounds', order: 'asc' | 'desc' = 'desc') => request<PlayerRelationshipPage>(`/api/v1/players/${id}/relationships?${queryString({ range, server, mode, page, page_size: pageSize, sort, order })}`),
+  playerAchievements: (id: string) => request<PlayerAchievements>(`/api/v1/players/${id}/achievements`),
+  playerBadges: (id: string) => request<PlayerBadges>(`/api/v1/players/${id}/badges`),
+  saveBadgeShowcase: (items: { slot: number; achievement_key: string }[]) => request<PlayerBadges>('/api/v1/me/badge-showcase', { method: 'PUT', body: JSON.stringify({ items }) }),
   playerSessions: (id: string, cursor = '') => request<Page<PlayerSession>>(`/api/v1/players/${id}/sessions?${queryString({ limit: 20, cursor })}`),
   playerChapters: (id: string, cursor = '') => request<Page<PlayerChapter>>(`/api/v1/players/${id}/chapters?${queryString({ limit: 20, cursor })}`),
 }

@@ -156,6 +156,15 @@ func (s *dashboardStore) AchievementUnlockRates(ctx context.Context) ([]Achievem
 	return result, rows.Err()
 }
 
+func (s *dashboardStore) AchievementEvaluatedPlayerCount(ctx context.Context) (int64, error) {
+	var count int64
+	if err := s.db.QueryRowContext(ctx, `SELECT COUNT(*) FROM achievement_evaluation_state
+WHERE achievement_contract_version=?`, AchievementContractVersion).Scan(&count); err != nil {
+		return 0, fmt.Errorf("count evaluated achievement players: %w", err)
+	}
+	return count, nil
+}
+
 func (s *dashboardStore) BadgeShowcase(ctx context.Context, steamID string) ([]BadgeShowcaseSlot, error) {
 	rows, err := s.db.QueryContext(ctx, `SELECT slot,achievement_key,updated_at
 FROM player_badge_showcase WHERE steam_id=? ORDER BY slot`, steamID)

@@ -62,6 +62,13 @@ type PlayerBadges struct {
 	Items                      []AchievementBadge `json:"items"`
 }
 
+type AchievementEngineStatus struct {
+	store.AchievementEngineState
+	CatalogItems     int64 `json:"catalog_items"`
+	EvaluatedPlayers int64 `json:"evaluated_players"`
+	PendingBackfill  int64 `json:"pending_backfill"`
+}
+
 type AchievementService struct {
 	dashboard achievementDashboard
 	stats     store.StatsAchievementStore
@@ -309,8 +316,9 @@ func (s *AchievementService) Player(ctx context.Context, steamID string, self bo
 			card.UnlockedAt, card.GrantKind, card.ValueAtUnlock = unlock.UnlockedAt, unlock.GrantKind, unlock.ValueAtUnlock
 			card.EvidenceSteamID = unlock.EvidenceSteamID
 		} else if definition.Visibility == "mystery" {
+			placeholderKey := fmt.Sprintf("mystery.%d", index+1)
 			card.AchievementDefinition = AchievementDefinition{
-				AchievementKey: fmt.Sprintf("mystery.%d", index+1), GroupKey: "mystery",
+				AchievementKey: placeholderKey, GroupKey: placeholderKey,
 				Title: "???", Description: "条件尚未发现", Category: "special",
 				Visibility: "mystery", CountsTowardCompletion: true,
 			}
@@ -417,6 +425,27 @@ func (s *AchievementService) resolveBadges(ctx context.Context, steamID string, 
 	return result, nil
 }
 
-func (s *AchievementService) EngineState(ctx context.Context) (store.AchievementEngineState, error) {
-	return s.dashboard.AchievementEngineState(ctx)
+func (s *AchievementService) EngineState(ctx context.Context) (AchievementEngineStatus, error) {
+	state, err := s.dashboard.AchievementEngineState(ctx)
+	if err != nil {
+		return AchievementEngineStatus{}, err
+	}
+	evaluated, err := s.dashboard.AchievementEvaluatedPlayerCount(ctx)
+	if err != nil {
+		return AchievementEngineStatus{}, err
+	}
+	eligible, err := s.stats.AchievementEligiblePlayerCount(ctx)
+	if err != nil {
+		return AchievementEngineStatus{}, err
+	}
+	pending := eligible - evaluated
+	if state.BackfillComplete || pending < 0 {
+		pending = 0
+	}
+	return AchievementEngineStatus{
+		AchievementEngineState: state,
+		CatalogItems:           int64(len(achievementCatalog)),
+		EvaluatedPlayers:       evaluated,
+		PendingBackfill:        pending,
+	}, nil
 }

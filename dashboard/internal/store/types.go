@@ -352,6 +352,14 @@ type PlayerPreview struct {
 	PVE               PlayerPreviewPVE    `json:"pve"`
 	Versus            PlayerPreviewVersus `json:"versus"`
 	Companions        []PlayerCompanion   `json:"companions"`
+	MainBadge         *PlayerPreviewBadge `json:"main_badge,omitempty"`
+}
+
+type PlayerPreviewBadge struct {
+	AchievementKey string `json:"achievement_key"`
+	Title          string `json:"title"`
+	ArtworkKey     string `json:"artwork_key"`
+	Tier           int64  `json:"tier,omitempty"`
 }
 
 type CollectionCoverage struct {
