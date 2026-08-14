@@ -24,6 +24,6 @@ CONTROL 使用半开区间 `[start, start + duration)`：相同时间先 end 后
 
 ## 并肩作战
 
-两名认证真人须共享 `round_id` 与 `side` 且 SteamID 不同，Segment 墙钟区间存在正重叠：`end=COALESCE(ended_at,last_saved_at)`，`overlap=max(0,min(endA,endB)-max(startA,startB))`。按 peer 汇总 shared seconds 与不同 shared rounds，按秒数降序、Round 数降序、peer SteamID 升序取 Top 3。它不表示好友关系，预览不暴露 peer SteamID。
+两名认证真人须共享 `round_id` 与 `side` 且 SteamID 不同，Segment 墙钟区间存在正重叠：`end=COALESCE(ended_at,last_saved_at)`，`overlap=max(0,min(endA,endB)-max(startA,startB))`。按 peer 汇总 shared seconds 与不同 shared rounds，用于玩家关系页的并肩数据与“最常并肩”摘要。它不表示好友关系，也不再出现在首页玩家预览卡。
 
 坐标只供未来经过校准的地图 artwork 使用；v1.3 公共 UI 不展示伪热力图。

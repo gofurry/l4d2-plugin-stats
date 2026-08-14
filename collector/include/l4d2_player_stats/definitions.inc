@@ -3,7 +3,7 @@
 #endif
 #define _l4d2_player_stats_definitions_included
 
-#define LPS_VERSION "1.3.0"
+#define LPS_VERSION "1.3.1"
 #define LPS_SCHEMA_VERSION 5
 #define LPS_MIGRATION_NAME "initial_schema"
 #define LPS_STATS_VERSION 1

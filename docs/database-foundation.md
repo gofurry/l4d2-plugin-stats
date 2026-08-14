@@ -77,10 +77,10 @@ sm_lps_versus_stats_enabled "1"
 ```text
 state=ready
 driver=sqlite
-schema=4/4
+schema=5/5
 ```
 
-当前首次连接会先建立核心表与索引，再顺序应用增量迁移并加入 Round Context 与 Incident 分析表，最终状态为 `schema=4/4`。
+当前首次连接会先建立核心表与索引，再顺序应用增量迁移，加入 Round Context、Incident、Assist 与 Player Relationship，最终状态为 `schema=5/5`。
 
 ## 5. 故障验证
 

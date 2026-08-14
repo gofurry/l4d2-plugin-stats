@@ -39,15 +39,15 @@
 
 ## 4. 击杀归属
 
-第一阶段只记录最后击杀：
+击杀始终只归属最后一击：
 
 - 最后造成有效致死伤害的真人获得击杀；
-- 其他参与者不获得助攻；
+- 其他参与者不获得击杀，但自 Stats schema 5 起可按 [`assist-v1.md`](assist-v1.md) 获得独立 Assist；
 - 环境击杀不归属任何真人；
 - Bot完成最后击杀时，不把击杀转移给伤害最高的真人；
 - 自杀不计为玩家击杀。
 
-助攻系统不属于第一阶段范围。
+Kill 与 Assist 互斥，Assist 不转移 Kill，也不保存逐次伤害流水。
 
 ## 5. PvE统计
 
@@ -125,14 +125,14 @@ Run和Round层面另行保存团队结果，不通过个人计数反推团队结
 
 ### 5.7 特感职业明细
 
-六种普通特感分别保存击杀数和有效伤害：
+六种普通特感分别保存击杀数、Assist 和有效伤害：
 
 ```text
 Smoker / Boomer / Hunter / Spitter / Jockey / Charger
 ```
 
-职业击杀之和必须等于 `special_kills`，职业伤害之和必须等于
-`damage_to_special`。Tank 与 Witch 继续使用独立字段，不并入普通特感。
+职业击杀之和必须等于 `special_kills`，职业 Assist 之和必须等于
+`special_assists`，职业伤害之和必须等于 `damage_to_special`。Tank 与 Witch 继续使用独立字段，不并入普通特感。
 
 ### 5.8 武器、近战和投掷物
 
