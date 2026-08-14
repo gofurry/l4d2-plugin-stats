@@ -325,19 +325,33 @@ type PlayerCompanion struct {
 	SharedRounds  int64  `json:"shared_rounds"`
 }
 
+type PlayerPreviewPVE struct {
+	Available           bool  `json:"available"`
+	CommonKills         int64 `json:"common_kills"`
+	SpecialKills        int64 `json:"special_kills"`
+	BossKills           int64 `json:"boss_kills"`
+	HeadshotKills       int64 `json:"headshot_kills"`
+	Rescues             int64 `json:"rescues"`
+	CampaignCompletions int64 `json:"campaign_completions"`
+}
+
+type PlayerPreviewVersus struct {
+	Available               bool  `json:"available"`
+	HumanSIKills            int64 `json:"human_si_kills"`
+	InfectedDamage          int64 `json:"infected_damage"`
+	SurvivorControls        int64 `json:"survivor_controls"`
+	SurvivorIncapacitations int64 `json:"survivor_incapacitations"`
+}
+
 type PlayerPreview struct {
-	SteamID             string `json:"steam_id"`
-	PlayerName          string `json:"player_name"`
-	ActivePlaySeconds   int64  `json:"active_play_seconds"`
-	CampaignCompletions int64  `json:"campaign_completions"`
-	TankKills           int64  `json:"tank_kills"`
-	WitchKills          int64  `json:"witch_kills"`
-	CommonKills         int64  `json:"common_kills"`
-	SpecialKills        int64  `json:"special_kills"`
-	HeadshotKills       int64  `json:"headshot_kills"`
-	IncapRevives        int64  `json:"incap_revives"`
-	Incapacitations     int64  `json:"incapacitations"`
-	LastSeenAt          int64  `json:"last_seen_at"`
+	SteamID           string              `json:"steam_id"`
+	PlayerName        string              `json:"player_name"`
+	SessionCount      int64               `json:"session_count"`
+	ActivePlaySeconds int64               `json:"active_play_seconds"`
+	LastSeenAt        int64               `json:"last_seen_at"`
+	PVE               PlayerPreviewPVE    `json:"pve"`
+	Versus            PlayerPreviewVersus `json:"versus"`
+	Companions        []PlayerCompanion   `json:"companions"`
 }
 
 type CollectionCoverage struct {

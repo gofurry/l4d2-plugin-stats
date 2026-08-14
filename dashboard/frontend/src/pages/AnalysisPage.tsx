@@ -22,6 +22,7 @@ const incidentLabels: Record<string, [string, string]> = {
   controls: ['被特感控制', 'Controls'], incaps: ['倒地', 'Incapacitations'], deaths: ['死亡', 'Deaths'], revives: ['倒地救起', 'Revives'], ledge_rescues: ['挂边救援', 'Ledge rescues'], defib_revives: ['电击复活', 'Defibrillator revives'], car_alarms: ['触发警报车', 'Car alarms'],
   witch_startles: ['惊扰 Witch', 'Witch startles'], medkit_heals: ['医疗包治疗', 'Medkit heals'], objective_completes: ['完成目标互动', 'Objectives completed'],
 }
+const oneDecimal = (value: number) => Number(value.toFixed(1))
 const pageSize = 20
 type SortState = { field: string; order: 'asc' | 'desc' }
 
@@ -54,12 +55,12 @@ export function AnalysisPage() {
     xAxis: { type: 'category', data: detail.data?.timeline.map(item => `${item.bucket_seconds / 60}m`) ?? [], axisLabel: { color: '#c7beb5' } },
     yAxis: { type: 'value', axisLabel: { color: '#c7beb5' }, splitLine: { lineStyle: { color: 'rgba(255,255,255,.1)' } } },
     series: [
-      { name: zh ? '控制' : 'Controls', type: 'line', data: detail.data?.timeline.map(item => item.controls_per_100_rounds) ?? [], smooth: true },
-      { name: zh ? '倒地' : 'Incaps', type: 'line', data: detail.data?.timeline.map(item => item.incaps_per_100_rounds) ?? [], smooth: true },
-      { name: zh ? '死亡' : 'Deaths', type: 'line', data: detail.data?.timeline.map(item => item.deaths_per_100_rounds) ?? [], smooth: true },
-      { name: zh ? '惊扰 Witch' : 'Witch startles', type: 'line', data: detail.data?.timeline.map(item => item.witch_startles_per_100_rounds) ?? [], smooth: true },
-      { name: zh ? '医疗包' : 'Medkit heals', type: 'line', data: detail.data?.timeline.map(item => item.medkit_heals_per_100_rounds) ?? [], smooth: true },
-      { name: zh ? '目标互动' : 'Objectives', type: 'line', data: detail.data?.timeline.map(item => item.objective_completes_per_100_rounds) ?? [], smooth: true },
+      { name: zh ? '控制' : 'Controls', type: 'line', data: detail.data?.timeline.map(item => oneDecimal(item.controls_per_100_rounds)) ?? [], smooth: true },
+      { name: zh ? '倒地' : 'Incaps', type: 'line', data: detail.data?.timeline.map(item => oneDecimal(item.incaps_per_100_rounds)) ?? [], smooth: true },
+      { name: zh ? '死亡' : 'Deaths', type: 'line', data: detail.data?.timeline.map(item => oneDecimal(item.deaths_per_100_rounds)) ?? [], smooth: true },
+      { name: zh ? '惊扰 Witch' : 'Witch startles', type: 'line', data: detail.data?.timeline.map(item => oneDecimal(item.witch_startles_per_100_rounds)) ?? [], smooth: true },
+      { name: zh ? '医疗包' : 'Medkit heals', type: 'line', data: detail.data?.timeline.map(item => oneDecimal(item.medkit_heals_per_100_rounds)) ?? [], smooth: true },
+      { name: zh ? '目标互动' : 'Objectives', type: 'line', data: detail.data?.timeline.map(item => oneDecimal(item.objective_completes_per_100_rounds)) ?? [], smooth: true },
     ],
   }), [detail.data, zh])
 

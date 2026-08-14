@@ -1,4 +1,4 @@
-import { DeleteOutlined, LoginOutlined, SearchOutlined } from '@ant-design/icons'
+import { DeleteOutlined, IdcardOutlined, LoginOutlined, SearchOutlined } from '@ant-design/icons'
 import { useInfiniteQuery, useQuery } from '@tanstack/react-query'
 import { Alert, Empty, Input, Layout, Modal, Segmented, Select, Spin, Tabs, Tag, Typography } from 'antd'
 import { useEffect, useState } from 'react'
@@ -6,6 +6,7 @@ import { useTranslation } from 'react-i18next'
 import { api, APIError } from '../../api'
 import { FloatingNav } from '../../components/FloatingNav'
 import { FloatingToolbar } from '../../components/FloatingToolbar'
+import { PlayerPreviewModal } from '../../components/PlayerPreviewModal'
 import { PlayerActivity } from './PlayerActivity'
 import { PlayerHistory } from './PlayerHistory'
 import { PlayerAnalysis } from './PlayerAnalysis'
@@ -36,13 +37,15 @@ export function PlayerPage() {
     const shared = sharedSteamID()
     return validSteamID(shared) ? shared : localStorage.getItem(playerStorageKey) ?? ''
   })
+  const [savedSteamID, setSavedSteamID] = useState(() => localStorage.getItem(playerStorageKey) ?? '')
   const [input, setInput] = useState(steamID)
   const [range, setRange] = useState('all')
   const [server, setServer] = useState('')
   const [gameMode, setGameMode] = useState('')
   const [queryOpen, setQueryOpen] = useState(false)
+  const [previewOpen, setPreviewOpen] = useState(false)
   const [analysisView, setAnalysisView] = useState('pve')
-  useEffect(() => { void api.steamIdentity().then(identity => { if (identity?.steam_id) { localStorage.setItem(playerStorageKey, identity.steam_id); setSteamID(identity.steam_id); setInput(identity.steam_id) } }).catch(() => undefined) }, [])
+  useEffect(() => { void api.steamIdentity().then(identity => { if (identity?.steam_id) { localStorage.setItem(playerStorageKey, identity.steam_id); setSavedSteamID(identity.steam_id); setSteamID(identity.steam_id); setInput(identity.steam_id) } }).catch(() => undefined) }, [])
   const enabled = validSteamID(steamID)
   const summary = useQuery({ queryKey: ['player-summary', steamID], queryFn: () => api.playerSummary(steamID), enabled })
   const activity = useQuery({ queryKey: ['player-activity', steamID, range, server], queryFn: () => api.playerActivity(steamID, range, server), enabled })
@@ -53,12 +56,13 @@ export function PlayerPage() {
   const chapterPage = useInfiniteQuery({ queryKey: ['player-chapters', steamID], queryFn: ({ pageParam }) => api.playerChapters(steamID, pageParam), initialPageParam: '', getNextPageParam: last => last.next_cursor, enabled })
   const sessions = sessionPage.data?.pages.flatMap(page => page.items) ?? []
   const chapters = chapterPage.data?.pages.flatMap(page => page.items) ?? []
-  const search = () => { const value = input.trim(); if (!validSteamID(value)) return; localStorage.setItem(playerStorageKey, value); setSteamID(value); setQueryOpen(false) }
-  const clear = () => { localStorage.removeItem(playerStorageKey); setSteamID(''); setInput('') }
+  const search = () => { const value = input.trim(); if (!validSteamID(value)) return; localStorage.setItem(playerStorageKey, value); setSavedSteamID(value); setSteamID(value); setQueryOpen(false) }
+  const clear = () => { localStorage.removeItem(playerStorageKey); setSavedSteamID(''); setSteamID(''); setInput(''); setPreviewOpen(false) }
   const notFound = summary.error instanceof APIError && summary.error.code === 'player_not_found'
   const activeRatio = summary.data?.connected_seconds ? `${Math.round(summary.data.active_play_seconds / summary.data.connected_seconds * 100)}%` : '—'
   const toolbarItems = [
     { key: 'query', label: t('query'), icon: <SearchOutlined />, onClick: () => { setInput(steamID); setQueryOpen(true) } },
+    ...(validSteamID(savedSteamID) ? [{ key: 'preview', label: t('previewPlayerCard'), icon: <IdcardOutlined />, onClick: () => setPreviewOpen(true) }] : []),
     ...(site.data?.steam_openid_enabled ? [{ key: 'steam', label: t('steamLogin'), icon: <LoginOutlined />, onClick: () => { window.location.href = '/api/v1/steam/login' } }] : []),
     { key: 'clear', label: t('clearIdentity'), icon: <DeleteOutlined />, onClick: clear, disabled: !steamID, danger: true },
   ]
@@ -86,7 +90,7 @@ export function PlayerPage() {
         { key: 'history', label: copy.history, children: <PlayerHistory sessions={sessions} chapters={chapters} sessionPage={sessionPage} chapterPage={chapterPage} copy={copy} /> },
       ]} />
     </>}
-  </Layout.Content><Modal title={zh ? '查询玩家' : 'Query player'} open={queryOpen} onCancel={() => setQueryOpen(false)} onOk={search} okButtonProps={{ disabled: !validSteamID(input.trim()) }} okText={t('query')}>
+  </Layout.Content><PlayerPreviewModal open={previewOpen} steamID={savedSteamID} playerName={savedSteamID === steamID ? summary.data?.last_name : undefined} onClose={() => setPreviewOpen(false)} /><Modal title={zh ? '查询玩家' : 'Query player'} open={queryOpen} onCancel={() => setQueryOpen(false)} onOk={search} okButtonProps={{ disabled: !validSteamID(input.trim()) }} okText={t('query')}>
     <Input autoFocus value={input} maxLength={17} placeholder="SteamID64" onChange={event => setInput(event.target.value)} onPressEnter={search} />
   </Modal></Layout>
 }

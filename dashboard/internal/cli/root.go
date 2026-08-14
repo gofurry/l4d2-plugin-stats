@@ -146,7 +146,7 @@ func serveCommand(options *rootOptions) *cobra.Command {
 		players := service.NewPlayerService(stats, dashboard)
 		var analysis *service.AnalysisService
 		if analysisStore, ok := stats.(store.StatsAnalysisStore); ok {
-			analysis = service.NewAnalysisService(analysisStore)
+			analysis = service.NewAnalysisService(analysisStore, players)
 		}
 		aggregates := service.NewAggregateService(dashboard, stats, logger)
 		dataMaintenance := service.NewDataMaintenanceService(dashboard, stats, aggregates, cfg.StatsDatabase, cfg.Logging.File, logger)

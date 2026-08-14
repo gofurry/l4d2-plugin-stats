@@ -82,21 +82,36 @@ func (s *PlayerService) Preview(ctx context.Context, steamID string) (*store.Pla
 		if err != nil {
 			return nil, err
 		}
+		pveRescues := pve.IncapRevives + pve.LedgeRescues + pve.DefibRevives
+		pveBossKills := pve.TankKills + pve.WitchKills
+		versusHumanKills := versus.HumanSpecialKills + versus.HumanTankKills
 		var headshotKills int64
 		for _, equipment := range pve.Equipment {
 			headshotKills += equipment.HeadshotKills
 		}
+		var companions []store.PlayerCompanion
+		if analysis, ok := s.stats.(store.StatsAnalysisStore); ok {
+			companions, err = analysis.PlayerCompanions(ctx, steamID)
+			if err != nil {
+				return nil, err
+			}
+		}
 		return &store.PlayerPreview{
-			SteamID: summary.SteamID, PlayerName: summary.LastName,
+			SteamID: summary.SteamID, PlayerName: summary.LastName, SessionCount: summary.SessionCount,
 			ActivePlaySeconds: summary.ActiveSeconds, LastSeenAt: summary.LastSeenAt,
-			CampaignCompletions: pve.CampaignCompletions,
-			TankKills:           pve.TankKills + versus.HumanTankKills + versus.BotTankKills,
-			WitchKills:          pve.WitchKills + versus.SurvivorWitchKills,
-			CommonKills:         pve.CommonKills + versus.SurvivorCommonKills,
-			SpecialKills:        pve.SpecialKills + versus.HumanSpecialKills + versus.BotSpecialKills,
-			HeadshotKills:       headshotKills,
-			IncapRevives:        pve.IncapRevives + versus.SurvivorIncapRevives,
-			Incapacitations:     pve.Incapacitations + versus.SurvivorIncapacitations,
+			PVE: store.PlayerPreviewPVE{
+				Available:    pve.CommonKills+pve.SpecialKills+pveBossKills+headshotKills+pveRescues+pve.CampaignCompletions > 0,
+				CommonKills:  pve.CommonKills, SpecialKills: pve.SpecialKills, BossKills: pveBossKills, HeadshotKills: headshotKills,
+				Rescues: pveRescues, CampaignCompletions: pve.CampaignCompletions,
+			},
+			Versus: store.PlayerPreviewVersus{
+				Available:               versusHumanKills+versus.DamageToHumanSurvivors+versus.HumanSurvivorControls+versus.HumanSurvivorIncaps > 0,
+				HumanSIKills:            versusHumanKills,
+				InfectedDamage:          versus.DamageToHumanSurvivors,
+				SurvivorControls:        versus.HumanSurvivorControls,
+				SurvivorIncapacitations: versus.HumanSurvivorIncaps,
+			},
+			Companions: companions,
 		}, nil
 	})
 	if err != nil || value == nil {

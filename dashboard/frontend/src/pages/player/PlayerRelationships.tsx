@@ -24,7 +24,7 @@ export function PlayerRelationships({ steamID, range, server, enabled, zh }: { s
   const sortable = (field: SortField) => ({ key: field, sorter: true, sortOrder: sort === field ? (order === 'asc' ? 'ascend' as const : 'descend' as const) : null })
   const columns: TableProps<PlayerRelationship>['columns'] = [
     { title: zh ? '玩家' : 'Player', ...sortable('player_name'), render: (_, row) => <div className={styles.relationshipPlayer}><strong>{row.peer_name || row.peer_steam_id}</strong><small>{row.peer_steam_id}</small></div> },
-    { title: zh ? '并肩' : 'Together', ...sortable('shared_rounds'), render: (_, row) => `${numberFormat.format(row.shared_rounds)} ${zh ? '局' : 'rounds'} · ${duration(row.shared_seconds)}` },
+    { title: zh ? '陪伴' : 'Together', ...sortable('shared_rounds'), render: (_, row) => `${numberFormat.format(row.shared_rounds)} ${zh ? '局' : 'rounds'} · ${duration(row.shared_seconds)}` },
     { title: zh ? '我支援 TA' : 'My support', ...sortable('outgoing_support'), render: (_, row) => numberFormat.format(row.outgoing.support_actions) },
     { title: zh ? 'TA 支援我' : 'Their support', ...sortable('incoming_support'), render: (_, row) => numberFormat.format(row.incoming.support_actions) },
     { title: zh ? '我治疗 TA' : 'My healing', ...sortable('outgoing_healing'), render: (_, row) => numberFormat.format(row.outgoing.medkit_healing) },
@@ -46,14 +46,13 @@ export function PlayerRelationships({ steamID, range, server, enabled, zh }: { s
   }
 
   return <div className={styles.relationshipStack}>
-    <Alert type="info" showIcon message={zh ? '定向互动关系统计仅覆盖服务器启用 Player Relationship Contract v1 后产生的数据。' : 'Directional interactions only cover data collected after Player Relationship Contract v1 was enabled.'} />
     <div className={styles.relationshipToolbar}><Select value={mode} onChange={value => { setMode(value); setPage(1) }} options={[{ value: 'all', label: zh ? 'PvE + 对抗' : 'PvE + Versus' }, { value: 'pve', label: 'PvE' }, { value: 'versus', label: zh ? '对抗' : 'Versus' }]} /></div>
     {query.isLoading ? <div className={styles.relationshipLoading}><Spin /></div> : query.data ? <>
       <div className={styles.relationshipSummaries}>
-        <RelationshipSummary title={zh ? '最常并肩' : 'Most time together'} value={query.data.summaries.most_companion} kind="companion" zh={zh} />
-        <RelationshipSummary title={zh ? '我最常支援' : 'Most supported by me'} value={query.data.summaries.most_supported} zh={zh} />
-        <RelationshipSummary title={zh ? '最常支援我' : 'Most support for me'} value={query.data.summaries.most_supported_by} zh={zh} />
-        <RelationshipSummary title={zh ? '互相支援最多' : 'Most mutual support'} value={query.data.summaries.most_mutual} zh={zh} />
+        <RelationshipSummary title={zh ? '最多陪伴' : 'Most time together'} value={query.data.summaries.most_companion} kind="companion" zh={zh} />
+        <RelationshipSummary title={zh ? '我帮助最多' : 'Most supported by me'} value={query.data.summaries.most_supported} zh={zh} />
+        <RelationshipSummary title={zh ? '帮我最多' : 'Most support for me'} value={query.data.summaries.most_supported_by} zh={zh} />
+        <RelationshipSummary title={zh ? '互助最多' : 'Most mutual support'} value={query.data.summaries.most_mutual} zh={zh} />
       </div>
       <section className={styles.dataSection}>{query.data.items.length ? <Table<PlayerRelationship> className={styles.embeddedTable} columns={columns} dataSource={query.data.items} rowKey="peer_steam_id" loading={query.isFetching} pagination={{ current: page, pageSize: 20, total: query.data.total, showSizeChanger: false, showTotal: total => zh ? `共 ${numberFormat.format(total)} 位玩家` : `${numberFormat.format(total)} players` }} onChange={onChange} onRow={row => ({ onClick: () => setSelected(row) })} scroll={{ x: 1080 }} /> : <Empty description={zh ? '暂无玩家关系数据' : 'No relationship data'} />}</section>
     </> : <Alert type="warning" showIcon message={zh ? '玩家关系数据暂时不可用' : 'Relationship data is unavailable'} />}

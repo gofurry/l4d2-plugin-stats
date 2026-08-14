@@ -2,8 +2,10 @@ import { queryString, request } from './client'
 
 export interface PlayerSummary { steam_id: string; last_name: string; first_seen_at: number; last_seen_at: number; session_count: number; connected_seconds: number; active_play_seconds: number }
 export interface PlayerPreview {
-  steam_id: string; player_name: string; active_play_seconds: number; campaign_completions: number; tank_kills: number; witch_kills: number
-  common_kills: number; special_kills: number; headshot_kills: number; incap_revives: number; incapacitations: number; last_seen_at: number
+  steam_id: string; player_name: string; session_count: number; active_play_seconds: number; last_seen_at: number
+  pve: { available: boolean; common_kills: number; special_kills: number; boss_kills: number; headshot_kills: number; rescues: number; campaign_completions: number }
+  versus: { available: boolean; human_si_kills: number; infected_damage: number; survivor_controls: number; survivor_incapacitations: number }
+  companions: { player_name: string; shared_seconds: number; shared_rounds: number }[]
 }
 export interface PlayerAnalysis { view: string; active_play_seconds: number; metrics: Record<string, number | null>; samples: Record<string, number>; recent_incidents: { earliest_incident_at: number; latest_incident_at: number; controls_received: number; average_control_seconds?: number; incaps: number; deaths: number; teammates_rescued: number; rescued_by_teammates: number; control_classes: { infected_class: number; controls: number; average_duration_seconds: number }[]; top_rescuers: { player_name: string; rescues: number }[]; two_cap_episodes: number; three_cap_episodes: number; four_cap_episodes: number } }
 export interface PlayerActivityPoint { day: number; session_count: number; connected_seconds: number; active_play_seconds: number }
