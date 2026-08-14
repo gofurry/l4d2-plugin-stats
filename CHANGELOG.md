@@ -4,6 +4,27 @@ All notable changes to this project are documented in this file.
 
 ## Unreleased
 
+## 1.3.2 - 2026-08-14
+
+### Added
+
+- Add Achievement Contract v1 with a frozen 63-item catalog, automated monotonic evaluation, permanent idempotent unlocks, on-demand profile evaluation, and resumable bounded historical backfill.
+- Add public, mystery, and secret visibility semantics, completion and easter-egg counts, per-player unlock rates, live/history confirmation notices, and up to three authenticated badge showcase slots.
+- Add a top-level player Achievement view, three profile-header badges, one main badge in player previews, and a read-only Achievement Engine status panel without manual refresh, rebuild, claim, or threshold controls.
+- Add 26 validated 256×256 WebP badge sources and a deterministic build pipeline that produces a fixed 6×5, 128-pixel-tile WebP sprite atlas with generated TypeScript coordinates.
+- Add nullable survivor fall-death facts for PvE and Versus, including schema 6 migrations for SQLite, MySQL, and PostgreSQL and matching deep-doctor invariants.
+
+### Changed
+
+- Upgrade the Collector and Dashboard to `1.3.2`, Stats schema from 5 to 6, and Dashboard schema from 13 to 14; gameplay `stats_version=1`, Aggregate Contract v1, Incident Contract v1, Assist Contract v1, and Player Relationship Contract v1 remain unchanged.
+- Extend the Steam identity session used by self-service badge settings while keeping badge selection restricted to the authenticated player's own unlocked achievements.
+- Build the achievement atlas before every frontend production build and embed the refreshed frontend in the Dashboard binary.
+
+### Fixed
+
+- Preserve historical `NULL` for fall deaths so pre-v1.3.2 rows are never interpreted as zero, while new snapshots always persist zero or a positive count bounded by total deaths.
+- Keep locked mystery achievements anonymous without leaking artwork, thresholds, progress, immutable keys, or accidental grouping, and omit locked secrets entirely.
+
 ## 1.3.1 - 2026-08-14
 
 ### Added

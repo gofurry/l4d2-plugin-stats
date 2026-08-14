@@ -5,7 +5,7 @@ SCRIPT_DIR=$(CDPATH= cd -- "$(dirname -- "$0")" && pwd)
 REPO_ROOT=$(CDPATH= cd -- "$SCRIPT_DIR/.." && pwd)
 DASHBOARD_ROOT="$REPO_ROOT/dashboard"
 OUTPUT_DIR="$REPO_ROOT/dist"
-VERSION=${L4D2_STATS_VERSION:-1.3.1}
+VERSION=${L4D2_STATS_VERSION:-1.3.2}
 
 cd "$DASHBOARD_ROOT/frontend"
 pnpm install --frozen-lockfile

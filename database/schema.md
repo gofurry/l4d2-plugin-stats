@@ -2,7 +2,7 @@
 
 状态：已确认；Versus v1 自 collector v0.6.6 起冻结
 
-本文定义SQLite、MySQL和PostgreSQL必须共同表达的数据模型。具体DDL由`database/migrations/<driver>/`实现。Stats schema 当前为 5。
+本文定义SQLite、MySQL和PostgreSQL必须共同表达的数据模型。具体DDL由`database/migrations/<driver>/`实现。Stats schema 当前为 6。
 
 ## 1. 总体规则
 
@@ -256,6 +256,7 @@ friendly_fire_to_bots
 friendly_fire_taken
 incapacitations
 deaths
+fall_deaths
 incap_revives
 ledge_rescues
 defib_revives
@@ -321,6 +322,11 @@ charger_assists
 revision
 ```
 
+`fall_deaths` 由 schema 6 的 `0006_fall_deaths.sql` 同时加入 PvE 与 Versus
+幸存者总表。它只在真人幸存者的死亡事件本身带 `DMG_FALL` 时增加，是 `deaths`
+的原因子集；升级前历史行保持 `NULL`，新采集快照写入 0 或正整数，并始终满足
+`fall_deaths <= deaths`。不得通过最近受伤时间猜测，也不新增逐次坠落 Incident。
+
 ### 4.12 `lps_pve_segment_equipment_stats`
 
 复合主键为 `(segment_id, equipment_id)`，并包含：
@@ -378,6 +384,7 @@ friendly_fire_to_bots
 friendly_fire_taken
 incapacitations
 deaths
+fall_deaths
 incap_revives
 ledge_rescues
 defib_revives
