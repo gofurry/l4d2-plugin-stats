@@ -14,6 +14,7 @@
 #include <l4d2_player_stats/versus_results>
 #include <l4d2_player_stats/sessions>
 #include <l4d2_player_stats/segments>
+#include <l4d2_player_stats/relationship_stats>
 #include <l4d2_player_stats/round_context>
 #include <l4d2_player_stats/incidents>
 #include <l4d2_player_stats/pve_stats>
@@ -57,6 +58,7 @@ public void OnPluginStart()
 	LPS_InitializeVersusResults();
 	LPS_InitializeLifecycles();
 	LPS_InitializeSegments();
+	LPS_InitializeRelationships();
 	LPS_InitializeRoundContext();
 	LPS_InitializeIncidents();
 	LPS_InitializeAnalysisPersistence();
@@ -90,6 +92,7 @@ public void OnPluginEnd()
 	LPS_ShutdownVersusAbilities();
 	LPS_ShutdownVersusStats();
 	LPS_ShutdownPvEStats();
+	LPS_ShutdownRelationships();
 	LPS_ShutdownSessions();
 	LPS_ShutdownRuntime();
 }

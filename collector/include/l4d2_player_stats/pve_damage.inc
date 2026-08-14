@@ -284,6 +284,7 @@ void LPS_RecordPvEDamage(int victim, int attacker, int inflictor, int actualDama
 			}
 			else
 			{
+				LPS_RecordRelationshipFriendlyFire(humanAttacker, victim, actualDamage);
 				LPS_AddPvEStat(humanAttacker, LPSPvEStat_FriendlyFireToHumans, actualDamage);
 				LPS_AddPvEStat(victim, LPSPvEStat_FriendlyFireTaken, actualDamage);
 			}

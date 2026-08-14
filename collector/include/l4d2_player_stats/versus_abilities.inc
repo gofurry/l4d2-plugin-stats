@@ -341,6 +341,17 @@ void LPS_EndVersusControl(int victim, LPSControlType expectedType, LPSIncidentEn
 
 	int controller = GetClientOfUserId(g_LPSVersusControlControllerUserId[victim]);
 	float elapsed = GetGameTime() - g_LPSVersusControlStartedAt[victim];
+	int durationMs = elapsed > 0.0 ? RoundToNearest(elapsed * 1000.0) : 0;
+	if ((reason == LPSIncidentEnd_Rescued || reason == LPSIncidentEnd_ControllerKilled)
+		&& helper > 0)
+	{
+		LPS_RecordRelationshipControlRescue(
+			helper,
+			victim,
+			g_LPSVersusControlType[victim],
+			durationMs
+		);
+	}
 	int seconds = elapsed > 0.0 ? RoundToNearest(elapsed) : 0;
 	if (seconds > 0 && LPS_CanOwnVersusAbilityStats(controller))
 	{

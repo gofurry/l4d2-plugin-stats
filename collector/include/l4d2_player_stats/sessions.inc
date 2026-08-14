@@ -94,6 +94,7 @@ void LPS_InitializeSessions()
 
 public void OnClientConnected(int client)
 {
+	LPS_OnRelationshipClientSlotReset(client);
 	LPS_ResetStatsDamageEntity(client);
 	LPS_ResetClientSegmentState(client);
 	LPS_ResetClientSessionState(client, true);
@@ -146,6 +147,7 @@ public void OnClientDisconnect(int client)
 		return;
 	}
 
+	LPS_OnRelationshipClientSlotReset(client);
 	if (g_LPSClientSessionActive[client])
 	{
 		if (g_LPSSessionMapEnding)

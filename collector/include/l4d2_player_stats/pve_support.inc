@@ -12,6 +12,7 @@ public void LPS_Event_ReviveSuccessStats(Event event, const char[] name, bool do
 
 	int rescuer = GetClientOfUserId(event.GetInt("userid"));
 	int subject = GetClientOfUserId(event.GetInt("subject"));
+	LPS_RecordRelationshipRevive(rescuer, subject, event.GetBool("ledge_hang"));
 	if (event.GetBool("ledge_hang"))
 	{
 		LPS_AddPvEStat(rescuer, LPSPvEStat_LedgeRescues, 1);
@@ -32,6 +33,7 @@ public void LPS_Event_DefibrillatorUsedStats(Event event, const char[] name, boo
 
 	int rescuer = GetClientOfUserId(event.GetInt("userid"));
 	int subject = GetClientOfUserId(event.GetInt("subject"));
+	LPS_RecordRelationshipDefib(rescuer, subject);
 	LPS_AddPvEStat(rescuer, LPSPvEStat_DefibRevives, 1);
 	LPS_AddPvEStat(subject, LPSPvEStat_RescuesReceived, 1);
 }
@@ -46,6 +48,7 @@ public void LPS_Event_HealSuccessStats(Event event, const char[] name, bool dont
 	int healer = GetClientOfUserId(event.GetInt("userid"));
 	int subject = GetClientOfUserId(event.GetInt("subject"));
 	int restored = event.GetInt("health_restored");
+	LPS_RecordRelationshipMedkit(healer, subject, restored);
 	if (healer == subject)
 	{
 		LPS_AddPvEStat(healer, LPSPvEStat_MedkitsUsedSelf, 1);

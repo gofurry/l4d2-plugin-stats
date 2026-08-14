@@ -370,6 +370,17 @@ void LPS_EndControl(int victim, LPSIncidentEndReason reason = LPSIncidentEnd_Rel
 	}
 
 	float elapsed = GetGameTime() - g_LPSControlStartedAt[victim];
+	int durationMs = elapsed > 0.0 ? RoundToNearest(elapsed * 1000.0) : 0;
+	if ((reason == LPSIncidentEnd_Rescued || reason == LPSIncidentEnd_ControllerKilled)
+		&& helper > 0)
+	{
+		LPS_RecordRelationshipControlRescue(
+			helper,
+			victim,
+			g_LPSControlType[victim],
+			durationMs
+		);
+	}
 	int seconds = elapsed > 0.0 ? RoundToNearest(elapsed) : 0;
 	if (seconds > 0)
 	{

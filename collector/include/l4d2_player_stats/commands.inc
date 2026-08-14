@@ -97,6 +97,13 @@ public Action LPS_Command_Status(int client, int args)
 	);
 	ReplyToCommand(
 		client,
+		"[LPS] active_relationship_pairs=%d pending_closed_relationship_pairs=%d/%d",
+		g_LPSActiveRelationshipPairs.Length,
+		LPS_GetPendingClosedRelationshipCount(),
+		g_LPSClosedLifecycleQueueLimit.IntValue
+	);
+	ReplyToCommand(
+		client,
 		"[LPS] versus_stats_enabled=%d active_versus_survivor=%d active_versus_infected=%d",
 		g_LPSVersusStatsEnabled.BoolValue,
 		LPS_GetActiveVersusSurvivorStatsCount(),

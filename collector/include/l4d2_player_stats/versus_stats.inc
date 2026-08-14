@@ -332,6 +332,7 @@ void LPS_RecordVersusDamage(int victim, int attacker, int inflictor, int actualD
 		}
 		else
 		{
+			LPS_RecordRelationshipFriendlyFire(survivor, victim, actualDamage);
 			LPS_AddVersusSurvivorStat(
 				survivor,
 				LPSVersusSurvivorStat_FriendlyFireToHumans,
@@ -509,6 +510,7 @@ public void LPS_Event_VersusReviveSuccessStats(Event event, const char[] name, b
 
 	int rescuer = GetClientOfUserId(event.GetInt("userid"));
 	int subject = GetClientOfUserId(event.GetInt("subject"));
+	LPS_RecordRelationshipRevive(rescuer, subject, event.GetBool("ledge_hang"));
 	LPS_AddVersusSurvivorStat(
 		rescuer,
 		event.GetBool("ledge_hang")
@@ -528,6 +530,7 @@ public void LPS_Event_VersusDefibrillatorUsedStats(Event event, const char[] nam
 
 	int rescuer = GetClientOfUserId(event.GetInt("userid"));
 	int subject = GetClientOfUserId(event.GetInt("subject"));
+	LPS_RecordRelationshipDefib(rescuer, subject);
 	LPS_AddVersusSurvivorStat(rescuer, LPSVersusSurvivorStat_DefibRevives, 1);
 	LPS_AddVersusSurvivorStat(subject, LPSVersusSurvivorStat_RescuesReceived, 1);
 }
@@ -542,6 +545,7 @@ public void LPS_Event_VersusHealSuccessStats(Event event, const char[] name, boo
 	int healer = GetClientOfUserId(event.GetInt("userid"));
 	int subject = GetClientOfUserId(event.GetInt("subject"));
 	int restored = event.GetInt("health_restored");
+	LPS_RecordRelationshipMedkit(healer, subject, restored);
 	if (healer == subject)
 	{
 		LPS_AddVersusSurvivorStat(healer, LPSVersusSurvivorStat_MedkitsUsedSelf, 1);
