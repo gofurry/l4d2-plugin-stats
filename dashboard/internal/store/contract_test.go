@@ -41,6 +41,24 @@ func TestDatabaseContract(t *testing.T) {
 	versus, err := stats.PlayerVersus(ctx, "1", 0)
 	contractEqual(t, "PlayerVersus", versus, expectedContractVersus(), err)
 
+	relationships, err := stats.(StatsRelationshipStore).PlayerRelationships(ctx, "1", PlayerRelationshipQuery{Page: 1, PageSize: 20, Sort: "shared_rounds", Order: "desc"})
+	averageOut, averageIn := 800.0, 900.0
+	relationship := PlayerRelationship{
+		PeerSteamID: "2", PeerName: "Bob", SharedRounds: 1, SharedSeconds: 140, MutualSupport: 12,
+		Outgoing: PlayerRelationshipDirection{IncapRevives: 2, LedgeRescues: 1, DefibRevives: 1, HunterRescues: 3, SpecialRescues: 3, SupportActions: 9, ControlRescueDurationMS: 2400, AverageControlRescueMS: &averageOut, MedkitsUsed: 2, MedkitHealing: 75, BlackWhiteRestores: 1, FriendlyFireDamage: 5},
+		Incoming: PlayerRelationshipDirection{IncapRevives: 1, HunterRescues: 1, SpecialRescues: 1, SupportActions: 3, ControlRescueDurationMS: 900, AverageControlRescueMS: &averageIn, MedkitsUsed: 1, MedkitHealing: 30, FriendlyFireDamage: 2},
+	}
+	contractEqual(t, "PlayerRelationships", relationships, PlayerRelationshipPage{
+		RelationshipVersion: 1, Page: 1, PageSize: 20, Total: 1,
+		Summaries: PlayerRelationshipSummaries{
+			MostCompanion:   &PlayerRelationshipSummary{PeerSteamID: "2", PeerName: "Bob", SharedRounds: 1, SharedSeconds: 140},
+			MostSupported:   &PlayerRelationshipSummary{PeerSteamID: "2", PeerName: "Bob", SharedRounds: 1, SharedSeconds: 140, SupportActions: 9},
+			MostSupportedBy: &PlayerRelationshipSummary{PeerSteamID: "2", PeerName: "Bob", SharedRounds: 1, SharedSeconds: 140, SupportActions: 3},
+			MostMutual:      &PlayerRelationshipSummary{PeerSteamID: "2", PeerName: "Bob", SharedRounds: 1, SharedSeconds: 140, SupportActions: 12},
+		},
+		Items: []PlayerRelationship{relationship},
+	}, err)
+
 	incidentRankings := stats.(StatsIncidentRankingStore)
 	pveRanking, err := incidentRankings.CarAlarmRanking(ctx, RankingQuery{Mode: "pve"})
 	contractEqual(t, "PVE car alarm ranking", pveRanking, []RankingEntry{{Rank: 1, SteamID: "1", PlayerName: "Alice", Value: 3, ActiveSeconds: 90}}, err)
@@ -118,9 +136,10 @@ func expectedContractPVE() PlayerPVE {
 		TankEncounters: 2, TankParticipations: 2, WitchEncounters: 1, WitchParticipations: 1,
 		IncendiaryPacks: 1, ExplosivePacks: 1, ObjectiveInteractions: 2, AmmoPileUses: 4,
 		IncapacitatedSeconds: 20, LedgeHangingSeconds: 10, BlackWhiteRestored: 1, CarAlarmsTriggered: 3,
+		SpecialAssists: int64Pointer(6), AssistCoverage: CollectionCoverage{CollectedSegments: 1, TotalSegments: 1, Complete: true},
 		Classes: []PVEInfectedClass{
-			{ClassID: 1, Kills: 4, Damage: 500, ControlsReceived: 2, ControlledSeconds: 30, Saves: 3},
-			{ClassID: 2}, {ClassID: 3}, {ClassID: 4}, {ClassID: 5}, {ClassID: 6},
+			{ClassID: 1, Kills: 4, Assists: int64Pointer(1), Damage: 500, ControlsReceived: 2, ControlledSeconds: 30, Saves: 3},
+			{ClassID: 2, Assists: int64Pointer(1)}, {ClassID: 3, Assists: int64Pointer(1)}, {ClassID: 4, Assists: int64Pointer(1)}, {ClassID: 5, Assists: int64Pointer(1)}, {ClassID: 6, Assists: int64Pointer(1)},
 		},
 		Equipment: []PVEEquipment{{EquipmentID: 7, Actions: 15, CommonKills: 25, SpecialKills: 4, TankKills: 1, WitchKills: 1, HeadshotKills: 8, DamageToSpecial: 300, DamageToTank: 100, DamageToWitch: 50}},
 	}
@@ -135,15 +154,20 @@ func expectedContractVersus() PlayerVersus {
 		SurvivorPills: 2, SurvivorAdrenaline: 1, SurvivorTemporaryHealth: 20, SurvivorWitchKills: 1, SurvivorWitchDamage: 90,
 		MolotovsThrown: 1, PipeBombsThrown: 2, VomitJarsThrown: 3, SurvivorIncendiaryPacks: 1, SurvivorExplosivePacks: 2,
 		SurvivorTongueSelfCuts: 1, SurvivorTankRocksDestroyed: 1, SurvivorWitchOneShots: 1, SurvivorWitchSoloKills: 1, SurvivorObjectiveInteractions: 5, SurvivorCarAlarmsTriggered: 2,
+		HumanSpecialAssists: int64Pointer(4), BotSpecialAssists: int64Pointer(2), HumanTankAssists: int64Pointer(1), BotTankAssists: int64Pointer(1),
+		SurvivorWitchEncounters: int64Pointer(2), SurvivorWitchParticipations: int64Pointer(1), SurvivorWitchAssists: int64Pointer(0), SurvivorBlackWhiteRestored: int64Pointer(1),
+		AssistCoverage: CollectionCoverage{CollectedSegments: 1, TotalSegments: 1, Complete: true},
 		InfectedSpawns: 6, DamageToHumanSurvivors: 450, DamageToBotSurvivors: 120, HumanSurvivorIncaps: 3, BotSurvivorIncaps: 2,
 		HumanSurvivorKills: 1, BotSurvivorKills: 1, HumanSurvivorControls: 11, HumanSurvivorControlSeconds: 75,
 		SurvivorClasses: []VersusSurvivorClass{
-			{ClassID: 3, HumanControllerKills: 5, BotControllerKills: 2, DamageToHumanControllers: 120, DamageToBotControllers: 60},
-			{ClassID: 8, HumanControllerKills: 2, BotControllerKills: 1, DamageToHumanControllers: 200, DamageToBotControllers: 75},
+			{ClassID: 3, HumanControllerKills: 5, BotControllerKills: 2, DamageToHumanControllers: 120, DamageToBotControllers: 60, HumanControllerAssists: int64Pointer(4), BotControllerAssists: int64Pointer(2)},
+			{ClassID: 8, HumanControllerKills: 2, BotControllerKills: 1, DamageToHumanControllers: 200, DamageToBotControllers: 75, HumanControllerAssists: int64Pointer(1), BotControllerAssists: int64Pointer(1)},
 		},
 		InfectedClasses: []VersusInfectedClass{{ClassID: 3, Spawns: 6, DamageToHumanSurvivors: 450, DamageToBotSurvivors: 120, HumanSurvivorIncaps: 3, BotSurvivorIncaps: 2, HumanSurvivorKills: 1, BotSurvivorKills: 1, HumanSurvivorControls: 11, BotSurvivorControls: 4, HumanSurvivorControlSeconds: 75, BotSurvivorControlSeconds: 20, HumanSurvivorAbilityHits: 9, BotSurvivorAbilityHits: 3, HumanSurvivorAbilityDamage: 180, BotSurvivorAbilityDamage: 40}},
 	}
 }
+
+func int64Pointer(value int64) *int64 { return &value }
 
 func aggregateContractKey(row AggregateRow) string {
 	return row.Kind + "\x00" + row.ServerKey + "\x00" + row.SteamID + "\x00" + row.Mode + "\x00" + row.Dimension

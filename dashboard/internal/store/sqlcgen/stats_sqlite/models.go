@@ -37,6 +37,27 @@ type LpsPlayer struct {
 	LastSeenAt  int64
 }
 
+type LpsPlayerRoundRelationshipStat struct {
+	RoundID                 string
+	ActorSteamID            string
+	TargetSteamID           string
+	RelationshipVersion     int64
+	IncapRevives            int64
+	LedgeRescues            int64
+	DefibRevives            int64
+	SmokerRescues           int64
+	HunterRescues           int64
+	JockeyRescues           int64
+	ChargerRescues          int64
+	ControlRescueDurationMs int64
+	MedkitsUsed             int64
+	MedkitHealing           int64
+	BlackWhiteRestores      int64
+	FriendlyFireDamage      int64
+	LastSavedAt             int64
+	Revision                int64
+}
+
 type LpsPlayerSegment struct {
 	SegmentID         string
 	SessionID         string
@@ -143,6 +164,13 @@ type LpsPveSegmentStat struct {
 	BlackWhiteTeammatesRestored int64
 	Revision                    int64
 	CarAlarmsTriggered          interface{}
+	SpecialAssists              interface{}
+	SmokerAssists               interface{}
+	BoomerAssists               interface{}
+	HunterAssists               interface{}
+	SpitterAssists              interface{}
+	JockeyAssists               interface{}
+	ChargerAssists              interface{}
 }
 
 type LpsRound struct {
@@ -317,50 +345,59 @@ type LpsVersusSurvivorInfectedClassStat struct {
 	DamageToHumanControllers int64
 	DamageToBotControllers   int64
 	Revision                 int64
+	HumanControllerAssists   interface{}
+	BotControllerAssists     interface{}
 }
 
 type LpsVersusSurvivorStat struct {
-	SegmentID               string
-	StatsVersion            int64
-	LastSavedAt             int64
-	CommonKills             int64
-	HumanSpecialKills       int64
-	BotSpecialKills         int64
-	HumanTankKills          int64
-	BotTankKills            int64
-	DamageToHumanSpecial    int64
-	DamageToBotSpecial      int64
-	DamageToHumanTank       int64
-	DamageToBotTank         int64
-	DamageTakenInfected     int64
-	FriendlyFireToHumans    int64
-	FriendlyFireToBots      int64
-	FriendlyFireTaken       int64
-	Incapacitations         int64
-	Deaths                  int64
-	IncapRevives            int64
-	LedgeRescues            int64
-	DefibRevives            int64
-	RescuesReceived         int64
-	MedkitsUsedSelf         int64
-	MedkitsUsedOnOthers     int64
-	MedkitHealingSelf       int64
-	MedkitHealingOthers     int64
-	PillsUsed               int64
-	AdrenalineUsed          int64
-	TemporaryHealthReceived int64
-	WitchKills              int64
-	DamageToWitch           int64
-	MolotovsThrown          int64
-	PipeBombsThrown         int64
-	VomitJarsThrown         int64
-	IncendiaryPacksDeployed int64
-	ExplosivePacksDeployed  int64
-	MeleeTongueSelfCuts     int64
-	TankRocksDestroyed      int64
-	WitchOneshots           int64
-	WitchSoloKills          int64
-	Revision                int64
-	CarAlarmsTriggered      interface{}
-	ObjectiveInteractions   interface{}
+	SegmentID                   string
+	StatsVersion                int64
+	LastSavedAt                 int64
+	CommonKills                 int64
+	HumanSpecialKills           int64
+	BotSpecialKills             int64
+	HumanTankKills              int64
+	BotTankKills                int64
+	DamageToHumanSpecial        int64
+	DamageToBotSpecial          int64
+	DamageToHumanTank           int64
+	DamageToBotTank             int64
+	DamageTakenInfected         int64
+	FriendlyFireToHumans        int64
+	FriendlyFireToBots          int64
+	FriendlyFireTaken           int64
+	Incapacitations             int64
+	Deaths                      int64
+	IncapRevives                int64
+	LedgeRescues                int64
+	DefibRevives                int64
+	RescuesReceived             int64
+	MedkitsUsedSelf             int64
+	MedkitsUsedOnOthers         int64
+	MedkitHealingSelf           int64
+	MedkitHealingOthers         int64
+	PillsUsed                   int64
+	AdrenalineUsed              int64
+	TemporaryHealthReceived     int64
+	WitchKills                  int64
+	DamageToWitch               int64
+	MolotovsThrown              int64
+	PipeBombsThrown             int64
+	VomitJarsThrown             int64
+	IncendiaryPacksDeployed     int64
+	ExplosivePacksDeployed      int64
+	MeleeTongueSelfCuts         int64
+	TankRocksDestroyed          int64
+	WitchOneshots               int64
+	WitchSoloKills              int64
+	Revision                    int64
+	CarAlarmsTriggered          interface{}
+	ObjectiveInteractions       interface{}
+	HumanSpecialAssists         interface{}
+	BotSpecialAssists           interface{}
+	HumanTankAssists            interface{}
+	BotTankAssists              interface{}
+	WitchEncounters             interface{}
+	WitchKillParticipations     interface{}
+	BlackWhiteTeammatesRestored interface{}
 }

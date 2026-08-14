@@ -132,12 +132,13 @@ type PlayerFilter struct {
 }
 
 type PVEInfectedClass struct {
-	ClassID           int   `json:"class_id"`
-	Kills             int64 `json:"kills"`
-	Damage            int64 `json:"damage"`
-	ControlsReceived  int64 `json:"controls_received"`
-	ControlledSeconds int64 `json:"controlled_seconds"`
-	Saves             int64 `json:"saves"`
+	ClassID           int    `json:"class_id"`
+	Kills             int64  `json:"kills"`
+	Assists           *int64 `json:"assists"`
+	Damage            int64  `json:"damage"`
+	ControlsReceived  int64  `json:"controls_received"`
+	ControlledSeconds int64  `json:"controlled_seconds"`
+	Saves             int64  `json:"saves"`
 }
 
 type PVEEquipment struct {
@@ -201,16 +202,22 @@ type PlayerPVE struct {
 	LedgeHangingSeconds   int64              `json:"ledge_hanging_seconds"`
 	BlackWhiteRestored    int64              `json:"black_white_teammates_restored"`
 	CarAlarmsTriggered    int64              `json:"car_alarms_triggered"`
+	SpecialAssists        *int64             `json:"special_assists"`
+	TankAssists           int64              `json:"tank_assists"`
+	WitchAssists          int64              `json:"witch_assists"`
+	AssistCoverage        CollectionCoverage `json:"assist_coverage"`
 	Classes               []PVEInfectedClass `json:"infected_classes"`
 	Equipment             []PVEEquipment     `json:"equipment"`
 }
 
 type VersusSurvivorClass struct {
-	ClassID                  int64 `json:"class_id"`
-	HumanControllerKills     int64 `json:"human_controller_kills"`
-	BotControllerKills       int64 `json:"bot_controller_kills"`
-	DamageToHumanControllers int64 `json:"damage_to_human_controllers"`
-	DamageToBotControllers   int64 `json:"damage_to_bot_controllers"`
+	ClassID                  int64  `json:"class_id"`
+	HumanControllerKills     int64  `json:"human_controller_kills"`
+	BotControllerKills       int64  `json:"bot_controller_kills"`
+	DamageToHumanControllers int64  `json:"damage_to_human_controllers"`
+	DamageToBotControllers   int64  `json:"damage_to_bot_controllers"`
+	HumanControllerAssists   *int64 `json:"human_controller_assists"`
+	BotControllerAssists     *int64 `json:"bot_controller_assists"`
 }
 
 type VersusInfectedClass struct {
@@ -275,6 +282,15 @@ type PlayerVersus struct {
 	SurvivorWitchSoloKills        int64                 `json:"survivor_witch_solo_kills"`
 	SurvivorObjectiveInteractions int64                 `json:"survivor_objective_interactions"`
 	SurvivorCarAlarmsTriggered    int64                 `json:"survivor_car_alarms_triggered"`
+	HumanSpecialAssists           *int64                `json:"human_special_assists"`
+	BotSpecialAssists             *int64                `json:"bot_special_assists"`
+	HumanTankAssists              *int64                `json:"human_tank_assists"`
+	BotTankAssists                *int64                `json:"bot_tank_assists"`
+	SurvivorWitchEncounters       *int64                `json:"survivor_witch_encounters"`
+	SurvivorWitchParticipations   *int64                `json:"survivor_witch_kill_participations"`
+	SurvivorWitchAssists          *int64                `json:"survivor_witch_assists"`
+	SurvivorBlackWhiteRestored    *int64                `json:"survivor_black_white_teammates_restored"`
+	AssistCoverage                CollectionCoverage    `json:"assist_coverage"`
 	DamageToBotSurvivors          int64                 `json:"damage_to_bot_survivors"`
 	BotSurvivorIncaps             int64                 `json:"bot_survivor_incaps"`
 	BotSurvivorKills              int64                 `json:"bot_survivor_kills"`
@@ -303,22 +319,6 @@ type ActivePlayer struct {
 	ConnectedSeconds int64
 }
 
-type PlayerPreviewPVE struct {
-	Available           bool  `json:"available"`
-	SpecialKills        int64 `json:"special_kills"`
-	BossKills           int64 `json:"boss_kills"`
-	Rescues             int64 `json:"rescues"`
-	CampaignCompletions int64 `json:"campaign_completions"`
-}
-
-type PlayerPreviewVersus struct {
-	Available               bool  `json:"available"`
-	HumanSIKills            int64 `json:"human_si_kills"`
-	InfectedDamage          int64 `json:"infected_damage"`
-	SurvivorControls        int64 `json:"survivor_controls"`
-	SurvivorIncapacitations int64 `json:"survivor_incapacitations"`
-}
-
 type PlayerCompanion struct {
 	PlayerName    string `json:"player_name"`
 	SharedSeconds int64  `json:"shared_seconds"`
@@ -326,14 +326,84 @@ type PlayerCompanion struct {
 }
 
 type PlayerPreview struct {
-	SteamID           string              `json:"steam_id"`
-	PlayerName        string              `json:"player_name"`
-	SessionCount      int64               `json:"session_count"`
-	ActivePlaySeconds int64               `json:"active_play_seconds"`
-	LastSeenAt        int64               `json:"last_seen_at"`
-	PVE               PlayerPreviewPVE    `json:"pve"`
-	Versus            PlayerPreviewVersus `json:"versus"`
-	Companions        []PlayerCompanion   `json:"companions"`
+	SteamID             string `json:"steam_id"`
+	PlayerName          string `json:"player_name"`
+	ActivePlaySeconds   int64  `json:"active_play_seconds"`
+	CampaignCompletions int64  `json:"campaign_completions"`
+	TankKills           int64  `json:"tank_kills"`
+	WitchKills          int64  `json:"witch_kills"`
+	CommonKills         int64  `json:"common_kills"`
+	SpecialKills        int64  `json:"special_kills"`
+	HeadshotKills       int64  `json:"headshot_kills"`
+	IncapRevives        int64  `json:"incap_revives"`
+	Incapacitations     int64  `json:"incapacitations"`
+	LastSeenAt          int64  `json:"last_seen_at"`
+}
+
+type CollectionCoverage struct {
+	CollectedSegments int64 `json:"collected_segments"`
+	TotalSegments     int64 `json:"total_segments"`
+	Complete          bool  `json:"complete"`
+}
+
+type PlayerRelationshipDirection struct {
+	IncapRevives            int64    `json:"incap_revives"`
+	LedgeRescues            int64    `json:"ledge_rescues"`
+	DefibRevives            int64    `json:"defib_revives"`
+	SmokerRescues           int64    `json:"smoker_rescues"`
+	HunterRescues           int64    `json:"hunter_rescues"`
+	JockeyRescues           int64    `json:"jockey_rescues"`
+	ChargerRescues          int64    `json:"charger_rescues"`
+	SpecialRescues          int64    `json:"special_rescues"`
+	SupportActions          int64    `json:"support_actions"`
+	ControlRescueDurationMS int64    `json:"control_rescue_duration_ms"`
+	AverageControlRescueMS  *float64 `json:"average_control_rescue_ms,omitempty"`
+	MedkitsUsed             int64    `json:"medkits_used"`
+	MedkitHealing           int64    `json:"medkit_healing"`
+	BlackWhiteRestores      int64    `json:"black_white_restores"`
+	FriendlyFireDamage      int64    `json:"friendly_fire_damage"`
+}
+
+type PlayerRelationship struct {
+	PeerSteamID   string                      `json:"peer_steam_id"`
+	PeerName      string                      `json:"peer_name"`
+	SharedRounds  int64                       `json:"shared_rounds"`
+	SharedSeconds int64                       `json:"shared_seconds"`
+	Outgoing      PlayerRelationshipDirection `json:"outgoing"`
+	Incoming      PlayerRelationshipDirection `json:"incoming"`
+	MutualSupport int64                       `json:"mutual_support"`
+}
+
+type PlayerRelationshipSummary struct {
+	PeerSteamID    string `json:"peer_steam_id"`
+	PeerName       string `json:"peer_name"`
+	SharedRounds   int64  `json:"shared_rounds"`
+	SharedSeconds  int64  `json:"shared_seconds"`
+	SupportActions int64  `json:"support_actions"`
+}
+
+type PlayerRelationshipSummaries struct {
+	MostCompanion   *PlayerRelationshipSummary `json:"most_companion,omitempty"`
+	MostSupported   *PlayerRelationshipSummary `json:"most_supported,omitempty"`
+	MostSupportedBy *PlayerRelationshipSummary `json:"most_supported_by,omitempty"`
+	MostMutual      *PlayerRelationshipSummary `json:"most_mutual,omitempty"`
+}
+
+type PlayerRelationshipQuery struct {
+	PlayerFilter
+	Page     int64
+	PageSize int64
+	Sort     string
+	Order    string
+}
+
+type PlayerRelationshipPage struct {
+	RelationshipVersion int64                       `json:"relationship_version"`
+	Page                int64                       `json:"page"`
+	PageSize            int64                       `json:"page_size"`
+	Total               int64                       `json:"total"`
+	Summaries           PlayerRelationshipSummaries `json:"summaries"`
+	Items               []PlayerRelationship        `json:"items"`
 }
 
 type AnalysisFilter struct {
@@ -381,21 +451,27 @@ type AnalysisMaps struct {
 }
 
 type IncidentComposition struct {
-	Controls     int64 `json:"controls"`
-	Incaps       int64 `json:"incaps"`
-	Deaths       int64 `json:"deaths"`
-	Revives      int64 `json:"revives"`
-	LedgeRescues int64 `json:"ledge_rescues"`
-	DefibRevives int64 `json:"defib_revives"`
-	CarAlarms    int64 `json:"car_alarms"`
+	Controls           int64 `json:"controls"`
+	Incaps             int64 `json:"incaps"`
+	Deaths             int64 `json:"deaths"`
+	Revives            int64 `json:"revives"`
+	LedgeRescues       int64 `json:"ledge_rescues"`
+	DefibRevives       int64 `json:"defib_revives"`
+	CarAlarms          int64 `json:"car_alarms"`
+	WitchStartles      int64 `json:"witch_startles"`
+	MedkitHeals        int64 `json:"medkit_heals"`
+	ObjectiveCompletes int64 `json:"objective_completes"`
 }
 
 type AnalysisTimelinePoint struct {
-	BucketSeconds int64   `json:"bucket_seconds"`
-	RoundsReached int64   `json:"rounds_reached"`
-	Controls      float64 `json:"controls_per_100_rounds"`
-	Incaps        float64 `json:"incaps_per_100_rounds"`
-	Deaths        float64 `json:"deaths_per_100_rounds"`
+	BucketSeconds      int64   `json:"bucket_seconds"`
+	RoundsReached      int64   `json:"rounds_reached"`
+	Controls           float64 `json:"controls_per_100_rounds"`
+	Incaps             float64 `json:"incaps_per_100_rounds"`
+	Deaths             float64 `json:"deaths_per_100_rounds"`
+	WitchStartles      float64 `json:"witch_startles_per_100_rounds"`
+	MedkitHeals        float64 `json:"medkit_heals_per_100_rounds"`
+	ObjectiveCompletes float64 `json:"objective_completes_per_100_rounds"`
 }
 
 type BossAnalysis struct {
@@ -405,14 +481,26 @@ type BossAnalysis struct {
 	AverageLifetime *float64 `json:"average_lifetime_seconds,omitempty"`
 	MaximumLifetime *float64 `json:"maximum_lifetime_seconds,omitempty"`
 	OneShotDeaths   int64    `json:"one_shot_deaths,omitempty"`
+	StartleCount    int64    `json:"startle_count,omitempty"`
+}
+
+type AnalysisIncident struct {
+	IncidentType  int64  `json:"incident_type"`
+	OccurredAt    int64  `json:"occurred_at"`
+	RoundOffsetMS int64  `json:"round_offset_ms"`
+	ActorSteamID  string `json:"actor_steam_id,omitempty"`
+	ActorName     string `json:"actor_name,omitempty"`
+	TargetSteamID string `json:"target_steam_id,omitempty"`
+	TargetName    string `json:"target_name,omitempty"`
 }
 
 type AnalysisMapDetail struct {
-	Summary     AnalysisMapRow          `json:"summary"`
-	Composition IncidentComposition     `json:"incident_composition"`
-	Timeline    []AnalysisTimelinePoint `json:"timeline"`
-	Tank        BossAnalysis            `json:"tank"`
-	Witch       BossAnalysis            `json:"witch"`
+	Summary         AnalysisMapRow          `json:"summary"`
+	Composition     IncidentComposition     `json:"incident_composition"`
+	Timeline        []AnalysisTimelinePoint `json:"timeline"`
+	Tank            BossAnalysis            `json:"tank"`
+	Witch           BossAnalysis            `json:"witch"`
+	RecentIncidents []AnalysisIncident      `json:"recent_incidents"`
 }
 
 type AnalysisContextRow struct {
@@ -629,6 +717,9 @@ type StatsDataQuality struct {
 	ContextContract      DataQualityFinding
 	IncidentContract     DataQualityFinding
 	IncidentCompleteness DataQualityFinding
+	RelationshipContract DataQualityFinding
+	PVEAssistContract    DataQualityFinding
+	VersusAssistContract DataQualityFinding
 }
 
 type PlayerSession struct {
@@ -860,6 +951,10 @@ type StatsAnalysisStore interface {
 	AnalysisContexts(context.Context, AnalysisFilter) (AnalysisContexts, error)
 	PlayerAnalysisTotals(context.Context, string, PlayerFilter, string) (PlayerAnalysisTotals, error)
 	PlayerIncidentAnalysis(context.Context, string, PlayerFilter) (PlayerIncidentAnalysis, error)
+}
+
+type StatsRelationshipStore interface {
+	PlayerRelationships(context.Context, string, PlayerRelationshipQuery) (PlayerRelationshipPage, error)
 }
 
 type StatsDatabase interface {

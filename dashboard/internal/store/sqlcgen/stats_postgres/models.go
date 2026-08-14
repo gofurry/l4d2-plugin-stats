@@ -41,6 +41,27 @@ type LpsPlayer struct {
 	LastSeenAt  int64
 }
 
+type LpsPlayerRoundRelationshipStat struct {
+	RoundID                 string
+	ActorSteamID            string
+	TargetSteamID           string
+	RelationshipVersion     int32
+	IncapRevives            int64
+	LedgeRescues            int64
+	DefibRevives            int64
+	SmokerRescues           int64
+	HunterRescues           int64
+	JockeyRescues           int64
+	ChargerRescues          int64
+	ControlRescueDurationMs int64
+	MedkitsUsed             int64
+	MedkitHealing           int64
+	BlackWhiteRestores      int64
+	FriendlyFireDamage      int64
+	LastSavedAt             int64
+	Revision                int64
+}
+
 type LpsPlayerSegment struct {
 	SegmentID         string
 	SessionID         string
@@ -147,6 +168,13 @@ type LpsPveSegmentStat struct {
 	BlackWhiteTeammatesRestored int64
 	Revision                    int64
 	CarAlarmsTriggered          sql.NullInt64
+	SpecialAssists              sql.NullInt64
+	SmokerAssists               sql.NullInt64
+	BoomerAssists               sql.NullInt64
+	HunterAssists               sql.NullInt64
+	SpitterAssists              sql.NullInt64
+	JockeyAssists               sql.NullInt64
+	ChargerAssists              sql.NullInt64
 }
 
 type LpsRound struct {
@@ -321,50 +349,59 @@ type LpsVersusSurvivorInfectedClassStat struct {
 	DamageToHumanControllers int64
 	DamageToBotControllers   int64
 	Revision                 int64
+	HumanControllerAssists   sql.NullInt64
+	BotControllerAssists     sql.NullInt64
 }
 
 type LpsVersusSurvivorStat struct {
-	SegmentID               string
-	StatsVersion            int32
-	LastSavedAt             int64
-	CommonKills             int64
-	HumanSpecialKills       int64
-	BotSpecialKills         int64
-	HumanTankKills          int64
-	BotTankKills            int64
-	DamageToHumanSpecial    int64
-	DamageToBotSpecial      int64
-	DamageToHumanTank       int64
-	DamageToBotTank         int64
-	DamageTakenInfected     int64
-	FriendlyFireToHumans    int64
-	FriendlyFireToBots      int64
-	FriendlyFireTaken       int64
-	Incapacitations         int64
-	Deaths                  int64
-	IncapRevives            int64
-	LedgeRescues            int64
-	DefibRevives            int64
-	RescuesReceived         int64
-	MedkitsUsedSelf         int64
-	MedkitsUsedOnOthers     int64
-	MedkitHealingSelf       int64
-	MedkitHealingOthers     int64
-	PillsUsed               int64
-	AdrenalineUsed          int64
-	TemporaryHealthReceived int64
-	WitchKills              int64
-	DamageToWitch           int64
-	MolotovsThrown          int64
-	PipeBombsThrown         int64
-	VomitJarsThrown         int64
-	IncendiaryPacksDeployed int64
-	ExplosivePacksDeployed  int64
-	MeleeTongueSelfCuts     int64
-	TankRocksDestroyed      int64
-	WitchOneshots           int64
-	WitchSoloKills          int64
-	Revision                int64
-	CarAlarmsTriggered      sql.NullInt64
-	ObjectiveInteractions   sql.NullInt64
+	SegmentID                   string
+	StatsVersion                int32
+	LastSavedAt                 int64
+	CommonKills                 int64
+	HumanSpecialKills           int64
+	BotSpecialKills             int64
+	HumanTankKills              int64
+	BotTankKills                int64
+	DamageToHumanSpecial        int64
+	DamageToBotSpecial          int64
+	DamageToHumanTank           int64
+	DamageToBotTank             int64
+	DamageTakenInfected         int64
+	FriendlyFireToHumans        int64
+	FriendlyFireToBots          int64
+	FriendlyFireTaken           int64
+	Incapacitations             int64
+	Deaths                      int64
+	IncapRevives                int64
+	LedgeRescues                int64
+	DefibRevives                int64
+	RescuesReceived             int64
+	MedkitsUsedSelf             int64
+	MedkitsUsedOnOthers         int64
+	MedkitHealingSelf           int64
+	MedkitHealingOthers         int64
+	PillsUsed                   int64
+	AdrenalineUsed              int64
+	TemporaryHealthReceived     int64
+	WitchKills                  int64
+	DamageToWitch               int64
+	MolotovsThrown              int64
+	PipeBombsThrown             int64
+	VomitJarsThrown             int64
+	IncendiaryPacksDeployed     int64
+	ExplosivePacksDeployed      int64
+	MeleeTongueSelfCuts         int64
+	TankRocksDestroyed          int64
+	WitchOneshots               int64
+	WitchSoloKills              int64
+	Revision                    int64
+	CarAlarmsTriggered          sql.NullInt64
+	ObjectiveInteractions       sql.NullInt64
+	HumanSpecialAssists         sql.NullInt64
+	BotSpecialAssists           sql.NullInt64
+	HumanTankAssists            sql.NullInt64
+	BotTankAssists              sql.NullInt64
+	WitchEncounters             sql.NullInt64
+	WitchKillParticipations     sql.NullInt64
+	BlackWhiteTeammatesRestored sql.NullInt64
 }
