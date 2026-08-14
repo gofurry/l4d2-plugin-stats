@@ -99,6 +99,11 @@ public void LPS_OnObjectiveInteractionCompleted(
 		g_LPSObjectiveEntityCounted[caller] = true;
 		LPS_AddVersusSurvivorStat(activator, LPSVersusSurvivorStat_ObjectiveInteractions, 1);
 	}
+
+	if (g_LPSObjectiveEntityCounted[caller])
+	{
+		LPS_RecordObjectiveCompleteIncident(activator, caller);
+	}
 }
 
 public void LPS_Event_AmmoPickupStats(Event event, const char[] name, bool dontBroadcast)
@@ -246,6 +251,14 @@ public Action LPS_Timer_VerifyBlackWhiteRestore(Handle timer, DataPack pack)
 	if (g_LPSModeFamily == LPSModeFamily_PvE)
 	{
 		LPS_AddPvEStat(healer, LPSPvEStat_BlackWhiteTeammatesRestored, 1);
+	}
+	else if (g_LPSModeFamily == LPSModeFamily_Versus)
+	{
+		LPS_AddVersusSurvivorStat(
+			healer,
+			LPSVersusSurvivorStat_BlackWhiteTeammatesRestored,
+			1
+		);
 	}
 	LPS_RecordRelationshipBlackWhiteRestore(healer, subject);
 	return Plugin_Stop;

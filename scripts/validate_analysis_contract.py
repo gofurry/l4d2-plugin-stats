@@ -21,6 +21,9 @@ INCIDENT_IDS = {
     "LPSIncident_TankDeath": 9,
     "LPSIncident_WitchSpawn": 10,
     "LPSIncident_WitchDeath": 11,
+    "LPSIncident_WitchStartle": 12,
+    "LPSIncident_MedkitHeal": 13,
+    "LPSIncident_ObjectiveComplete": 14,
 }
 
 

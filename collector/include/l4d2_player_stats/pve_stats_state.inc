@@ -74,6 +74,13 @@ enum struct LPSPvEStatsSnapshot
 	int ledgeHangingSeconds;
 	int blackWhiteTeammatesRestored;
 	int carAlarmsTriggered;
+	int specialAssists;
+	int smokerAssists;
+	int boomerAssists;
+	int hunterAssists;
+	int spitterAssists;
+	int jockeyAssists;
+	int chargerAssists;
 	int revision;
 }
 
@@ -177,6 +184,13 @@ void LPS_ResetClientPvEStatsState(int client)
 	g_LPSClientPvEStats[client].ledgeHangingSeconds = 0;
 	g_LPSClientPvEStats[client].blackWhiteTeammatesRestored = 0;
 	g_LPSClientPvEStats[client].carAlarmsTriggered = 0;
+	g_LPSClientPvEStats[client].specialAssists = 0;
+	g_LPSClientPvEStats[client].smokerAssists = 0;
+	g_LPSClientPvEStats[client].boomerAssists = 0;
+	g_LPSClientPvEStats[client].hunterAssists = 0;
+	g_LPSClientPvEStats[client].spitterAssists = 0;
+	g_LPSClientPvEStats[client].jockeyAssists = 0;
+	g_LPSClientPvEStats[client].chargerAssists = 0;
 	LPS_ResetClientPvEInteractionState(client);
 	g_LPSClientPvEStats[client].revision = 0;
 }

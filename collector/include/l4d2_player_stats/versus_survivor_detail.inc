@@ -28,8 +28,11 @@ void LPS_RecordVersusWitchContribution(int witch, int client)
 	}
 
 	// The shared bounded contributor slots are safe because exactly one mode
-	// family can be active at a time. Versus does not award PvE encounters.
-	LPS_RecordBossContribution(witch, client);
+	// family can be active at a time.
+	if (LPS_RecordBossContribution(witch, client))
+	{
+		LPS_AddVersusSurvivorStat(client, LPSVersusSurvivorStat_WitchEncounters, 1);
+	}
 }
 
 void LPS_RecordVersusWitchKilled(Event event)
@@ -42,16 +45,14 @@ void LPS_RecordVersusWitchKilled(Event event)
 	int killer = GetClientOfUserId(event.GetInt("userid"));
 	int witch = event.GetInt("witchid");
 	LPS_RecordBossDeathIncident(witch, killer, false, event.GetBool("oneshot"));
-	if (!LPS_IsHumanClientOnTeam(killer, LPS_TEAM_SURVIVOR))
+	bool humanKiller = LPS_IsHumanClientOnTeam(killer, LPS_TEAM_SURVIVOR);
+	if (humanKiller)
 	{
-		LPS_ResetBossTracking(witch);
-		return;
-	}
-
-	LPS_AddVersusSurvivorStat(killer, LPSVersusSurvivorStat_WitchKills, 1);
-	if (event.GetBool("oneshot"))
-	{
-		LPS_AddVersusSurvivorStat(killer, LPSVersusSurvivorStat_WitchOneShots, 1);
+		LPS_AddVersusSurvivorStat(killer, LPSVersusSurvivorStat_WitchKills, 1);
+		if (event.GetBool("oneshot"))
+		{
+			LPS_AddVersusSurvivorStat(killer, LPSVersusSurvivorStat_WitchOneShots, 1);
+		}
 	}
 
 	int contributorCount = 0;
@@ -67,10 +68,20 @@ void LPS_RecordVersusWitchKilled(Event event)
 			}
 			contributorCount++;
 			soleContributorUserId = userId;
+			int contributor = GetClientOfUserId(userId);
+			if (LPS_IsHumanClientOnTeam(contributor, LPS_TEAM_SURVIVOR))
+			{
+				LPS_AddVersusSurvivorStat(
+					contributor,
+					LPSVersusSurvivorStat_WitchKillParticipations,
+					1
+				);
+			}
 		}
 	}
 
-	if (contributorCount == 1
+	if (humanKiller
+		&& contributorCount == 1
 		&& soleContributorUserId == GetClientUserId(killer))
 	{
 		LPS_AddVersusSurvivorStat(killer, LPSVersusSurvivorStat_WitchSoloKills, 1);

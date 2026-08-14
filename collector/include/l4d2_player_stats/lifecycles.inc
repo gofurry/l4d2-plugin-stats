@@ -419,6 +419,7 @@ void LPS_StartRound()
 	g_LPSRoundCurrentRevision = 1;
 	g_LPSRoundDirty = true;
 	g_LPSRoundActive = true;
+	LPS_ResetAllAssistContributors();
 	LPS_OnRelationshipRoundStarted();
 	LPS_StartRoundContext();
 	LPS_OnIncidentRoundStarted();
@@ -454,6 +455,7 @@ void LPS_EndRound(const char[] status, bool campaignCompleted = false)
 
 	LPS_EndAllActiveSegments(StrEqual(status, "abandoned", true) ? "abandoned" : "closed");
 	LPS_EndAllIncidentControls();
+	LPS_ResetAllAssistContributors();
 	LPS_OnRelationshipRoundEnding();
 	LPS_FinalizeRoundContext();
 

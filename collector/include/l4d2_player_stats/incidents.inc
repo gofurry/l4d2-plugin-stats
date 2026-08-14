@@ -38,6 +38,7 @@ int g_LPSIncidentDroppedTotal;
 bool g_LPSIncidentOverflowReported;
 int g_LPSBossSpawnIncidentSequence[LPS_MAX_ENTITY_INDEX + 1];
 int g_LPSBossSpawnIncidentOffsetMs[LPS_MAX_ENTITY_INDEX + 1];
+bool g_LPSWitchStartleIncidentRecorded[LPS_MAX_ENTITY_INDEX + 1];
 bool g_LPSControlIncidentActive[MAXPLAYERS + 1];
 char g_LPSControlIncidentRoundId[MAXPLAYERS + 1][LPS_MAX_ROUND_ID];
 float g_LPSControlIncidentStartedGameTime[MAXPLAYERS + 1];
@@ -63,6 +64,7 @@ void LPS_InitializeIncidents()
 	{
 		g_LPSBossSpawnIncidentSequence[entity] = 0;
 		g_LPSBossSpawnIncidentOffsetMs[entity] = 0;
+		g_LPSWitchStartleIncidentRecorded[entity] = false;
 	}
 	for (int client = 1; client <= MaxClients; client++)
 	{
@@ -74,6 +76,8 @@ void LPS_InitializeIncidents()
 	HookEvent("revive_success", LPS_Event_IncidentRevive, EventHookMode_Post);
 	HookEvent("defibrillator_used", LPS_Event_IncidentDefib, EventHookMode_Post);
 	HookEvent("triggered_car_alarm", LPS_Event_IncidentCarAlarm, EventHookMode_Post);
+	HookEvent("witch_harasser_set", LPS_Event_IncidentWitchStartle, EventHookMode_Post);
+	HookEvent("heal_success", LPS_Event_IncidentMedkitHeal, EventHookMode_Post);
 }
 
 void LPS_OnIncidentRoundStarted()
@@ -84,6 +88,7 @@ void LPS_OnIncidentRoundStarted()
 	{
 		g_LPSBossSpawnIncidentSequence[entity] = 0;
 		g_LPSBossSpawnIncidentOffsetMs[entity] = 0;
+		g_LPSWitchStartleIncidentRecorded[entity] = false;
 	}
 	for (int client = 1; client <= MaxClients; client++)
 	{
@@ -293,6 +298,77 @@ public void LPS_Event_IncidentCarAlarm(Event event, const char[] name, bool dont
 	}
 }
 
+public void LPS_Event_IncidentWitchStartle(Event event, const char[] name, bool dontBroadcast)
+{
+	int witch = event.GetInt("witchid");
+	int actor = GetClientOfUserId(event.GetInt("userid"));
+	if (witch < 1
+		|| witch > LPS_MAX_ENTITY_INDEX
+		|| g_LPSWitchStartleIncidentRecorded[witch]
+		|| !LPS_IsHumanSurvivorClient(actor))
+	{
+		return;
+	}
+
+	LPSIncidentSnapshot incident;
+	if (LPS_BeginIncident(incident, LPSIncident_WitchStartle) == 0)
+	{
+		return;
+	}
+	incident.actorKind = view_as<int>(LPS_ResolveParticipant(
+		actor,
+		incident.actorSteamId,
+		sizeof(incident.actorSteamId),
+		true
+	));
+	incident.targetKind = view_as<int>(LPSParticipant_Witch);
+	LPS_CaptureIncidentPosition(witch, incident, false);
+	if (LPS_QueueIncident(incident))
+	{
+		g_LPSWitchStartleIncidentRecorded[witch] = true;
+	}
+}
+
+public void LPS_Event_IncidentMedkitHeal(Event event, const char[] name, bool dontBroadcast)
+{
+	LPS_RecordPointIncident(
+		LPSIncident_MedkitHeal,
+		GetClientOfUserId(event.GetInt("userid")),
+		GetClientOfUserId(event.GetInt("subject")),
+		true,
+		true,
+		0,
+		event.GetInt("health_restored")
+	);
+}
+
+void LPS_RecordObjectiveCompleteIncident(int actor, int objective)
+{
+	if (!LPS_IsHumanSurvivorClient(actor))
+	{
+		return;
+	}
+
+	LPSIncidentSnapshot incident;
+	if (LPS_BeginIncident(incident, LPSIncident_ObjectiveComplete) == 0)
+	{
+		return;
+	}
+	incident.actorKind = view_as<int>(LPS_ResolveParticipant(
+		actor,
+		incident.actorSteamId,
+		sizeof(incident.actorSteamId),
+		true
+	));
+	incident.targetKind = view_as<int>(LPSParticipant_Other);
+	LPS_CaptureIncidentPosition(objective, incident, false);
+	if (!incident.hasPosition)
+	{
+		LPS_CaptureIncidentPosition(actor, incident, false);
+	}
+	LPS_QueueIncident(incident);
+}
+
 int LPS_GetPendingIncidentCount()
 {
 	return g_LPSPendingIncidents == null ? 0 : g_LPSPendingIncidents.Length;
@@ -471,6 +547,7 @@ void LPS_OnIncidentEntityDestroyed(int entity)
 	{
 		g_LPSBossSpawnIncidentSequence[entity] = 0;
 		g_LPSBossSpawnIncidentOffsetMs[entity] = 0;
+		g_LPSWitchStartleIncidentRecorded[entity] = false;
 	}
 }
 

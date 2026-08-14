@@ -15,6 +15,7 @@
 #include <l4d2_player_stats/sessions>
 #include <l4d2_player_stats/segments>
 #include <l4d2_player_stats/relationship_stats>
+#include <l4d2_player_stats/assist_stats>
 #include <l4d2_player_stats/round_context>
 #include <l4d2_player_stats/incidents>
 #include <l4d2_player_stats/pve_stats>
@@ -59,6 +60,7 @@ public void OnPluginStart()
 	LPS_InitializeLifecycles();
 	LPS_InitializeSegments();
 	LPS_InitializeRelationships();
+	LPS_InitializeAssistStats();
 	LPS_InitializeRoundContext();
 	LPS_InitializeIncidents();
 	LPS_InitializeAnalysisPersistence();

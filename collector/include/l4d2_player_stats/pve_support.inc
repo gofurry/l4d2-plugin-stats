@@ -192,6 +192,8 @@ bool LPS_CanRecordPvEEvents()
 
 void LPS_OnClientSegmentStartedForStats(int client)
 {
+	LPS_ClearAssistContributor(client);
+	LPS_ResetAssistTarget(client);
 	LPS_ResetClientPvEStatsState(client);
 	LPS_ResetClientVersusStatsState(client);
 	if (g_LPSModeFamily == LPSModeFamily_Versus)
@@ -224,6 +226,9 @@ void LPS_OnClientSegmentStartedForStats(int client)
 
 void LPS_OnClientSegmentEndingForStats(int client)
 {
+	LPS_ClearAssistContributor(client);
+	LPS_ResetAssistTarget(client);
+	LPS_ClearBossContributionsForClient(client);
 	if (g_LPSClientPvEStatsActive[client])
 	{
 		LPS_OnClientPvEInteractionSegmentEnding(client);
@@ -320,6 +325,13 @@ void LPS_AddPvEStat(int client, LPSPvEStat stat, int amount)
 		case LPSPvEStat_LedgeHangingSeconds: g_LPSClientPvEStats[client].ledgeHangingSeconds += amount;
 		case LPSPvEStat_BlackWhiteTeammatesRestored: g_LPSClientPvEStats[client].blackWhiteTeammatesRestored += amount;
 		case LPSPvEStat_CarAlarmsTriggered: g_LPSClientPvEStats[client].carAlarmsTriggered += amount;
+		case LPSPvEStat_SpecialAssists: g_LPSClientPvEStats[client].specialAssists += amount;
+		case LPSPvEStat_SmokerAssists: g_LPSClientPvEStats[client].smokerAssists += amount;
+		case LPSPvEStat_BoomerAssists: g_LPSClientPvEStats[client].boomerAssists += amount;
+		case LPSPvEStat_HunterAssists: g_LPSClientPvEStats[client].hunterAssists += amount;
+		case LPSPvEStat_SpitterAssists: g_LPSClientPvEStats[client].spitterAssists += amount;
+		case LPSPvEStat_JockeyAssists: g_LPSClientPvEStats[client].jockeyAssists += amount;
+		case LPSPvEStat_ChargerAssists: g_LPSClientPvEStats[client].chargerAssists += amount;
 	}
 
 	g_LPSClientPvEStats[client].revision++;
@@ -397,5 +409,12 @@ void LPS_FillClientPvEStatsSnapshot(int client, LPSPvEStatsSnapshot snapshot, bo
 	snapshot.ledgeHangingSeconds = g_LPSClientPvEStats[client].ledgeHangingSeconds;
 	snapshot.blackWhiteTeammatesRestored = g_LPSClientPvEStats[client].blackWhiteTeammatesRestored;
 	snapshot.carAlarmsTriggered = g_LPSClientPvEStats[client].carAlarmsTriggered;
+	snapshot.specialAssists = g_LPSClientPvEStats[client].specialAssists;
+	snapshot.smokerAssists = g_LPSClientPvEStats[client].smokerAssists;
+	snapshot.boomerAssists = g_LPSClientPvEStats[client].boomerAssists;
+	snapshot.hunterAssists = g_LPSClientPvEStats[client].hunterAssists;
+	snapshot.spitterAssists = g_LPSClientPvEStats[client].spitterAssists;
+	snapshot.jockeyAssists = g_LPSClientPvEStats[client].jockeyAssists;
+	snapshot.chargerAssists = g_LPSClientPvEStats[client].chargerAssists;
 	snapshot.revision = g_LPSClientPvEStats[client].revision + (closed ? 1 : 0);
 }
