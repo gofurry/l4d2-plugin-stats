@@ -322,6 +322,12 @@ public void LPS_Event_IncidentWitchStartle(Event event, const char[] name, bool 
 		true
 	));
 	incident.targetKind = view_as<int>(LPSParticipant_Witch);
+	incident.relatedSequence = g_LPSBossSpawnIncidentSequence[witch];
+	if (incident.relatedSequence > 0
+		&& incident.roundOffsetMs >= g_LPSBossSpawnIncidentOffsetMs[witch])
+	{
+		incident.durationMs = incident.roundOffsetMs - g_LPSBossSpawnIncidentOffsetMs[witch];
+	}
 	LPS_CaptureIncidentPosition(witch, incident, false);
 	if (LPS_QueueIncident(incident))
 	{
@@ -336,9 +342,7 @@ public void LPS_Event_IncidentMedkitHeal(Event event, const char[] name, bool do
 		GetClientOfUserId(event.GetInt("userid")),
 		GetClientOfUserId(event.GetInt("subject")),
 		true,
-		true,
-		0,
-		event.GetInt("health_restored")
+		true
 	);
 }
 
