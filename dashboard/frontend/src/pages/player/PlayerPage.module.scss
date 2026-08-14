@@ -99,6 +99,7 @@
 .achievementTitleRow { display: flex; align-items: center; gap: 7px; }
 .achievementTitleRow strong { overflow: hidden; color: var(--text-primary); font-size: 16px; text-overflow: ellipsis; white-space: nowrap; }
 .achievementTitleRow :global(.ant-tag) { margin: 0; }
+.mysteryLabel { color: var(--text-muted); font-size: 12px; }
 .achievementCardBody p { min-height: 40px; margin: 7px 0 10px; color: var(--text-secondary); font-size: 13px; line-height: 1.55; }
 .achievementMeta { display: flex; flex-wrap: wrap; gap: 6px 12px; color: var(--text-muted); font-size: 11px; }
 .achievementMeta span { overflow-wrap: anywhere; }

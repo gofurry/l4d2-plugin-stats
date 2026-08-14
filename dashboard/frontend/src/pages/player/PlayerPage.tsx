@@ -98,7 +98,7 @@ export function PlayerPage() {
       </section>
       <Tabs className={styles.tabs} activeKey={activeTab} onChange={setActiveTab} items={[
         { key: 'overview', label: zh ? '概览' : 'Overview', children: <PlayerActivity data={activity.data} loading={activity.isLoading} copy={copy} /> },
-        { key: 'achievements', label: zh ? '成就' : 'Achievements', children: <PlayerAchievements steamID={steamID} data={achievements.data} loading={achievements.isLoading} self={authenticatedSteamID === steamID} zh={zh} /> },
+        { key: 'achievements', label: zh ? '成就' : 'Achievements', children: <PlayerAchievements key={steamID} steamID={steamID} data={achievements.data} loading={achievements.isLoading} self={authenticatedSteamID === steamID} zh={zh} /> },
         { key: 'analysis', label: zh ? '分析' : 'Analysis', children: <PlayerAnalysis data={analysis.data} loading={analysis.isLoading} view={analysisView} onView={setAnalysisView} zh={zh} /> },
         { key: 'pve', label: copy.pveTab, children: <PlayerPVE data={pve.data} loading={pve.isLoading} copy={copy} zh={zh} /> },
         { key: 'pve-details', label: zh ? 'PvE 明细' : 'PvE details', children: <PlayerPVE data={pve.data} loading={pve.isLoading} copy={copy} zh={zh} details /> },

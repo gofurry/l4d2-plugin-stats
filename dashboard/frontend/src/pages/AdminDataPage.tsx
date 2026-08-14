@@ -89,8 +89,9 @@ export function AdminDataPage() {
           <span>{zh ? '待历史补判' : 'Pending backfill'}</span><strong>{achievement.data.pending_backfill.toLocaleString()}</strong>
           <span>{zh ? '上次运行' : 'Last run'}</span><strong>{dateTime(achievement.data.last_run_at)}</strong>
           <span>{zh ? '上次成功' : 'Last success'}</span><strong>{dateTime(achievement.data.last_success_at)}</strong>
+          <span>{zh ? '最近错误' : 'Last error'}</span><strong>{achievement.data.last_error || '—'}</strong>
         </div>
-        {achievement.data.last_error && <Alert type="warning" showIcon message={`${zh ? '最近错误' : 'Last error'}: ${achievement.data.last_error}`} />}
+        {achievement.data.last_error && <Alert type="warning" showIcon message={achievement.data.last_error} />}
       </>}
     </section>
 

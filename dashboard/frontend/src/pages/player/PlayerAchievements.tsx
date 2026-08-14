@@ -23,7 +23,7 @@ export function PlayerAchievements({ steamID, data, loading, self, zh }: { steam
       void client.invalidateQueries({ queryKey: ['player-preview', steamID] })
       void message.success(zh ? '展示徽章已保存' : 'Badge showcase saved')
     },
-    onError: () => void message.error(zh ? '徽章保存失败' : 'Failed to save badges'),
+    onError: () => { setSelection(null); void message.error(zh ? '徽章保存失败' : 'Failed to save badges') },
   })
   const groups = useMemo(() => groupCards(data?.items ?? [], category), [category, data?.items])
   if (loading) return <div className={styles.achievementLoading}><Spin /></div>
@@ -59,7 +59,7 @@ export function PlayerAchievements({ steamID, data, loading, self, zh }: { steam
       const selected = equip ? badges.some(item => item.achievement_key === equip.achievement_key) : false
       return <article key={card.group_key || card.achievement_key} className={`${styles.achievementCard} ${card.unlocked ? styles.achievementUnlocked : ''}`}>
         <AchievementBadge artworkKey={artwork} tier={card.tier} size={64} locked={!card.unlocked && card.visibility === 'public'} mystery={card.visibility === 'mystery' && !card.unlocked} label={card.title} />
-        <div className={styles.achievementCardBody}><div className={styles.achievementTitleRow}><strong>{card.title}</strong>{card.tier ? <Tag>{tierName(card.tier)}</Tag> : null}{card.visibility === 'mystery' && !card.unlocked ? <EyeInvisibleOutlined /> : null}</div><p>{card.description}</p>
+        <div className={styles.achievementCardBody}><div className={styles.achievementTitleRow}><strong>{card.title}</strong>{card.visibility === 'mystery' && !card.unlocked ? <span className={styles.mysteryLabel}>{zh ? '隐藏成就' : 'Hidden achievement'}</span> : null}{card.tier ? <Tag>{tierName(card.tier)}</Tag> : null}{card.visibility === 'mystery' && !card.unlocked ? <EyeInvisibleOutlined /> : null}</div><p>{card.description}</p>
           {card.unlocked ? <div className={styles.achievementMeta}><span><CheckOutlined /> {zh ? '已确认' : 'Confirmed'} {date(card.unlocked_at)}</span><span>{zh ? '全服' : 'Global'} {card.global_unlock_rate.toFixed(1)}%</span>{card.evidence_steam_id && <span>{zh ? '搭档' : 'Partner'} {card.evidence_steam_id}</span>}</div> : card.visibility === 'public' && <><Progress size="small" percent={progress(card)} showInfo={false} strokeColor="#d4763b" /><div className={styles.achievementValue}><span>{formatMetric(card.current_value, card.metric_id)}</span><span>/ {formatMetric(card.threshold, card.metric_id)}</span></div></>}
           {group.nextTier && <small className={styles.nextTier}>{zh ? '下一等级' : 'Next tier'}：{tierName(group.nextTier.tier ?? 0)} · {formatMetric(group.nextTier.threshold, group.nextTier.metric_id)}</small>}
         </div>
