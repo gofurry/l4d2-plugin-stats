@@ -212,11 +212,26 @@ func (s *AchievementService) evaluatePlayer(ctx context.Context, steamID, grantK
 	if err != nil {
 		return nil, err
 	}
+	now := time.Now().Unix()
+	candidates := achievementUnlockCandidates(steamID, grantKind, now, metrics, existing)
+	inserted, err := s.dashboard.InsertAchievementUnlocks(ctx, candidates)
+	if err != nil {
+		return nil, err
+	}
+	if err := s.dashboard.UpsertAchievementEvaluationState(ctx, store.AchievementEvaluationState{
+		SteamID: steamID, AchievementContractVersion: store.AchievementContractVersion,
+		SourceWatermark: metrics.Watermark, EvaluatedAt: now,
+	}); err != nil {
+		return nil, err
+	}
+	return inserted, nil
+}
+
+func achievementUnlockCandidates(steamID, grantKind string, now int64, metrics store.PlayerAchievementMetrics, existing []store.AchievementUnlock) []store.AchievementUnlock {
 	unlocked := make(map[string]bool, len(existing))
 	for _, item := range existing {
 		unlocked[item.AchievementKey] = true
 	}
-	now := time.Now().Unix()
 	candidates := make([]store.AchievementUnlock, 0)
 	for _, definition := range achievementCatalog {
 		if unlocked[definition.AchievementKey] {
@@ -233,17 +248,7 @@ func (s *AchievementService) evaluatePlayer(ctx context.Context, steamID, grantK
 			EvidenceSteamID: metric.EvidenceSteamID,
 		})
 	}
-	inserted, err := s.dashboard.InsertAchievementUnlocks(ctx, candidates)
-	if err != nil {
-		return nil, err
-	}
-	if err := s.dashboard.UpsertAchievementEvaluationState(ctx, store.AchievementEvaluationState{
-		SteamID: steamID, AchievementContractVersion: store.AchievementContractVersion,
-		SourceWatermark: metrics.Watermark, EvaluatedAt: now,
-	}); err != nil {
-		return nil, err
-	}
-	return inserted, nil
+	return candidates
 }
 
 func (s *AchievementService) addLifetimeHeadshots(ctx context.Context, metrics *store.PlayerAchievementMetrics) error {
