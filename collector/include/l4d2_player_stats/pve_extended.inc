@@ -370,6 +370,17 @@ void LPS_EndControl(int victim, LPSIncidentEndReason reason = LPSIncidentEnd_Rel
 	}
 
 	float elapsed = GetGameTime() - g_LPSControlStartedAt[victim];
+	int durationMs = elapsed > 0.0 ? RoundToNearest(elapsed * 1000.0) : 0;
+	if ((reason == LPSIncidentEnd_Rescued || reason == LPSIncidentEnd_ControllerKilled)
+		&& helper > 0)
+	{
+		LPS_RecordRelationshipControlRescue(
+			helper,
+			victim,
+			g_LPSControlType[victim],
+			durationMs
+		);
+	}
 	int seconds = elapsed > 0.0 ? RoundToNearest(elapsed) : 0;
 	if (seconds > 0)
 	{
@@ -442,7 +453,7 @@ void LPS_OnSpecialInfectedDeathForExtendedStats(int infected, int attacker, bool
 	}
 }
 
-void LPS_RecordBossContribution(int boss, int client)
+bool LPS_RecordBossContribution(int boss, int client)
 {
 	bool recordPvE = LPS_CanRecordPvEEvents();
 	bool recordVersusWitch = LPS_CanRecordVersusEvents() && LPS_IsWitchEntity(boss);
@@ -451,7 +462,7 @@ void LPS_RecordBossContribution(int boss, int client)
 		|| !LPS_IsHumanSurvivorClient(client)
 		|| (!recordPvE && !recordVersusWitch))
 	{
-		return;
+		return false;
 	}
 
 	int userId = GetClientUserId(client);
@@ -459,7 +470,7 @@ void LPS_RecordBossContribution(int boss, int client)
 	{
 		if (g_LPSBossContributorUserId[boss][slot] == userId)
 		{
-			return;
+			return false;
 		}
 	}
 
@@ -472,7 +483,7 @@ void LPS_RecordBossContribution(int boss, int client)
 		g_LPSBossContributorUserId[boss][slot] = userId;
 		if (!recordPvE)
 		{
-			return;
+			return true;
 		}
 		if (boss <= MaxClients && LPS_GetZombieClass(boss) == 8)
 		{
@@ -482,7 +493,33 @@ void LPS_RecordBossContribution(int boss, int client)
 		{
 			LPS_AddPvEStat(client, LPSPvEStat_WitchEncounters, 1);
 		}
+		return true;
+	}
+	return false;
+}
+
+void LPS_ClearBossContributionsForClient(int client)
+{
+	if (client < 1 || client > MaxClients)
+	{
 		return;
+	}
+
+	int userId = GetClientUserId(client);
+	if (userId == 0)
+	{
+		return;
+	}
+
+	for (int entity = 1; entity <= LPS_MAX_ENTITY_INDEX; entity++)
+	{
+		for (int slot = 1; slot <= MaxClients; slot++)
+		{
+			if (g_LPSBossContributorUserId[entity][slot] == userId)
+			{
+				g_LPSBossContributorUserId[entity][slot] = 0;
+			}
+		}
 	}
 }
 

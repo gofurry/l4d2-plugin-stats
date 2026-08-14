@@ -2,7 +2,7 @@
 
 状态：已确认；Versus v1 自 collector v0.6.6 起冻结
 
-本文定义SQLite、MySQL和PostgreSQL必须共同表达的数据模型。具体DDL由`database/migrations/<driver>/`实现。Stats schema 当前为 4。
+本文定义SQLite、MySQL和PostgreSQL必须共同表达的数据模型。具体DDL由`database/migrations/<driver>/`实现。Stats schema 当前为 5。
 
 ## 1. 总体规则
 
@@ -311,6 +311,13 @@ incapacitated_seconds
 ledge_hanging_seconds
 black_white_teammates_restored
 car_alarms_triggered
+special_assists
+smoker_assists
+boomer_assists
+hunter_assists
+spitter_assists
+jockey_assists
+charger_assists
 revision
 ```
 
@@ -394,6 +401,14 @@ tank_rocks_destroyed
 witch_oneshots
 witch_solo_kills
 car_alarms_triggered
+objective_interactions
+human_special_assists
+bot_special_assists
+human_tank_assists
+bot_tank_assists
+witch_encounters
+witch_kill_participations
+black_white_teammates_restored
 revision
 ```
 
@@ -415,6 +430,8 @@ human_controller_kills
 bot_controller_kills
 damage_to_human_controllers
 damage_to_bot_controllers
+human_controller_assists
+bot_controller_assists
 revision
 ```
 
@@ -498,6 +515,17 @@ Boomer 使用能力命中人数；Spitter 使用酸液有效伤害。每项均�
 坐标。写入幂等，序号可因有界队列丢弃出现空洞。稳定 ID 和完整性规则见
 [`incidents-v1.md`](../contracts/incidents-v1.md)。
 
+### 4.19 `lps_player_round_relationship_stats`
+
+复合主键为 `(round_id, actor_steam_id, target_steam_id)`，保存认证真人幸存者在单个
+Round 中对另一名认证真人幸存者产生的定向互动绝对快照。字段包括普通扶起、挂边救援、
+电击复活、四类特感控制解救及响应毫秒、对他人使用医疗包及实际治疗、黑白恢复、有效
+友伤、`relationship_version=1`、`last_saved_at` 和 `revision`。
+
+关系行是稀疏永久事实，至少一个业务字段大于 0，不允许 `actor_steam_id` 等于
+`target_steam_id`，也不受 Incident retention 影响。详细语义见
+[`player-relationship-v1.md`](../contracts/player-relationship-v1.md)。
+
 ## 5. 逻辑关联和外键
 
 第一阶段只定义逻辑外键，不要求数据库建立物理`FOREIGN KEY`约束。
@@ -535,6 +563,8 @@ lps_incidents(occurred_at, round_id, incident_seq)
 lps_incidents(actor_steam_id, occurred_at)
 lps_incidents(target_steam_id, occurred_at)
 lps_rounds(server_key, started_at, map_name)
+lps_player_round_relationship_stats(actor_steam_id, round_id)
+lps_player_round_relationship_stats(target_steam_id, round_id)
 ```
 
 不同数据库允许使用不同建索引语法，但索引语义必须一致。

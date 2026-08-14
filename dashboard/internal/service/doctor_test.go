@@ -71,6 +71,7 @@ func TestDeepDoctorReportsAllDataErrors(t *testing.T) {
 		doctorStatsStub{version: store.StatsSchemaVersion + 1, quality: store.StatsDataQuality{
 			UnknownStatsVersion: store.DataQualityFinding{Count: 1}, LifecycleLinks: store.DataQualityFinding{Count: 1},
 			ModeSideMismatch: store.DataQualityFinding{Count: 1}, PVETotalMismatch: store.DataQualityFinding{Count: 1},
+			RelationshipContract: store.DataQualityFinding{Count: 1}, PVEAssistContract: store.DataQualityFinding{Count: 1}, VersusAssistContract: store.DataQualityFinding{Count: 1},
 		}},
 	)
 	report := service.Deep(context.Background())

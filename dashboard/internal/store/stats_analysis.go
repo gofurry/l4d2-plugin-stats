@@ -244,9 +244,10 @@ AND EXISTS(SELECT 1 FROM lps_player_segments ps WHERE ps.round_id=r.round_id)) `
 COALESCE(SUM(CASE WHEN i.incident_type=1 THEN 1 ELSE 0 END),0),COALESCE(SUM(CASE WHEN i.incident_type=2 THEN 1 ELSE 0 END),0),
 COALESCE(SUM(CASE WHEN i.incident_type=3 THEN 1 ELSE 0 END),0),COALESCE(SUM(CASE WHEN i.incident_type=4 THEN 1 ELSE 0 END),0),
 COALESCE(SUM(CASE WHEN i.incident_type=5 THEN 1 ELSE 0 END),0),COALESCE(SUM(CASE WHEN i.incident_type=6 THEN 1 ELSE 0 END),0),
-COALESCE(SUM(CASE WHEN i.incident_type=7 THEN 1 ELSE 0 END),0)
+COALESCE(SUM(CASE WHEN i.incident_type=7 THEN 1 ELSE 0 END),0),COALESCE(SUM(CASE WHEN i.incident_type=12 THEN 1 ELSE 0 END),0),
+COALESCE(SUM(CASE WHEN i.incident_type=13 THEN 1 ELSE 0 END),0),COALESCE(SUM(CASE WHEN i.incident_type=14 THEN 1 ELSE 0 END),0)
 FROM complete c LEFT JOIN lps_incidents i ON i.round_id=c.round_id AND i.incident_version=1`
-	if err := s.db.QueryRowContext(queryCtx, composition, args...).Scan(&result.Composition.Controls, &result.Composition.Incaps, &result.Composition.Deaths, &result.Composition.Revives, &result.Composition.LedgeRescues, &result.Composition.DefibRevives, &result.Composition.CarAlarms); err != nil {
+	if err := s.db.QueryRowContext(queryCtx, composition, args...).Scan(&result.Composition.Controls, &result.Composition.Incaps, &result.Composition.Deaths, &result.Composition.Revives, &result.Composition.LedgeRescues, &result.Composition.DefibRevives, &result.Composition.CarAlarms, &result.Composition.WitchStartles, &result.Composition.MedkitHeals, &result.Composition.ObjectiveCompletes); err != nil {
 		return AnalysisMapDetail{}, err
 	}
 	bucketExpression := "i.round_offset_ms/60000"
@@ -255,16 +256,18 @@ FROM complete c LEFT JOIN lps_incidents i ON i.round_id=c.round_id AND i.inciden
 	}
 	timeline := base + `, buckets AS (SELECT ` + bucketExpression + ` bucket,
 SUM(CASE WHEN i.incident_type=1 THEN 1 ELSE 0 END) controls,SUM(CASE WHEN i.incident_type=2 THEN 1 ELSE 0 END) incaps,
-SUM(CASE WHEN i.incident_type=3 THEN 1 ELSE 0 END) deaths FROM lps_incidents i JOIN complete c ON c.round_id=i.round_id
-WHERE i.incident_version=1 AND i.incident_type IN (1,2,3) GROUP BY i.round_offset_ms/60000)
-SELECT b.bucket,(SELECT COUNT(*) FROM complete c WHERE c.duration_seconds>=b.bucket*60),b.controls,b.incaps,b.deaths FROM buckets b ORDER BY b.bucket`
+SUM(CASE WHEN i.incident_type=3 THEN 1 ELSE 0 END) deaths,SUM(CASE WHEN i.incident_type=12 THEN 1 ELSE 0 END) witch_startles,
+SUM(CASE WHEN i.incident_type=13 THEN 1 ELSE 0 END) medkit_heals,SUM(CASE WHEN i.incident_type=14 THEN 1 ELSE 0 END) objective_completes
+FROM lps_incidents i JOIN complete c ON c.round_id=i.round_id
+WHERE i.incident_version=1 AND i.incident_type IN (1,2,3,12,13,14) GROUP BY ` + bucketExpression + `)
+SELECT b.bucket,(SELECT COUNT(*) FROM complete c WHERE c.duration_seconds>=b.bucket*60),b.controls,b.incaps,b.deaths,b.witch_startles,b.medkit_heals,b.objective_completes FROM buckets b ORDER BY b.bucket`
 	rows, err := s.db.QueryContext(queryCtx, timeline, args...)
 	if err != nil {
 		return AnalysisMapDetail{}, err
 	}
 	for rows.Next() {
-		var bucket, reached, controls, incaps, deaths int64
-		if err := rows.Scan(&bucket, &reached, &controls, &incaps, &deaths); err != nil {
+		var bucket, reached, controls, incaps, deaths, witchStartles, medkitHeals, objectiveCompletes int64
+		if err := rows.Scan(&bucket, &reached, &controls, &incaps, &deaths, &witchStartles, &medkitHeals, &objectiveCompletes); err != nil {
 			rows.Close()
 			return AnalysisMapDetail{}, err
 		}
@@ -273,6 +276,9 @@ SELECT b.bucket,(SELECT COUNT(*) FROM complete c WHERE c.duration_seconds>=b.buc
 			point.Controls = float64(controls) * 100 / float64(reached)
 			point.Incaps = float64(incaps) * 100 / float64(reached)
 			point.Deaths = float64(deaths) * 100 / float64(reached)
+			point.WitchStartles = float64(witchStartles) * 100 / float64(reached)
+			point.MedkitHeals = float64(medkitHeals) * 100 / float64(reached)
+			point.ObjectiveCompletes = float64(objectiveCompletes) * 100 / float64(reached)
 		}
 		result.Timeline = append(result.Timeline, point)
 	}
@@ -283,6 +289,27 @@ SELECT b.bucket,(SELECT COUNT(*) FROM complete c WHERE c.duration_seconds>=b.buc
 		return AnalysisMapDetail{}, err
 	}
 	if err := s.scanBossAnalysis(queryCtx, base, args, 10, 11, true, &result.Witch); err != nil {
+		return AnalysisMapDetail{}, err
+	}
+	recent := base + `SELECT i.incident_type,i.occurred_at,i.round_offset_ms,i.actor_steam_id,COALESCE(actor.last_name,''),i.target_steam_id,COALESCE(target.last_name,'')
+FROM lps_incidents i JOIN complete c ON c.round_id=i.round_id
+LEFT JOIN lps_players actor ON actor.steam_id=i.actor_steam_id
+LEFT JOIN lps_players target ON target.steam_id=i.target_steam_id
+WHERE i.incident_version=1 AND i.incident_type IN (12,13,14)
+ORDER BY i.occurred_at DESC,i.round_id DESC,i.incident_seq DESC LIMIT 20`
+	recentRows, err := s.db.QueryContext(queryCtx, recent, args...)
+	if err != nil {
+		return AnalysisMapDetail{}, err
+	}
+	for recentRows.Next() {
+		var item AnalysisIncident
+		if err := recentRows.Scan(&item.IncidentType, &item.OccurredAt, &item.RoundOffsetMS, &item.ActorSteamID, &item.ActorName, &item.TargetSteamID, &item.TargetName); err != nil {
+			recentRows.Close()
+			return AnalysisMapDetail{}, err
+		}
+		result.RecentIncidents = append(result.RecentIncidents, item)
+	}
+	if err := recentRows.Close(); err != nil {
 		return AnalysisMapDetail{}, err
 	}
 	return result, nil
@@ -296,15 +323,18 @@ COALESCE(SUM(CASE WHEN i.incident_type=` + fmt.Sprint(deathType) + ` AND i.relat
 AVG(CASE WHEN i.incident_type=` + fmt.Sprint(deathType) + ` AND i.related_incident_seq>0 THEN i.duration_ms/1000.0 END),
 MAX(CASE WHEN i.incident_type=` + fmt.Sprint(deathType) + ` AND i.related_incident_seq>0 THEN i.duration_ms/1000.0 END),
 COALESCE(SUM(CASE WHEN i.incident_type=` + fmt.Sprint(deathType) + ` AND (i.detail_flags & 1)=1 THEN 1 ELSE 0 END),0)
+,
+COALESCE(SUM(CASE WHEN i.incident_type=12 THEN 1 ELSE 0 END),0)
 FROM complete c LEFT JOIN lps_incidents i ON i.round_id=c.round_id AND i.incident_version=1`
 	var average, maximum sql.NullFloat64
-	if err := s.db.QueryRowContext(ctx, statement, args...).Scan(&target.SpawnCount, &target.DeathCount, &target.MatchedPairs, &average, &maximum, &target.OneShotDeaths); err != nil {
+	if err := s.db.QueryRowContext(ctx, statement, args...).Scan(&target.SpawnCount, &target.DeathCount, &target.MatchedPairs, &average, &maximum, &target.OneShotDeaths, &target.StartleCount); err != nil {
 		return err
 	}
 	target.AverageLifetime = nullableFloat(average)
 	target.MaximumLifetime = nullableFloat(maximum)
 	if !witch {
 		target.OneShotDeaths = 0
+		target.StartleCount = 0
 	}
 	return nil
 }
@@ -448,7 +478,7 @@ FROM lps_incidents i JOIN lps_rounds r ON r.round_id=i.round_id` + where
 		result.ControlClasses = append(result.ControlClasses, item)
 	}
 	classRows.Close()
-	rescueStatement := withSubject + `SELECT MAX(p.last_name),COUNT(*) FROM lps_incidents i JOIN lps_rounds r ON r.round_id=i.round_id JOIN lps_players p ON p.steam_id=CASE WHEN i.incident_type=1 THEN i.helper_steam_id ELSE i.actor_steam_id END` + where + ` AND ((i.incident_type=1 AND i.target_steam_id=` + subject + ` AND i.helper_steam_id<>'') OR (i.incident_type IN (4,5,6) AND i.target_steam_id=` + subject + ` AND i.actor_steam_id<>'')) GROUP BY CASE WHEN i.incident_type=1 THEN i.helper_steam_id ELSE i.actor_steam_id END ORDER BY COUNT(*) DESC,CASE WHEN i.incident_type=1 THEN i.helper_steam_id ELSE i.actor_steam_id END ASC LIMIT 5`
+	rescueStatement := withSubject + `SELECT MAX(p.last_name),COUNT(*) FROM lps_incidents i JOIN lps_rounds r ON r.round_id=i.round_id JOIN lps_players p ON p.steam_id=CASE WHEN i.incident_type=1 THEN i.helper_steam_id ELSE i.actor_steam_id END` + where + ` AND ((i.incident_type=1 AND i.target_steam_id=` + subject + ` AND i.helper_steam_id<>'') OR (i.incident_type IN (4,5,6) AND i.target_steam_id=` + subject + ` AND i.actor_steam_id<>'')) GROUP BY CASE WHEN i.incident_type=1 THEN i.helper_steam_id ELSE i.actor_steam_id END ORDER BY COUNT(*) DESC,CASE WHEN i.incident_type=1 THEN i.helper_steam_id ELSE i.actor_steam_id END ASC LIMIT 3`
 	rescueRows, err := s.db.QueryContext(queryCtx, rescueStatement, args...)
 	if err != nil {
 		return result, err

@@ -99,6 +99,11 @@ public void LPS_OnObjectiveInteractionCompleted(
 		g_LPSObjectiveEntityCounted[caller] = true;
 		LPS_AddVersusSurvivorStat(activator, LPSVersusSurvivorStat_ObjectiveInteractions, 1);
 	}
+
+	if (g_LPSObjectiveEntityCounted[caller])
+	{
+		LPS_RecordObjectiveCompleteIncident(activator, caller);
+	}
 }
 
 public void LPS_Event_AmmoPickupStats(Event event, const char[] name, bool dontBroadcast)
@@ -176,7 +181,7 @@ public void LPS_Event_HealBeginBlackWhite(Event event, const char[] name, bool d
 	int healer = GetClientOfUserId(event.GetInt("userid"));
 	int subjectUserId = event.GetInt("subject");
 	int subject = GetClientOfUserId(subjectUserId);
-	if (!LPS_CanRecordPvEEvents()
+	if (!(LPS_CanRecordPvEEvents() || LPS_CanRecordVersusEvents())
 		|| !LPS_IsHumanSurvivorClient(healer)
 		|| healer == subject
 		|| subject < 1
@@ -220,7 +225,7 @@ public void LPS_Event_HealSuccessBlackWhite(Event event, const char[] name, bool
 	CreateDataTimer(0.0, LPS_Timer_VerifyBlackWhiteRestore, pack, TIMER_FLAG_NO_MAPCHANGE);
 	pack.WriteCell(GetClientUserId(healer));
 	pack.WriteCell(subjectUserId);
-	pack.WriteString(g_LPSClientPvEStats[healer].segmentId);
+	pack.WriteString(g_LPSClientSegmentId[healer]);
 }
 
 public Action LPS_Timer_VerifyBlackWhiteRestore(Handle timer, DataPack pack)
@@ -232,8 +237,8 @@ public Action LPS_Timer_VerifyBlackWhiteRestore(Handle timer, DataPack pack)
 	pack.ReadString(segmentId, sizeof(segmentId));
 
 	if (!LPS_IsHumanSurvivorClient(healer)
-		|| !g_LPSClientPvEStatsActive[healer]
-		|| !StrEqual(g_LPSClientPvEStats[healer].segmentId, segmentId, true)
+		|| !g_LPSClientSegmentActive[healer]
+		|| !StrEqual(g_LPSClientSegmentId[healer], segmentId, true)
 		|| subject < 1
 		|| subject > MaxClients
 		|| !IsClientInGame(subject)
@@ -243,7 +248,19 @@ public Action LPS_Timer_VerifyBlackWhiteRestore(Handle timer, DataPack pack)
 		return Plugin_Stop;
 	}
 
-	LPS_AddPvEStat(healer, LPSPvEStat_BlackWhiteTeammatesRestored, 1);
+	if (g_LPSModeFamily == LPSModeFamily_PvE)
+	{
+		LPS_AddPvEStat(healer, LPSPvEStat_BlackWhiteTeammatesRestored, 1);
+	}
+	else if (g_LPSModeFamily == LPSModeFamily_Versus)
+	{
+		LPS_AddVersusSurvivorStat(
+			healer,
+			LPSVersusSurvivorStat_BlackWhiteTeammatesRestored,
+			1
+		);
+	}
+	LPS_RecordRelationshipBlackWhiteRestore(healer, subject);
 	return Plugin_Stop;
 }
 

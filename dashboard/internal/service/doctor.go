@@ -69,6 +69,9 @@ func (s *DoctorService) Deep(ctx context.Context) DoctorReport {
 			findingCheck("round_context_contract", quality.ContextContract, "error"),
 			findingCheck("incident_contract", quality.IncidentContract, "error"),
 			findingCheck("incident_completeness", quality.IncidentCompleteness, "error"),
+			findingCheck("relationship_contract", quality.RelationshipContract, "error"),
+			findingCheck("pve_assist_contract", quality.PVEAssistContract, "error"),
+			findingCheck("versus_assist_contract", quality.VersusAssistContract, "error"),
 			findingCheck("active_boot_heartbeat", quality.StaleActiveBoots, "warning"),
 		)
 	}

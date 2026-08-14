@@ -63,6 +63,7 @@ void LPS_InitializePvEStats()
 
 public void OnEntityCreated(int entity, const char[] classname)
 {
+	LPS_ResetAssistTarget(entity);
 	LPS_OnEquipmentEntityCreated(entity, classname);
 	LPS_OnExtendedEntityCreated(entity, classname);
 	LPS_OnInteractionEntityCreated(entity);
@@ -86,6 +87,7 @@ public void OnEntityDestroyed(int entity)
 	LPS_OnInteractionEntityDestroyed(entity);
 	LPS_OnVersusAbilityEntityDestroyed(entity);
 	LPS_OnIncidentEntityDestroyed(entity);
+	LPS_ResetAssistTarget(entity);
 	g_LPSDamageHooked[entity] = false;
 	g_LPSDamageHealthCaptured[entity] = false;
 	g_LPSDamageVictimWasIncapacitated[entity] = false;

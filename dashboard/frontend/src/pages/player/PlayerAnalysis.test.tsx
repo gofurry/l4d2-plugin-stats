@@ -30,7 +30,7 @@ describe('PlayerAnalysis', () => {
     render(<PlayerAnalysis data={data} loading={false} view="versus_infected" onView={() => undefined} zh />)
     expect(screen.getByText('最近战局统计')).toBeInTheDocument()
     expect(screen.getByText('数据覆盖时间')).toBeInTheDocument()
-    expect(screen.getByText('幸存者被控明细与救援者（PvE + 对抗）')).toBeInTheDocument()
+    expect(screen.getByText('幸存者被控明细与救援者 Top 3（PvE + 对抗）')).toBeInTheDocument()
     expect(screen.getByText('对抗多控 - 双控 2 次 · 三控 1 次 · 四控 0 次')).toBeInTheDocument()
     expect(screen.queryByText('对抗感染者多人控制')).not.toBeInTheDocument()
     expect(screen.getByText('被 Jockey 控制')).toBeInTheDocument()

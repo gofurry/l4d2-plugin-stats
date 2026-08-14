@@ -57,6 +57,9 @@ func TestDeepDataQualityDetectsContractAnomalies(t *testing.T) {
 		fmt.Sprintf(`UPDATE lps_server_boots SET last_heartbeat_at=%d WHERE boot_id='boot'`, now-16*60),
 		`UPDATE lps_player_segments SET side='infected' WHERE segment_id='segment'`,
 		`UPDATE lps_pve_segment_stats SET special_kills=7, damage_to_special=61 WHERE segment_id='segment'`,
+		`UPDATE lps_pve_segment_stats SET special_assists=2,smoker_assists=1,boomer_assists=0,hunter_assists=0,spitter_assists=0,jockey_assists=0,charger_assists=0 WHERE segment_id='segment'`,
+		`INSERT INTO lps_players VALUES ('2','Bob',1,1)`,
+		fmt.Sprintf(`INSERT INTO lps_player_round_relationship_stats (round_id,actor_steam_id,target_steam_id,relationship_version,friendly_fire_damage,last_saved_at,revision) VALUES ('round','2','1',1,1,%d,1)`, now),
 		fmt.Sprintf(`INSERT INTO lps_pve_segment_equipment_stats (segment_id,equipment_id,stats_version,last_saved_at) VALUES ('missing-segment',1,2,%d)`, now),
 	}
 	for _, statement := range anomalies {
@@ -76,6 +79,7 @@ func TestDeepDataQualityDetectsContractAnomalies(t *testing.T) {
 	for name, finding := range map[string]DataQualityFinding{
 		"stale boot": report.StaleActiveBoots, "stats version": report.UnknownStatsVersion,
 		"lifecycle": report.LifecycleLinks, "mode/side": report.ModeSideMismatch, "pve totals": report.PVETotalMismatch,
+		"relationship": report.RelationshipContract, "pve assist": report.PVEAssistContract,
 	} {
 		if finding.Count != 1 || len(finding.IDs) != 1 {
 			t.Errorf("%s finding=%+v", name, finding)

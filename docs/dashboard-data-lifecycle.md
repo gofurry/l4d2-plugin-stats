@@ -8,6 +8,7 @@
 - 公开 API 不读取或返回 Session IP、boot ID、内部数据库主键、DSN 或管理员数据。
 - PvE 只包含 `coop`/`realism` 幸存者数据；Versus 的幸存者和感染者分别聚合。
 - Round Context 是永久事实；Incident 是可保留的低频分析明细。不完整或历史无 Incident 的 Round 不按零事件处理。
+- Player Relationship 是永久的真人定向互动事实，不使用 Incident 保留策略；Assist 属于永久 Core Stats。
 
 ## 增量聚合
 
@@ -28,7 +29,7 @@
 | 已关闭 Session | 365 天 | `activity` 日聚合保留总量和趋势；旧逐条 Session 不再展示 |
 | Versus 半场/比赛结果 | 365 天 | `versus_result` 日聚合保留完成量；旧逐条结果不再展示 |
 
-不会清理玩家身份、Run、Round、Player Segment、PvE/Versus 核心总计或正在进行的 Session。IP 随被清理的旧 Session 一并消失，程序不会单独导出或展示它。
+不会清理玩家身份、Run、Round、Player Segment、Player Relationship、PvE/Versus 核心总计或正在进行的 Session。IP 随被清理的旧 Session 一并消失，程序不会单独导出或展示它。
 
 v1.3 为 Incident 引入独立保留策略，默认 180 天。它不依赖 Aggregate 覆盖，只能删除
 已结束 Round 且早于截止时间的 Incident；候选空间出现未知 Incident Contract 版本时
@@ -37,7 +38,7 @@ v1.3 为 Incident 引入独立保留策略，默认 180 天。它不依赖 Aggre
 
 ## 仍会增长的数据
 
-- 玩家身份、Run、Round、Player Segment 和核心统计永久增长；
+- 玩家身份、Run、Round、Player Segment、Player Relationship 和核心统计永久增长；
 - Round Context 永久增长；Incident 按管理员配置的保留窗口增长和清理；
 - UTC 日聚合按活跃玩家、服务器和维度线性增长；
 - 清理审计、公告和站点配置由管理员操作增长；

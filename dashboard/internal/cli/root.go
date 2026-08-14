@@ -26,7 +26,7 @@ import (
 	"go.uber.org/zap"
 )
 
-var Version = "1.3.0"
+var Version = "1.3.1"
 
 type rootOptions struct{ configPath string }
 
@@ -146,7 +146,7 @@ func serveCommand(options *rootOptions) *cobra.Command {
 		players := service.NewPlayerService(stats, dashboard)
 		var analysis *service.AnalysisService
 		if analysisStore, ok := stats.(store.StatsAnalysisStore); ok {
-			analysis = service.NewAnalysisService(analysisStore)
+			analysis = service.NewAnalysisService(analysisStore, players)
 		}
 		aggregates := service.NewAggregateService(dashboard, stats, logger)
 		dataMaintenance := service.NewDataMaintenanceService(dashboard, stats, aggregates, cfg.StatsDatabase, cfg.Logging.File, logger)

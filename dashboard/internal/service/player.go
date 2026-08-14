@@ -85,6 +85,10 @@ func (s *PlayerService) Preview(ctx context.Context, steamID string) (*store.Pla
 		pveRescues := pve.IncapRevives + pve.LedgeRescues + pve.DefibRevives
 		pveBossKills := pve.TankKills + pve.WitchKills
 		versusHumanKills := versus.HumanSpecialKills + versus.HumanTankKills
+		var headshotKills int64
+		for _, equipment := range pve.Equipment {
+			headshotKills += equipment.HeadshotKills
+		}
 		var companions []store.PlayerCompanion
 		if analysis, ok := s.stats.(store.StatsAnalysisStore); ok {
 			companions, err = analysis.PlayerCompanions(ctx, steamID)
@@ -96,14 +100,16 @@ func (s *PlayerService) Preview(ctx context.Context, steamID string) (*store.Pla
 			SteamID: summary.SteamID, PlayerName: summary.LastName, SessionCount: summary.SessionCount,
 			ActivePlaySeconds: summary.ActiveSeconds, LastSeenAt: summary.LastSeenAt,
 			PVE: store.PlayerPreviewPVE{
-				Available:    pve.SpecialKills+pveBossKills+pveRescues+pve.CampaignCompletions > 0,
-				SpecialKills: pve.SpecialKills, BossKills: pveBossKills, Rescues: pveRescues,
-				CampaignCompletions: pve.CampaignCompletions,
+				Available:   pve.CommonKills+pve.SpecialKills+pveBossKills+headshotKills+pveRescues+pve.CampaignCompletions > 0,
+				CommonKills: pve.CommonKills, SpecialKills: pve.SpecialKills, BossKills: pveBossKills, HeadshotKills: headshotKills,
+				Rescues: pveRescues, CampaignCompletions: pve.CampaignCompletions,
 			},
 			Versus: store.PlayerPreviewVersus{
-				Available:    versusHumanKills+versus.DamageToHumanSurvivors+versus.HumanSurvivorControls+versus.HumanSurvivorIncaps > 0,
-				HumanSIKills: versusHumanKills, InfectedDamage: versus.DamageToHumanSurvivors,
-				SurvivorControls: versus.HumanSurvivorControls, SurvivorIncapacitations: versus.HumanSurvivorIncaps,
+				Available:               versusHumanKills+versus.DamageToHumanSurvivors+versus.HumanSurvivorControls+versus.HumanSurvivorIncaps > 0,
+				HumanSIKills:            versusHumanKills,
+				InfectedDamage:          versus.DamageToHumanSurvivors,
+				SurvivorControls:        versus.HumanSurvivorControls,
+				SurvivorIncapacitations: versus.HumanSurvivorIncaps,
 			},
 			Companions: companions,
 		}, nil
@@ -181,6 +187,10 @@ func (s *PlayerService) VersusFiltered(ctx context.Context, steamID string, filt
 	}
 	result := value.(store.PlayerVersus)
 	if s.aggregates != nil {
+		rawAssistByClass := make(map[int64][2]*int64, len(result.SurvivorClasses))
+		for _, entry := range result.SurvivorClasses {
+			rawAssistByClass[entry.ClassID] = [2]*int64{entry.HumanControllerAssists, entry.BotControllerAssists}
+		}
 		rows, err := s.aggregateRows(ctx, steamID, filter, []string{"versus_survivor_class", "versus_infected_class"})
 		if err != nil {
 			return store.PlayerVersus{}, err
@@ -195,7 +205,8 @@ func (s *PlayerService) VersusFiltered(ctx context.Context, steamID string, filt
 			if row.Kind == "versus_survivor_class" {
 				entry := survivor[id]
 				if entry == nil {
-					entry = &store.VersusSurvivorClass{ClassID: id}
+					assists := rawAssistByClass[id]
+					entry = &store.VersusSurvivorClass{ClassID: id, HumanControllerAssists: assists[0], BotControllerAssists: assists[1]}
 					survivor[id] = entry
 				}
 				entry.HumanControllerKills += row.Metrics["human_controller_kills"]
@@ -223,6 +234,21 @@ func (s *PlayerService) VersusFiltered(ctx context.Context, steamID string, filt
 		sort.Slice(result.InfectedClasses, func(i, j int) bool { return result.InfectedClasses[i].ClassID < result.InfectedClasses[j].ClassID })
 	}
 	return result, nil
+}
+
+func (s *PlayerService) Relationships(ctx context.Context, steamID string, query store.PlayerRelationshipQuery) (store.PlayerRelationshipPage, error) {
+	relationships, ok := s.stats.(store.StatsRelationshipStore)
+	if !ok {
+		return store.PlayerRelationshipPage{}, fmt.Errorf("player relationships are unavailable")
+	}
+	key := fmt.Sprintf("relationships:%s:%d:%s:%s:%d:%d:%s:%s", steamID, query.Cutoff, query.ServerKey, query.GameMode, query.Page, query.PageSize, query.Sort, query.Order)
+	value, err := s.cached(ctx, steamID, key, func(ctx context.Context) (any, error) {
+		return relationships.PlayerRelationships(ctx, steamID, query)
+	})
+	if err != nil {
+		return store.PlayerRelationshipPage{}, err
+	}
+	return value.(store.PlayerRelationshipPage), nil
 }
 
 func (s *PlayerService) Activity(ctx context.Context, steamID string, cutoff int64) (store.PlayerActivity, error) {

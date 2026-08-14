@@ -4,6 +4,30 @@ All notable changes to this project are documented in this file.
 
 ## Unreleased
 
+## 1.3.1 - 2026-08-14
+
+### Added
+
+- Add Player Relationship Contract v1 and permanent sparse per-Round facts for directed human-survivor revives, control rescues, medkit healing, black-and-white restores, and friendly-fire damage in PvE and Versus.
+- Add Assist Contract v1 for PvE and Versus ordinary special infected, Tank, and Witch participation, preserving historical nullable fields as "not collected" and keeping kills mutually exclusive from assists.
+- Extend Incident Contract v1 append-only with Witch startle, completed medkit heal, and allowlisted objective-completion events, including map-detail composition, timeline, Boss, and recent-event views.
+- Add a dedicated player-relationship profile tab with range, server and mode filters, backend pagination and sorting, four factual summaries, and bidirectional detail drawers.
+- Add cross-dialect schema 5 fixtures and deep-doctor checks for relationship references, versions, sparse-row invariants, nullable Assist totals, class totals, and Boss participation consistency.
+
+### Changed
+
+- Upgrade the Collector and Dashboard to `1.3.1` and Stats schema from 4 to 5; Dashboard schema remains 13, while gameplay `stats_version=1`, Aggregate Contract v1, and Incident Contract v1 remain unchanged.
+- Keep the player preview grouped into PvE, co-play Top 3, and Versus sections; localize headshot kills and make the saved player card directly previewable from Player Center.
+- Add common-infected kills per hour and firearm headshot rate to normalized PvE career metrics, and round battle-timeline values to one decimal place.
+- Move the player-relationship mode selector into a tab-scoped toolbar filter, clarify player-card and recent-record wording, and limit analysis rescuers to Top 3.
+- Show Assist data in PvE and Versus survivor profile views and explicitly render historical `NULL` values as not collected instead of zero.
+- Treat permanent relationship facts independently from Incident retention and continue deriving co-play from overlapping same-Round, same-side player segments.
+
+### Fixed
+
+- Center recent-record load-more actions with stable spacing and keep the player-preview close control clear of identity content at narrow widths.
+- Keep newly appended Incident types isolated from unknown future event IDs instead of guessing their meaning.
+
 ## 1.3.0 - 2026-08-14
 
 ### Added

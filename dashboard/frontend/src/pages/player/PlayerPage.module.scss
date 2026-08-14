@@ -50,6 +50,26 @@
 .recordStatus { display: flex; justify-content: flex-end; }
 .recordStatus :global(.ant-tag) { margin-inline-end: 0; }
 .historyGrid .dataSection { align-self: start; }
+.loadMore { display: flex; justify-content: center; margin-top: 16px; }
+.relationshipStack { display: grid; gap: 14px; margin-top: 18px; }
+.relationshipLoading { min-height: 220px; display: grid; place-items: center; }
+.relationshipSummaries { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 12px; }
+.relationshipSummaries > div { min-width: 0; display: grid; gap: 6px; padding: 18px 20px; border: 1px solid rgba(103, 72, 55, .13); border-radius: 16px; background: rgba(247, 241, 232, .88); box-shadow: 0 10px 28px rgba(71, 47, 34, .09); }
+.relationshipSummaries span, .relationshipSummaries small { color: var(--text-secondary); }
+.relationshipSummaries span { font-size: 12px; }
+.relationshipSummaries strong { overflow: hidden; color: var(--text-primary); font-size: 17px; text-overflow: ellipsis; white-space: nowrap; }
+.relationshipPlayer { display: grid; }
+.relationshipPlayer strong { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.relationshipPlayer small { color: var(--text-muted); }
+.relationshipStack .embeddedTable :global(.ant-table-tbody > tr) { cursor: pointer; }
+.relationshipDrawer { display: grid; gap: 18px; }
+.relationshipDrawer section { padding: 18px; border-radius: 14px; background: var(--surface-row); }
+.relationshipDrawer h3 { margin: 0 0 12px; }
+.relationshipDrawer dl { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 1px; overflow: hidden; margin: 0; border-radius: 10px; }
+.relationshipDrawer dl > div { display: flex; justify-content: space-between; gap: 10px; padding: 9px 11px; background: var(--surface-row-alt); }
+.relationshipDrawer dt { color: var(--text-secondary); }
+.relationshipDrawer dd { margin: 0; color: var(--text-primary); font-weight: 600; }
+.relationshipProfileLink { justify-self: end; }
 .loading, .empty { margin-top: 16px; padding: 58px 20px; text-align: center; }
 .analysisStack { display: grid; grid-template-columns: repeat(2,minmax(0,1fr)); gap: 14px; margin-top: 18px; }
 .analysisHeader { display: flex; align-items: flex-start; justify-content: space-between; gap: 20px; }
@@ -65,6 +85,7 @@
   .content { width: calc(100% - 250px); margin-right: 76px; }
   .queryPanel { grid-template-columns: 1fr; }
   .chartGrid { grid-template-columns: 1fr; }
+  .relationshipSummaries { grid-template-columns: repeat(2, minmax(0, 1fr)); }
 }
 @media (max-width: 1100px) {
   .historyGrid { grid-template-columns: 1fr; }
@@ -87,6 +108,8 @@
   .compactTable > div span:nth-of-type(n+3) { display: none; }
   .recordList > div { grid-template-columns: 1fr auto; padding: 9px 12px; }
   .recordSecondary, .recordDate, .recordDuration { display: none; }
+  .relationshipSummaries { grid-template-columns: 1fr; }
+  .relationshipDrawer dl { grid-template-columns: 1fr; }
 }
 
 :global(html[data-theme='dark']) {
@@ -99,4 +122,5 @@
   .embeddedTable :global(.ant-table-tbody > tr > td), .compactTable > div, .recordList > div { color: var(--text-secondary); background: var(--surface-row) !important; }
   .embeddedTable :global(.ant-table-tbody > tr:nth-child(even) > td), .compactTable > div:nth-child(even), .recordList > div:nth-child(even) { background: var(--surface-row-alt) !important; }
   .embeddedTable :global(.ant-table-tbody > tr:hover > td), .compactTable > div:hover, .recordList > div:hover { background: var(--surface-hover) !important; }
+  .relationshipSummaries > div { border-color: var(--border-soft); background: var(--surface); box-shadow: var(--panel-shadow); }
 }

@@ -28,7 +28,7 @@ export function PlayerHistory({ sessions, chapters, sessionPage, chapterPage, co
         <span className={styles.recordDuration}>{duration(item.active_play_seconds)}</span>
         <span className={styles.recordStatus}><Tag>{item.status}</Tag></span>
       </div>)}</div>
-      {sessionPage.hasNextPage && <Button loading={sessionPage.isFetchingNextPage} onClick={() => void sessionPage.fetchNextPage()}>{t('loadMore')}</Button>}
+      {sessionPage.hasNextPage && <div className={styles.loadMore}><Button loading={sessionPage.isFetchingNextPage} onClick={() => void sessionPage.fetchNextPage()}>{t('loadMore')}</Button></div>}
     </Section>
     <Section title={copy.chapterHistory}>
       <div className={styles.recordList}>{chapters.map((item, index) => <div key={`${item.started_at}-${index}`}>
@@ -38,7 +38,7 @@ export function PlayerHistory({ sessions, chapters, sessionPage, chapterPage, co
         <span className={styles.recordDuration}>{duration(item.active_play_seconds)}</span>
         <span className={styles.recordStatus}><Tag>{item.status}</Tag></span>
       </div>)}</div>
-      {chapterPage.hasNextPage && <Button loading={chapterPage.isFetchingNextPage} onClick={() => void chapterPage.fetchNextPage()}>{t('loadMore')}</Button>}
+      {chapterPage.hasNextPage && <div className={styles.loadMore}><Button loading={chapterPage.isFetchingNextPage} onClick={() => void chapterPage.fetchNextPage()}>{t('loadMore')}</Button></div>}
     </Section>
   </div>
 }

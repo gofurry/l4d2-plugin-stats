@@ -585,6 +585,7 @@ void LPS_RequestFlush()
 	if (!LPS_AddLifecycleFlushQueries(transaction, queryCount, lifecycleError, sizeof(lifecycleError))
 		|| !LPS_AddVersusResultFlushQueries(transaction, queryCount, lifecycleError, sizeof(lifecycleError))
 		|| !LPS_AddSegmentFlushQueries(transaction, queryCount, lifecycleError, sizeof(lifecycleError))
+		|| !LPS_AddRelationshipFlushQueries(transaction, queryCount, lifecycleError, sizeof(lifecycleError))
 		|| !LPS_AddPvEStatsFlushQueries(transaction, queryCount, lifecycleError, sizeof(lifecycleError))
 		|| !LPS_AddVersusStatsFlushQueries(transaction, queryCount, lifecycleError, sizeof(lifecycleError))
 		|| !LPS_AddEquipmentStatsFlushQueries(transaction, queryCount, lifecycleError, sizeof(lifecycleError)))
@@ -624,6 +625,7 @@ public void LPS_OnFlushSucceeded(
 	LPS_OnVersusResultFlushSucceeded();
 	LPS_OnLifecycleFlushSucceeded();
 	LPS_OnSegmentFlushSucceeded();
+	LPS_OnRelationshipFlushSucceeded();
 	LPS_OnPvEStatsFlushSucceeded();
 	LPS_OnVersusStatsFlushSucceeded();
 	LPS_OnEquipmentStatsFlushSucceeded();

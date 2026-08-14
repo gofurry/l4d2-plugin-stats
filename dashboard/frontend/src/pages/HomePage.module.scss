@@ -51,7 +51,9 @@
 .siteDocumentBody { min-height: 180px; max-height: min(68vh, 720px); overflow: auto; padding: 4px 2px; }
 .siteDocumentBody > :global(.ant-spin) { width: 100%; margin-top: 72px; }
 .playerPreviewModal :global(.ant-modal-content) { border: 1px solid rgba(255, 255, 255, .34); background: rgba(247, 241, 232, .92); box-shadow: 0 24px 70px rgba(50, 32, 23, .28); backdrop-filter: blur(24px) saturate(1.1); -webkit-backdrop-filter: blur(24px) saturate(1.1); }
-.previewHeader { display: flex; align-items: flex-start; justify-content: space-between; gap: 20px; margin: 4px 20px 22px 0; }
+.playerPreviewModal :global(.ant-modal-close) { inset-inline-end: 14px; top: 14px; }
+.playerPreviewModal :global(.ant-modal-body) { padding-top: 6px; }
+.previewHeader { display: flex; align-items: flex-start; justify-content: space-between; gap: 20px; margin: 4px 42px 22px 0; }
 .previewHeader > div { min-width: 0; }
 .previewHeader strong, .previewHeader code { display: block; }
 .previewHeader strong { overflow: hidden; color: #4f382d; font-size: 23px; text-overflow: ellipsis; white-space: nowrap; }

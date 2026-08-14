@@ -2,6 +2,7 @@ package store
 
 import (
 	"context"
+	"database/sql"
 	"fmt"
 	"strings"
 )
@@ -144,11 +145,25 @@ func (s *statsStore) enrichPlayerPVE(ctx context.Context, steamID string, filter
 	result.LedgeHangingSeconds = detail["ledge_hanging_seconds"]
 	result.BlackWhiteRestored = detail["black_white_teammates_restored"]
 	result.CarAlarmsTriggered = incidents["car_alarms_triggered"]
+	assists, assistCoverage, err := s.queryNullableMetricTotals(
+		queryCtx,
+		"lps_pve_segment_stats p "+where+" AND p.stats_version=1",
+		"p",
+		[]string{"special_assists", "smoker_assists", "boomer_assists", "hunter_assists", "spitter_assists", "jockey_assists", "charger_assists"},
+		args...,
+	)
+	if err != nil {
+		return PlayerPVE{}, err
+	}
+	result.SpecialAssists = assists["special_assists"]
+	result.AssistCoverage = assistCoverage
+	result.TankAssists = result.TankParticipations - result.TankKills
+	result.WitchAssists = result.WitchParticipations - result.WitchKills
 	classNames := []string{"smoker", "boomer", "hunter", "spitter", "jockey", "charger"}
 	result.Classes = make([]PVEInfectedClass, 0, len(classNames))
 	for index, name := range classNames {
 		result.Classes = append(result.Classes, PVEInfectedClass{
-			ClassID: index + 1, Kills: detail[name+"_kills"], Damage: detail["damage_to_"+name],
+			ClassID: index + 1, Kills: detail[name+"_kills"], Assists: assists[name+"_assists"], Damage: detail["damage_to_"+name],
 			ControlsReceived: detail[name+"_controls_received"], ControlledSeconds: detail[name+"_controlled_seconds"], Saves: detail[name+"_saves"],
 		})
 	}
@@ -216,14 +231,49 @@ func (s *statsStore) enrichPlayerVersus(ctx context.Context, steamID string, fil
 	result.SurvivorWitchSoloKills = survivor["witch_solo_kills"]
 	result.SurvivorObjectiveInteractions = survivorIncidents["objective_interactions"]
 	result.SurvivorCarAlarmsTriggered = survivorIncidents["car_alarms_triggered"]
+	assistFields := []string{"human_special_assists", "bot_special_assists", "human_tank_assists", "bot_tank_assists", "witch_encounters", "witch_kill_participations", "black_white_teammates_restored"}
+	assists, assistCoverage, err := s.queryNullableMetricTotals(
+		queryCtx,
+		"lps_versus_survivor_stats p "+survivorWhere+" AND p.stats_version=1",
+		"p",
+		assistFields,
+		args...,
+	)
+	if err != nil {
+		return PlayerVersus{}, err
+	}
+	result.HumanSpecialAssists = assists["human_special_assists"]
+	result.BotSpecialAssists = assists["bot_special_assists"]
+	result.HumanTankAssists = assists["human_tank_assists"]
+	result.BotTankAssists = assists["bot_tank_assists"]
+	result.SurvivorWitchEncounters = assists["witch_encounters"]
+	result.SurvivorWitchParticipations = assists["witch_kill_participations"]
+	result.SurvivorBlackWhiteRestored = assists["black_white_teammates_restored"]
+	result.AssistCoverage = assistCoverage
+	if result.SurvivorWitchParticipations != nil {
+		var collectedWitchKills sql.NullInt64
+		statement := "SELECT SUM(p.witch_kills) FROM lps_versus_survivor_stats p " + survivorWhere + " AND p.stats_version=1 AND p.witch_kill_participations IS NOT NULL"
+		if err := s.db.QueryRowContext(queryCtx, statement, args...).Scan(&collectedWitchKills); err != nil {
+			return PlayerVersus{}, err
+		}
+		if collectedWitchKills.Valid {
+			value := *result.SurvivorWitchParticipations - collectedWitchKills.Int64
+			result.SurvivorWitchAssists = &value
+		}
+	}
 	survivorClasses, err := s.queryGroupedMetrics(queryCtx, "lps_versus_survivor_infected_class_stats p "+survivorWhere+" AND p.stats_version=1", "p", "p.infected_class", versusSurvivorClassMetrics, args...)
 	if err != nil {
 		return PlayerVersus{}, err
 	}
 	result.SurvivorClasses = make([]VersusSurvivorClass, 0, len(survivorClasses))
+	classAssists, err := s.queryGroupedNullableMetrics(queryCtx, "lps_versus_survivor_infected_class_stats p "+survivorWhere+" AND p.stats_version=1", "p", "p.infected_class", []string{"human_controller_assists", "bot_controller_assists"}, args...)
+	if err != nil {
+		return PlayerVersus{}, err
+	}
 	for _, row := range survivorClasses {
 		m := row.metrics
-		result.SurvivorClasses = append(result.SurvivorClasses, VersusSurvivorClass{ClassID: row.dimension, HumanControllerKills: m["human_controller_kills"], BotControllerKills: m["bot_controller_kills"], DamageToHumanControllers: m["damage_to_human_controllers"], DamageToBotControllers: m["damage_to_bot_controllers"]})
+		a := classAssists[row.dimension]
+		result.SurvivorClasses = append(result.SurvivorClasses, VersusSurvivorClass{ClassID: row.dimension, HumanControllerKills: m["human_controller_kills"], BotControllerKills: m["bot_controller_kills"], DamageToHumanControllers: m["damage_to_human_controllers"], DamageToBotControllers: m["damage_to_bot_controllers"], HumanControllerAssists: a["human_controller_assists"], BotControllerAssists: a["bot_controller_assists"]})
 	}
 	infectedWhere, infectedArgs := s.playerSegmentWhere("p", "versus", "infected", steamID, filter)
 	infected, err := s.queryMetricTotals(queryCtx, "lps_versus_infected_stats p "+infectedWhere+" AND p.stats_version=1", "p", versusInfectedMetrics, infectedArgs...)
@@ -301,6 +351,66 @@ func (s *statsStore) queryMetricTotals(ctx context.Context, source, alias string
 		result[field] = integerValue(values[i])
 	}
 	return result, nil
+}
+
+func (s *statsStore) queryNullableMetricTotals(ctx context.Context, source, alias string, fields []string, args ...any) (map[string]*int64, CollectionCoverage, error) {
+	selects := make([]string, 0, len(fields)+2)
+	for _, field := range fields {
+		selects = append(selects, "SUM("+alias+"."+field+")")
+	}
+	selects = append(selects, "COUNT("+alias+"."+fields[0]+")", "COUNT(*)")
+	row := s.db.QueryRowContext(ctx, "SELECT "+strings.Join(selects, ",")+" FROM "+source, args...)
+	values := make([]sql.NullInt64, len(fields))
+	var collected, total int64
+	dest := make([]any, 0, len(fields)+2)
+	for index := range values {
+		dest = append(dest, &values[index])
+	}
+	dest = append(dest, &collected, &total)
+	if err := row.Scan(dest...); err != nil {
+		return nil, CollectionCoverage{}, err
+	}
+	result := make(map[string]*int64, len(fields))
+	for index, field := range fields {
+		if values[index].Valid {
+			value := values[index].Int64
+			result[field] = &value
+		}
+	}
+	return result, CollectionCoverage{CollectedSegments: collected, TotalSegments: total, Complete: total > 0 && collected == total}, nil
+}
+
+func (s *statsStore) queryGroupedNullableMetrics(ctx context.Context, source, alias, dimension string, fields []string, args ...any) (map[int64]map[string]*int64, error) {
+	selects := []string{dimension}
+	for _, field := range fields {
+		selects = append(selects, "SUM("+alias+"."+field+")")
+	}
+	rows, err := s.db.QueryContext(ctx, "SELECT "+strings.Join(selects, ",")+" FROM "+source+" GROUP BY "+dimension, args...)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	result := make(map[int64]map[string]*int64)
+	for rows.Next() {
+		var dimensionValue any
+		values := make([]sql.NullInt64, len(fields))
+		dest := []any{&dimensionValue}
+		for index := range values {
+			dest = append(dest, &values[index])
+		}
+		if err := rows.Scan(dest...); err != nil {
+			return nil, err
+		}
+		metrics := make(map[string]*int64, len(fields))
+		for index, field := range fields {
+			if values[index].Valid {
+				value := values[index].Int64
+				metrics[field] = &value
+			}
+		}
+		result[integerValue(dimensionValue)] = metrics
+	}
+	return result, rows.Err()
 }
 
 type groupedMetrics struct {

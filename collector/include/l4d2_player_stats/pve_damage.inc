@@ -257,6 +257,7 @@ void LPS_RecordPvEDamage(int victim, int attacker, int inflictor, int actualDama
 			}
 			else if (zombieClass >= 1 && zombieClass <= 6)
 			{
+				LPS_RecordAssistContribution(victim, humanAttacker);
 				LPS_AddPvEStat(humanAttacker, LPSPvEStat_DamageToSpecial, actualDamage);
 				LPS_AddSpecialClassDamage(humanAttacker, zombieClass, actualDamage);
 				LPS_RecordEquipmentDamage(
@@ -284,6 +285,7 @@ void LPS_RecordPvEDamage(int victim, int attacker, int inflictor, int actualDama
 			}
 			else
 			{
+				LPS_RecordRelationshipFriendlyFire(humanAttacker, victim, actualDamage);
 				LPS_AddPvEStat(humanAttacker, LPSPvEStat_FriendlyFireToHumans, actualDamage);
 				LPS_AddPvEStat(victim, LPSPvEStat_FriendlyFireTaken, actualDamage);
 			}

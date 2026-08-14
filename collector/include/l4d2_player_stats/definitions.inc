@@ -3,8 +3,8 @@
 #endif
 #define _l4d2_player_stats_definitions_included
 
-#define LPS_VERSION "1.3.0"
-#define LPS_SCHEMA_VERSION 4
+#define LPS_VERSION "1.3.1"
+#define LPS_SCHEMA_VERSION 5
 #define LPS_MIGRATION_NAME "initial_schema"
 #define LPS_STATS_VERSION 1
 
@@ -146,7 +146,14 @@ enum LPSPvEStat
 	LPSPvEStat_IncapacitatedSeconds,
 	LPSPvEStat_LedgeHangingSeconds,
 	LPSPvEStat_BlackWhiteTeammatesRestored,
-	LPSPvEStat_CarAlarmsTriggered
+	LPSPvEStat_CarAlarmsTriggered,
+	LPSPvEStat_SpecialAssists,
+	LPSPvEStat_SmokerAssists,
+	LPSPvEStat_BoomerAssists,
+	LPSPvEStat_HunterAssists,
+	LPSPvEStat_SpitterAssists,
+	LPSPvEStat_JockeyAssists,
+	LPSPvEStat_ChargerAssists
 };
 
 // Stable IDs persisted by lps_pve_segment_equipment_stats. Never reuse an ID
@@ -233,7 +240,10 @@ enum LPSIncidentType
 	LPSIncident_TankSpawn = 8,
 	LPSIncident_TankDeath = 9,
 	LPSIncident_WitchSpawn = 10,
-	LPSIncident_WitchDeath = 11
+	LPSIncident_WitchDeath = 11,
+	LPSIncident_WitchStartle = 12,
+	LPSIncident_MedkitHeal = 13,
+	LPSIncident_ObjectiveComplete = 14
 };
 
 enum LPSParticipantKind
@@ -301,7 +311,14 @@ enum LPSVersusSurvivorStat
 	LPSVersusSurvivorStat_WitchOneShots,
 	LPSVersusSurvivorStat_WitchSoloKills,
 	LPSVersusSurvivorStat_ObjectiveInteractions,
-	LPSVersusSurvivorStat_CarAlarmsTriggered
+	LPSVersusSurvivorStat_CarAlarmsTriggered,
+	LPSVersusSurvivorStat_HumanSpecialAssists,
+	LPSVersusSurvivorStat_BotSpecialAssists,
+	LPSVersusSurvivorStat_HumanTankAssists,
+	LPSVersusSurvivorStat_BotTankAssists,
+	LPSVersusSurvivorStat_WitchEncounters,
+	LPSVersusSurvivorStat_WitchKillParticipations,
+	LPSVersusSurvivorStat_BlackWhiteTeammatesRestored
 };
 
 // Fixed per-class combat metrics for a human survivor attacking the seven
@@ -313,6 +330,8 @@ enum LPSVersusSurvivorClassStat
 	LPSVersusSurvivorClassStat_BotControllerKills,
 	LPSVersusSurvivorClassStat_DamageToHumanControllers,
 	LPSVersusSurvivorClassStat_DamageToBotControllers,
+	LPSVersusSurvivorClassStat_HumanControllerAssists,
+	LPSVersusSurvivorClassStat_BotControllerAssists,
 	LPSVersusSurvivorClassStat_Count
 };
 

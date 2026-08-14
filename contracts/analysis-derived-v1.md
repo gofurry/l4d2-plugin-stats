@@ -5,6 +5,7 @@
 ## 标准化与样本门槛
 
 - `per_hour = metric / active_play_seconds * 3600`；分母为零时不可用，不显示为 0。
+- PvE `common_kills_per_hour` 使用普通感染者击杀；`headshot_rate` 为枪械爆头击杀除以同一筛选范围内的枪械总击杀，枪械 ID 与 Collector 的 `LPS_IsFirearmEquipment` 判定一致，分母为零时不可用。
 - Boss 参与率为 participations / encounters；每出生指标为 metric / spawns。
 - 每小时排行至少 7200 秒；Boss 参与率至少 5 次遭遇；每出生至少 20 次出生；平均控制时长至少 10 次控制。
 - 排行元数据区分 `higher_is_better` 与 `lower_is_better`。Context 不加入 Aggregate v1 维度。
@@ -18,12 +19,16 @@
 
 Timeline 使用 60 秒 offset 桶，每桶为 `事件数 * 100 / 持续到桶起点的完整 Incident Round 数`。Boss 时长只取同 Round 已匹配 Spawn/Death 的 offset 差；未匹配 Death 计入死亡数但不进入时长样本。
 
+地图详情的“最近事件”最多返回当前筛选条件下最新 20 条。数据库不按条数截断 Incident；它保存保留期内的全部有效事件，默认保留期为 180 天并可由管理员调整。
+
+个人分析的救援者按当前时间与服务器筛选汇总，按救援次数降序、SteamID 升序取 Top 3。
+
 ## 同步控制
 
 CONTROL 使用半开区间 `[start, start + duration)`：相同时间先 end 后 start；同时数按不同幸存者 target 去重；每个 Episode 记录存续期间最大同时数；最大值至少 2/3/4 时分别计入 2-cap/3-cap/4-cap，一个 Episode 对每个阈值最多一次。
 
 ## 并肩作战
 
-两名认证真人须共享 `round_id` 与 `side` 且 SteamID 不同，Segment 墙钟区间存在正重叠：`end=COALESCE(ended_at,last_saved_at)`，`overlap=max(0,min(endA,endB)-max(startA,startB))`。按 peer 汇总 shared seconds 与不同 shared rounds，按秒数降序、Round 数降序、peer SteamID 升序取 Top 3。它不表示好友关系，预览不暴露 peer SteamID。
+两名认证真人须共享 `round_id` 与 `side` 且 SteamID 不同，Segment 墙钟区间存在正重叠：`end=COALESCE(ended_at,last_saved_at)`，`overlap=max(0,min(endA,endB)-max(startA,startB))`。按 peer 汇总 shared seconds 与不同 shared rounds，按秒数降序、Round 数降序、peer SteamID 升序取 Top 3，用于玩家关系页的陪伴数据与“最多陪伴”摘要，并显示在玩家预览卡中。它不表示好友关系，预览不暴露 peer SteamID。
 
 坐标只供未来经过校准的地图 artwork 使用；v1.3 公共 UI 不展示伪热力图。

@@ -54,16 +54,23 @@ public void LPS_Event_PlayerDeathStats(Event event, const char[] name, bool dont
 
 	int attacker = GetClientOfUserId(event.GetInt("attacker"));
 	int zombieClass = LPS_GetZombieClass(victim);
-	LPS_OnSpecialInfectedDeathForExtendedStats(victim, attacker, event.GetBool("abort"));
+	bool aborted = event.GetBool("abort");
+	LPS_OnSpecialInfectedDeathForExtendedStats(victim, attacker, aborted);
+	LPS_ResolvePvESpecialAssists(victim, attacker, zombieClass, aborted);
+	if (aborted)
+	{
+		if (zombieClass == 8)
+		{
+			LPS_ResetBossTracking(victim);
+		}
+		return;
+	}
 
 	char weaponName[64];
 	event.GetString("weapon", weaponName, sizeof(weaponName));
 	if (zombieClass == 8)
 	{
-		if (!event.GetBool("abort"))
-		{
-			LPS_RecordBossDeathIncident(victim, attacker, true);
-		}
+		LPS_RecordBossDeathIncident(victim, attacker, true);
 		LPS_AddPvEStat(attacker, LPSPvEStat_TankKills, 1);
 		LPS_RecordEquipmentKill(
 			victim,

@@ -38,6 +38,10 @@
 .boss { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
 .boss h4 { margin: 0; }
 .boss span { display: flex; justify-content: space-between; color: var(--text-secondary); }
+.recentIncidents { display: grid; gap: 1px; overflow: hidden; border-radius: 12px; background: rgba(255,255,255,.08); }
+.recentIncidents > div { display: grid; grid-template-columns: 76px 1fr; gap: 12px; padding: 11px 13px; background: var(--surface-row); }
+.recentIncidents time { color: var(--text-muted); font-variant-numeric: tabular-nums; }
+.recentIncidents span { color: var(--text-primary); }
 
 @media (max-width: 1100px) {
   .cards { grid-template-columns: repeat(3, minmax(0, 1fr)); }

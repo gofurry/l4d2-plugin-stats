@@ -16,15 +16,20 @@ type analysisCacheEntry struct {
 }
 
 type AnalysisService struct {
-	stats store.StatsAnalysisStore
-	ttl   time.Duration
-	mu    sync.Mutex
-	cache map[string]analysisCacheEntry
-	group singleflight.Group
+	stats   store.StatsAnalysisStore
+	players *PlayerService
+	ttl     time.Duration
+	mu      sync.Mutex
+	cache   map[string]analysisCacheEntry
+	group   singleflight.Group
 }
 
-func NewAnalysisService(stats store.StatsAnalysisStore) *AnalysisService {
-	return &AnalysisService{stats: stats, ttl: 60 * time.Second, cache: make(map[string]analysisCacheEntry)}
+func NewAnalysisService(stats store.StatsAnalysisStore, players ...*PlayerService) *AnalysisService {
+	var playerService *PlayerService
+	if len(players) > 0 {
+		playerService = players[0]
+	}
+	return &AnalysisService{stats: stats, players: playerService, ttl: 60 * time.Second, cache: make(map[string]analysisCacheEntry)}
 }
 
 func (s *AnalysisService) Options(ctx context.Context, filter store.AnalysisFilter) (store.AnalysisOptions, error) {
@@ -94,6 +99,23 @@ func (s *AnalysisService) Player(ctx context.Context, steamID string, filter sto
 		}
 		switch view {
 		case "pve":
+			if s.players != nil {
+				pve, err := s.players.PVEFiltered(ctx, steamID, filter)
+				if err != nil {
+					return nil, err
+				}
+				var firearmKills, headshotKills int64
+				for _, equipment := range pve.Equipment {
+					if !isFirearmEquipment(equipment.EquipmentID) {
+						continue
+					}
+					firearmKills += equipment.CommonKills + equipment.SpecialKills + equipment.TankKills + equipment.WitchKills
+					headshotKills += equipment.HeadshotKills
+				}
+				result.Metrics["common_kills_per_hour"] = perHour(pve.CommonKills)
+				result.Metrics["headshot_rate"] = ratio(headshotKills, firearmKills)
+				result.Samples["firearm_kills"] = firearmKills
+			}
 			result.Metrics["special_kills_per_hour"] = perHour(totals.SpecialKills)
 			result.Metrics["rescues_per_hour"] = perHour(totals.Rescues)
 			result.Metrics["incaps_per_hour"] = perHour(totals.Incaps)
@@ -127,6 +149,10 @@ func (s *AnalysisService) Player(ctx context.Context, steamID string, filter sto
 		return store.PlayerAnalysis{}, err
 	}
 	return value.(store.PlayerAnalysis), nil
+}
+
+func isFirearmEquipment(equipmentID int64) bool {
+	return equipmentID >= 1 && equipmentID <= 20 || equipmentID == 22 || equipmentID == 23
 }
 
 func (s *AnalysisService) cached(ctx context.Context, key string, load func(context.Context) (any, error)) (any, error) {
