@@ -295,5 +295,45 @@ foreach ($driver in $drivers) {
         }
     }
 
-    Write-Host "Validated $driver migrations ($($statements.Count + $secondStatements.Count + $thirdStatements.Count + $fourthStatements.Count) statements)."
+    $fifthMigration = Join-Path $migrationRoot "$driver\0005_relationships_and_assists.sql"
+    if (-not (Test-Path -LiteralPath $fifthMigration -PathType Leaf)) {
+        throw "Missing $driver migration: $fifthMigration"
+    }
+    $fifthSQL = Get-Content -LiteralPath $fifthMigration -Raw
+    $fifthStatements = [regex]::Split(
+        $fifthSQL,
+        '(?m)^\s*-- statement-breakpoint\s*$'
+    ) | ForEach-Object { $_.Trim() } | Where-Object { $_ -ne "" }
+    $expectedFifthStatements = if ($driver -eq "mysql") { 17 } else { 19 }
+    if ($fifthStatements.Count -ne $expectedFifthStatements) {
+        throw "$driver migration 0005 must contain exactly $expectedFifthStatements statements."
+    }
+    foreach ($statement in $fifthStatements) {
+        if (-not $statement.EndsWith(';')) {
+            throw "$driver migration 0005 contains a statement without a terminating semicolon."
+        }
+    }
+    $nullableAssistColumns = @(
+        "special_assists", "smoker_assists", "boomer_assists",
+        "hunter_assists", "spitter_assists", "jockey_assists",
+        "charger_assists", "human_special_assists", "bot_special_assists",
+        "human_tank_assists", "bot_tank_assists", "witch_encounters",
+        "witch_kill_participations", "black_white_teammates_restored",
+        "human_controller_assists", "bot_controller_assists"
+    )
+    foreach ($column in $nullableAssistColumns) {
+        if ($fifthSQL -notmatch "(?i)ADD COLUMN\s+$column\s+BIGINT\s+NULL") {
+            throw "$driver migration 0005 must add nullable historical column $column."
+        }
+    }
+    if ($fifthSQL -notmatch '(?i)CREATE TABLE\s+lps_player_round_relationship_stats\b') {
+        throw "$driver migration 0005 is missing lps_player_round_relationship_stats."
+    }
+    foreach ($index in @("lps_idx_relationship_actor_round", "lps_idx_relationship_target_round")) {
+        if ($fifthSQL -notmatch "(?i)\b$index\b") {
+            throw "$driver migration 0005 is missing index $index."
+        }
+    }
+
+    Write-Host "Validated $driver migrations ($($statements.Count + $secondStatements.Count + $thirdStatements.Count + $fourthStatements.Count + $fifthStatements.Count) statements)."
 }

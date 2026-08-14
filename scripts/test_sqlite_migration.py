@@ -10,6 +10,7 @@ INITIAL_MIGRATION = MIGRATION_ROOT / "0001_initial.sql"
 INCIDENT_MIGRATION = MIGRATION_ROOT / "0002_car_alarms_triggered.sql"
 OBJECTIVE_MIGRATION = MIGRATION_ROOT / "0003_versus_objective_interactions.sql"
 ANALYSIS_MIGRATION = MIGRATION_ROOT / "0004_analysis_foundation.sql"
+RELATIONSHIP_MIGRATION = MIGRATION_ROOT / "0005_relationships_and_assists.sql"
 VERSUS_CONTRACT_CHECKS = (
     PROJECT_ROOT / "database" / "queries" / "versus_contract_checks.sql"
 )
@@ -195,6 +196,21 @@ def main() -> None:
             "(4, 'analysis_foundation', 4)"
         )
 
+        relationship_statements = [
+            statement.strip()
+            for statement in RELATIONSHIP_MIGRATION.read_text(
+                encoding="utf-8"
+            ).split("-- statement-breakpoint")
+            if statement.strip()
+        ]
+        for statement in relationship_statements:
+            database.execute(statement)
+        database.execute(
+            "INSERT INTO lps_schema_migrations "
+            "(version, name, applied_at) VALUES "
+            "(5, 'relationships_and_assists', 5)"
+        )
+
         database.execute(
             "INSERT INTO lps_schema_migrations "
             "(version, name, applied_at) VALUES (1, 'initial_schema', 1)"
@@ -341,6 +357,46 @@ def main() -> None:
                 round_id, run_id, "test-01", "pve", "c1m1_hotel", 1, 1, 1, 0,
                 10, None, 20, "active", 1,
             ),
+        )
+
+        database.execute(
+            "INSERT INTO lps_players "
+            "(steam_id, last_name, first_seen_at, last_seen_at) "
+            "VALUES ('76561198000000001', 'Teammate', 10, 45)"
+        )
+        relationship_upsert = (
+            "INSERT INTO lps_player_round_relationship_stats "
+            "(round_id, actor_steam_id, target_steam_id, relationship_version, "
+            "incap_revives, ledge_rescues, defib_revives, smoker_rescues, "
+            "hunter_rescues, jockey_rescues, charger_rescues, "
+            "control_rescue_duration_ms, medkits_used, medkit_healing, "
+            "black_white_restores, friendly_fire_damage, last_saved_at, revision) "
+            "VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?) "
+            "ON CONFLICT(round_id, actor_steam_id, target_steam_id) DO UPDATE SET "
+            "incap_revives = excluded.incap_revives, "
+            "ledge_rescues = excluded.ledge_rescues, "
+            "defib_revives = excluded.defib_revives, "
+            "smoker_rescues = excluded.smoker_rescues, "
+            "hunter_rescues = excluded.hunter_rescues, "
+            "jockey_rescues = excluded.jockey_rescues, "
+            "charger_rescues = excluded.charger_rescues, "
+            "control_rescue_duration_ms = excluded.control_rescue_duration_ms, "
+            "medkits_used = excluded.medkits_used, "
+            "medkit_healing = excluded.medkit_healing, "
+            "black_white_restores = excluded.black_white_restores, "
+            "friendly_fire_damage = excluded.friendly_fire_damage, "
+            "last_saved_at = excluded.last_saved_at, revision = excluded.revision"
+        )
+        relationship_key = (
+            round_id, "76561198000000000", "76561198000000001", 1
+        )
+        database.execute(
+            relationship_upsert,
+            (*relationship_key, 1, 0, 0, 0, 1, 0, 0, 1250, 1, 40, 0, 2, 30, 1),
+        )
+        database.execute(
+            relationship_upsert,
+            (*relationship_key, 2, 1, 0, 0, 1, 0, 0, 1250, 2, 75, 1, 5, 45, 2),
         )
         database.execute(
             round_insert,
@@ -700,8 +756,12 @@ def main() -> None:
             )
         }
 
-        assert len(tables) == 18, tables
-        assert len(indexes) == 36, indexes
+        assert len(tables) == 19, tables
+        assert len(indexes) == 38, indexes
+        schema_version = database.execute(
+            "SELECT MAX(version) FROM lps_schema_migrations"
+        ).fetchone()
+        assert schema_version == (5,), schema_version
         status = database.execute(
             "SELECT status FROM lps_server_boots WHERE boot_id = 'test-01:1:a'"
         ).fetchone()
@@ -752,6 +812,12 @@ def main() -> None:
             1, 2, 3, 4, 5, 6, 7, 8, 2, 1, 0, 1,
             1, 2, 1, 1, 1, 1, 1, 1, 1, 2, 3, 2, 11, 4, 1, 2, 3,
         ), pve_stats
+        pve_assists = database.execute(
+            "SELECT special_assists, smoker_assists, boomer_assists, "
+            "hunter_assists, spitter_assists, jockey_assists, charger_assists "
+            "FROM lps_pve_segment_stats WHERE segment_id = ?", (segment_id,)
+        ).fetchone()
+        assert pve_assists == (None,) * 7, pve_assists
 
         equipment_stats = database.execute(
             f"SELECT {', '.join(EQUIPMENT_STAT_COLUMNS)} "
@@ -828,6 +894,14 @@ def main() -> None:
             2, 1, 3, 1, 1, 4, 1, 2, 80, 90, 2, 1, 125, 2, 300, 2, 1,
             1, 1, 1, 1, 2, 1, 1, 2, 4, 6,
         ), versus_survivor_stats
+        versus_assists = database.execute(
+            "SELECT human_special_assists, bot_special_assists, "
+            "human_tank_assists, bot_tank_assists, witch_encounters, "
+            "witch_kill_participations, black_white_teammates_restored "
+            "FROM lps_versus_survivor_stats WHERE segment_id = ?",
+            (stale_segment_id,),
+        ).fetchone()
+        assert versus_assists == (None,) * 7, versus_assists
 
         versus_survivor_class_stats = database.execute(
             f"SELECT {', '.join(VERSUS_SURVIVOR_CLASS_STAT_COLUMNS)} "
@@ -841,6 +915,26 @@ def main() -> None:
             (6, 1, 125, 1, 1, 100, 50, 2),
             (8, 1, 125, 1, 2, 500, 400, 2),
         ], versus_survivor_class_stats
+        versus_class_assists = database.execute(
+            "SELECT human_controller_assists, bot_controller_assists "
+            "FROM lps_versus_survivor_infected_class_stats "
+            "WHERE segment_id = ? ORDER BY infected_class",
+            (stale_segment_id,),
+        ).fetchall()
+        assert versus_class_assists == [(None, None)] * 4, versus_class_assists
+
+        relationship = database.execute(
+            "SELECT incap_revives, ledge_rescues, defib_revives, "
+            "smoker_rescues, hunter_rescues, jockey_rescues, charger_rescues, "
+            "control_rescue_duration_ms, medkits_used, medkit_healing, "
+            "black_white_restores, friendly_fire_damage, last_saved_at, revision "
+            "FROM lps_player_round_relationship_stats "
+            "WHERE round_id = ? AND actor_steam_id = ? AND target_steam_id = ?",
+            relationship_key[:3],
+        ).fetchone()
+        assert relationship == (
+            2, 1, 0, 0, 1, 0, 0, 1250, 2, 75, 1, 5, 45, 2
+        ), relationship
 
         survivor_special_class_totals = database.execute(
             "SELECT SUM(human_controller_kills), SUM(bot_controller_kills), "
@@ -992,7 +1086,7 @@ def main() -> None:
         database.close()
 
     print(
-        f"SQLite integration passed: {len(statements) + len(incident_statements) + len(objective_statements) + len(analysis_statements)} statements, "
+        f"SQLite integration passed: {len(statements) + len(incident_statements) + len(objective_statements) + len(analysis_statements) + len(relationship_statements)} statements, "
         f"{len(tables)} tables, {len(indexes)} indexes."
     )
 

@@ -69,7 +69,7 @@ func TestDatabaseContract(t *testing.T) {
 	sort.Slice(changes.Rows, func(i, j int) bool {
 		return aggregateContractKey(changes.Rows[i]) < aggregateContractKey(changes.Rows[j])
 	})
-	if changes.SourceWatermark != contractWatermark || changes.SourceRows != 15 || !changes.Full || !reflect.DeepEqual(changes.Days, []int64{contractBaseTime / 86400}) {
+	if changes.SourceWatermark != contractWatermark || changes.SourceRows != 18 || !changes.Full || !reflect.DeepEqual(changes.Days, []int64{contractBaseTime / 86400}) {
 		t.Fatalf("AggregateChanges metadata differs: %+v", changes)
 	}
 	expectedKinds := []string{"activity", "mode_activity", "pve_combat", "pve_detail", "pve_equipment", "run_result", "versus_infected", "versus_infected_class", "versus_result", "versus_survivor", "versus_survivor_class"}
@@ -99,7 +99,7 @@ func TestDatabaseContract(t *testing.T) {
 	if err != nil {
 		t.Fatalf("RetentionPlan: %v", err)
 	}
-	if plan.EquipmentRowsEligible != 1 || plan.VersusClassRowsEligible != 2 || plan.SessionRowsEligible != 2 || plan.VersusRoundResultsEligible != 1 || plan.VersusRunResultsEligible != 1 || plan.SourceWatermark != contractWatermark {
+	if plan.EquipmentRowsEligible != 1 || plan.VersusClassRowsEligible != 3 || plan.SessionRowsEligible != 2 || plan.VersusRoundResultsEligible != 1 || plan.VersusRunResultsEligible != 1 || plan.SourceWatermark != contractWatermark {
 		t.Fatalf("RetentionPlan differs: %+v", plan)
 	}
 }
@@ -115,7 +115,7 @@ func expectedContractPVE() PlayerPVE {
 		PillsUsed: 3, AdrenalineUsed: 2, TemporaryHealth: 50,
 		ChapterParticipations: 1, ChapterCompletions: 1, ChapterCompletedAlive: 1, CampaignCompletions: 1,
 		TongueSelfCuts: 1, TankRocksDestroyed: 2, WitchOneShots: 1, WitchSoloKills: 1,
-		TankEncounters: 2, TankParticipations: 1, WitchEncounters: 1, WitchParticipations: 1,
+		TankEncounters: 2, TankParticipations: 2, WitchEncounters: 1, WitchParticipations: 1,
 		IncendiaryPacks: 1, ExplosivePacks: 1, ObjectiveInteractions: 2, AmmoPileUses: 4,
 		IncapacitatedSeconds: 20, LedgeHangingSeconds: 10, BlackWhiteRestored: 1, CarAlarmsTriggered: 3,
 		Classes: []PVEInfectedClass{
@@ -137,7 +137,10 @@ func expectedContractVersus() PlayerVersus {
 		SurvivorTongueSelfCuts: 1, SurvivorTankRocksDestroyed: 1, SurvivorWitchOneShots: 1, SurvivorWitchSoloKills: 1, SurvivorObjectiveInteractions: 5, SurvivorCarAlarmsTriggered: 2,
 		InfectedSpawns: 6, DamageToHumanSurvivors: 450, DamageToBotSurvivors: 120, HumanSurvivorIncaps: 3, BotSurvivorIncaps: 2,
 		HumanSurvivorKills: 1, BotSurvivorKills: 1, HumanSurvivorControls: 11, HumanSurvivorControlSeconds: 75,
-		SurvivorClasses: []VersusSurvivorClass{{ClassID: 3, HumanControllerKills: 5, BotControllerKills: 2, DamageToHumanControllers: 120, DamageToBotControllers: 60}},
+		SurvivorClasses: []VersusSurvivorClass{
+			{ClassID: 3, HumanControllerKills: 5, BotControllerKills: 2, DamageToHumanControllers: 120, DamageToBotControllers: 60},
+			{ClassID: 8, HumanControllerKills: 2, BotControllerKills: 1, DamageToHumanControllers: 200, DamageToBotControllers: 75},
+		},
 		InfectedClasses: []VersusInfectedClass{{ClassID: 3, Spawns: 6, DamageToHumanSurvivors: 450, DamageToBotSurvivors: 120, HumanSurvivorIncaps: 3, BotSurvivorIncaps: 2, HumanSurvivorKills: 1, BotSurvivorKills: 1, HumanSurvivorControls: 11, BotSurvivorControls: 4, HumanSurvivorControlSeconds: 75, BotSurvivorControlSeconds: 20, HumanSurvivorAbilityHits: 9, BotSurvivorAbilityHits: 3, HumanSurvivorAbilityDamage: 180, BotSurvivorAbilityDamage: 40}},
 	}
 }

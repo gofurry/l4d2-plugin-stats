@@ -414,3 +414,9 @@ Stats schema 4 通过加法迁移新增永久 Round Context 与低频语义 Inci
 [`incidents-v1.md`](incidents-v1.md)，规则快照见
 [`round-context-v1.md`](round-context-v1.md)，读取侧派生口径见
 [`analysis-derived-v1.md`](analysis-derived-v1.md)。Aggregate Contract 仍为 v1。
+
+Stats schema 5 通过加法迁移新增永久的真人定向互动关系表，并为 PvE、Versus Survivor
+及其感染者职业明细增加可空的 Assist 字段。历史新增字段保持 `NULL`，表示当时尚未采集；
+新快照写入明确的 0 或正整数。Gameplay `stats_version` 与 Aggregate Contract 均继续为
+v1。精确语义见 [`player-relationship-v1.md`](player-relationship-v1.md) 和
+[`assist-v1.md`](assist-v1.md)。

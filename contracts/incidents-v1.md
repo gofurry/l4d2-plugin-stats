@@ -17,6 +17,9 @@
 | 9 | `TANK_DEATH` |
 | 10 | `WITCH_SPAWN` |
 | 11 | `WITCH_DEATH` |
+| 12 | `WITCH_STARTLE` |
+| 13 | `MEDKIT_HEAL` |
+| 14 | `OBJECTIVE_COMPLETE` |
 
 所有 v1.3 记录固定写入 `incident_version=1`。
 
@@ -42,7 +45,12 @@ ParticipantKind 固定为：0 `NONE`、1 `HUMAN_SURVIVOR`、2 `BOT_SURVIVOR`、3
 - REVIVE/LEDGE 按 `revive_success.ledge_hang` 分开；DEFIB 来源 `defibrillator_used`。
 - CAR_ALARM 来源 `triggered_car_alarm`，保持严格真人幸存者归属，坐标为触发玩家位置。
 - Tank/Witch 使用独立 Spawn/Death。Death 可关联同 Round 成功入队的 Spawn；无法匹配为 0。
-- Witch Death 的 `detail_flags` bit 0 表示引擎 `oneshot=true`，v1 其他位必须为 0；不采集 Witch Startle。
+- Witch Death 的 `detail_flags` bit 0 表示引擎 `oneshot=true`，v1 其他位必须为 0。
+- Witch Startle 来源 `witch_harasser_set`，只保存首次可验证惊扰；actor 为惊扰幸存者，target 为 Witch。
+- Medkit Heal 来源成功的 `heal_success`；actor 为治疗者，target 为被治疗者，`detail_flags` 保存实际永久生命恢复量。自疗允许 actor 与 target 相同。
+- Objective Complete 来源现有严格真人幸存者机关互动归属；actor 为完成互动的真人幸存者。
+
+稳定 ID 只允许尾部追加。未知未来 ID 的读取端必须安全忽略或明确标记为未知，不得按已有类型猜测；`SPECIAL_DEATH` 不属于 Incident v1。
 
 ## 完整性与保留
 
