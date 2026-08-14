@@ -1,5 +1,5 @@
 import { useQuery } from '@tanstack/react-query'
-import { Alert, Drawer, Empty, Select, Spin, Table } from 'antd'
+import { Alert, Drawer, Empty, Spin, Table } from 'antd'
 import type { TableProps } from 'antd'
 import { useState } from 'react'
 import { api, type PlayerRelationship, type PlayerRelationshipDirection, type PlayerRelationshipSummary } from '../../api'
@@ -8,8 +8,7 @@ import styles from './PlayerPage.module.scss'
 
 type SortField = 'player_name' | 'shared_rounds' | 'shared_seconds' | 'outgoing_support' | 'incoming_support' | 'mutual_support' | 'outgoing_healing' | 'incoming_healing' | 'outgoing_friendly_fire' | 'incoming_friendly_fire'
 
-export function PlayerRelationships({ steamID, range, server, enabled, zh }: { steamID: string; range: string; server: string; enabled: boolean; zh: boolean }) {
-  const [mode, setMode] = useState('all')
+export function PlayerRelationships({ steamID, range, server, mode, enabled, zh }: { steamID: string; range: string; server: string; mode: string; enabled: boolean; zh: boolean }) {
   const [page, setPage] = useState(1)
   const [sort, setSort] = useState<SortField>('shared_rounds')
   const [order, setOrder] = useState<'asc' | 'desc'>('desc')
@@ -46,7 +45,6 @@ export function PlayerRelationships({ steamID, range, server, enabled, zh }: { s
   }
 
   return <div className={styles.relationshipStack}>
-    <div className={styles.relationshipToolbar}><Select value={mode} onChange={value => { setMode(value); setPage(1) }} options={[{ value: 'all', label: zh ? 'PvE + 对抗' : 'PvE + Versus' }, { value: 'pve', label: 'PvE' }, { value: 'versus', label: zh ? '对抗' : 'Versus' }]} /></div>
     {query.isLoading ? <div className={styles.relationshipLoading}><Spin /></div> : query.data ? <>
       <div className={styles.relationshipSummaries}>
         <RelationshipSummary title={zh ? '最多陪伴' : 'Most time together'} value={query.data.summaries.most_companion} kind="companion" zh={zh} />

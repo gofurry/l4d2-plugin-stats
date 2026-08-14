@@ -478,7 +478,7 @@ FROM lps_incidents i JOIN lps_rounds r ON r.round_id=i.round_id` + where
 		result.ControlClasses = append(result.ControlClasses, item)
 	}
 	classRows.Close()
-	rescueStatement := withSubject + `SELECT MAX(p.last_name),COUNT(*) FROM lps_incidents i JOIN lps_rounds r ON r.round_id=i.round_id JOIN lps_players p ON p.steam_id=CASE WHEN i.incident_type=1 THEN i.helper_steam_id ELSE i.actor_steam_id END` + where + ` AND ((i.incident_type=1 AND i.target_steam_id=` + subject + ` AND i.helper_steam_id<>'') OR (i.incident_type IN (4,5,6) AND i.target_steam_id=` + subject + ` AND i.actor_steam_id<>'')) GROUP BY CASE WHEN i.incident_type=1 THEN i.helper_steam_id ELSE i.actor_steam_id END ORDER BY COUNT(*) DESC,CASE WHEN i.incident_type=1 THEN i.helper_steam_id ELSE i.actor_steam_id END ASC LIMIT 5`
+	rescueStatement := withSubject + `SELECT MAX(p.last_name),COUNT(*) FROM lps_incidents i JOIN lps_rounds r ON r.round_id=i.round_id JOIN lps_players p ON p.steam_id=CASE WHEN i.incident_type=1 THEN i.helper_steam_id ELSE i.actor_steam_id END` + where + ` AND ((i.incident_type=1 AND i.target_steam_id=` + subject + ` AND i.helper_steam_id<>'') OR (i.incident_type IN (4,5,6) AND i.target_steam_id=` + subject + ` AND i.actor_steam_id<>'')) GROUP BY CASE WHEN i.incident_type=1 THEN i.helper_steam_id ELSE i.actor_steam_id END ORDER BY COUNT(*) DESC,CASE WHEN i.incident_type=1 THEN i.helper_steam_id ELSE i.actor_steam_id END ASC LIMIT 3`
 	rescueRows, err := s.db.QueryContext(queryCtx, rescueStatement, args...)
 	if err != nil {
 		return result, err

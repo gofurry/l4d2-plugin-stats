@@ -30,6 +30,7 @@ describe('PlayerPreviewModal', () => {
     expect(screen.getByText('合作 / 写实')).toBeInTheDocument()
     expect(screen.getByText(/并肩作战 Top 3/)).toBeInTheDocument()
     expect(screen.getByText('队友甲')).toBeInTheDocument()
+    expect(screen.getByText(/4 场对局/)).toBeInTheDocument()
     expect(screen.getByText('对抗')).toBeInTheDocument()
     expect(screen.getByText('爆头击杀')).toBeInTheDocument()
     expect(screen.getByText('1,234')).toBeInTheDocument()

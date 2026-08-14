@@ -19,6 +19,7 @@ All notable changes to this project are documented in this file.
 - Upgrade the Collector and Dashboard to `1.3.1` and Stats schema from 4 to 5; Dashboard schema remains 13, while gameplay `stats_version=1`, Aggregate Contract v1, and Incident Contract v1 remain unchanged.
 - Keep the player preview grouped into PvE, co-play Top 3, and Versus sections; localize headshot kills and make the saved player card directly previewable from Player Center.
 - Add common-infected kills per hour and firearm headshot rate to normalized PvE career metrics, and round battle-timeline values to one decimal place.
+- Move the player-relationship mode selector into a tab-scoped toolbar filter, clarify player-card and recent-record wording, and limit analysis rescuers to Top 3.
 - Show Assist data in PvE and Versus survivor profile views and explicitly render historical `NULL` values as not collected instead of zero.
 - Treat permanent relationship facts independently from Incident retention and continue deriving co-play from overlapping same-Round, same-side player segments.
 
