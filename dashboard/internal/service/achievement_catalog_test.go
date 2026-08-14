@@ -138,6 +138,11 @@ func TestAchievementThresholdBoundariesAndMultiTierUnlock(t *testing.T) {
 	if len(got) != 1 || got[0].AchievementKey != "career.veteran.1" || got[0].ValueAtUnlock != 10*3600 || got[0].GrantKind != "live" {
 		t.Fatalf("threshold unlock=%#v", got)
 	}
+	metric.Values["career.active_play_seconds"] = store.AchievementMetricValue{Available: true, Value: 10*3600 + 1}
+	got = achievementUnlockCandidates("765", "live", 101, metric, nil)
+	if len(got) != 1 || got[0].AchievementKey != "career.veteran.1" || got[0].ValueAtUnlock != 10*3600+1 {
+		t.Fatalf("threshold + 1 unlock=%#v", got)
+	}
 	metric.Values["career.active_play_seconds"] = store.AchievementMetricValue{Available: true, Value: 500 * 3600}
 	got = achievementUnlockCandidates("765", "backfill", 102, metric, nil)
 	if len(got) != 4 || got[3].AchievementKey != "career.veteran.4" || got[3].GrantKind != "backfill" {
@@ -157,5 +162,12 @@ func TestAchievementUnavailableMetricAndEvidence(t *testing.T) {
 	got := achievementUnlockCandidates("765", "backfill", 200, metrics, nil)
 	if len(got) != 1 || got[0].AchievementKey != "bond.comrade.1" || got[0].EvidenceSteamID != "76561198000000002" {
 		t.Fatalf("NULL/evidence semantics=%#v", got)
+	}
+	metrics.Values["relationship.max_peer_shared_seconds"] = store.AchievementMetricValue{Available: true, Value: 50 * 3600, EvidenceSteamID: "76561198000000003"}
+	got = achievementUnlockCandidates("765", "live", 201, metrics, got)
+	for _, item := range got {
+		if item.AchievementKey == "bond.comrade.1" {
+			t.Fatalf("existing evidence drifted to %q", item.EvidenceSteamID)
+		}
 	}
 }

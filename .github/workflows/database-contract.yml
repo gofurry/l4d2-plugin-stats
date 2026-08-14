@@ -86,4 +86,5 @@ jobs:
         working-directory: .
         run: |
           python scripts/validate_versus_contract.py
+          python scripts/validate_achievement_contract.py
           pwsh -NoProfile -File scripts/validate-migrations.ps1

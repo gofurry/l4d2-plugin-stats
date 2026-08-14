@@ -19,7 +19,14 @@ func TestDatabaseContract(t *testing.T) {
 	contractEqual(t, "AchievementActivePlay", achievementMetrics.Values["career.active_play_seconds"].Value, int64(220), err)
 	contractEqual(t, "AchievementCampaigns", achievementMetrics.Values["pve.campaign_completions"].Value, int64(1), nil)
 	contractEqual(t, "AchievementBlackWhite", achievementMetrics.Values["black_white_restores"].Value, int64(2), nil)
-	if fall := achievementMetrics.Values["survivor_fall_deaths"]; fall.Available {
+	if fall := achievementMetrics.Values["survivor_fall_deaths"]; !fall.Available || fall.Value != 1 {
+		t.Fatalf("new fall-death facts differ: %#v", fall)
+	}
+	historicalMetrics, err := stats.PlayerAchievementMetrics(ctx, "2")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if fall := historicalMetrics.Values["survivor_fall_deaths"]; fall.Available {
 		t.Fatalf("historical NULL fall deaths became available: %#v", fall)
 	}
 
