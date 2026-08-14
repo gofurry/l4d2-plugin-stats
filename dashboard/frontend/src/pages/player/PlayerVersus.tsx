@@ -26,17 +26,19 @@ export function PlayerVersus({ data, loading, view, copy, zh }: { data?: PlayerV
   if (loading) return <Spin />
   if (!data) return null
   if (view === 'survivor') return <div className={styles.sectionGrid}>
-    <Section title={copy.combat}><MetricList items={[[t('commonKills'), data.survivor_common_kills], [copy.humanSI, data.human_special_kills], [copy.botSI, data.bot_special_kills], [copy.humanTank, data.human_tank_kills], [copy.botTank, data.bot_tank_kills], [copy.damage, data.survivor_damage]]} /></Section>
+    <Section title={copy.combat}><MetricList items={[[t('commonKills'), data.survivor_common_kills], [copy.humanSI, data.human_special_kills], [zh ? '助攻真人特感' : 'Human SI assists', nullable(data.human_special_assists, zh)], [copy.botSI, data.bot_special_kills], [zh ? '助攻 Bot 特感' : 'Bot SI assists', nullable(data.bot_special_assists, zh)], [copy.humanTank, data.human_tank_kills], [zh ? '助攻真人 Tank' : 'Human Tank assists', nullable(data.human_tank_assists, zh)], [copy.botTank, data.bot_tank_kills], [zh ? '助攻 Bot Tank' : 'Bot Tank assists', nullable(data.bot_tank_assists, zh)], [copy.damage, data.survivor_damage]]} /></Section>
     <Section title={copy.survival}><MetricList items={[[t('deaths'), data.survivor_deaths], [t('incaps'), data.survivor_incapacitations], [copy.infectedDamage, data.survivor_damage_taken], [copy.friendlyFireDealt, data.survivor_friendly_fire], [copy.friendlyFireTaken, data.survivor_friendly_fire_taken], [copy.received, data.survivor_rescues_received]]} /></Section>
-    <Section title={copy.teamwork}><MetricList items={[[t('revives'), data.survivor_incap_revives], [copy.ledgeRescue, data.survivor_ledge_rescues], [copy.defib, data.survivor_defib_revives], [copy.medkitOthers, data.survivor_medkits_others], [copy.healingOthers, data.survivor_healing_others], [zh ? '自用医疗包 / 治疗量' : 'Self medkits / healing', `${numberFormat.format(data.survivor_medkits_self)} / ${numberFormat.format(data.survivor_healing_self)}`], [zh ? '止痛药 / 肾上腺素' : 'Pills / adrenaline', `${numberFormat.format(data.survivor_pills)} / ${numberFormat.format(data.survivor_adrenaline)}`], [zh ? '获得临时生命' : 'Temporary health received', data.survivor_temporary_health]]} /></Section>
-    <Section title={copy.supplies}><MetricList items={[[zh ? '燃烧瓶' : 'Molotovs', data.molotovs_thrown], [zh ? '土制炸弹' : 'Pipe bombs', data.pipe_bombs_thrown], [zh ? '胆汁罐' : 'Vomit jars', data.vomit_jars_thrown], [zh ? '燃烧弹药包' : 'Incendiary packs', data.survivor_incendiary_packs], [zh ? '高爆弹药包' : 'Explosive packs', data.survivor_explosive_packs], [zh ? 'Witch 击杀 / 伤害' : 'Witch kills / damage', `${numberFormat.format(data.survivor_witch_kills)} / ${numberFormat.format(data.survivor_witch_damage)}`]]} /></Section>
+    <Section title={copy.teamwork}><MetricList items={[[t('revives'), data.survivor_incap_revives], [copy.ledgeRescue, data.survivor_ledge_rescues], [copy.defib, data.survivor_defib_revives], [copy.medkitOthers, data.survivor_medkits_others], [copy.healingOthers, data.survivor_healing_others], [copy.blackWhite, nullable(data.survivor_black_white_teammates_restored, zh)], [zh ? '自用医疗包 / 治疗量' : 'Self medkits / healing', `${numberFormat.format(data.survivor_medkits_self)} / ${numberFormat.format(data.survivor_healing_self)}`], [zh ? '止痛药 / 肾上腺素' : 'Pills / adrenaline', `${numberFormat.format(data.survivor_pills)} / ${numberFormat.format(data.survivor_adrenaline)}`], [zh ? '获得临时生命' : 'Temporary health received', data.survivor_temporary_health]]} /></Section>
+    <Section title={copy.supplies}><MetricList items={[[zh ? '燃烧瓶' : 'Molotovs', data.molotovs_thrown], [zh ? '土制炸弹' : 'Pipe bombs', data.pipe_bombs_thrown], [zh ? '胆汁罐' : 'Vomit jars', data.vomit_jars_thrown], [zh ? '燃烧弹药包' : 'Incendiary packs', data.survivor_incendiary_packs], [zh ? '高爆弹药包' : 'Explosive packs', data.survivor_explosive_packs], [zh ? 'Witch 遭遇 / 击杀 / 助攻' : 'Witch encounters / kills / assists', `${nullable(data.survivor_witch_encounters, zh)} / ${numberFormat.format(data.survivor_witch_kills)} / ${nullable(data.survivor_witch_assists, zh)}`], [zh ? 'Witch 击杀参与' : 'Witch kill participations', nullable(data.survivor_witch_kill_participations, zh)], [zh ? 'Witch 伤害' : 'Witch damage', data.survivor_witch_damage]]} /></Section>
     <Section title={zh ? '互动与事件' : 'Interactions and incidents'}><MetricList items={[[copy.objective, data.survivor_objective_interactions], [zh ? '触发警报车' : 'Car alarms triggered', data.survivor_car_alarms_triggered]]} /></Section>
     <Section title={copy.skills}><MetricList items={[[copy.tongue, data.survivor_tongue_self_cuts], [copy.rocks, data.survivor_tank_rocks_destroyed], [copy.witchOneShot, data.survivor_witch_oneshots], [copy.witchSolo, data.survivor_witch_solo_kills]]} /></Section>
   </div>
   const survivorColumns = [
     { title: zh ? '类型' : 'Class', key: 'class', render: (_: unknown, item: VersusSurvivorClass) => infectedNames[item.class_id - 1] ?? `#${item.class_id}` },
     { title: copy.humanKills, dataIndex: 'human_controller_kills', key: 'humanKills' },
+    { title: zh ? '助攻真人控制' : 'Human controller assists', dataIndex: 'human_controller_assists', key: 'humanAssists', render: (value: number | null) => nullable(value, zh) },
     { title: copy.botKills, dataIndex: 'bot_controller_kills', key: 'botKills' },
+    { title: zh ? '助攻 Bot 控制' : 'Bot controller assists', dataIndex: 'bot_controller_assists', key: 'botAssists', render: (value: number | null) => nullable(value, zh) },
     { title: copy.humanDamage, dataIndex: 'damage_to_human_controllers', key: 'humanDamage' },
     { title: copy.botDamage, dataIndex: 'damage_to_bot_controllers', key: 'botDamage' },
   ]
@@ -64,4 +66,8 @@ export function PlayerVersus({ data, loading, view, copy, zh }: { data?: PlayerV
     <Section title={copy.classes} wide><EChart ariaLabel={copy.classes} className={styles.largeChart} option={classOption} /></Section>
     <Section title={copy.classes} wide><Table<VersusInfectedClass> className={styles.embeddedTable} columns={infectedColumns} dataSource={data.infected_classes} rowKey="class_id" pagination={false} size="small" scroll={{ x: 1200 }} /></Section>
   </div>
+}
+
+function nullable(value: number | null, zh: boolean) {
+  return value === null ? (zh ? '未采集' : 'Not collected') : numberFormat.format(value)
 }

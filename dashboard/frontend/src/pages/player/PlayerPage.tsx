@@ -10,6 +10,7 @@ import { PlayerActivity } from './PlayerActivity'
 import { PlayerHistory } from './PlayerHistory'
 import { PlayerAnalysis } from './PlayerAnalysis'
 import { PlayerPVE } from './PlayerPVE'
+import { PlayerRelationships } from './PlayerRelationships'
 import { MetricList } from './PlayerShared'
 import { PlayerVersus } from './PlayerVersus'
 import { date, hours, playerStorageKey, sharedSteamID, validSteamID } from './playerFormat'
@@ -81,6 +82,7 @@ export function PlayerPage() {
         { key: 'versus-survivor-details', label: zh ? '对抗幸存者明细' : 'Versus survivor details', children: <PlayerVersus data={versus.data} loading={versus.isLoading} view="survivor-details" copy={copy} zh={zh} /> },
         { key: 'versus-infected', label: copy.versusInfected, children: <PlayerVersus data={versus.data} loading={versus.isLoading} view="infected" copy={copy} zh={zh} /> },
         { key: 'versus-infected-details', label: zh ? '对抗感染者明细' : 'Versus infected details', children: <PlayerVersus data={versus.data} loading={versus.isLoading} view="infected-details" copy={copy} zh={zh} /> },
+        { key: 'relationships', label: zh ? '玩家关系' : 'Player relationships', children: <PlayerRelationships key={`${range}:${server}`} steamID={steamID} range={range} server={server} enabled={enabled} zh={zh} /> },
         { key: 'history', label: copy.history, children: <PlayerHistory sessions={sessions} chapters={chapters} sessionPage={sessionPage} chapterPage={chapterPage} copy={copy} /> },
       ]} />
     </>}

@@ -35,29 +35,13 @@ export function PlayerPreviewModal({ open, steamID, playerName, contextLabel, on
     {data && <>
       <div className={styles.previewMetrics}>
         <PreviewMetric label={t('activePlayTime')} value={formatDuration(data.active_play_seconds)} />
-        <PreviewMetric label={t('sessions')} value={integer.format(data.session_count)} />
-      </div>
-      <div className={styles.previewSection}>
-        <h4>{t('pveSummary')}</h4>
-        {data.pve.available ? <div className={styles.previewMetrics}>
-          <PreviewMetric label={t('specialKills')} value={integer.format(data.pve.special_kills)} />
-          <PreviewMetric label={t('bossKills')} value={integer.format(data.pve.boss_kills)} />
-          <PreviewMetric label={t('rescues')} value={integer.format(data.pve.rescues)} />
-          <PreviewMetric label={t('campaigns')} value={integer.format(data.pve.campaign_completions)} />
-        </div> : <span className={styles.previewEmpty}>{t('noData')}</span>}
-      </div>
-      <div className={styles.previewSection}>
-        <h4>{t('companions')} <small>· {t('allServersLifetime')}</small></h4>
-        {data.companions?.length ? <div className={styles.previewCompanions}>{data.companions.map((item, index) => <div key={`${item.player_name}-${index}`}><strong>{item.player_name}</strong><span>{formatDuration(item.shared_seconds)} · {integer.format(item.shared_rounds)} {t('rounds')}</span></div>)}</div> : <span className={styles.previewEmpty}>{t('noCompanions')}</span>}
-      </div>
-      <div className={styles.previewSection}>
-        <h4>{t('versusSummary')}</h4>
-        {data.versus.available ? <div className={styles.previewMetrics}>
-          <PreviewMetric label={t('humanSIKills')} value={integer.format(data.versus.human_si_kills)} />
-          <PreviewMetric label={t('infectedDamage')} value={integer.format(data.versus.infected_damage)} />
-          <PreviewMetric label={t('controls')} value={integer.format(data.versus.survivor_controls)} />
-          <PreviewMetric label={t('incaps')} value={integer.format(data.versus.survivor_incapacitations)} />
-        </div> : <span className={styles.previewEmpty}>{t('noData')}</span>}
+        <PreviewMetric label={t('campaigns')} value={integer.format(data.campaign_completions)} />
+        <PreviewMetric label={t('bossKills')} value={`Tank ${integer.format(data.tank_kills)} / Witch ${integer.format(data.witch_kills)}`} />
+        <PreviewMetric label={t('commonKills')} value={integer.format(data.common_kills)} />
+        <PreviewMetric label={t('specialKills')} value={integer.format(data.special_kills)} />
+        <PreviewMetric label={t('headshotKills')} value={integer.format(data.headshot_kills)} />
+        <PreviewMetric label={t('revives')} value={integer.format(data.incap_revives)} />
+        <PreviewMetric label={t('incaps')} value={integer.format(data.incapacitations)} />
       </div>
       <div className={styles.previewActions}>
         <Button href={`https://steamcommunity.com/profiles/${steamID}`} target="_blank" rel="noreferrer">{t('viewSteamProfile')}</Button>

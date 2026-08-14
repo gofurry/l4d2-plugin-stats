@@ -3,7 +3,7 @@ import { Button, Drawer, Empty, Layout, Segmented, Select, Spin, Table, Tabs } f
 import type { EChartsCoreOption } from 'echarts/core'
 import { useMemo, useState } from 'react'
 import { useTranslation } from 'react-i18next'
-import { api, type AnalysisContextRow, type AnalysisMapRow } from '../api'
+import { api, type AnalysisContextRow, type AnalysisIncident, type AnalysisMapRow } from '../api'
 import { EChart } from '../components/EChart'
 import { FloatingNav } from '../components/FloatingNav'
 import styles from './AnalysisPage.module.scss'
@@ -20,6 +20,7 @@ const shortDate = (value: number) => {
 const difficulty = (value: string, zh: boolean) => ({ Easy: zh ? '简单' : 'Easy', Normal: zh ? '普通' : 'Normal', Hard: zh ? '高级' : 'Advanced', Impossible: zh ? '专家' : 'Expert' }[value] ?? value) || (zh ? '未知' : 'Unknown')
 const incidentLabels: Record<string, [string, string]> = {
   controls: ['被特感控制', 'Controls'], incaps: ['倒地', 'Incapacitations'], deaths: ['死亡', 'Deaths'], revives: ['倒地救起', 'Revives'], ledge_rescues: ['挂边救援', 'Ledge rescues'], defib_revives: ['电击复活', 'Defibrillator revives'], car_alarms: ['触发警报车', 'Car alarms'],
+  witch_startles: ['惊扰 Witch', 'Witch startles'], medkit_heals: ['医疗包治疗', 'Medkit heals'], objective_completes: ['完成目标互动', 'Objectives completed'],
 }
 const pageSize = 20
 type SortState = { field: string; order: 'asc' | 'desc' }
@@ -47,7 +48,7 @@ export function AnalysisPage() {
 
   const timeline = useMemo<EChartsCoreOption>(() => ({
     tooltip: { trigger: 'axis', backgroundColor: 'rgba(39,39,38,.95)', borderWidth: 0, textStyle: { color: '#f5efe7' } },
-    legend: { top: 12, right: 16, data: [zh ? '控制' : 'Controls', zh ? '倒地' : 'Incaps', zh ? '死亡' : 'Deaths'], textStyle: { color: '#d8d0c7' } },
+    legend: { type: 'scroll', top: 12, left: 104, right: 16, data: [zh ? '控制' : 'Controls', zh ? '倒地' : 'Incaps', zh ? '死亡' : 'Deaths', zh ? '惊扰 Witch' : 'Witch startles', zh ? '医疗包' : 'Medkit heals', zh ? '目标互动' : 'Objectives'], textStyle: { color: '#d8d0c7' }, pageTextStyle: { color: '#d8d0c7' } },
     graphic: [{ type: 'text', left: 16, top: 15, silent: true, style: { text: zh ? '事件频率' : 'Event frequency', fill: '#c7beb5', fontSize: 12 } }],
     grid: { left: 16, right: 18, top: 54, bottom: 18, containLabel: true },
     xAxis: { type: 'category', data: detail.data?.timeline.map(item => `${item.bucket_seconds / 60}m`) ?? [], axisLabel: { color: '#c7beb5' } },
@@ -56,6 +57,9 @@ export function AnalysisPage() {
       { name: zh ? '控制' : 'Controls', type: 'line', data: detail.data?.timeline.map(item => item.controls_per_100_rounds) ?? [], smooth: true },
       { name: zh ? '倒地' : 'Incaps', type: 'line', data: detail.data?.timeline.map(item => item.incaps_per_100_rounds) ?? [], smooth: true },
       { name: zh ? '死亡' : 'Deaths', type: 'line', data: detail.data?.timeline.map(item => item.deaths_per_100_rounds) ?? [], smooth: true },
+      { name: zh ? '惊扰 Witch' : 'Witch startles', type: 'line', data: detail.data?.timeline.map(item => item.witch_startles_per_100_rounds) ?? [], smooth: true },
+      { name: zh ? '医疗包' : 'Medkit heals', type: 'line', data: detail.data?.timeline.map(item => item.medkit_heals_per_100_rounds) ?? [], smooth: true },
+      { name: zh ? '目标互动' : 'Objectives', type: 'line', data: detail.data?.timeline.map(item => item.objective_completes_per_100_rounds) ?? [], smooth: true },
     ],
   }), [detail.data, zh])
 
@@ -88,10 +92,19 @@ export function AnalysisPage() {
     </> : <State/>}</>}
     {tab === 'contexts' && <>{contexts.isLoading ? <State loading/> : contexts.data ? <><section className={`${styles.cards} ${styles.contextCards}`}><Metric label={zh?'全程规则未变化':'Rules unchanged throughout'} value={`${integer.format(contexts.data.stable_context_rounds)} (${percent(contexts.data.stable_context_rounds/Math.max(1,contexts.data.eligible_rounds))})`}/><Metric label={zh?'中途修改规则':'Rules changed mid-match'} value={`${integer.format(contexts.data.changed_rule_rounds)} (${percent(contexts.data.changed_rule_rounds/Math.max(1,contexts.data.eligible_rounds))})`}/><Metric label={zh?'缺少规则记录':'Missing rule records'} value={`${integer.format(contexts.data.no_context_rounds)} (${percent(contexts.data.no_context_rounds/Math.max(1,contexts.data.eligible_rounds))})`}/></section><section className={styles.table}><Table dataSource={contexts.data.contexts} columns={contextColumns} rowKey="fingerprint" loading={contexts.isFetching} sortDirections={['ascend','descend','ascend']} pagination={{current:contextPage,pageSize,total:contexts.data.total,showSizeChanger:false,showTotal:total=>zh?`共 ${integer.format(total)} 种规则`:`${integer.format(total)} rule contexts`}} onChange={(pagination, _filters, sorter, extra) => { if (extra.action === 'sort') { const current = Array.isArray(sorter) ? sorter[0] : sorter; if (current?.order) { setContextSort({field:String(current.columnKey ?? current.field ?? 'round_count'),order:current.order==='ascend'?'asc':'desc'}); setContextPage(1) } } else setContextPage(pagination.current ?? 1) }} scroll={{x:1100}}/></section></> : <State/>}</>}
   </Layout.Content><Drawer width={720} title={selectedMap} open={selectedMap!==''} onClose={()=>setSelectedMap('')}>
-    {detail.isLoading ? <Spin/> : detail.data && <div className={styles.detail}><section className={styles.detailCards}><Metric label={zh?'有效对局':'Eligible matches'} value={String(detail.data.summary.eligible_rounds)}/><Metric label={zh?'战局明细完整的对局':'Matches with complete battle details'} value={String(detail.data.summary.complete_incident_rounds)}/><Metric label={zh?'平均对局时长':'Average match duration'} value={duration(detail.data.summary.average_duration_seconds)}/></section><h3>{zh?'战局事件统计':'Battle events'}</h3><div className={styles.composition}>{Object.entries(detail.data.incident_composition).map(([key,value])=><span key={key}><small>{incidentLabels[key]?.[zh?0:1] ?? key.replaceAll('_',' ')}</small><strong>{integer.format(value)}</strong></span>)}</div><h3>{zh?'对局时间线（每 100 场）':'Match timeline (per 100 matches)'}</h3><EChart className={styles.chart} option={timeline} ariaLabel={zh?'每百场对局事件时间线':'Battle events per 100 matches'}/><h3>Boss</h3><div className={styles.boss}><BossCard title="Tank" data={detail.data.tank} zh={zh}/><BossCard title="Witch" data={detail.data.witch} zh={zh}/></div></div>}
+    {detail.isLoading ? <Spin/> : detail.data && <div className={styles.detail}><section className={styles.detailCards}><Metric label={zh?'有效对局':'Eligible matches'} value={String(detail.data.summary.eligible_rounds)}/><Metric label={zh?'战局明细完整的对局':'Matches with complete battle details'} value={String(detail.data.summary.complete_incident_rounds)}/><Metric label={zh?'平均对局时长':'Average match duration'} value={duration(detail.data.summary.average_duration_seconds)}/></section><h3>{zh?'战局事件统计':'Battle events'}</h3><div className={styles.composition}>{Object.entries(detail.data.incident_composition).map(([key,value])=><span key={key}><small>{incidentLabels[key]?.[zh?0:1] ?? key.replaceAll('_',' ')}</small><strong>{integer.format(value)}</strong></span>)}</div><h3>{zh?'对局时间线（每 100 场）':'Match timeline (per 100 matches)'}</h3><EChart className={styles.chart} option={timeline} ariaLabel={zh?'每百场对局事件时间线':'Battle events per 100 matches'}/><h3>Boss</h3><div className={styles.boss}><BossCard title="Tank" data={detail.data.tank} zh={zh}/><BossCard title="Witch" data={detail.data.witch} zh={zh}/></div><h3>{zh?'最近事件':'Recent events'}</h3><div className={styles.recentIncidents}>{detail.data.recent_incidents.length ? detail.data.recent_incidents.map((incident,index)=><div key={`${incident.occurred_at}-${index}`}><time>{new Date(incident.occurred_at*1000).toLocaleTimeString(zh?'zh-CN':'en-US',{hour:'2-digit',minute:'2-digit',second:'2-digit',hour12:false})}</time><span>{incidentText(incident,zh)}</span></div>) : <Empty image={Empty.PRESENTED_IMAGE_SIMPLE}/>}</div></div>}
   </Drawer></Layout>
 }
 
 function Metric({label,value}:{label:string;value:string}) { return <div><span>{label}</span><strong>{value}</strong></div> }
 function State({loading=false}:{loading?:boolean}) { return <section className={styles.state}>{loading?<Spin/>:<Empty/>}</section> }
-function BossCard({title,data,zh}:{title:string;data:{spawn_count:number;death_count:number;matched_pairs:number;average_lifetime_seconds?:number;maximum_lifetime_seconds?:number;one_shot_deaths?:number};zh:boolean}) { return <div><h4>{title}</h4><span>{zh?'出现':'Spawn'} <strong>{data.spawn_count}</strong></span><span>{zh?'死亡':'Death'} <strong>{data.death_count}</strong></span><span>{zh?'完整存活时间记录':'Matched lifetime'} <strong>{data.matched_pairs}</strong></span><span>{zh?'平均 / 最长存活':'Average / maximum'} <strong>{duration(data.average_lifetime_seconds)} / {duration(data.maximum_lifetime_seconds)}</strong></span>{title==='Witch'&&<span>{zh?'秒杀':'One-shot'} <strong>{data.one_shot_deaths??0}</strong></span>}</div> }
+function BossCard({title,data,zh}:{title:string;data:{spawn_count:number;death_count:number;matched_pairs:number;average_lifetime_seconds?:number;maximum_lifetime_seconds?:number;one_shot_deaths?:number;startle_count?:number};zh:boolean}) { return <div><h4>{title}</h4><span>{zh?'出现':'Spawn'} <strong>{data.spawn_count}</strong></span><span>{zh?'死亡':'Death'} <strong>{data.death_count}</strong></span><span>{zh?'完整存活时间记录':'Matched lifetime'} <strong>{data.matched_pairs}</strong></span><span>{zh?'平均 / 最长存活':'Average / maximum'} <strong>{duration(data.average_lifetime_seconds)} / {duration(data.maximum_lifetime_seconds)}</strong></span>{title==='Witch'&&<><span>{zh?'惊扰':'Startles'} <strong>{data.startle_count??0}</strong></span><span>{zh?'秒杀':'One-shot'} <strong>{data.one_shot_deaths??0}</strong></span></>}</div> }
+
+function incidentText(incident: AnalysisIncident, zh: boolean) {
+  const actor = incident.actor_name || incident.actor_steam_id || (zh ? '未知玩家' : 'Unknown player')
+  const target = incident.target_name || incident.target_steam_id || (zh ? '队友' : 'a teammate')
+  if (incident.incident_type === 12) return zh ? `${actor} 惊扰了 Witch` : `${actor} startled the Witch`
+  if (incident.incident_type === 13) return zh ? `${actor} 为 ${target} 使用医疗包` : `${actor} used a medkit on ${target}`
+  if (incident.incident_type === 14) return zh ? `${actor} 完成目标互动` : `${actor} completed an objective interaction`
+  return zh ? '未知事件' : 'Unknown event'
+}
