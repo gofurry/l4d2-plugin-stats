@@ -20,17 +20,18 @@ import (
 )
 
 type Dependencies struct {
-	Dashboard store.DashboardStore
-	Stats     store.StatsStore
-	Overview  *service.OverviewService
-	Status    store.ServerStatusProvider
-	Players   *service.PlayerService
-	Analysis  *service.AnalysisService
-	Rankings  *service.RankingService
-	Data      *service.DataMaintenanceService
-	Auth      *auth.Service
-	Logger    *zap.Logger
-	Assets    fs.FS
+	Dashboard    store.DashboardStore
+	Stats        store.StatsStore
+	Overview     *service.OverviewService
+	Status       store.ServerStatusProvider
+	Players      *service.PlayerService
+	Analysis     *service.AnalysisService
+	Rankings     *service.RankingService
+	Achievements *service.AchievementService
+	Data         *service.DataMaintenanceService
+	Auth         *auth.Service
+	Logger       *zap.Logger
+	Assets       fs.FS
 }
 
 func New(cfg *config.Config, deps Dependencies) *fiber.App {
@@ -118,12 +119,13 @@ func New(cfg *config.Config, deps Dependencies) *fiber.App {
 		return sendData(c, fiber.StatusOK, statuses)
 	})
 	registerPlayerRoutes(api, deps.Players, deps.Analysis)
+	registerAchievementRoutes(api, deps.Achievements, deps.Auth)
 	registerAnalysisRoutes(api, deps.Analysis)
 	registerRankingRoutes(api, deps.Rankings)
 	registerAnnouncementRoutes(api, deps.Dashboard)
 	registerSiteDocumentRoutes(api, deps.Dashboard)
 	registerSteamRoutes(api, deps.Dashboard, deps.Auth, deps.Logger)
-	registerAdminRoutes(api, deps.Dashboard, deps.Status, deps.Auth, deps.Data, deps.Logger, runtimeMonitor)
+	registerAdminRoutes(api, deps.Dashboard, deps.Status, deps.Auth, deps.Data, deps.Achievements, deps.Logger, runtimeMonitor)
 	api.All("/*", func(c fiber.Ctx) error {
 		return sendError(c, fiber.StatusNotFound, "not_found", "API route not found")
 	})

@@ -15,6 +15,14 @@ func TestDatabaseContract(t *testing.T) {
 	version, err := stats.SchemaVersion(ctx)
 	contractEqual(t, "SchemaVersion", version, StatsSchemaVersion, err)
 
+	achievementMetrics, err := stats.PlayerAchievementMetrics(ctx, "1")
+	contractEqual(t, "AchievementActivePlay", achievementMetrics.Values["career.active_play_seconds"].Value, int64(220), err)
+	contractEqual(t, "AchievementCampaigns", achievementMetrics.Values["pve.campaign_completions"].Value, int64(1), nil)
+	contractEqual(t, "AchievementBlackWhite", achievementMetrics.Values["black_white_restores"].Value, int64(2), nil)
+	if fall := achievementMetrics.Values["survivor_fall_deaths"]; fall.Available {
+		t.Fatalf("historical NULL fall deaths became available: %#v", fall)
+	}
+
 	overview, err := stats.Overview(ctx, time.Unix(contractBaseTime-1, 0))
 	overview.Generated = time.Time{}
 	contractEqual(t, "Overview", overview, Overview{

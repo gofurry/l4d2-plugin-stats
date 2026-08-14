@@ -18,7 +18,7 @@ import (
 const (
 	BcryptCost       = 12
 	AdminTokenTTL    = 8 * time.Hour
-	SteamIdentityTTL = 5 * time.Minute
+	SteamIdentityTTL = 30 * 24 * time.Hour
 	SetupTokenTTL    = 30 * time.Minute
 )
 

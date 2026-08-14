@@ -9,7 +9,7 @@ import (
 var ErrServerNotFound = errors.New("game server not found")
 
 const (
-	DashboardSchemaVersion int64 = 13
+	DashboardSchemaVersion int64 = 14
 	StatsSchemaVersion     int64 = 6
 )
 
@@ -734,6 +734,7 @@ type StatsDataQuality struct {
 	RelationshipContract DataQualityFinding
 	PVEAssistContract    DataQualityFinding
 	VersusAssistContract DataQualityFinding
+	FallDeathContract    DataQualityFinding
 }
 
 type PlayerSession struct {
@@ -874,6 +875,7 @@ type DashboardAggregateStore interface {
 type DashboardDatabase interface {
 	DashboardStore
 	DashboardAggregateStore
+	DashboardAchievementStore
 	ServerStatusSnapshotStore
 }
 
@@ -977,6 +979,7 @@ type StatsDatabase interface {
 	StatsFilteredStore
 	StatsPresenceStore
 	StatsDoctorStore
+	StatsAchievementStore
 }
 
 type ServerStatusProvider interface {

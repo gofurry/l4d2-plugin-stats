@@ -70,7 +70,7 @@ func registerSteamRoutes(api fiber.Router, dashboard store.DashboardStore, authS
 			return sendError(c, 503, "steam_identity_unavailable", "Steam identity could not be issued")
 		}
 		clearSteamCookie(c, steamStateCookie, isHTTPS(settings.PublicOrigin))
-		c.Cookie(&fiber.Cookie{Name: steamIdentityCookie, Value: token, Path: "/api/v1/steam", HTTPOnly: true, Secure: isHTTPS(settings.PublicOrigin), SameSite: "Lax", MaxAge: 300, Expires: time.Now().Add(5 * time.Minute)})
+		c.Cookie(&fiber.Cookie{Name: steamIdentityCookie, Value: token, Path: "/api/v1", HTTPOnly: true, Secure: isHTTPS(settings.PublicOrigin), SameSite: "Lax", MaxAge: int(auth.SteamIdentityTTL.Seconds()), Expires: time.Now().Add(auth.SteamIdentityTTL)})
 		return redirect(c, "/player")
 	})
 	api.Get("/steam/identity", func(c fiber.Ctx) error {
@@ -87,11 +87,6 @@ func registerSteamRoutes(api fiber.Router, dashboard store.DashboardStore, authS
 			clearSteamCookie(c, steamIdentityCookie, secure)
 			return sendData(c, 200, nil)
 		}
-		secure := false
-		if settings, settingsErr := dashboard.SiteSettings(c.Context()); settingsErr == nil {
-			secure = isHTTPS(settings.PublicOrigin)
-		}
-		clearSteamCookie(c, steamIdentityCookie, secure)
 		c.Set(fiber.HeaderCacheControl, "no-store")
 		return sendData(c, 200, fiber.Map{"steam_id": steamID})
 	})
@@ -103,5 +98,9 @@ func redirect(c fiber.Ctx, location string) error {
 	return c.SendStatus(fiber.StatusFound)
 }
 func clearSteamCookie(c fiber.Ctx, name string, secure bool) {
-	c.Cookie(&fiber.Cookie{Name: name, Value: "", Path: "/api/v1/steam", HTTPOnly: true, Secure: secure, SameSite: "Lax", MaxAge: -1, Expires: time.Unix(1, 0)})
+	path := "/api/v1/steam"
+	if name == steamIdentityCookie {
+		path = "/api/v1"
+	}
+	c.Cookie(&fiber.Cookie{Name: name, Value: "", Path: path, HTTPOnly: true, Secure: secure, SameSite: "Lax", MaxAge: -1, Expires: time.Unix(1, 0)})
 }
