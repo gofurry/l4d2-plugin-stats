@@ -335,5 +335,28 @@ foreach ($driver in $drivers) {
         }
     }
 
-    Write-Host "Validated $driver migrations ($($statements.Count + $secondStatements.Count + $thirdStatements.Count + $fourthStatements.Count + $fifthStatements.Count) statements)."
+    $sixthMigration = Join-Path $migrationRoot "$driver\0006_fall_deaths.sql"
+    if (-not (Test-Path -LiteralPath $sixthMigration -PathType Leaf)) {
+        throw "Missing $driver migration: $sixthMigration"
+    }
+    $sixthSQL = Get-Content -LiteralPath $sixthMigration -Raw
+    $sixthStatements = [regex]::Split(
+        $sixthSQL,
+        '(?m)^\s*-- statement-breakpoint\s*$'
+    ) | ForEach-Object { $_.Trim() } | Where-Object { $_ -ne "" }
+    if ($sixthStatements.Count -ne 2) {
+        throw "$driver migration 0006 must contain exactly two statements."
+    }
+    foreach ($statement in $sixthStatements) {
+        if (-not $statement.EndsWith(';')) {
+            throw "$driver migration 0006 contains a statement without a terminating semicolon."
+        }
+    }
+    foreach ($table in @("lps_pve_segment_stats", "lps_versus_survivor_stats")) {
+        if ($sixthSQL -notmatch "(?i)ALTER TABLE\s+$table\s+ADD COLUMN\s+fall_deaths\s+BIGINT\s+NULL") {
+            throw "$driver migration 0006 must add nullable fall_deaths to $table."
+        }
+    }
+
+    Write-Host "Validated $driver migrations ($($statements.Count + $secondStatements.Count + $thirdStatements.Count + $fourthStatements.Count + $fifthStatements.Count + $sixthStatements.Count) statements)."
 }

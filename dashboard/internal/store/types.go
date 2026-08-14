@@ -10,7 +10,7 @@ var ErrServerNotFound = errors.New("game server not found")
 
 const (
 	DashboardSchemaVersion int64 = 13
-	StatsSchemaVersion     int64 = 5
+	StatsSchemaVersion     int64 = 6
 )
 
 type FooterLink struct {

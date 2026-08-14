@@ -11,6 +11,7 @@ INCIDENT_MIGRATION = MIGRATION_ROOT / "0002_car_alarms_triggered.sql"
 OBJECTIVE_MIGRATION = MIGRATION_ROOT / "0003_versus_objective_interactions.sql"
 ANALYSIS_MIGRATION = MIGRATION_ROOT / "0004_analysis_foundation.sql"
 RELATIONSHIP_MIGRATION = MIGRATION_ROOT / "0005_relationships_and_assists.sql"
+FALL_DEATHS_MIGRATION = MIGRATION_ROOT / "0006_fall_deaths.sql"
 VERSUS_CONTRACT_CHECKS = (
     PROJECT_ROOT / "database" / "queries" / "versus_contract_checks.sql"
 )
@@ -210,6 +211,27 @@ def main() -> None:
             "(version, name, applied_at) VALUES "
             "(5, 'relationships_and_assists', 5)"
         )
+
+        # Historical rows remain NULL because schema 6 only starts collection
+        # for segments saved by Collector v1.3.2 or newer.
+        for statement in (
+            statement.strip()
+            for statement in FALL_DEATHS_MIGRATION.read_text(
+                encoding="utf-8"
+            ).split("-- statement-breakpoint")
+            if statement.strip()
+        ):
+            database.execute(statement)
+        database.execute(
+            "INSERT INTO lps_schema_migrations "
+            "(version, name, applied_at) VALUES (6, 'fall_deaths', 6)"
+        )
+        for table in ("lps_pve_segment_stats", "lps_versus_survivor_stats"):
+            column = next(
+                row for row in database.execute(f"PRAGMA table_info({table})")
+                if row[1] == "fall_deaths"
+            )
+            assert column[3] == 0, column
 
         database.execute(
             "INSERT INTO lps_schema_migrations "
@@ -761,7 +783,23 @@ def main() -> None:
         schema_version = database.execute(
             "SELECT MAX(version) FROM lps_schema_migrations"
         ).fetchone()
-        assert schema_version == (5,), schema_version
+        assert schema_version == (6,), schema_version
+        for table in ("lps_pve_segment_stats", "lps_versus_survivor_stats"):
+            historical = database.execute(
+                f"SELECT COUNT(*) FROM {table} WHERE fall_deaths IS NULL"
+            ).fetchone()
+            assert historical[0] > 0, (table, historical)
+        database.execute(
+            "UPDATE lps_pve_segment_stats SET fall_deaths = 1 "
+            "WHERE segment_id = ?",
+            (segment_id,),
+        )
+        fall_death = database.execute(
+            "SELECT fall_deaths, deaths FROM lps_pve_segment_stats "
+            "WHERE segment_id = ?",
+            (segment_id,),
+        ).fetchone()
+        assert fall_death == (1, 1), fall_death
         status = database.execute(
             "SELECT status FROM lps_server_boots WHERE boot_id = 'test-01:1:a'"
         ).fetchone()

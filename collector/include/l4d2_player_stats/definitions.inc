@@ -3,8 +3,8 @@
 #endif
 #define _l4d2_player_stats_definitions_included
 
-#define LPS_VERSION "1.3.1"
-#define LPS_SCHEMA_VERSION 5
+#define LPS_VERSION "1.3.2"
+#define LPS_SCHEMA_VERSION 6
 #define LPS_MIGRATION_NAME "initial_schema"
 #define LPS_STATS_VERSION 1
 
@@ -153,7 +153,8 @@ enum LPSPvEStat
 	LPSPvEStat_HunterAssists,
 	LPSPvEStat_SpitterAssists,
 	LPSPvEStat_JockeyAssists,
-	LPSPvEStat_ChargerAssists
+	LPSPvEStat_ChargerAssists,
+	LPSPvEStat_FallDeaths
 };
 
 // Stable IDs persisted by lps_pve_segment_equipment_stats. Never reuse an ID
@@ -318,7 +319,8 @@ enum LPSVersusSurvivorStat
 	LPSVersusSurvivorStat_BotTankAssists,
 	LPSVersusSurvivorStat_WitchEncounters,
 	LPSVersusSurvivorStat_WitchKillParticipations,
-	LPSVersusSurvivorStat_BlackWhiteTeammatesRestored
+	LPSVersusSurvivorStat_BlackWhiteTeammatesRestored,
+	LPSVersusSurvivorStat_FallDeaths
 };
 
 // Fixed per-class combat metrics for a human survivor attacking the seven
