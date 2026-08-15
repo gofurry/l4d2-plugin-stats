@@ -12,8 +12,9 @@ import (
 )
 
 const (
-	achievementBatchSize = int32(100)
-	achievementInterval  = 10 * time.Minute
+	achievementBatchSize             = int32(100)
+	achievementInterval              = 10 * time.Minute
+	achievementCatalogRevisionMarker = "catalog-v1.3.3"
 )
 
 type achievementDashboard interface {
@@ -124,6 +125,10 @@ func (s *AchievementService) RunOnce(ctx context.Context) error {
 		return err
 	}
 	now := time.Now().Unix()
+	if state.BackfillComplete && state.BackfillCursor != achievementCatalogRevisionMarker {
+		state.BackfillComplete = false
+		state.BackfillCursor = ""
+	}
 	state.LastRunAt, state.UpdatedAt = now, now
 	if !state.BackfillComplete {
 		err = s.runBackfill(ctx, &state)
@@ -146,13 +151,14 @@ func (s *AchievementService) runBackfill(ctx context.Context, state *store.Achie
 		return err
 	}
 	for _, player := range players {
-		if _, err := s.evaluatePlayer(ctx, player.SteamID, "backfill"); err != nil {
+		if _, err := s.evaluatePlayer(ctx, player.SteamID, "backfill", true); err != nil {
 			return err
 		}
 		state.BackfillCursor = player.SteamID
 	}
 	if len(players) < int(achievementBatchSize) {
 		state.BackfillComplete = true
+		state.BackfillCursor = achievementCatalogRevisionMarker
 		state.DirtyCursorWatermark = state.GlobalSourceWatermark
 		state.DirtyCursorSteamID = "\uffff"
 	}
@@ -169,7 +175,7 @@ func (s *AchievementService) runIncremental(ctx context.Context, state *store.Ac
 		return err
 	}
 	for _, player := range players {
-		if _, err := s.evaluatePlayer(ctx, player.SteamID, "live"); err != nil {
+		if _, err := s.evaluatePlayer(ctx, player.SteamID, "live", false); err != nil {
 			return err
 		}
 		state.DirtyCursorWatermark, state.DirtyCursorSteamID = player.Watermark, player.SteamID
@@ -187,25 +193,26 @@ func (s *AchievementService) EnsurePlayer(ctx context.Context, steamID string) (
 		return nil, err
 	}
 	grantKind := "live"
-	if !state.BackfillComplete {
+	catalogCurrent := state.BackfillComplete && state.BackfillCursor == achievementCatalogRevisionMarker
+	if !catalogCurrent {
 		grantKind = "backfill"
 	}
-	return s.evaluatePlayer(ctx, steamID, grantKind)
+	return s.evaluatePlayer(ctx, steamID, grantKind, !catalogCurrent)
 }
 
-func (s *AchievementService) evaluatePlayer(ctx context.Context, steamID, grantKind string) ([]store.AchievementUnlock, error) {
+func (s *AchievementService) evaluatePlayer(ctx context.Context, steamID, grantKind string, force bool) ([]store.AchievementUnlock, error) {
 	metrics, err := s.stats.PlayerAchievementMetrics(ctx, steamID)
 	if err != nil {
 		return nil, err
 	}
-	if err := s.addLifetimeHeadshots(ctx, &metrics); err != nil {
+	if err := s.addLifetimeEquipmentMetrics(ctx, &metrics); err != nil {
 		return nil, err
 	}
 	evaluation, err := s.dashboard.AchievementEvaluationState(ctx, steamID)
 	if err != nil {
 		return nil, err
 	}
-	if evaluation.EvaluatedAt > 0 && evaluation.SourceWatermark >= metrics.Watermark {
+	if !force && evaluation.EvaluatedAt > 0 && evaluation.SourceWatermark >= metrics.Watermark {
 		return nil, nil
 	}
 	existing, err := s.dashboard.ListAchievementUnlocks(ctx, steamID)
@@ -251,7 +258,7 @@ func achievementUnlockCandidates(steamID, grantKind string, now int64, metrics s
 	return candidates
 }
 
-func (s *AchievementService) addLifetimeHeadshots(ctx context.Context, metrics *store.PlayerAchievementMetrics) error {
+func (s *AchievementService) addLifetimeEquipmentMetrics(ctx context.Context, metrics *store.PlayerAchievementMetrics) error {
 	status, err := s.dashboard.AggregateStatus(ctx)
 	if err != nil {
 		return err
@@ -266,13 +273,14 @@ func (s *AchievementService) addLifetimeHeadshots(ctx context.Context, metrics *
 	if err != nil {
 		return err
 	}
-	var total int64
-	for _, row := range rows {
-		total += row.Metrics["headshot_kills"]
+	for metricID, value := range lifetimeEquipmentAchievementMetrics(rows) {
+		metrics.Values[metricID] = store.AchievementMetricValue{Value: value, Available: true}
 	}
-	if len(rows) > 0 {
-		metrics.Values["pve.firearm_headshot_kills"] = store.AchievementMetricValue{Value: total, Available: true}
+	throwables := metrics.Values["pve.throwables_used"].Value
+	if versus, ok := metrics.Values["versus.throwables_used"]; ok && versus.Available {
+		throwables += versus.Value
 	}
+	metrics.Values["survivor.throwables_used"] = store.AchievementMetricValue{Value: throwables, Available: true}
 	return nil
 }
 
@@ -288,7 +296,7 @@ func (s *AchievementService) Player(ctx context.Context, steamID string, self bo
 	if err != nil {
 		return PlayerAchievements{}, err
 	}
-	if err := s.addLifetimeHeadshots(ctx, &metrics); err != nil {
+	if err := s.addLifetimeEquipmentMetrics(ctx, &metrics); err != nil {
 		return PlayerAchievements{}, err
 	}
 	eligible, err := s.stats.AchievementEligiblePlayerCount(ctx)

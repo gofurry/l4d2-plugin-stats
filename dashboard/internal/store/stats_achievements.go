@@ -49,6 +49,8 @@ func (s *statsStore) PlayerAchievementMetrics(ctx context.Context, steamID strin
 		"tank_rocks_destroyed", "witch_oneshots", "witch_solo_kills", "melee_tongue_self_cuts",
 		"pve.defib_revives", "pve.black_white_restores", "pve.survivor_fall_deaths", "pve.survivor_car_alarms",
 		"pve.survivor_friendly_fire_to_humans", "pve.survivor_incapacitations",
+		"pve.objective_interactions", "pve.pills_used", "pve.adrenaline_used",
+		"pve.incendiary_packs_deployed", "pve.explosive_packs_deployed",
 	}
 	pveValues := make([]sql.NullInt64, len(pveNames))
 	pveDest := make([]any, len(pveValues))
@@ -60,7 +62,9 @@ SUM(p.incap_revives),SUM(p.smoker_saves),SUM(p.hunter_saves),SUM(p.jockey_saves)
 SUM(p.medkit_healing_others),SUM(p.tank_kills),SUM(p.witch_kills),SUM(p.tank_kill_participations),SUM(p.witch_kill_participations),
 SUM(p.tank_rocks_destroyed),SUM(p.witch_oneshots),SUM(p.witch_solo_kills),SUM(p.melee_tongue_self_cuts),
 SUM(p.defib_revives),SUM(p.black_white_teammates_restored),SUM(p.fall_deaths),SUM(p.car_alarms_triggered),
-SUM(p.friendly_fire_to_humans),SUM(p.incapacitations)
+SUM(p.friendly_fire_to_humans),SUM(p.incapacitations),
+SUM(p.objective_interactions),SUM(p.pills_used),SUM(p.adrenaline_used),
+SUM(p.incendiary_packs_deployed),SUM(p.explosive_packs_deployed)
 FROM lps_pve_segment_stats p JOIN lps_player_segments s ON s.segment_id=p.segment_id
 WHERE p.stats_version=1 AND s.steam_id=` + s.bind(1)
 	if err := s.db.QueryRowContext(queryCtx, pveSQL, steamID).Scan(pveDest...); err != nil {
@@ -74,6 +78,9 @@ WHERE p.stats_version=1 AND s.steam_id=` + s.bind(1)
 		"versus.human_special_kills", "versus.defib_revives", "versus.black_white_restores",
 		"versus.survivor_fall_deaths", "versus.survivor_car_alarms",
 		"versus.survivor_friendly_fire_to_humans", "versus.survivor_incapacitations",
+		"versus.objective_interactions", "versus.pills_used", "versus.adrenaline_used",
+		"versus.incendiary_packs_deployed", "versus.explosive_packs_deployed",
+		"versus.molotovs_thrown", "versus.pipe_bombs_thrown", "versus.vomit_jars_thrown",
 	}
 	versusValues := make([]sql.NullInt64, len(versusNames))
 	versusDest := make([]any, len(versusValues))
@@ -81,7 +88,10 @@ WHERE p.stats_version=1 AND s.steam_id=` + s.bind(1)
 		versusDest[i] = &versusValues[i]
 	}
 	versusSQL := `SELECT SUM(v.human_special_kills),SUM(v.defib_revives),SUM(v.black_white_teammates_restored),
-SUM(v.fall_deaths),SUM(v.car_alarms_triggered),SUM(v.friendly_fire_to_humans),SUM(v.incapacitations)
+SUM(v.fall_deaths),SUM(v.car_alarms_triggered),SUM(v.friendly_fire_to_humans),SUM(v.incapacitations),
+SUM(v.objective_interactions),SUM(v.pills_used),SUM(v.adrenaline_used),
+SUM(v.incendiary_packs_deployed),SUM(v.explosive_packs_deployed),
+SUM(v.molotovs_thrown),SUM(v.pipe_bombs_thrown),SUM(v.vomit_jars_thrown)
 FROM lps_versus_survivor_stats v JOIN lps_player_segments s ON s.segment_id=v.segment_id
 WHERE v.stats_version=1 AND s.steam_id=` + s.bind(1)
 	if err := s.db.QueryRowContext(queryCtx, versusSQL, steamID).Scan(versusDest...); err != nil {
@@ -109,6 +119,10 @@ JOIN lps_player_segments s ON s.segment_id=v.segment_id WHERE v.stats_version=1 
 	combineAchievementMetrics(result.Values, "survivor_car_alarms", "pve.survivor_car_alarms", "versus.survivor_car_alarms")
 	combineAchievementMetrics(result.Values, "survivor_friendly_fire_to_humans", "pve.survivor_friendly_fire_to_humans", "versus.survivor_friendly_fire_to_humans")
 	combineAchievementMetrics(result.Values, "survivor_incapacitations", "pve.survivor_incapacitations", "versus.survivor_incapacitations")
+	combineAchievementMetrics(result.Values, "survivor.objective_interactions", "pve.objective_interactions", "versus.objective_interactions")
+	combineAchievementMetrics(result.Values, "survivor.temp_health_items_used", "pve.pills_used", "pve.adrenaline_used", "versus.pills_used", "versus.adrenaline_used")
+	combineAchievementMetrics(result.Values, "survivor.upgrade_packs_deployed", "pve.incendiary_packs_deployed", "pve.explosive_packs_deployed", "versus.incendiary_packs_deployed", "versus.explosive_packs_deployed")
+	combineAchievementMetrics(result.Values, "versus.throwables_used", "versus.molotovs_thrown", "versus.pipe_bombs_thrown", "versus.vomit_jars_thrown")
 
 	tankParts, tankKills := result.Values["pve.tank_kill_participations"], result.Values["pve.tank_kills"]
 	witchParts, witchKills := result.Values["pve.witch_kill_participations"], result.Values["pve.witch_kills"]

@@ -94,7 +94,7 @@ func TestAchievementVisibilityCompletionAndShowcase(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if result.Overview.Unlocked != 0 || result.Overview.Total != 58 || result.Overview.EasterEggs != 0 {
+	if result.Overview.Unlocked != 0 || result.Overview.Total != 100 || result.Overview.EasterEggs != 0 {
 		t.Fatalf("locked overview=%#v", result.Overview)
 	}
 	mysteryKeys := make(map[string]bool)
@@ -122,7 +122,7 @@ func TestAchievementVisibilityCompletionAndShowcase(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if result.Overview.Unlocked != 2 || result.Overview.EasterEggs != 1 || result.Overview.Total != 58 {
+	if result.Overview.Unlocked != 2 || result.Overview.EasterEggs != 1 || result.Overview.Total != 100 {
 		t.Fatalf("unlocked overview=%#v", result.Overview)
 	}
 	for _, badge := range result.Overview.Badges {
@@ -168,7 +168,7 @@ func TestAchievementBackfillResumeRestartAndSourceWatermark(t *testing.T) {
 		t.Fatal(err)
 	}
 	state, err = dashboard.AchievementEngineState(ctx)
-	if err != nil || !state.BackfillComplete || state.BackfillCursor != second || stats.metricCalls[first] != 1 || stats.metricCalls[second] != 2 {
+	if err != nil || !state.BackfillComplete || state.BackfillCursor != achievementCatalogRevisionMarker || stats.metricCalls[first] != 1 || stats.metricCalls[second] != 2 {
 		t.Fatalf("resumed state=%#v calls=%v err=%v", state, stats.metricCalls, err)
 	}
 	for _, steamID := range []string{first, second} {
@@ -193,5 +193,77 @@ func TestAchievementBackfillResumeRestartAndSourceWatermark(t *testing.T) {
 	inserted, err := restarted.EnsurePlayer(ctx, live)
 	if err != nil || len(inserted) != 1 || inserted[0].AchievementKey != "career.veteran.2" || inserted[0].GrantKind != "live" {
 		t.Fatalf("changed watermark insert=%#v err=%v", inserted, err)
+	}
+}
+
+func TestAchievementCatalogRevisionRestartsCompletedBackfill(t *testing.T) {
+	ctx := context.Background()
+	steamID := "76561198000000001"
+	stats := &achievementStatsStub{
+		metrics: map[string]store.PlayerAchievementMetrics{steamID: {
+			SteamID: steamID, Watermark: 50, Values: map[string]store.AchievementMetricValue{
+				"survivor.temp_health_items_used": {Available: true, Value: 100},
+			},
+		}},
+		metricFailures: map[string]int{}, metricCalls: map[string]int{}, eligible: 1,
+		backfill: []store.AchievementSourcePlayer{{SteamID: steamID, Watermark: 50}},
+	}
+	service, dashboard := newAchievementTestService(t, stats)
+	if err := dashboard.UpsertAchievementEvaluationState(ctx, store.AchievementEvaluationState{
+		SteamID: steamID, AchievementContractVersion: store.AchievementContractVersion,
+		SourceWatermark: 50, EvaluatedAt: 1,
+	}); err != nil {
+		t.Fatal(err)
+	}
+	state, err := dashboard.AchievementEngineState(ctx)
+	if err != nil {
+		t.Fatal(err)
+	}
+	state.BackfillComplete = true
+	state.BackfillCursor = steamID
+	if err := dashboard.UpdateAchievementEngineState(ctx, state); err != nil {
+		t.Fatal(err)
+	}
+
+	if err := service.RunOnce(ctx); err != nil {
+		t.Fatal(err)
+	}
+	unlocks, err := dashboard.ListAchievementUnlocks(ctx, steamID)
+	if err != nil || len(unlocks) != 1 || unlocks[0].AchievementKey != "career.temp_health_addict.1" || unlocks[0].GrantKind != "backfill" {
+		t.Fatalf("revision backfill unlocks=%#v err=%v", unlocks, err)
+	}
+	state, err = dashboard.AchievementEngineState(ctx)
+	if err != nil || !state.BackfillComplete || state.BackfillCursor != achievementCatalogRevisionMarker {
+		t.Fatalf("revision state=%#v err=%v", state, err)
+	}
+}
+
+func TestLifetimeEquipmentMetricsCombinePvEAndVersusThrowables(t *testing.T) {
+	ctx := context.Background()
+	steamID := "76561198000000001"
+	stats := &achievementStatsStub{
+		metrics:        map[string]store.PlayerAchievementMetrics{},
+		metricFailures: map[string]int{}, metricCalls: map[string]int{},
+	}
+	service, dashboard := newAchievementTestService(t, stats)
+	if err := dashboard.ApplyAggregateChanges(ctx, store.AggregateChangeSet{
+		Full: true, SourceWatermark: 1000, Rows: []store.AggregateRow{
+			{Version: store.AggregateContractVersion, Kind: "pve_equipment", Day: 1, SteamID: steamID, Dimension: "38", Metrics: map[string]int64{"actions": 11}},
+			{Version: store.AggregateContractVersion, Kind: "pve_equipment", Day: 1, SteamID: steamID, Dimension: "8", Metrics: map[string]int64{"common_kills": 10, "special_kills": 2, "tank_kills": 1, "witch_kills": 1}},
+		},
+	}); err != nil {
+		t.Fatal(err)
+	}
+	metrics := store.PlayerAchievementMetrics{SteamID: steamID, Watermark: 50, Values: map[string]store.AchievementMetricValue{
+		"versus.throwables_used": {Available: true, Value: 6},
+	}}
+	if err := service.addLifetimeEquipmentMetrics(ctx, &metrics); err != nil {
+		t.Fatal(err)
+	}
+	if got := metrics.Values["survivor.throwables_used"]; !got.Available || got.Value != 17 {
+		t.Fatalf("combined throwables=%#v", got)
+	}
+	if got := metrics.Values["weapon.single_shotgun_kills"]; !got.Available || got.Value != 14 {
+		t.Fatalf("single shotgun kills=%#v", got)
 	}
 }

@@ -1,6 +1,6 @@
 # Achievement Contract v1
 
-状态：计划自 Dashboard v1.3.2 起冻结。
+状态：自 Dashboard v1.3.2 起冻结；v1.3.3 按本契约兼容扩充 Catalog。
 
 ## 1. 定位
 
@@ -32,6 +32,8 @@ metric_value >= threshold
 - 会下降的效率指标
 
 `metric_id` 必须由 Go 代码白名单 resolver 实现。
+
+Catalog 可以在不修改已发布 key、metric、threshold、可见性与 Backfill 语义的前提下做加法扩充；这类扩充不升级 Contract 版本。
 
 ## 3. 可见性
 
@@ -122,14 +124,56 @@ Secret 不计正常完成度，也不泄露总数量。
 
 一次玩家评估应先构造 typed metrics，再在 Go 内存里判断全部未解锁 Achievement。
 
+Catalog 做兼容加法扩充时，evaluator 必须使用内部 Catalog revision 触发一次可恢复的全量 Backfill，不得因 Contract 版本与原数据水位未变而跳过新 key。Catalog revision 不对外改变 Achievement Contract 版本。
+
 ## 10. Retention Safety
 
 所有 Achievement resolver 必须读取永久事实或 retention-safe lifetime / aggregate。
 
 原始明细 retention 不得使 progress 倒退。
 
+v1.3.3 武器专精只使用 Dashboard 终身 `pve_equipment` 聚合，并以下式计算：
+
+```text
+family_kills = common_kills + special_kills + tank_kills + witch_kills
+```
+
+武器家族映射冻结为：
+
+- `single_shotgun`：PumpShotgun、ChromeShotgun；
+- `chainsaw`：Chainsaw；
+- `machine_gun`：M60、MountedGun、Minigun；
+- `smg`：SMG、SilencedSMG、MP5；
+- `bolt_sniper`：Scout、AWP；
+- `heavy_primary`：AutoShotgun、SPAS、HuntingRifle、MilitarySniper、M16、AK47、SCAR、SG552；
+- `grenade_launcher`：GrenadeLauncher；
+- `melee`：BaseballBat、CricketBat、Crowbar、ElectricGuitar、FireAxe、FryingPan、GolfClub、Katana、Knife、Machete、Pitchfork、Shovel、Tonfa。
+
+Equipment ID 不得跨家族重复；`OtherFirearm`、投掷物不进入武器击杀专精，Chainsaw 不进入 melee。
+
 ## 11. 不撤销
 
 普通 evaluator 只补发，不删除。
 
 严重 bug 错发必须通过明确 repair / migration 处理。
+
+## 12. v1.3.3 Catalog 扩充
+
+Catalog 从 63 个底层 Achievement 扩充为 105 个：100 个计入完成度，5 个 Secret 不计入完成度，共享 38 个 artwork key。新增 Category `weapon`。
+
+| group_key | metric_id | Tier threshold | Category |
+| --- | --- | --- | --- |
+| `weapon.throwable_expert` | `survivor.throwables_used` | 50 / 250 / 1000 / 2500 | weapon |
+| `career.objective_master` | `survivor.objective_interactions` | 25 / 100 / 500 | career |
+| `career.temp_health_addict` | `survivor.temp_health_items_used` | 100 / 500 / 2000 / 5000 | career |
+| `support.firepower_upgrade` | `survivor.upgrade_packs_deployed` | 25 / 100 / 500 | support |
+| `weapon.single_shotgun` | `weapon.single_shotgun_kills` | 1000 / 5000 / 20000 / 50000 | weapon |
+| `weapon.chainsaw` | `weapon.chainsaw_kills` | 250 / 1000 / 5000 | weapon |
+| `weapon.machine_gun` | `weapon.machine_gun_kills` | 500 / 2500 / 10000 | weapon |
+| `weapon.smg` | `weapon.smg_kills` | 1000 / 5000 / 20000 / 50000 | weapon |
+| `weapon.bolt_sniper` | `weapon.bolt_sniper_kills` | 250 / 1000 / 5000 | weapon |
+| `weapon.heavy_primary` | `weapon.heavy_primary_kills` | 1000 / 5000 / 20000 / 50000 | weapon |
+| `weapon.grenade_launcher` | `weapon.grenade_launcher_kills` | 500 / 2500 / 10000 | weapon |
+| `weapon.melee` | `weapon.melee_kills` | 1000 / 5000 / 20000 / 50000 | weapon |
+
+以上 42 个 Tier 全部为 `public` 且 `counts_toward_completion=true`。投掷、机关、药物与弹药包指标合并 PvE 与 Versus Survivor 生涯事实；投掷物的 PvE 部分使用终身装备 actions。

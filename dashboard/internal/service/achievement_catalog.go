@@ -25,7 +25,7 @@ func AchievementCatalog() []AchievementDefinition {
 }
 
 func buildAchievementCatalog() []AchievementDefinition {
-	result := make([]AchievementDefinition, 0, 63)
+	result := make([]AchievementDefinition, 0, 105)
 	addTiered := func(group, title, description, category, metric, artwork string, thresholds ...int64) {
 		for index, threshold := range thresholds {
 			result = append(result, AchievementDefinition{
@@ -59,6 +59,18 @@ func buildAchievementCatalog() []AchievementDefinition {
 	addTiered("versus.player_hunter", "玩家猎手", "累计击杀由真人控制的普通特殊感染者。", "versus", "versus.human_special_kills", "versus.player_hunter", 500, 2500, 10000)
 	addTiered("versus.infected_master", "感染大师", "作为感染者累计对真人幸存者造成伤害。", "versus", "versus.infected_damage_to_human_survivors", "versus.infected_master", 50000, 250000, 1000000)
 	addTiered("bond.comrade", "生死之交", "与同一位认证真人累计并肩作战。", "bond", "relationship.max_peer_shared_seconds", "bond.comrade", 10*3600, 50*3600, 100*3600)
+	addTiered("weapon.throwable_expert", "投掷专家", "累计使用燃烧瓶、土制炸弹与胆汁罐。", "weapon", "survivor.throwables_used", "weapon.throwable_expert", 50, 250, 1000, 2500)
+	addTiered("career.objective_master", "机关大师", "累计完成受支持的地图机关与目标互动。", "career", "survivor.objective_interactions", "career.objective_master", 25, 100, 500)
+	addTiered("career.temp_health_addict", "药不能停", "累计使用止痛药与肾上腺素。", "career", "survivor.temp_health_items_used", "career.temp_health_addict", 100, 500, 2000, 5000)
+	addTiered("support.firepower_upgrade", "火力升级", "累计部署燃烧弹药包与高爆弹药包。", "support", "survivor.upgrade_packs_deployed", "support.firepower_upgrade", 25, 100, 500)
+	addTiered("weapon.single_shotgun", "单喷足以", "累计使用单发霰弹枪消灭感染者。", "weapon", "weapon.single_shotgun_kills", "weapon.single_shotgun", 1000, 5000, 20000, 50000)
+	addTiered("weapon.chainsaw", "电锯狂魔", "累计使用电锯消灭感染者。", "weapon", "weapon.chainsaw_kills", "weapon.chainsaw", 250, 1000, 5000)
+	addTiered("weapon.machine_gun", "枪林弹雨", "累计使用 M60 与固定机枪消灭感染者。", "weapon", "weapon.machine_gun_kills", "weapon.machine_gun", 500, 2500, 10000)
+	addTiered("weapon.smg", "冲锋陷阵", "累计使用冲锋枪消灭感染者。", "weapon", "weapon.smg_kills", "weapon.smg", 1000, 5000, 20000, 50000)
+	addTiered("weapon.bolt_sniper", "一发入魂", "累计使用 Scout 与 AWP 消灭感染者。", "weapon", "weapon.bolt_sniper_kills", "weapon.bolt_sniper", 250, 1000, 5000)
+	addTiered("weapon.heavy_primary", "重火力", "累计使用重型主武器消灭感染者。", "weapon", "weapon.heavy_primary_kills", "weapon.heavy_primary", 1000, 5000, 20000, 50000)
+	addTiered("weapon.grenade_launcher", "爆破专家", "累计使用榴弹发射器消灭感染者。", "weapon", "weapon.grenade_launcher_kills", "weapon.grenade_launcher", 500, 2500, 10000)
+	addTiered("weapon.melee", "冷兵器大师", "累计使用近战武器消灭感染者。", "weapon", "weapon.melee_kills", "weapon.melee", 1000, 5000, 20000, 50000)
 
 	addSingle("special.rock_breaker", "碎石机", "累计摧毁 Tank 投掷的石块。", "special", "tank_rocks_destroyed", "mystery", 5, true)
 	addSingle("special.one_shot", "一击毙命", "累计一击击杀 Witch。", "special", "witch_oneshots", "mystery", 5, true)
