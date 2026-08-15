@@ -11,6 +11,7 @@ export interface AnalysisStatus { incident_version: number; incident_rows: numbe
 export interface IncidentRetentionPlan { incident_version: number; generated_at: number; cutoff: number; incident_rows_eligible: number; unknown_version_rows: number; candidate_watermark: number; plan_id: string; deletion_enabled: boolean }
 export interface IncidentRetentionResult { run_id: string; executed_at: number; incident_rows: number }
 export interface DataGrowthStatus { aggregate: AggregateStatus; settings: DataMaintenanceSettings; stats_database: DatabaseUsage; dashboard_database: DatabaseUsage; log_bytes: number; retention_runs: number; retention_plan: RetentionPlan; analysis: AnalysisStatus; incident_retention_plan: IncidentRetentionPlan }
+export interface AchievementEngineState { achievement_contract_version: number; catalog_items: number; evaluated_players: number; pending_backfill: number; global_source_watermark: number; dirty_cursor_watermark: number; dirty_cursor_steam_id: string; backfill_cursor: string; backfill_complete: boolean; last_run_at: number; last_success_at: number; last_error?: string; updated_at: number }
 
 export const adminAPI = {
   setupStatus: () => request<{ required: boolean; expires_at?: string }>('/api/v1/setup/status'),
@@ -31,4 +32,5 @@ export const adminAPI = {
   retentionPlan: () => request<RetentionPlan>('/api/v1/admin/data/retention/plan'),
   applyRetention: (plan_id: string) => adminWrite<RetentionResult>('/api/v1/admin/data/retention/apply', 'POST', { plan_id }),
   applyIncidentRetention: (plan_id: string) => adminWrite<IncidentRetentionResult>('/api/v1/admin/data/incidents/retention/apply', 'POST', { plan_id }),
+  achievementEngineState: () => request<AchievementEngineState>('/api/v1/admin/data/achievement-engine'),
 }

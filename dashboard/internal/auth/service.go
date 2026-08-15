@@ -16,10 +16,12 @@ import (
 )
 
 const (
-	BcryptCost       = 12
-	AdminTokenTTL    = 8 * time.Hour
-	SteamIdentityTTL = 5 * time.Minute
-	SetupTokenTTL    = 30 * time.Minute
+	BcryptCost           = 12
+	AdminTokenTTL        = 8 * time.Hour
+	SteamIdentityTTL     = 30 * 24 * time.Hour
+	SteamBadgeEditTTL    = 10 * time.Minute
+	SteamOpenIDIntentTTL = 10 * time.Minute
+	SetupTokenTTL        = 30 * time.Minute
 )
 
 var (
@@ -33,7 +35,14 @@ type Claims struct {
 	TokenType string `json:"typ"`
 	Version   int64  `json:"ver,omitempty"`
 	SteamID   string `json:"steam_id,omitempty"`
+	Purpose   string `json:"purpose,omitempty"`
+	ReturnTo  string `json:"return_to,omitempty"`
 	jwt.RegisteredClaims
+}
+
+type SteamOpenIDIntent struct {
+	Purpose  string
+	ReturnTo string
 }
 
 type Service struct {
@@ -157,6 +166,58 @@ func (s *Service) ValidateSteamIdentity(ctx context.Context, raw string) (string
 		return "", ErrInvalidToken
 	}
 	return claims.SteamID, nil
+}
+
+func (s *Service) SignSteamBadgeEdit(ctx context.Context, steamID string) (string, error) {
+	admin, err := s.store.Admin(ctx)
+	if err != nil {
+		return "", err
+	}
+	if admin == nil {
+		return "", ErrNotConfigured
+	}
+	return sign(admin.JWTSecret, Claims{TokenType: "steam_badge_edit", SteamID: steamID, RegisteredClaims: jwt.RegisteredClaims{Subject: steamID}}, SteamBadgeEditTTL)
+}
+
+func (s *Service) ValidateSteamBadgeEdit(ctx context.Context, raw, steamID string) error {
+	admin, err := s.store.Admin(ctx)
+	if err != nil {
+		return err
+	}
+	if admin == nil {
+		return ErrNotConfigured
+	}
+	claims, err := parse(raw, admin.JWTSecret)
+	if err != nil || claims.TokenType != "steam_badge_edit" || claims.SteamID == "" || claims.SteamID != steamID || claims.Subject != claims.SteamID {
+		return ErrInvalidToken
+	}
+	return nil
+}
+
+func (s *Service) SignSteamOpenIDIntent(ctx context.Context, purpose, returnTo string) (string, error) {
+	admin, err := s.store.Admin(ctx)
+	if err != nil {
+		return "", err
+	}
+	if admin == nil {
+		return "", ErrNotConfigured
+	}
+	return sign(admin.JWTSecret, Claims{TokenType: "steam_openid_intent", Purpose: purpose, ReturnTo: returnTo, RegisteredClaims: jwt.RegisteredClaims{Subject: "steam_openid_intent"}}, SteamOpenIDIntentTTL)
+}
+
+func (s *Service) ValidateSteamOpenIDIntent(ctx context.Context, raw string) (SteamOpenIDIntent, error) {
+	admin, err := s.store.Admin(ctx)
+	if err != nil {
+		return SteamOpenIDIntent{}, err
+	}
+	if admin == nil {
+		return SteamOpenIDIntent{}, ErrNotConfigured
+	}
+	claims, err := parse(raw, admin.JWTSecret)
+	if err != nil || claims.TokenType != "steam_openid_intent" || claims.Subject != "steam_openid_intent" || claims.ReturnTo == "" {
+		return SteamOpenIDIntent{}, ErrInvalidToken
+	}
+	return SteamOpenIDIntent{Purpose: claims.Purpose, ReturnTo: claims.ReturnTo}, nil
 }
 
 func (s *Service) ChangeUsername(ctx context.Context, username string) (string, error) {

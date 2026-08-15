@@ -81,6 +81,7 @@ enum struct LPSPvEStatsSnapshot
 	int spitterAssists;
 	int jockeyAssists;
 	int chargerAssists;
+	int fallDeaths;
 	int revision;
 }
 
@@ -191,6 +192,7 @@ void LPS_ResetClientPvEStatsState(int client)
 	g_LPSClientPvEStats[client].spitterAssists = 0;
 	g_LPSClientPvEStats[client].jockeyAssists = 0;
 	g_LPSClientPvEStats[client].chargerAssists = 0;
+	g_LPSClientPvEStats[client].fallDeaths = 0;
 	LPS_ResetClientPvEInteractionState(client);
 	g_LPSClientPvEStats[client].revision = 0;
 }

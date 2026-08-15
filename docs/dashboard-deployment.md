@@ -45,7 +45,7 @@ monitor:
 
 首次启动会把 30 分钟有效的一次性令牌输出到 stderr。打开 `http://127.0.0.1:18848/admin/setup` 创建唯一管理员。令牌不写入应用日志或数据库，过期后重启服务即可生成新令牌。
 
-Dashboard DB 使用 Goose 按顺序自动升级，当前 schema 为 13。Stats DB 仍由采集器管理，schema 为 5；升级时不应删除或手工改写迁移版本。
+Dashboard DB 使用 Goose 按顺序自动升级，当前 schema 为 15。Stats DB 仍由采集器管理，schema 为 6；升级时不应删除或手工改写迁移版本。
 
 ## systemd
 

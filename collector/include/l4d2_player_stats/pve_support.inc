@@ -332,6 +332,7 @@ void LPS_AddPvEStat(int client, LPSPvEStat stat, int amount)
 		case LPSPvEStat_SpitterAssists: g_LPSClientPvEStats[client].spitterAssists += amount;
 		case LPSPvEStat_JockeyAssists: g_LPSClientPvEStats[client].jockeyAssists += amount;
 		case LPSPvEStat_ChargerAssists: g_LPSClientPvEStats[client].chargerAssists += amount;
+		case LPSPvEStat_FallDeaths: g_LPSClientPvEStats[client].fallDeaths += amount;
 	}
 
 	g_LPSClientPvEStats[client].revision++;
@@ -416,5 +417,6 @@ void LPS_FillClientPvEStatsSnapshot(int client, LPSPvEStatsSnapshot snapshot, bo
 	snapshot.spitterAssists = g_LPSClientPvEStats[client].spitterAssists;
 	snapshot.jockeyAssists = g_LPSClientPvEStats[client].jockeyAssists;
 	snapshot.chargerAssists = g_LPSClientPvEStats[client].chargerAssists;
+	snapshot.fallDeaths = g_LPSClientPvEStats[client].fallDeaths;
 	snapshot.revision = g_LPSClientPvEStats[client].revision + (closed ? 1 : 0);
 }

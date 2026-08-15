@@ -2,7 +2,7 @@ import { Spin, Table } from 'antd'
 import type { EChartsCoreOption } from 'echarts/core'
 import { useMemo } from 'react'
 import { useTranslation } from 'react-i18next'
-import type { PlayerVersus as PlayerVersusData, VersusInfectedClass, VersusSurvivorClass } from '../../api'
+import type { PlayerVersusInfected, PlayerVersusInfectedDetails, PlayerVersusSurvivor, PlayerVersusSurvivorDetails, VersusInfectedClass, VersusSurvivorClass } from '../../api'
 import { EChart } from '../../components/EChart'
 import { MetricList, Section } from './PlayerShared'
 import { chartBase, duration, infectedNames, numberFormat, palette, type PlayerCopy } from './playerFormat'
@@ -10,29 +10,37 @@ import styles from './PlayerPage.module.scss'
 
 type VersusView = 'survivor' | 'survivor-details' | 'infected' | 'infected-details'
 
+type PlayerVersusData = PlayerVersusSurvivor | PlayerVersusSurvivorDetails | PlayerVersusInfected | PlayerVersusInfectedDetails
+
 export function PlayerVersus({ data, loading, view, copy, zh }: { data?: PlayerVersusData; loading: boolean; view: VersusView; copy: PlayerCopy; zh: boolean }) {
   const { t } = useTranslation()
-  const classOption = useMemo<EChartsCoreOption>(() => ({
-    ...chartBase,
-    legend: { top: 0, textStyle: { color: '#6f5b50' } },
-    xAxis: { type: 'category', data: data?.infected_classes.map(item => infectedNames[item.class_id - 1] ?? `#${item.class_id}`) ?? [], axisLabel: { color: '#806d62' }, axisLine: { lineStyle: { color: 'rgba(102,75,60,.22)' } } },
-    yAxis: { type: 'value', axisLabel: { color: '#806d62' }, splitLine: { lineStyle: { color: 'rgba(102,75,60,.1)' } } },
-    series: [
-      { name: copy.damage, type: 'bar', data: data?.infected_classes.map(item => item.damage_to_human_survivors) ?? [], itemStyle: { color: palette[0] } },
-      { name: t('incaps'), type: 'bar', data: data?.infected_classes.map(item => item.human_survivor_incaps) ?? [], itemStyle: { color: palette[2] } },
-      { name: t('controls'), type: 'bar', data: data?.infected_classes.map(item => item.human_survivor_controls) ?? [], itemStyle: { color: palette[1] } },
-    ],
-  }), [copy.damage, data, t])
+  const classOption = useMemo<EChartsCoreOption>(() => {
+    const infectedClasses = data && 'infected_classes' in data ? data.infected_classes : []
+    return {
+      ...chartBase,
+      legend: { top: 0, textStyle: { color: '#6f5b50' } },
+      xAxis: { type: 'category', data: infectedClasses.map(item => infectedNames[item.class_id - 1] ?? `#${item.class_id}`), axisLabel: { color: '#806d62' }, axisLine: { lineStyle: { color: 'rgba(102,75,60,.22)' } } },
+      yAxis: { type: 'value', axisLabel: { color: '#806d62' }, splitLine: { lineStyle: { color: 'rgba(102,75,60,.1)' } } },
+      series: [
+        { name: copy.damage, type: 'bar', data: infectedClasses.map(item => item.damage_to_human_survivors), itemStyle: { color: palette[0] } },
+        { name: t('incaps'), type: 'bar', data: infectedClasses.map(item => item.human_survivor_incaps), itemStyle: { color: palette[2] } },
+        { name: t('controls'), type: 'bar', data: infectedClasses.map(item => item.human_survivor_controls), itemStyle: { color: palette[1] } },
+      ],
+    }
+  }, [copy.damage, data, t])
   if (loading) return <Spin />
   if (!data) return null
-  if (view === 'survivor') return <div className={styles.sectionGrid}>
-    <Section title={copy.combat}><MetricList items={[[t('commonKills'), data.survivor_common_kills], [copy.humanSI, data.human_special_kills], [zh ? '助攻真人特感' : 'Human SI assists', nullable(data.human_special_assists, zh)], [copy.botSI, data.bot_special_kills], [zh ? '助攻 Bot 特感' : 'Bot SI assists', nullable(data.bot_special_assists, zh)], [copy.humanTank, data.human_tank_kills], [zh ? '助攻真人 Tank' : 'Human Tank assists', nullable(data.human_tank_assists, zh)], [copy.botTank, data.bot_tank_kills], [zh ? '助攻 Bot Tank' : 'Bot Tank assists', nullable(data.bot_tank_assists, zh)], [copy.damage, data.survivor_damage]]} /></Section>
-    <Section title={copy.survival}><MetricList items={[[t('deaths'), data.survivor_deaths], [t('incaps'), data.survivor_incapacitations], [copy.infectedDamage, data.survivor_damage_taken], [copy.friendlyFireDealt, data.survivor_friendly_fire], [copy.friendlyFireTaken, data.survivor_friendly_fire_taken], [copy.received, data.survivor_rescues_received]]} /></Section>
-    <Section title={copy.teamwork}><MetricList items={[[t('revives'), data.survivor_incap_revives], [copy.ledgeRescue, data.survivor_ledge_rescues], [copy.defib, data.survivor_defib_revives], [copy.medkitOthers, data.survivor_medkits_others], [copy.healingOthers, data.survivor_healing_others], [copy.blackWhite, nullable(data.survivor_black_white_teammates_restored, zh)], [zh ? '自用医疗包 / 治疗量' : 'Self medkits / healing', `${numberFormat.format(data.survivor_medkits_self)} / ${numberFormat.format(data.survivor_healing_self)}`], [zh ? '止痛药 / 肾上腺素' : 'Pills / adrenaline', `${numberFormat.format(data.survivor_pills)} / ${numberFormat.format(data.survivor_adrenaline)}`], [zh ? '获得临时生命' : 'Temporary health received', data.survivor_temporary_health]]} /></Section>
-    <Section title={copy.supplies}><MetricList items={[[zh ? '燃烧瓶' : 'Molotovs', data.molotovs_thrown], [zh ? '土制炸弹' : 'Pipe bombs', data.pipe_bombs_thrown], [zh ? '胆汁罐' : 'Vomit jars', data.vomit_jars_thrown], [zh ? '燃烧弹药包' : 'Incendiary packs', data.survivor_incendiary_packs], [zh ? '高爆弹药包' : 'Explosive packs', data.survivor_explosive_packs], [zh ? 'Witch 遭遇 / 击杀 / 助攻' : 'Witch encounters / kills / assists', `${nullable(data.survivor_witch_encounters, zh)} / ${numberFormat.format(data.survivor_witch_kills)} / ${nullable(data.survivor_witch_assists, zh)}`], [zh ? 'Witch 击杀参与' : 'Witch kill participations', nullable(data.survivor_witch_kill_participations, zh)], [zh ? 'Witch 伤害' : 'Witch damage', data.survivor_witch_damage]]} /></Section>
-    <Section title={zh ? '互动与事件' : 'Interactions and incidents'}><MetricList items={[[copy.objective, data.survivor_objective_interactions], [zh ? '触发警报车' : 'Car alarms triggered', data.survivor_car_alarms_triggered]]} /></Section>
-    <Section title={copy.skills}><MetricList items={[[copy.tongue, data.survivor_tongue_self_cuts], [copy.rocks, data.survivor_tank_rocks_destroyed], [copy.witchOneShot, data.survivor_witch_oneshots], [copy.witchSolo, data.survivor_witch_solo_kills]]} /></Section>
-  </div>
+  if (view === 'survivor') {
+    const survivor = data as PlayerVersusSurvivor
+    return <div className={styles.sectionGrid}>
+      <Section title={copy.combat}><MetricList items={[[t('commonKills'), survivor.survivor_common_kills], [copy.humanSI, survivor.human_special_kills], [zh ? '助攻真人特感' : 'Human SI assists', nullable(survivor.human_special_assists, zh)], [copy.botSI, survivor.bot_special_kills], [zh ? '助攻 Bot 特感' : 'Bot SI assists', nullable(survivor.bot_special_assists, zh)], [copy.humanTank, survivor.human_tank_kills], [zh ? '助攻真人 Tank' : 'Human Tank assists', nullable(survivor.human_tank_assists, zh)], [copy.botTank, survivor.bot_tank_kills], [zh ? '助攻 Bot Tank' : 'Bot Tank assists', nullable(survivor.bot_tank_assists, zh)], [copy.damage, survivor.survivor_damage]]} /></Section>
+      <Section title={copy.survival}><MetricList items={[[t('deaths'), survivor.survivor_deaths], [t('incaps'), survivor.survivor_incapacitations], [copy.infectedDamage, survivor.survivor_damage_taken], [copy.friendlyFireDealt, survivor.survivor_friendly_fire], [copy.friendlyFireTaken, survivor.survivor_friendly_fire_taken], [copy.received, survivor.survivor_rescues_received]]} /></Section>
+      <Section title={copy.teamwork}><MetricList items={[[t('revives'), survivor.survivor_incap_revives], [copy.ledgeRescue, survivor.survivor_ledge_rescues], [copy.defib, survivor.survivor_defib_revives], [copy.medkitOthers, survivor.survivor_medkits_others], [copy.healingOthers, survivor.survivor_healing_others], [copy.blackWhite, nullable(survivor.survivor_black_white_teammates_restored, zh)], [zh ? '自用医疗包 / 治疗量' : 'Self medkits / healing', `${numberFormat.format(survivor.survivor_medkits_self)} / ${numberFormat.format(survivor.survivor_healing_self)}`], [zh ? '止痛药 / 肾上腺素' : 'Pills / adrenaline', `${numberFormat.format(survivor.survivor_pills)} / ${numberFormat.format(survivor.survivor_adrenaline)}`], [zh ? '获得临时生命' : 'Temporary health received', survivor.survivor_temporary_health]]} /></Section>
+      <Section title={copy.supplies}><MetricList items={[[zh ? '燃烧瓶' : 'Molotovs', survivor.molotovs_thrown], [zh ? '土制炸弹' : 'Pipe bombs', survivor.pipe_bombs_thrown], [zh ? '胆汁罐' : 'Vomit jars', survivor.vomit_jars_thrown], [zh ? '燃烧弹药包' : 'Incendiary packs', survivor.survivor_incendiary_packs], [zh ? '高爆弹药包' : 'Explosive packs', survivor.survivor_explosive_packs], [zh ? 'Witch 遭遇 / 击杀 / 助攻' : 'Witch encounters / kills / assists', `${nullable(survivor.survivor_witch_encounters, zh)} / ${numberFormat.format(survivor.survivor_witch_kills)} / ${nullable(survivor.survivor_witch_assists, zh)}`], [zh ? 'Witch 击杀参与' : 'Witch kill participations', nullable(survivor.survivor_witch_kill_participations, zh)], [zh ? 'Witch 伤害' : 'Witch damage', survivor.survivor_witch_damage]]} /></Section>
+      <Section title={zh ? '互动与事件' : 'Interactions and incidents'}><MetricList items={[[copy.objective, survivor.survivor_objective_interactions], [zh ? '触发警报车' : 'Car alarms triggered', survivor.survivor_car_alarms_triggered]]} /></Section>
+      <Section title={copy.skills}><MetricList items={[[copy.tongue, survivor.survivor_tongue_self_cuts], [copy.rocks, survivor.survivor_tank_rocks_destroyed], [copy.witchOneShot, survivor.survivor_witch_oneshots], [copy.witchSolo, survivor.survivor_witch_solo_kills]]} /></Section>
+    </div>
+  }
   const survivorColumns = [
     { title: zh ? '类型' : 'Class', key: 'class', render: (_: unknown, item: VersusSurvivorClass) => infectedNames[item.class_id - 1] ?? `#${item.class_id}` },
     { title: copy.humanKills, dataIndex: 'human_controller_kills', key: 'humanKills' },
@@ -43,11 +51,14 @@ export function PlayerVersus({ data, loading, view, copy, zh }: { data?: PlayerV
     { title: copy.botDamage, dataIndex: 'damage_to_bot_controllers', key: 'botDamage' },
   ]
   if (view === 'survivor-details') return <div className={styles.sectionGrid}>
-    <Section title={copy.classes} wide><Table<VersusSurvivorClass> className={styles.embeddedTable} columns={survivorColumns} dataSource={data.survivor_classes} rowKey="class_id" pagination={false} size="small" scroll={{ x: 720 }} /></Section>
+    <Section title={copy.classes} wide><Table<VersusSurvivorClass> className={styles.embeddedTable} columns={survivorColumns} dataSource={(data as PlayerVersusSurvivorDetails).survivor_classes} rowKey="class_id" pagination={false} size="small" scroll={{ x: 720 }} /></Section>
   </div>
-  if (view === 'infected') return <div className={styles.sectionGrid}>
-    <Section title={copy.overview}><MetricList items={[[t('infectedSpawns'), data.infected_spawns], [copy.humanDamage, data.damage_to_human_survivors], [copy.botDamage, data.damage_to_bot_survivors], [copy.humanIncaps, data.human_survivor_incaps], [copy.botIncaps, data.bot_survivor_incaps], [copy.humanSurvivorKills, data.human_survivor_kills], [copy.botSurvivorKills, data.bot_survivor_kills], [t('controls'), data.human_survivor_controls], [t('controlTime'), duration(data.human_survivor_control_seconds)]]} /></Section>
-  </div>
+  if (view === 'infected') {
+    const infected = data as PlayerVersusInfected
+    return <div className={styles.sectionGrid}>
+      <Section title={copy.overview}><MetricList items={[[t('infectedSpawns'), infected.infected_spawns], [copy.humanDamage, infected.damage_to_human_survivors], [copy.botDamage, infected.damage_to_bot_survivors], [copy.humanIncaps, infected.human_survivor_incaps], [copy.botIncaps, infected.bot_survivor_incaps], [copy.humanSurvivorKills, infected.human_survivor_kills], [copy.botSurvivorKills, infected.bot_survivor_kills], [t('controls'), infected.human_survivor_controls], [t('controlTime'), duration(infected.human_survivor_control_seconds)]]} /></Section>
+    </div>
+  }
   const infectedColumns = [
     { title: zh ? '类型' : 'Class', key: 'class', render: (_: unknown, item: VersusInfectedClass) => infectedNames[item.class_id - 1] ?? `#${item.class_id}` },
     { title: copy.spawns, dataIndex: 'spawns', key: 'spawns' },
@@ -64,7 +75,7 @@ export function PlayerVersus({ data, loading, view, copy, zh }: { data?: PlayerV
   ]
   return <div className={styles.sectionGrid}>
     <Section title={copy.classes} wide><EChart ariaLabel={copy.classes} className={styles.largeChart} option={classOption} /></Section>
-    <Section title={copy.classes} wide><Table<VersusInfectedClass> className={styles.embeddedTable} columns={infectedColumns} dataSource={data.infected_classes} rowKey="class_id" pagination={false} size="small" scroll={{ x: 1200 }} /></Section>
+    <Section title={copy.classes} wide><Table<VersusInfectedClass> className={styles.embeddedTable} columns={infectedColumns} dataSource={(data as PlayerVersusInfectedDetails).infected_classes} rowKey="class_id" pagination={false} size="small" scroll={{ x: 1200 }} /></Section>
   </div>
 }
 

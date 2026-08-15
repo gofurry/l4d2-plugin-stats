@@ -3,12 +3,13 @@
 ## 数据边界
 
 - Stats DB 是采集事实来源。正常查询、聚合和网页请求只使用只读连接。
-- Dashboard DB 保存站点配置、管理员、服务器目录、UTC 日聚合、维护设置和清理审计。
+- Dashboard DB 保存站点配置、管理员、服务器目录、UTC 日聚合、维护设置、清理审计，以及 Achievement Contract v1 的永久解锁、判定状态和徽章展示位。
 - 只有管理员明确确认“原始数据清理”时，程序才临时打开独立维护连接；不会后台自动删除。
 - 公开 API 不读取或返回 Session IP、boot ID、内部数据库主键、DSN 或管理员数据。
 - PvE 只包含 `coop`/`realism` 幸存者数据；Versus 的幸存者和感染者分别聚合。
 - Round Context 是永久事实；Incident 是可保留的低频分析明细。不完整或历史无 Incident 的 Round 不按零事件处理。
 - Player Relationship 是永久的真人定向互动事实，不使用 Incident 保留策略；Assist 属于永久 Core Stats。
+- Achievement 解锁一经自动确认便永久保留；自动判定和历史 Backfill 只读取 retention-safe 事实，不提供手动领取、刷新或重建。
 
 ## 增量聚合
 
@@ -41,7 +42,7 @@ v1.3 为 Incident 引入独立保留策略，默认 180 天。它不依赖 Aggre
 - 玩家身份、Run、Round、Player Segment、Player Relationship 和核心统计永久增长；
 - Round Context 永久增长；Incident 按管理员配置的保留窗口增长和清理；
 - UTC 日聚合按活跃玩家、服务器和维度线性增长；
-- 清理审计、公告和站点配置由管理员操作增长；
+- 成就解锁、判定状态、徽章展示位、清理审计、公告和站点配置随玩家或管理员操作增长；
 - SQLite 删除行后文件大小不保证立即回落，页面展示的是实际数据库文件占用；
 - 应用日志由 Lumberjack 按大小、份数和天数轮转，内存缓存均有容量与 TTL 上限。
 

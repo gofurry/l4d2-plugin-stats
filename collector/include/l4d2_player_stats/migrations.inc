@@ -37,6 +37,12 @@ bool LPS_GetMigrationMetadata(int version, char[] fileName, int fileNameLength, 
 			strcopy(name, nameLength, "relationships_and_assists");
 			return true;
 		}
+		case 6:
+		{
+			strcopy(fileName, fileNameLength, "0006_fall_deaths.sql");
+			strcopy(name, nameLength, "fall_deaths");
+			return true;
+		}
 	}
 	return false;
 }

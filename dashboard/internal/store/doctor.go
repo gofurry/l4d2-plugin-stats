@@ -29,6 +29,7 @@ func (s *statsStore) DeepDataQuality(ctx context.Context, staleBootBefore int64)
 		{"relationship contract", relationshipContractQuery(), &result.RelationshipContract},
 		{"PvE assist contract", pveAssistContractQuery(), &result.PVEAssistContract},
 		{"Versus assist contract", versusAssistContractQuery(), &result.VersusAssistContract},
+		{"fall death contract", fallDeathContractQuery(), &result.FallDeathContract},
 	}
 	for _, check := range checks {
 		*check.target, err = s.dataQualityFinding(ctx, check.query)
@@ -37,6 +38,13 @@ func (s *statsStore) DeepDataQuality(ctx context.Context, staleBootBefore int64)
 		}
 	}
 	return result, nil
+}
+
+func fallDeathContractQuery() string {
+	return `SELECT 'pve_fall_death' AS source_name,segment_id AS internal_id FROM lps_pve_segment_stats
+WHERE fall_deaths IS NOT NULL AND (fall_deaths<0 OR fall_deaths>deaths)
+UNION ALL SELECT 'versus_fall_death',segment_id FROM lps_versus_survivor_stats
+WHERE fall_deaths IS NOT NULL AND (fall_deaths<0 OR fall_deaths>deaths)`
 }
 
 func contextContractQuery() string {

@@ -175,6 +175,7 @@ type LpsPveSegmentStat struct {
 	SpitterAssists              sql.NullInt64
 	JockeyAssists               sql.NullInt64
 	ChargerAssists              sql.NullInt64
+	FallDeaths                  sql.NullInt64
 }
 
 type LpsRound struct {
@@ -404,4 +405,5 @@ type LpsVersusSurvivorStat struct {
 	WitchEncounters             sql.NullInt64
 	WitchKillParticipations     sql.NullInt64
 	BlackWhiteTeammatesRestored sql.NullInt64
+	FallDeaths                  sql.NullInt64
 }

@@ -11,6 +11,7 @@ func TestDerivedRankingDefinitionsFreezeDirectionAndSampleGates(t *testing.T) {
 		eligibleSample   map[string]int64
 		expectedEligible bool
 	}{
+		{name: "pve:headshot_kills", higher: true},
 		{name: "pve:rescues_per_hour", higher: true, hardActive: 7200},
 		{name: "pve:incaps_per_hour", higher: false, hardActive: 7200},
 		{name: "pve:deaths_per_hour", higher: false, hardActive: 7200},

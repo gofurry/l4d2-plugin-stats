@@ -4,6 +4,53 @@ All notable changes to this project are documented in this file.
 
 ## Unreleased
 
+## 1.3.3 - 2026-08-15
+
+### Added
+
+- Add 12 public tiered Achievement series with 42 underlying tiers for throwables, objective interactions, temporary-health items, upgrade-pack deployment, and eight retention-safe PvE weapon families.
+- Add the `weapon` Achievement category and 12 replaceable 256×256 placeholder artwork sources, expanding the deterministic sprite atlas from 26 to 38 tiles.
+- Add frozen equipment-family mapping, cross-mode behavior aggregation, threshold boundaries, family disjointness, and Atlas coverage tests for the expanded Achievement Contract v1 catalog.
+
+### Changed
+
+- Upgrade the Collector and Dashboard to `1.3.3` while keeping Stats schema 6, Dashboard schema 16, `stats_version=1`, and all existing contract versions unchanged.
+- Expand Achievement Contract v1 additively from 63 to 105 underlying items; 100 count toward normal completion and the existing 5 Secret items remain excluded.
+- Evaluate weapon mastery from Dashboard lifetime `pve_equipment` aggregates so raw equipment retention cannot reduce progress, while PvE and Versus survivor behavior metrics continue to be resolved in bounded bulk queries.
+- Upgrade Dashboard schema from 15 to 16 so an explicitly empty badge showcase remains distinct from a player who has never configured showcase slots.
+
+### Fixed
+
+- Keep an explicitly linked leaderboard player as the active profile instead of replacing it with the signed-in Steam identity.
+- Allow players to remove their final showcased badge without the automatic default selection immediately restoring it.
+- Align scoped PvE and Versus response types with the server payloads and contain tab rendering failures instead of blanking the entire player center.
+
+## 1.3.2 - 2026-08-14
+
+### Added
+
+- Add Achievement Contract v1 with a frozen 63-item catalog, automated monotonic evaluation, permanent idempotent unlocks, on-demand profile evaluation, and resumable bounded historical backfill.
+- Add public, mystery, and secret visibility semantics, completion and easter-egg counts, per-player unlock rates, live/history confirmation notices, and up to three authenticated badge showcase slots.
+- Add a top-level player Achievement view, three profile-header badges, one main badge in player previews, and a read-only Achievement Engine status panel without manual refresh, rebuild, claim, or threshold controls.
+- Add 26 validated 256×256 WebP badge sources and a deterministic build pipeline that produces a fixed 6×5, 128-pixel-tile WebP sprite atlas with generated TypeScript coordinates.
+- Add nullable survivor fall-death facts for PvE and Versus, including schema 6 migrations for SQLite, MySQL, and PostgreSQL and matching deep-doctor invariants.
+- Add authenticated per-player profile visibility settings at top-level tab granularity, defaulting public access to Overview, Analysis, and Player Relationships while keeping owner access complete.
+
+### Changed
+
+- Upgrade the Collector and Dashboard to `1.3.2`, Stats schema from 5 to 6, and Dashboard schema from 13 to 15; gameplay `stats_version=1`, Aggregate Contract v1, Incident Contract v1, Assist Contract v1, and Player Relationship Contract v1 remain unchanged.
+- Extend the Steam identity session used by self-service badge settings while keeping badge selection restricted to the authenticated player's own unlocked achievements.
+- Require a fresh Steam OpenID verification before badge showcase edits, grant only a 10-minute server-signed edit capability, and reject badge writes whose browser origin does not match the configured public origin.
+- Build the achievement atlas before every frontend production build and embed the refreshed frontend in the Dashboard binary.
+- Merge achievement category filters into the progress card, keep easter-egg discovery visible in the compact summary, render progress as full numeric values, and add named tooltips with better alignment for profile and preview badges.
+- Enforce profile visibility on the server for summary, activity, PvE, Versus, analysis, relationships, history, achievements, and badges; shared PvE and Versus payloads are scoped to the requested visible tab.
+
+### Fixed
+
+- Preserve historical `NULL` for fall deaths so pre-v1.3.2 rows are never interpreted as zero, while new snapshots always persist zero or a positive count bounded by total deaths.
+- Keep locked mystery achievements anonymous without leaking artwork, thresholds, progress, immutable keys, or accidental grouping, and omit locked secrets entirely.
+- Keep local player-query preferences separate from Steam authorization so changing browser storage cannot grant badge editing access.
+
 ## 1.3.1 - 2026-08-14
 
 ### Added

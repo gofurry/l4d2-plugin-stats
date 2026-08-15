@@ -12,6 +12,7 @@
 - ECharts 个人趋势、PvE/装备/Versus 全量明细和独立的全服排行榜；
 - 地图/战役、规则环境、标准化 Incident 时间线、Boss 生命周期和个人效率分析；
 - 基于同 Round、同阵营正重叠时长的 Top-3 并肩作战预览；
+- Achievement Contract v1 自动判定、历史补判、三枚徽章展示位、个人成就页和玩家预览主徽章；
 - UTC 日增量聚合、月度/终身汇总读模型、可配置 15 分钟至 24 小时刷新周期和每批 500 行的可审计原始数据清理；
 - 网页首次设置、easyhash bcrypt、8 小时 HS256 JWT、Fiber CSRF、登录限流和全站每 IP 每分钟 300 次的温和限流；
 - 全局界面语言、背景图片、页脚链接、Steam 登录、服务器目录和账号安全后台；
@@ -73,7 +74,11 @@ SQLite Stats DB 的常规连接会以只读模式打开。MySQL/PostgreSQL 若�
 
 启用 Steam 登录后，需要填写玩家实际访问 Dashboard 时使用的完整地址，例如 `https://stats.example.com` 或 `http://203.0.113.10:18848`，供 Steam 验证后返回本站；不支持子路径。若服务器无法直连 Steam，可选填代理地址，例如 `http://127.0.0.1:7890`、`http://10.0.0.8:7890` 或 `socks5://proxy.example.com:1080`；省略协议时按 HTTP 处理，且只有 Steam OpenID 请求使用该代理。没有域名或不启用 Steam 登录都不影响手动 SteamID64 查询。
 
-Dashboard DB 使用内嵌 Goose migration 自动升级，当前 schema 为 13；Stats schema 为 5，`stats_version` 仍为 1，Aggregate Contract 仍为 v1。升级前仍应停止服务并同时备份 Dashboard DB、Stats DB 与配置文件；不要通过删除 Stats DB 的方式处理版本变化。
+玩家查询使用的本地 SteamID 记录不参与权限判断。修改徽章展示位前必须重新完成一次 Steam OpenID 验证；服务端只签发 10 分钟有效、绑定本人 SteamID 的 HttpOnly 编辑凭据，写请求还必须来自站点设置中的公开地址。
+
+Steam 登录玩家可在个人中心“设置”中按一级 Tab 控制访客可见内容，默认只公开概览、分析和玩家关系；本人始终可以查看全部栏目。可见性由服务端接口强制执行，不是仅在浏览器中隐藏导航。
+
+Dashboard DB 使用内嵌 Goose migration 自动升级，当前 schema 为 15；Stats schema 为 6，`stats_version` 仍为 1，Aggregate Contract 与 Achievement Contract 均为 v1。升级前仍应停止服务并同时备份 Dashboard DB、Stats DB 与配置文件；不要通过删除 Stats DB 的方式处理版本变化。
 
 Dashboard 服务器 UUID 只标识网页中的实时服务器目录，不需要管理员填写。采集器的 `sm_lps_server_key` 仍是 Stats DB 中的数据来源标识，两者边界独立。L4D2 的加入链接和 A2S 状态查询统一使用同一个服务器地址。
 

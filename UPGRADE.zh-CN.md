@@ -40,6 +40,8 @@ v1.3 继续执行 `0004_analysis_foundation.sql`，把 Stats schema 升至 4 并
 
 v1.3.1 继续执行 `0005_relationships_and_assists.sql`，把 Stats schema 升至 5。该迁移新增真人幸存者定向关系表，并为 PvE/对抗幸存者加入可空的 Assist、Witch 参与和对抗黑白恢复字段。旧 Segment 中新字段保持 `NULL`（当时未采集），不得回填为 0；定向关系也不会从旧累计值反推。Dashboard schema 保持 13，`stats_version=1`、Aggregate Contract v1 和 Incident Contract v1 保持不变。
 
+v1.3.2 继续执行 `0006_fall_deaths.sql`，把 Stats schema 升至 6，为 PvE 与对抗幸存者增加可空的坠落死亡计数。升级前的 Segment 保持 `NULL`，表示当时没有采集；新 Segment 从 0 开始，并满足 `0 <= fall_deaths <= deaths`。Dashboard schema 升至 14，用于保存 Achievement Contract v1 的永久解锁、自动判定/历史补判进度和玩家徽章展示位。成就由后台和访问个人资料时自动判定，不需要领取，也没有玩家或管理员手动刷新入口。`stats_version=1`、Aggregate Contract v1 与 Incident Contract v1 保持不变。
+
 ## 升级 Dashboard
 
 Linux systemd：
@@ -77,7 +79,7 @@ Dashboard 启动时会自动迁移自己的 `dashboard.db`。不要使用发布�
 /api/v1/health/ready
 ```
 
-进入至少一个真人参与的完整 Round 后，还应检查 `/analysis`、个人页的 PvE、对抗与“玩家关系”标签，以及管理后台数据运维页。`sm_lps_status` 应为 `version=1.3.1`、`schema=5/5`；深度检查不应报告 Context、Incident、Relationship 或 Assist 契约错误。
+进入至少一个真人参与的完整 Round 后，还应检查 `/analysis`、个人页的 PvE、对抗、“玩家关系”和“成就”标签，以及管理后台数据运维页的只读成就引擎状态。`sm_lps_status` 应为 `version=1.3.2`、`schema=6/6`；深度检查不应报告 Context、Incident、Relationship、Assist 或坠落死亡契约错误。首次启动会以每批约 100 名玩家自动执行可恢复的历史成就补判，期间不需要人工操作。
 
 ## 回滚
 
@@ -89,7 +91,7 @@ cp ./l4d2-stats.previous ./l4d2-stats
 sudo systemctl start l4d2-stats
 ```
 
-如果新版本已经升级 Stats DB 或 `dashboard.db` 结构，旧二进制未必兼容新 schema。从 v1.3.1 回滚到 v1.3.0 时，安全边界是同时恢复 v1.3.0 Collector/Dashboard 和升级前的 Stats schema 4 备份；不要只回退 Collector，也不要手工删除 schema 5 字段或关系表。此时应停止 Dashboard 服务，并同时恢复升级前数据库备份：
+如果新版本已经升级 Stats DB 或 `dashboard.db` 结构，旧二进制未必兼容新 schema。从 v1.3.2 回滚到 v1.3.1 时，安全边界是同时恢复 v1.3.1 Collector/Dashboard、升级前的 Stats schema 5 和 Dashboard schema 13 备份；不要只回退 Collector，也不要手工删除 schema 6 字段或成就表。此时应停止 Dashboard 服务，并同时恢复升级前数据库备份：
 
 ```sh
 sudo systemctl stop l4d2-stats

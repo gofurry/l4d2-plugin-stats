@@ -43,6 +43,11 @@ public void LPS_Event_PlayerDeathStats(Event event, const char[] name, bool dont
 		if (!event.GetBool("abort"))
 		{
 			LPS_AddPvEStat(victim, LPSPvEStat_Deaths, 1);
+			if (LPS_IsHumanClientOnTeam(victim, LPS_TEAM_SURVIVOR)
+				&& (event.GetInt("type") & DMG_FALL) != 0)
+			{
+				LPS_AddPvEStat(victim, LPSPvEStat_FallDeaths, 1);
+			}
 		}
 		return;
 	}

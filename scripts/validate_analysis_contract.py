@@ -34,7 +34,7 @@ def require_define(source: str, name: str, value: int) -> None:
 
 def main() -> None:
     definitions = DEFINITIONS.read_text(encoding="utf-8")
-    require_define(definitions, "LPS_SCHEMA_VERSION", 5)
+    require_define(definitions, "LPS_SCHEMA_VERSION", 6)
     require_define(definitions, "LPS_INCIDENT_VERSION", 1)
     require_define(definitions, "LPS_CONTEXT_VERSION", 1)
     require_define(definitions, "LPS_ANALYSIS_FLUSH_INCIDENT_LIMIT", 256)
@@ -81,7 +81,7 @@ def main() -> None:
     finally:
         database.close()
 
-    print("Analysis contracts validated: context v1, incident v1, schema 5, capture limit 256.")
+    print("Analysis contracts validated: context v1, incident v1, schema 6, capture limit 256.")
 
 
 if __name__ == "__main__":

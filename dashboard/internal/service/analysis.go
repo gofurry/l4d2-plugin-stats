@@ -121,10 +121,8 @@ func (s *AnalysisService) Player(ctx context.Context, steamID string, filter sto
 			result.Metrics["incaps_per_hour"] = perHour(totals.Incaps)
 			result.Metrics["deaths_per_hour"] = perHour(totals.Deaths)
 			result.Metrics["friendly_fire_per_hour"] = perHour(totals.FriendlyFire)
-			result.Metrics["tank_participation_rate"] = ratio(totals.TankParticipations, totals.TankEncounters)
-			result.Metrics["witch_participation_rate"] = ratio(totals.WitchParticipations, totals.WitchEncounters)
-			result.Samples["tank_encounters"] = totals.TankEncounters
-			result.Samples["witch_encounters"] = totals.WitchEncounters
+			result.Metrics["tank_kills_per_hour"] = perHour(totals.TankKills)
+			result.Metrics["witch_kills_per_hour"] = perHour(totals.WitchKills)
 		case "versus_survivor":
 			result.Metrics["human_si_tank_kills_per_hour"] = perHour(totals.SpecialKills)
 			result.Metrics["rescues_per_hour"] = perHour(totals.Rescues)

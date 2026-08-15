@@ -9,9 +9,59 @@ import (
 var ErrServerNotFound = errors.New("game server not found")
 
 const (
-	DashboardSchemaVersion int64 = 13
-	StatsSchemaVersion     int64 = 5
+	DashboardSchemaVersion int64 = 16
+	StatsSchemaVersion     int64 = 6
 )
+
+type PlayerProfileSection string
+
+const (
+	PlayerProfileOverview              PlayerProfileSection = "overview"
+	PlayerProfileAchievements          PlayerProfileSection = "achievements"
+	PlayerProfileAnalysis              PlayerProfileSection = "analysis"
+	PlayerProfilePVE                   PlayerProfileSection = "pve"
+	PlayerProfilePVEDetails            PlayerProfileSection = "pve-details"
+	PlayerProfileVersusSurvivor        PlayerProfileSection = "versus-survivor"
+	PlayerProfileVersusSurvivorDetails PlayerProfileSection = "versus-survivor-details"
+	PlayerProfileVersusInfected        PlayerProfileSection = "versus-infected"
+	PlayerProfileVersusInfectedDetails PlayerProfileSection = "versus-infected-details"
+	PlayerProfileRelationships         PlayerProfileSection = "relationships"
+	PlayerProfileHistory               PlayerProfileSection = "history"
+)
+
+var PlayerProfileSections = []PlayerProfileSection{
+	PlayerProfileOverview,
+	PlayerProfileAchievements,
+	PlayerProfileAnalysis,
+	PlayerProfilePVE,
+	PlayerProfilePVEDetails,
+	PlayerProfileVersusSurvivor,
+	PlayerProfileVersusSurvivorDetails,
+	PlayerProfileVersusInfected,
+	PlayerProfileVersusInfectedDetails,
+	PlayerProfileRelationships,
+	PlayerProfileHistory,
+}
+
+var DefaultPlayerProfileSections = []PlayerProfileSection{
+	PlayerProfileOverview,
+	PlayerProfileAnalysis,
+	PlayerProfileRelationships,
+}
+
+type PlayerProfileVisibility struct {
+	VisibleSections []PlayerProfileSection `json:"visible_sections"`
+	UpdatedAt       int64                  `json:"updated_at,omitempty"`
+}
+
+func (v PlayerProfileVisibility) Visible(section PlayerProfileSection) bool {
+	for _, candidate := range v.VisibleSections {
+		if candidate == section {
+			return true
+		}
+	}
+	return false
+}
 
 type FooterLink struct {
 	ID    string `json:"id,omitempty"`
@@ -344,14 +394,25 @@ type PlayerPreviewVersus struct {
 }
 
 type PlayerPreview struct {
-	SteamID           string              `json:"steam_id"`
-	PlayerName        string              `json:"player_name"`
-	SessionCount      int64               `json:"session_count"`
-	ActivePlaySeconds int64               `json:"active_play_seconds"`
-	LastSeenAt        int64               `json:"last_seen_at"`
-	PVE               PlayerPreviewPVE    `json:"pve"`
-	Versus            PlayerPreviewVersus `json:"versus"`
-	Companions        []PlayerCompanion   `json:"companions"`
+	SteamID           string               `json:"steam_id"`
+	PlayerName        string               `json:"player_name"`
+	SessionCount      int64                `json:"session_count"`
+	ActivePlaySeconds int64                `json:"active_play_seconds"`
+	LastSeenAt        int64                `json:"last_seen_at"`
+	PVE               PlayerPreviewPVE     `json:"pve"`
+	Versus            PlayerPreviewVersus  `json:"versus"`
+	Companions        []PlayerCompanion    `json:"companions"`
+	Badges            []PlayerPreviewBadge `json:"badges"`
+	// MainBadge mirrors the first showcase slot for older API clients.
+	MainBadge *PlayerPreviewBadge `json:"main_badge,omitempty"`
+}
+
+type PlayerPreviewBadge struct {
+	Slot           int64  `json:"slot"`
+	AchievementKey string `json:"achievement_key"`
+	Title          string `json:"title"`
+	ArtworkKey     string `json:"artwork_key"`
+	Tier           int64  `json:"tier,omitempty"`
 }
 
 type CollectionCoverage struct {
@@ -545,21 +606,19 @@ type AnalysisContexts struct {
 }
 
 type PlayerAnalysisTotals struct {
-	ActiveSeconds       int64
-	SpecialKills        int64
-	Rescues             int64
-	Incaps              int64
-	Deaths              int64
-	FriendlyFire        int64
-	TankEncounters      int64
-	TankParticipations  int64
-	WitchEncounters     int64
-	WitchParticipations int64
-	Damage              int64
-	Spawns              int64
-	Controls            int64
-	Kills               int64
-	ControlSeconds      int64
+	ActiveSeconds  int64
+	SpecialKills   int64
+	Rescues        int64
+	Incaps         int64
+	Deaths         int64
+	FriendlyFire   int64
+	TankKills      int64
+	WitchKills     int64
+	Damage         int64
+	Spawns         int64
+	Controls       int64
+	Kills          int64
+	ControlSeconds int64
 }
 
 type PlayerIncidentClass struct {
@@ -734,6 +793,7 @@ type StatsDataQuality struct {
 	RelationshipContract DataQualityFinding
 	PVEAssistContract    DataQualityFinding
 	VersusAssistContract DataQualityFinding
+	FallDeathContract    DataQualityFinding
 }
 
 type PlayerSession struct {
@@ -857,6 +917,11 @@ type DashboardStore interface {
 	Close() error
 }
 
+type DashboardProfileStore interface {
+	PlayerProfileVisibility(context.Context, string) (PlayerProfileVisibility, error)
+	ReplacePlayerProfileVisibility(context.Context, string, []PlayerProfileSection, int64) (PlayerProfileVisibility, error)
+}
+
 type DashboardAggregateStore interface {
 	AggregateStatus(context.Context) (AggregateStatus, error)
 	ReplaceAggregateRows(context.Context, []AggregateRow, int64) error
@@ -873,7 +938,9 @@ type DashboardAggregateStore interface {
 
 type DashboardDatabase interface {
 	DashboardStore
+	DashboardProfileStore
 	DashboardAggregateStore
+	DashboardAchievementStore
 	ServerStatusSnapshotStore
 }
 
@@ -977,6 +1044,7 @@ type StatsDatabase interface {
 	StatsFilteredStore
 	StatsPresenceStore
 	StatsDoctorStore
+	StatsAchievementStore
 }
 
 type ServerStatusProvider interface {

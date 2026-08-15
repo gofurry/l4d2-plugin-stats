@@ -28,10 +28,11 @@ type adminRoutes struct {
 	loginLimiter, setupLimiter *auth.Limiter
 	monitor                    *runtimeMonitor
 	data                       *service.DataMaintenanceService
+	achievements               *service.AchievementService
 }
 
-func registerAdminRoutes(api fiber.Router, dashboard store.DashboardStore, status store.ServerStatusProvider, authService *auth.Service, data *service.DataMaintenanceService, logger *zap.Logger, runtimeMonitor *runtimeMonitor) {
-	r := &adminRoutes{dashboard: dashboard, status: status, auth: authService, data: data, logger: logger, monitor: runtimeMonitor, loginLimiter: auth.NewLimiter(5, 15*time.Minute, 1024), setupLimiter: auth.NewLimiter(10, 15*time.Minute, 256)}
+func registerAdminRoutes(api fiber.Router, dashboard store.DashboardStore, status store.ServerStatusProvider, authService *auth.Service, data *service.DataMaintenanceService, achievements *service.AchievementService, logger *zap.Logger, runtimeMonitor *runtimeMonitor) {
+	r := &adminRoutes{dashboard: dashboard, status: status, auth: authService, data: data, achievements: achievements, logger: logger, monitor: runtimeMonitor, loginLimiter: auth.NewLimiter(5, 15*time.Minute, 1024), setupLimiter: auth.NewLimiter(10, 15*time.Minute, 256)}
 	api.Get("/setup/status", r.setupStatus)
 	api.Post("/setup/admin", r.setupAdmin)
 	api.Post("/admin/auth/login", r.login)
@@ -78,6 +79,17 @@ func registerAdminRoutes(api fiber.Router, dashboard store.DashboardStore, statu
 		admin.Post("/data/retention/apply", r.applyRetention)
 		admin.Post("/data/incidents/retention/apply", r.applyIncidentRetention)
 	}
+	if achievements != nil {
+		admin.Get("/data/achievement-engine", r.achievementEngineState)
+	}
+}
+
+func (r *adminRoutes) achievementEngineState(c fiber.Ctx) error {
+	state, err := r.achievements.EngineState(c.Context())
+	if err != nil {
+		return sendError(c, 503, "achievement_engine_unavailable", "achievement engine status is unavailable")
+	}
+	return sendData(c, 200, state)
 }
 
 func (r *adminRoutes) applyIncidentRetention(c fiber.Ctx) error {

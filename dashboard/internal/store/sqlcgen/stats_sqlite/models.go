@@ -171,6 +171,7 @@ type LpsPveSegmentStat struct {
 	SpitterAssists              interface{}
 	JockeyAssists               interface{}
 	ChargerAssists              interface{}
+	FallDeaths                  interface{}
 }
 
 type LpsRound struct {
@@ -400,4 +401,5 @@ type LpsVersusSurvivorStat struct {
 	WitchEncounters             interface{}
 	WitchKillParticipations     interface{}
 	BlackWhiteTeammatesRestored interface{}
+	FallDeaths                  interface{}
 }

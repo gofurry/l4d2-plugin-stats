@@ -51,6 +51,27 @@ func TestSetupLoginAndTokenRevocation(t *testing.T) {
 	if err != nil || steamID != "76561198000000000" {
 		t.Fatalf("steam identity=%q err=%v", steamID, err)
 	}
+	badgeEditToken, err := service.SignSteamBadgeEdit(ctx, steamID)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err := service.ValidateSteamBadgeEdit(ctx, badgeEditToken, steamID); err != nil {
+		t.Fatalf("valid badge edit token: %v", err)
+	}
+	if err := service.ValidateSteamBadgeEdit(ctx, badgeEditToken, "76561198000000001"); !errors.Is(err, ErrInvalidToken) {
+		t.Fatalf("cross-player badge edit token error=%v", err)
+	}
+	if _, err := service.ValidateSteamIdentity(ctx, badgeEditToken); !errors.Is(err, ErrInvalidToken) {
+		t.Fatalf("badge edit token accepted as identity: %v", err)
+	}
+	intentToken, err := service.SignSteamOpenIDIntent(ctx, "badge_edit", "/player?tab=achievements")
+	if err != nil {
+		t.Fatal(err)
+	}
+	intent, err := service.ValidateSteamOpenIDIntent(ctx, intentToken)
+	if err != nil || intent.Purpose != "badge_edit" || intent.ReturnTo != "/player?tab=achievements" {
+		t.Fatalf("Steam intent=%+v err=%v", intent, err)
+	}
 
 	newToken, err := service.ChangePassword(ctx, "correct horse battery staple", "a different strong password")
 	if err != nil {

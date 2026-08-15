@@ -2,6 +2,8 @@ import { useQuery } from '@tanstack/react-query'
 import { Alert, Button, Modal, Skeleton } from 'antd'
 import { useTranslation } from 'react-i18next'
 import { api } from '../api'
+import { isAchievementArtworkKey } from '../assets/achievements/achievementArtwork'
+import { AchievementBadge } from './AchievementBadge'
 import styles from '../pages/HomePage.module.scss'
 
 const integer = new Intl.NumberFormat()
@@ -24,10 +26,11 @@ export function PlayerPreviewModal({ open, steamID, playerName, contextLabel, on
     retry: 1,
   })
   const data = preview.data
+  const badges = data?.badges?.length ? data.badges : data?.main_badge ? [data.main_badge] : []
 
   return <Modal className={styles.playerPreviewModal} open={open} title={null} footer={null} onCancel={onClose} destroyOnHidden>
     <div className={styles.previewHeader}>
-      <div><strong>{data?.player_name || playerName || t('unnamedPlayer')}</strong><code>{steamID}</code></div>
+      <div className={styles.previewIdentity}><span><strong>{data?.player_name || playerName || t('unnamedPlayer')}</strong>{badges.length > 0 && <span className={styles.previewBadges}>{badges.map(item => <AchievementBadge key={`${item.slot ?? 0}:${item.achievement_key}`} artworkKey={isAchievementArtworkKey(item.artwork_key) ? item.artwork_key : undefined} tier={item.tier} size={30} label={item.title} />)}</span>}</span><code>{steamID}</code></div>
       {contextLabel && <span><i className={`${styles.statusDot} ${styles.statusDot_online}`} />{contextLabel}</span>}
     </div>
     {preview.isLoading && <Skeleton active paragraph={{ rows: 5 }} />}

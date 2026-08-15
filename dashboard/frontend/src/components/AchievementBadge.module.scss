@@ -1,0 +1,13 @@
+.badge { position: relative; flex: 0 0 auto; display: inline-grid; place-items: center; overflow: hidden; vertical-align: middle; border-radius: 22%; background: transparent; filter: drop-shadow(0 0 4px rgba(202, 151, 110, .2)) drop-shadow(0 5px 8px rgba(16, 12, 9, .26)); }
+.sprite { width: 100%; height: 100%; display: block; background-repeat: no-repeat; }
+.tier1 { filter: drop-shadow(0 0 4px rgba(168, 109, 69, .32)) drop-shadow(0 5px 8px rgba(66, 39, 24, .24)); }
+.tier2 { filter: drop-shadow(0 0 4px rgba(184, 193, 200, .3)) drop-shadow(0 5px 8px rgba(66, 75, 81, .22)); }
+.tier3 { filter: drop-shadow(0 0 5px rgba(226, 183, 78, .38)) drop-shadow(0 5px 9px rgba(106, 76, 21, .24)); }
+.tier4 { filter: drop-shadow(0 0 6px rgba(139, 159, 243, .42)) drop-shadow(0 0 10px rgba(126, 104, 239, .24)) drop-shadow(0 5px 10px rgba(52, 43, 105, .24)); }
+.locked .sprite { filter: grayscale(1) brightness(.52); opacity: .66; }
+.mystery { color: rgba(242, 230, 210, .86); border: 1px dashed rgba(242, 230, 210, .48); background: linear-gradient(145deg, #303438, #171a1d); filter: none; font-weight: 750; }
+
+@media (prefers-reduced-motion: no-preference) {
+  .tier4 { animation: diamondGlow 3.2s ease-in-out infinite; }
+}
+@keyframes diamondGlow { 50% { filter: drop-shadow(0 0 8px rgba(164, 178, 255, .56)) drop-shadow(0 0 13px rgba(145, 115, 255, .34)) drop-shadow(0 5px 11px rgba(52, 43, 105, .28)); } }

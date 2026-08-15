@@ -368,3 +368,113 @@ func TestSteamOpenIDProxyURLMigrationTenToEleven(t *testing.T) {
 		t.Fatalf("legacy proxy port=%d err=%v", port, err)
 	}
 }
+
+func TestDashboardAchievementMigrationThirteenToFourteen(t *testing.T) {
+	ctx := context.Background()
+	db, err := sql.Open("sqlite", filepath.Join(t.TempDir(), "dashboard-13.db"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer db.Close()
+	goose.SetBaseFS(dashboarddb.Migrations)
+	if err := goose.SetDialect("sqlite3"); err != nil {
+		t.Fatal(err)
+	}
+	if err := goose.UpToContext(ctx, db, "migrations", 13); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := db.ExecContext(ctx, `SELECT 1 FROM achievement_engine_state`); err == nil {
+		t.Fatal("schema 13 unexpectedly contains Achievement Contract tables")
+	}
+	if err := goose.UpToContext(ctx, db, "migrations", 14); err != nil {
+		t.Fatal(err)
+	}
+	var contractVersion, backfillComplete int64
+	if err := db.QueryRowContext(ctx, `SELECT achievement_contract_version,backfill_complete
+FROM achievement_engine_state WHERE singleton_id=1`).Scan(&contractVersion, &backfillComplete); err != nil {
+		t.Fatal(err)
+	}
+	if contractVersion != AchievementContractVersion || backfillComplete != 0 {
+		t.Fatalf("engine defaults contract=%d backfill=%d", contractVersion, backfillComplete)
+	}
+	if _, err := db.ExecContext(ctx, `INSERT INTO achievement_unlocks
+(steam_id,achievement_key,achievement_contract_version,unlocked_at,grant_kind,value_at_unlock)
+VALUES ('765','career.veteran.1',1,100,'backfill',36000)`); err != nil {
+		t.Fatal(err)
+	}
+	if err := goose.DownToContext(ctx, db, "migrations", 13); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := db.ExecContext(ctx, `SELECT 1 FROM achievement_unlocks`); err == nil {
+		t.Fatal("schema 14 achievement tables survived Down migration")
+	}
+}
+
+func TestPlayerProfileVisibilityMigrationFourteenToFifteen(t *testing.T) {
+	ctx := context.Background()
+	db, err := sql.Open("sqlite", filepath.Join(t.TempDir(), "dashboard-14.db"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer db.Close()
+	goose.SetBaseFS(dashboarddb.Migrations)
+	if err := goose.SetDialect("sqlite3"); err != nil {
+		t.Fatal(err)
+	}
+	if err := goose.UpToContext(ctx, db, "migrations", 14); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := db.ExecContext(ctx, `SELECT 1 FROM player_profile_visibility`); err == nil {
+		t.Fatal("schema 14 unexpectedly contains player profile visibility")
+	}
+	if err := goose.UpToContext(ctx, db, "migrations", 15); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := db.ExecContext(ctx, `INSERT INTO player_profile_visibility (steam_id,visible_sections_json,updated_at) VALUES ('765','[]',1)`); err != nil {
+		t.Fatal(err)
+	}
+	if err := goose.DownToContext(ctx, db, "migrations", 14); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := db.ExecContext(ctx, `SELECT 1 FROM player_profile_visibility`); err == nil {
+		t.Fatal("schema 15 player profile visibility survived Down migration")
+	}
+}
+
+func TestBadgeShowcaseStateMigrationFifteenToSixteen(t *testing.T) {
+	ctx := context.Background()
+	db, err := sql.Open("sqlite", filepath.Join(t.TempDir(), "dashboard-15.db"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer db.Close()
+	goose.SetBaseFS(dashboarddb.Migrations)
+	if err := goose.SetDialect("sqlite3"); err != nil {
+		t.Fatal(err)
+	}
+	if err := goose.UpToContext(ctx, db, "migrations", 15); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := db.ExecContext(ctx, `INSERT INTO achievement_unlocks
+(steam_id,achievement_key,achievement_contract_version,unlocked_at,grant_kind,value_at_unlock)
+VALUES ('765','career.veteran.1',1,100,'backfill',36000)`); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := db.ExecContext(ctx, `INSERT INTO player_badge_showcase
+(steam_id,slot,achievement_key,updated_at) VALUES ('765',1,'career.veteran.1',123)`); err != nil {
+		t.Fatal(err)
+	}
+	if err := goose.UpToContext(ctx, db, "migrations", 16); err != nil {
+		t.Fatal(err)
+	}
+	var configuredAt int64
+	if err := db.QueryRowContext(ctx, `SELECT configured_at FROM player_badge_showcase_state WHERE steam_id='765'`).Scan(&configuredAt); err != nil || configuredAt != 123 {
+		t.Fatalf("configured_at=%d err=%v", configuredAt, err)
+	}
+	if err := goose.DownToContext(ctx, db, "migrations", 15); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := db.ExecContext(ctx, `SELECT 1 FROM player_badge_showcase_state`); err == nil {
+		t.Fatal("schema 16 badge showcase state survived Down migration")
+	}
+}

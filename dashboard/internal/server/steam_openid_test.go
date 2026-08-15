@@ -125,6 +125,25 @@ func TestNormalizeSteamOpenIDProxyURL(t *testing.T) {
 	}
 }
 
+func TestSafeSteamReturnTo(t *testing.T) {
+	valid := map[string]string{
+		"":                         "/player",
+		"/player":                  "/player",
+		"/player?tab=achievements": "/player?tab=achievements",
+	}
+	for input, want := range valid {
+		got, ok := safeSteamReturnTo(input)
+		if !ok || got != want {
+			t.Fatalf("safeSteamReturnTo(%q)=%q,%t want %q,true", input, got, ok, want)
+		}
+	}
+	for _, input := range []string{"https://evil.example/player", "//evil.example/player", "/admin", "/player#fragment", "player"} {
+		if got, ok := safeSteamReturnTo(input); ok {
+			t.Fatalf("unsafe return %q accepted as %q", input, got)
+		}
+	}
+}
+
 func callbackValues(endpoint, claimedID string) url.Values {
 	return url.Values{
 		"openid.ns":          {"http://specs.openid.net/auth/2.0"},
