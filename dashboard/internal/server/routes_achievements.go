@@ -1,6 +1,7 @@
 package server
 
 import (
+	"net/url"
 	"strings"
 
 	"github.com/gofiber/fiber/v3"
@@ -9,7 +10,7 @@ import (
 	"github.com/gofurry/l4d2-plugin-stats/dashboard/internal/store"
 )
 
-func registerAchievementRoutes(api fiber.Router, achievements *service.AchievementService, authService *auth.Service) {
+func registerAchievementRoutes(api fiber.Router, achievements *service.AchievementService, authService *auth.Service, dashboard store.DashboardStore) {
 	if achievements == nil {
 		return
 	}
@@ -42,6 +43,12 @@ func registerAchievementRoutes(api fiber.Router, achievements *service.Achieveme
 		if steamID == "" {
 			return sendError(c, 401, "steam_unauthorized", "Steam login is required")
 		}
+		if err := authService.ValidateSteamBadgeEdit(c.Context(), c.Cookies(steamBadgeEditCookie), steamID); err != nil {
+			return sendError(c, 403, "steam_reauthentication_required", "Recent Steam verification is required")
+		}
+		if !samePublicOrigin(c, dashboard) {
+			return sendError(c, 403, "steam_badge_origin_invalid", "Badge showcase request origin is invalid")
+		}
 		var body struct {
 			Items []store.BadgeShowcaseSlot `json:"items"`
 		}
@@ -60,6 +67,25 @@ func registerAchievementRoutes(api fiber.Router, achievements *service.Achieveme
 		}
 		return sendData(c, 200, result)
 	})
+}
+
+func samePublicOrigin(c fiber.Ctx, dashboard store.DashboardStore) bool {
+	if dashboard == nil {
+		return false
+	}
+	settings, err := dashboard.SiteSettings(c.Context())
+	if err != nil {
+		return false
+	}
+	want, err := url.Parse(strings.TrimSpace(settings.PublicOrigin))
+	if err != nil || want.Scheme == "" || want.Host == "" {
+		return false
+	}
+	got, err := url.Parse(strings.TrimSpace(c.Get("Origin")))
+	if err != nil || got.Scheme == "" || got.Host == "" || got.User != nil || got.RawQuery != "" || got.Fragment != "" {
+		return false
+	}
+	return strings.EqualFold(got.Scheme, want.Scheme) && strings.EqualFold(got.Host, want.Host)
 }
 
 func steamIdentity(c fiber.Ctx, authService *auth.Service) string {
