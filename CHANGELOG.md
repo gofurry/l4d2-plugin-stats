@@ -4,8 +4,19 @@ All notable changes to this project are documented in this file.
 
 ## Unreleased
 
+## 1.3.3 - 2026-08-15
+
+### Added
+
+- Add 12 public tiered Achievement series with 42 underlying tiers for throwables, objective interactions, temporary-health items, upgrade-pack deployment, and eight retention-safe PvE weapon families.
+- Add the `weapon` Achievement category and 12 replaceable 256×256 placeholder artwork sources, expanding the deterministic sprite atlas from 26 to 38 tiles.
+- Add frozen equipment-family mapping, cross-mode behavior aggregation, threshold boundaries, family disjointness, and Atlas coverage tests for the expanded Achievement Contract v1 catalog.
+
 ### Changed
 
+- Upgrade the Collector and Dashboard to `1.3.3` while keeping Stats schema 6, Dashboard schema 16, `stats_version=1`, and all existing contract versions unchanged.
+- Expand Achievement Contract v1 additively from 63 to 105 underlying items; 100 count toward normal completion and the existing 5 Secret items remain excluded.
+- Evaluate weapon mastery from Dashboard lifetime `pve_equipment` aggregates so raw equipment retention cannot reduce progress, while PvE and Versus survivor behavior metrics continue to be resolved in bounded bulk queries.
 - Upgrade Dashboard schema from 15 to 16 so an explicitly empty badge showcase remains distinct from a player who has never configured showcase slots.
 
 ### Fixed

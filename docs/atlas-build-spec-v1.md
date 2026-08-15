@@ -1,10 +1,10 @@
 # Atlas Build Spec v1
 
-状态：v1.3.2 前端资源构建规范。
+状态：v1.3.3 前端资源构建规范。
 
 ## 1. 目标
 
-将 26 张：
+将 38 张：
 
 ```text
 256×256 WebP source artwork
@@ -20,7 +20,7 @@
 编译期坐标表
 ```
 
-线上 Achievement Badge 不产生 26 个独立图片请求。
+线上 Achievement Badge 不产生 38 个独立图片请求。
 
 ## 2. 推荐目录
 
@@ -58,7 +58,7 @@ dashboard/frontend/scripts/
 
 不能依赖文件系统遍历顺序决定 atlas 坐标。
 
-26 个 key 必须与 Achievement Catalog 一致。
+38 个 key 必须与 Achievement Catalog 一致。
 
 ## 4. Source 校验
 
@@ -96,10 +96,10 @@ dashboard/frontend/scripts/
 
 ## 6. Atlas 网格
 
-26 张采用固定规则网格：
+38 张采用固定规则网格：
 
 ```text
-6 columns × 5 rows
+6 columns × 7 rows
 ```
 
 每 tile：
@@ -111,7 +111,7 @@ dashboard/frontend/scripts/
 基础 atlas 内容尺寸：
 
 ```text
-768×640
+768×896
 ```
 
 允许在 tile 间加固定 gutter，例如 2px，以减少浏览器采样串色；若加 gutter，坐标生成必须统一。
@@ -134,7 +134,7 @@ achievement-atlas.generated.ts
 ```ts
 export const achievementAtlas = {
   imageWidth: 768,
-  imageHeight: 640,
+  imageHeight: 896,
   tileWidth: 128,
   tileHeight: 128,
   items: {
@@ -280,8 +280,8 @@ CI 应在 frontend build 前执行 atlas build。
 
 至少：
 
-- manifest 26 key；
-- 26 source 完整；
+- manifest 38 key；
+- 38 source 完整；
 - atlas deterministic；
 - 坐标不重叠；
 - tile 全在 atlas 边界内；
@@ -312,7 +312,7 @@ Codex 负责：
 - 页面接入；
 - CI/build 校验。
 
-Codex 不应自行“随便画 26 张素材”。
+Codex 不应自行“随便画 38 张素材”。
 
 如果 source artwork 尚未提供，可以先：
 

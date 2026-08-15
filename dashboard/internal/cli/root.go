@@ -26,7 +26,7 @@ import (
 	"go.uber.org/zap"
 )
 
-var Version = "1.3.2"
+var Version = "1.3.3"
 
 type rootOptions struct{ configPath string }
 
