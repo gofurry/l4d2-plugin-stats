@@ -394,18 +394,21 @@ type PlayerPreviewVersus struct {
 }
 
 type PlayerPreview struct {
-	SteamID           string              `json:"steam_id"`
-	PlayerName        string              `json:"player_name"`
-	SessionCount      int64               `json:"session_count"`
-	ActivePlaySeconds int64               `json:"active_play_seconds"`
-	LastSeenAt        int64               `json:"last_seen_at"`
-	PVE               PlayerPreviewPVE    `json:"pve"`
-	Versus            PlayerPreviewVersus `json:"versus"`
-	Companions        []PlayerCompanion   `json:"companions"`
-	MainBadge         *PlayerPreviewBadge `json:"main_badge,omitempty"`
+	SteamID           string               `json:"steam_id"`
+	PlayerName        string               `json:"player_name"`
+	SessionCount      int64                `json:"session_count"`
+	ActivePlaySeconds int64                `json:"active_play_seconds"`
+	LastSeenAt        int64                `json:"last_seen_at"`
+	PVE               PlayerPreviewPVE     `json:"pve"`
+	Versus            PlayerPreviewVersus  `json:"versus"`
+	Companions        []PlayerCompanion    `json:"companions"`
+	Badges            []PlayerPreviewBadge `json:"badges"`
+	// MainBadge mirrors the first showcase slot for older API clients.
+	MainBadge *PlayerPreviewBadge `json:"main_badge,omitempty"`
 }
 
 type PlayerPreviewBadge struct {
+	Slot           int64  `json:"slot"`
 	AchievementKey string `json:"achievement_key"`
 	Title          string `json:"title"`
 	ArtworkKey     string `json:"artwork_key"`
@@ -603,21 +606,19 @@ type AnalysisContexts struct {
 }
 
 type PlayerAnalysisTotals struct {
-	ActiveSeconds       int64
-	SpecialKills        int64
-	Rescues             int64
-	Incaps              int64
-	Deaths              int64
-	FriendlyFire        int64
-	TankEncounters      int64
-	TankParticipations  int64
-	WitchEncounters     int64
-	WitchParticipations int64
-	Damage              int64
-	Spawns              int64
-	Controls            int64
-	Kills               int64
-	ControlSeconds      int64
+	ActiveSeconds  int64
+	SpecialKills   int64
+	Rescues        int64
+	Incaps         int64
+	Deaths         int64
+	FriendlyFire   int64
+	TankKills      int64
+	WitchKills     int64
+	Damage         int64
+	Spawns         int64
+	Controls       int64
+	Kills          int64
+	ControlSeconds int64
 }
 
 type PlayerIncidentClass struct {

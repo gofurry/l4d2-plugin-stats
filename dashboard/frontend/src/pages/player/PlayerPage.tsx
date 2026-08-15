@@ -53,6 +53,9 @@ export function PlayerPage() {
   const [range, setRange] = useState('all')
   const [server, setServer] = useState('')
   const [gameMode, setGameMode] = useState('')
+  const [statsFilterOpen, setStatsFilterOpen] = useState(false)
+  const [draftServer, setDraftServer] = useState('')
+  const [draftGameMode, setDraftGameMode] = useState('')
   const [queryOpen, setQueryOpen] = useState(false)
   const [previewOpen, setPreviewOpen] = useState(false)
   const [activeTab, setActiveTab] = useState(() => new URLSearchParams(window.location.search).get('tab') ?? 'overview')
@@ -68,6 +71,7 @@ export function PlayerPage() {
   const availableTabKeys = profile.data ? (self ? [...playerProfileSections, 'settings'] : profile.data.visible_sections) : []
   const currentTab = availableTabKeys.includes(activeTab as PlayerProfileSection | 'settings') ? activeTab : availableTabKeys[0] ?? 'overview'
   const summary = useQuery({ queryKey: ['player-summary', steamID], queryFn: () => api.playerSummary(steamID), enabled: enabled && !!profile.data && canView('overview') })
+  const activityServers = useQuery({ queryKey: ['player-activity', steamID, 'all', ''], queryFn: () => api.playerActivity(steamID, 'all'), enabled: enabled && !!profile.data && canView('overview') })
   const activity = useQuery({ queryKey: ['player-activity', steamID, range, server], queryFn: () => api.playerActivity(steamID, range, server), enabled: enabled && !!profile.data && canView('overview') })
   const pve = useQuery({ queryKey: ['player-pve', steamID, range, server, gameMode], queryFn: () => api.playerPVE(steamID, range, server, gameMode), enabled: enabled && !!profile.data && canView('pve') && currentTab === 'pve' })
   const pveDetails = useQuery({ queryKey: ['player-pve-details', steamID, range, server, gameMode], queryFn: () => api.playerPVEDetails(steamID, range, server, gameMode), enabled: enabled && !!profile.data && canView('pve-details') && currentTab === 'pve-details' })
@@ -109,8 +113,19 @@ export function PlayerPage() {
     data.unseen_live?.forEach(item => void message.success(`🏆 ${zh ? '解锁新成就' : 'Achievement unlocked'}：${item.title}`))
     if (data.unseen_backfill_count) void message.success(`🏆 ${zh ? `已确认 ${data.unseen_backfill_count} 项历史成就` : `${data.unseen_backfill_count} historical achievements confirmed`}`)
   }, [achievements.data, authenticatedSteamID, steamID, zh])
+  const openStatsFilter = () => {
+    setDraftServer(server)
+    setDraftGameMode(gameMode)
+    setStatsFilterOpen(true)
+  }
+  const applyStatsFilter = () => {
+    setServer(draftServer)
+    setGameMode(draftGameMode)
+    setStatsFilterOpen(false)
+  }
   const toolbarItems = [
     { key: 'query', label: t('query'), icon: <SearchOutlined />, onClick: () => { setInput(steamID); setQueryOpen(true) } },
+    ...(enabled ? [{ key: 'stats-filter', label: zh ? '筛选统计范围' : 'Filter statistics', icon: <FilterOutlined />, active: server !== '' || gameMode !== '', onClick: openStatsFilter }] : []),
     ...(currentTab === 'relationships' && enabled ? [{ key: 'relationship-filter', label: zh ? '筛选玩家关系' : 'Filter player relationships', icon: <FilterOutlined />, active: relationshipMode !== 'all', onClick: () => setRelationshipFilterOpen(true) }] : []),
     ...(validSteamID(savedSteamID) ? [{ key: 'preview', label: t('previewPlayerCard'), icon: <IdcardOutlined />, onClick: () => setPreviewOpen(true) }] : []),
     ...(site.data?.steam_openid_enabled ? [{ key: 'steam', label: t('steamLogin'), icon: <LoginOutlined />, onClick: () => { window.location.href = '/api/v1/steam/login' } }] : []),
@@ -146,13 +161,18 @@ export function PlayerPage() {
     {profile.isLoading && <div className={styles.loading}><Spin /></div>}
     {profile.data && <>
       <section className={styles.identityPanel}>
-        <div className={styles.identity}><div className={styles.identityPrimary}><div className={styles.identityNameLine}><Typography.Title level={2}>{profile.data.player_name || profile.data.steam_id}</Typography.Title>{achievements.data?.overview.badges.map(item => <AchievementBadge key={item.achievement_key} artworkKey={isAchievementArtworkKey(item.artwork_key) ? item.artwork_key : undefined} tier={item.tier} size={32} label={item.title} />)}</div><div className={styles.identityMeta}><Tag>{profile.data.steam_id}</Tag>{achievements.data && <button type="button" onClick={() => selectTab('achievements')}>{zh ? '成就' : 'Achievements'} {achievements.data.overview.unlocked}/{achievements.data.overview.total} · {zh ? '彩蛋' : 'Easter eggs'} {achievements.data.overview.easter_eggs}</button>}</div></div>{tabItems.length > 0 && <div className={styles.identityFilters}><Segmented value={range} onChange={value => setRange(String(value))} options={[['all', t('allTime')], ['30d', t('days30')], ['90d', t('days90')], ['365d', t('days365')]].map(([value, label]) => ({ value, label }))} /><Select value={server} onChange={setServer} options={[{ value: '', label: zh ? '全部服务器' : 'All servers' }, ...(activity.data?.servers ?? []).map(item => ({ value: item.server_key, label: item.server_key }))]} /><Select value={gameMode} onChange={setGameMode} options={[{ value: '', label: zh ? '合作 + 写实' : 'Co-op + Realism' }, { value: 'coop', label: zh ? '合作' : 'Co-op' }, { value: 'realism', label: zh ? '写实' : 'Realism' }]} /></div>}</div>
+        <div className={styles.identity}><div className={styles.identityPrimary}><div className={styles.identityNameLine}><Typography.Title level={2}>{profile.data.player_name || profile.data.steam_id}</Typography.Title>{achievements.data?.overview.badges.map(item => <AchievementBadge key={item.achievement_key} artworkKey={isAchievementArtworkKey(item.artwork_key) ? item.artwork_key : undefined} tier={item.tier} size={32} label={item.title} />)}</div><div className={styles.identityMeta}><Tag>{profile.data.steam_id}</Tag>{achievements.data && <button type="button" onClick={() => selectTab('achievements')}>{zh ? '成就' : 'Achievements'} {achievements.data.overview.unlocked}/{achievements.data.overview.total} · {zh ? '彩蛋' : 'Easter eggs'} {achievements.data.overview.easter_eggs}</button>}</div></div>{tabItems.length > 0 && <div className={styles.identityRange}><Segmented value={range} onChange={value => setRange(String(value))} options={[['all', t('allTime')], ['30d', t('days30')], ['90d', t('days90')], ['365d', t('days365')]].map(([value, label]) => ({ value, label }))} /></div>}</div>
         {summary.data && <MetricList items={[[copy.sessions, summary.data.session_count], [copy.connected, hours(summary.data.connected_seconds)], [copy.activeTime, hours(summary.data.active_play_seconds)], [copy.activeRatio, activeRatio], [copy.firstSeen, date(summary.data.first_seen_at)], [t('lastSeen'), date(summary.data.last_seen_at)]]} />}
       </section>
       {!self && tabItems.length === 0 && <Alert className={styles.privateProfile} type="info" showIcon title={zh ? '该玩家未公开个人中心内容' : 'This player has not shared any profile sections'} />}
       {tabItems.length > 0 && <Tabs className={styles.tabs} activeKey={currentTab} onChange={selectTab} items={tabItems} />}
     </>}
-  </Layout.Content><PlayerPreviewModal open={previewOpen} steamID={savedSteamID} playerName={savedSteamID === steamID ? profile.data?.player_name : undefined} onClose={() => setPreviewOpen(false)} /><Modal title={zh ? '筛选玩家关系' : 'Filter player relationships'} open={relationshipFilterOpen} onCancel={() => setRelationshipFilterOpen(false)} onOk={() => setRelationshipFilterOpen(false)} okText={zh ? '完成' : 'Done'} cancelButtonProps={{ style: { display: 'none' } }}>
+  </Layout.Content><PlayerPreviewModal open={previewOpen} steamID={savedSteamID} playerName={savedSteamID === steamID ? profile.data?.player_name : undefined} onClose={() => setPreviewOpen(false)} /><Modal title={zh ? '筛选统计范围' : 'Filter statistics'} open={statsFilterOpen} onCancel={() => setStatsFilterOpen(false)} onOk={applyStatsFilter} okText={zh ? '应用' : 'Apply'} cancelText={zh ? '取消' : 'Cancel'} destroyOnHidden>
+    <div className={styles.statsFilterFields}>
+      <label><span>{zh ? '服务器' : 'Server'}</span><Select value={draftServer} onChange={setDraftServer} options={[{ value: '', label: zh ? '全部服务器' : 'All servers' }, ...(activityServers.data?.servers ?? []).map(item => ({ value: item.server_key, label: item.server_key }))]} /></label>
+      <label><span>{zh ? 'PvE 模式' : 'PvE mode'}</span><Select value={draftGameMode} onChange={setDraftGameMode} options={[{ value: '', label: zh ? '合作 + 写实' : 'Co-op + Realism' }, { value: 'coop', label: zh ? '合作' : 'Co-op' }, { value: 'realism', label: zh ? '写实' : 'Realism' }]} /></label>
+    </div>
+  </Modal><Modal title={zh ? '筛选玩家关系' : 'Filter player relationships'} open={relationshipFilterOpen} onCancel={() => setRelationshipFilterOpen(false)} onOk={() => setRelationshipFilterOpen(false)} okText={zh ? '完成' : 'Done'} cancelButtonProps={{ style: { display: 'none' } }}>
     <Segmented block value={relationshipMode} onChange={value => setRelationshipMode(String(value))} options={[{ value: 'all', label: zh ? 'PvE + 对抗' : 'PvE + Versus' }, { value: 'pve', label: 'PvE' }, { value: 'versus', label: zh ? '对抗' : 'Versus' }]} />
   </Modal><Modal title={zh ? '查询玩家' : 'Query player'} open={queryOpen} onCancel={() => setQueryOpen(false)} onOk={search} okButtonProps={{ disabled: !validSteamID(input.trim()) }} okText={t('query')}>
     <Input autoFocus value={input} maxLength={17} placeholder="SteamID64" onChange={event => setInput(event.target.value)} onPressEnter={search} />

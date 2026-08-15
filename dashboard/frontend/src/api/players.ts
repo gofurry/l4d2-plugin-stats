@@ -9,6 +9,8 @@ export interface PlayerPreview {
   pve: { available: boolean; common_kills: number; special_kills: number; boss_kills: number; headshot_kills: number; rescues: number; campaign_completions: number }
   versus: { available: boolean; human_si_kills: number; infected_damage: number; survivor_controls: number; survivor_incapacitations: number }
   companions: { player_name: string; shared_seconds: number; shared_rounds: number }[]
+  badges: AchievementBadge[]
+  /** Compatibility alias for the first showcase slot. */
   main_badge?: AchievementBadge
 }
 export interface AchievementBadge { slot?: number; achievement_key: string; title: string; artwork_key: string; tier?: number }

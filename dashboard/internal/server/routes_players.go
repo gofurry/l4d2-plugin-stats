@@ -25,15 +25,15 @@ func registerPlayerRoutes(api fiber.Router, players *service.PlayerService, anal
 		if result == nil {
 			return sendError(c, 404, "player_not_found", "player was not found")
 		}
+		result = clonePlayerPreview(result)
 		showAchievements, visibilityErr := playerSectionAllowed(c, profiles, authService, steamID, store.PlayerProfileAchievements)
 		if visibilityErr != nil {
 			return sendError(c, 503, "profile_visibility_unavailable", "player profile visibility is temporarily unavailable")
 		}
 		if achievements != nil && showAchievements {
 			badges, badgeErr := achievements.Badges(c.Context(), steamID)
-			if badgeErr == nil && len(badges.Items) > 0 {
-				badge := badges.Items[0]
-				result.MainBadge = &store.PlayerPreviewBadge{AchievementKey: badge.AchievementKey, Title: badge.Title, ArtworkKey: badge.ArtworkKey, Tier: badge.Tier}
+			if badgeErr == nil {
+				attachPlayerPreviewBadges(result, badges.Items)
 			}
 		}
 		return sendData(c, 200, result)
@@ -302,6 +302,27 @@ func registerPlayerRoutes(api fiber.Router, players *service.PlayerService, anal
 		}
 		return sendData(c, 200, page)
 	})
+}
+
+func clonePlayerPreview(source *store.PlayerPreview) *store.PlayerPreview {
+	result := *source
+	result.Companions = append([]store.PlayerCompanion(nil), source.Companions...)
+	result.Badges = make([]store.PlayerPreviewBadge, 0)
+	result.MainBadge = nil
+	return &result
+}
+
+func attachPlayerPreviewBadges(result *store.PlayerPreview, badges []service.AchievementBadge) {
+	result.Badges = make([]store.PlayerPreviewBadge, 0, len(badges))
+	for _, badge := range badges {
+		result.Badges = append(result.Badges, store.PlayerPreviewBadge{
+			Slot: badge.Slot, AchievementKey: badge.AchievementKey, Title: badge.Title,
+			ArtworkKey: badge.ArtworkKey, Tier: badge.Tier,
+		})
+	}
+	if len(result.Badges) > 0 {
+		result.MainBadge = &result.Badges[0]
+	}
 }
 
 func playerObject(value any) (fiber.Map, error) {

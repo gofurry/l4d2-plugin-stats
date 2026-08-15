@@ -418,7 +418,7 @@ func (s *statsStore) PlayerAnalysisTotals(ctx context.Context, steamID string, f
 	var statement string
 	switch view {
 	case "pve":
-		statement = `SELECT COALESCE(SUM(ps.active_play_seconds),0),COALESCE(SUM(st.special_kills),0),COALESCE(SUM(st.incap_revives+st.ledge_rescues+st.defib_revives),0),COALESCE(SUM(st.incapacitations),0),COALESCE(SUM(st.deaths),0),COALESCE(SUM(st.friendly_fire_to_humans+st.friendly_fire_to_bots),0),COALESCE(SUM(st.tank_encounters),0),COALESCE(SUM(st.tank_kill_participations),0),COALESCE(SUM(st.witch_encounters),0),COALESCE(SUM(st.witch_kill_participations),0) FROM lps_player_segments ps JOIN lps_runs r ON r.run_id=ps.run_id JOIN lps_pve_segment_stats st ON st.segment_id=ps.segment_id AND st.stats_version=1` + where + ` AND r.mode_family='pve' AND ps.side='survivor'`
+		statement = `SELECT COALESCE(SUM(ps.active_play_seconds),0),COALESCE(SUM(st.special_kills),0),COALESCE(SUM(st.incap_revives+st.ledge_rescues+st.defib_revives),0),COALESCE(SUM(st.incapacitations),0),COALESCE(SUM(st.deaths),0),COALESCE(SUM(st.friendly_fire_to_humans+st.friendly_fire_to_bots),0),COALESCE(SUM(st.tank_kills),0),COALESCE(SUM(st.witch_kills),0) FROM lps_player_segments ps JOIN lps_runs r ON r.run_id=ps.run_id JOIN lps_pve_segment_stats st ON st.segment_id=ps.segment_id AND st.stats_version=1` + where + ` AND r.mode_family='pve' AND ps.side='survivor'`
 	case "versus_survivor":
 		statement = `SELECT COALESCE(SUM(ps.active_play_seconds),0),COALESCE(SUM(st.human_special_kills+st.human_tank_kills),0),COALESCE(SUM(st.incap_revives+st.ledge_rescues+st.defib_revives),0),COALESCE(SUM(st.incapacitations),0),COALESCE(SUM(st.damage_to_human_special+st.damage_to_bot_special+st.damage_to_human_tank+st.damage_to_bot_tank),0) FROM lps_player_segments ps JOIN lps_versus_survivor_stats st ON st.segment_id=ps.segment_id AND st.stats_version=1` + where + ` AND ps.side='survivor'`
 	case "versus_infected":
@@ -430,7 +430,7 @@ func (s *statsStore) PlayerAnalysisTotals(ctx context.Context, steamID string, f
 	var err error
 	switch view {
 	case "pve":
-		err = s.db.QueryRowContext(queryCtx, statement, args...).Scan(&result.ActiveSeconds, &result.SpecialKills, &result.Rescues, &result.Incaps, &result.Deaths, &result.FriendlyFire, &result.TankEncounters, &result.TankParticipations, &result.WitchEncounters, &result.WitchParticipations)
+		err = s.db.QueryRowContext(queryCtx, statement, args...).Scan(&result.ActiveSeconds, &result.SpecialKills, &result.Rescues, &result.Incaps, &result.Deaths, &result.FriendlyFire, &result.TankKills, &result.WitchKills)
 	case "versus_survivor":
 		err = s.db.QueryRowContext(queryCtx, statement, args...).Scan(&result.ActiveSeconds, &result.SpecialKills, &result.Rescues, &result.Incaps, &result.Damage)
 	case "versus_infected":

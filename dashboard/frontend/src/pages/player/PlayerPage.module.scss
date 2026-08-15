@@ -14,8 +14,10 @@
 .identityMeta button { padding: 0; color: var(--accent-strong); border: 0; background: transparent; font: inherit; font-size: 12px; cursor: pointer; }
 .identityMeta button:hover { text-decoration: underline; }
 .identity > div:first-child :global(.ant-tag) { display: inline-flex; min-height: 24px; margin: 0; align-items: center; color: #624a3d; border-color: rgba(105, 74, 58, .22); background: rgba(255, 250, 242, .56); }
-.identityFilters { display: flex; align-items: center; justify-content: flex-end; gap: 8px; flex-wrap: wrap; }
-.identityFilters :global(.ant-select) { min-width: 132px; }
+.identityRange { flex: none; display: flex; align-items: center; justify-content: flex-end; }
+.statsFilterFields { display: grid; gap: 18px; padding: 8px 0; }
+.statsFilterFields label { display: grid; gap: 7px; color: var(--text-secondary); font-size: 13px; }
+.statsFilterFields :global(.ant-select) { width: 100%; }
 .identity :global(h2.ant-typography) { min-width: 0; margin: 0; overflow: hidden; color: #503b31; text-overflow: ellipsis; white-space: nowrap; }
 .metricList { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); margin: 18px 0 0; }
 .metricList > div { min-width: 0; padding: 15px 18px 17px 0; }
@@ -148,7 +150,7 @@
   .queryPanel, .identityPanel, .dataSection { padding: 20px 16px; border-radius: 18px; }
   .queryPanel { gap: 20px; }
   .identity { flex-direction: column; }
-  .identityFilters { width: 100%; justify-content: flex-start; }
+  .identityRange { width: 100%; justify-content: flex-start; }
   .metricList { grid-template-columns: repeat(2, minmax(0, 1fr)); }
   .chartGrid, .sectionGrid, .historyGrid { grid-template-columns: 1fr; }
   .analysisStack { grid-template-columns: 1fr; }

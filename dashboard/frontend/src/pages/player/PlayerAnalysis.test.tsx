@@ -1,7 +1,9 @@
-import { render, screen } from '@testing-library/react'
-import { describe, expect, it } from 'vitest'
+import { cleanup, render, screen } from '@testing-library/react'
+import { afterEach, describe, expect, it } from 'vitest'
 import type { PlayerAnalysis as PlayerAnalysisData } from '../../api'
 import { PlayerAnalysis } from './PlayerAnalysis'
+
+afterEach(cleanup)
 
 const data: PlayerAnalysisData = {
   view: 'versus_infected',
@@ -26,6 +28,14 @@ const data: PlayerAnalysisData = {
 }
 
 describe('PlayerAnalysis', () => {
+  it('shows actual Tank and Witch kills per active hour for PvE', () => {
+    render(<PlayerAnalysis data={{ ...data, view: 'pve', metrics: { tank_kills_per_hour: 1.5, witch_kills_per_hour: 0.5 } }} loading={false} view="pve" onView={() => undefined} zh />)
+    expect(screen.getByText('Tank 击杀 / 小时')).toBeInTheDocument()
+    expect(screen.getByText('Witch 击杀 / 小时')).toBeInTheDocument()
+    expect(screen.queryByText('Tank 参与率')).not.toBeInTheDocument()
+    expect(screen.queryByText('Witch 参与率')).not.toBeInTheDocument()
+  })
+
   it('explains incident coverage and control perspectives in Chinese', () => {
     render(<PlayerAnalysis data={data} loading={false} view="versus_infected" onView={() => undefined} zh />)
     expect(screen.getByText('最近战局统计')).toBeInTheDocument()

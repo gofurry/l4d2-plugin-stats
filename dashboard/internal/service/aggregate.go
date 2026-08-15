@@ -436,6 +436,7 @@ var rankingDefinitions = func() map[string]rankingDefinition {
 		"activity:active_time":                    definition([]string{"activity"}, 0, false, all, "active_play_seconds"),
 		"activity:sessions":                       definition([]string{"activity"}, 0, false, all, "session_count"),
 		"pve:common_kills":                        definition([]string{"mode_activity", "pve_combat"}, 0, false, pve, "common_kills"),
+		"pve:headshot_kills":                      definition([]string{"mode_activity", "pve_equipment"}, 0, false, pve, "headshot_kills"),
 		"pve:special_kills":                       definition([]string{"mode_activity", "pve_combat"}, 0, false, pve, "special_kills"),
 		"pve:boss_kills":                          definition([]string{"mode_activity", "pve_combat"}, 0, false, pve, "tank_kills", "witch_kills"),
 		"pve:special_damage":                      definition([]string{"mode_activity", "pve_combat"}, 0, false, pve, "damage_to_special", "damage_to_tank", "damage_to_witch"),

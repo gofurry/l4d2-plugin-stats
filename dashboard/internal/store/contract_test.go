@@ -83,6 +83,10 @@ func TestDatabaseContract(t *testing.T) {
 	contractEqual(t, "PVE car alarm ranking", pveRanking, []RankingEntry{{Rank: 1, SteamID: "1", PlayerName: "Alice", Value: 3, ActiveSeconds: 90}}, err)
 	versusRanking, err := incidentRankings.CarAlarmRanking(ctx, RankingQuery{Mode: "versus_survivor"})
 	contractEqual(t, "Versus car alarm ranking", versusRanking, []RankingEntry{{Rank: 1, SteamID: "1", PlayerName: "Alice", Value: 2, ActiveSeconds: 70}}, err)
+	analysisTotals, err := stats.(StatsAnalysisStore).PlayerAnalysisTotals(ctx, "1", PlayerFilter{}, "pve")
+	contractEqual(t, "PVE player analysis totals", analysisTotals, PlayerAnalysisTotals{
+		ActiveSeconds: 90, SpecialKills: 12, Rescues: 9, Incaps: 3, Deaths: 1, FriendlyFire: 15, TankKills: 2, WitchKills: 1,
+	}, err)
 
 	ended := contractBaseTime + 300
 	sessions, err := stats.PlayerSessions(ctx, "1", 0, "", 20)
@@ -122,6 +126,7 @@ func TestDatabaseContract(t *testing.T) {
 	contractEqual(t, "AggregateChanges kinds", actualKinds, expectedKinds, nil)
 	assertContractAggregateMetric(t, changes.Rows, "pve_combat", "", "common_kills", 100)
 	assertContractAggregateMetric(t, changes.Rows, "pve_equipment", "7", "actions", 15)
+	assertContractAggregateMetric(t, changes.Rows, "pve_equipment", "7", "headshot_kills", 8)
 	assertContractAggregateMetric(t, changes.Rows, "versus_infected_class", "3", "human_survivor_controls", 11)
 	quality, err := stats.DeepDataQuality(ctx, contractBaseTime-15*60)
 	if err != nil {

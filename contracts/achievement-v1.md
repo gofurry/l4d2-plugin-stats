@@ -106,11 +106,15 @@ Secret 不计正常完成度，也不泄露总数量。
 
 最多 3 个展示位：
 
-- slot 1 为主 Badge；
+- slot 1 为主 Badge，并作为仅支持单徽章的旧客户端兼容值；
 - 仅本人 Steam 登录后可修改；
 - 只能选择已解锁 Achievement；
 - 未手动设置时，fallback 最近解锁的 3 个 `counts_toward_completion=true`；
 - Secret 不自动 fallback，但已解锁后可手动装备。
+- 玩家卡片按 slot 升序展示全部已配置或 fallback 的 Badge，最多 3 个；不得只展示 slot 1；
+- 成就 Tab 不公开时，公开玩家卡片不得返回或展示 Badge。
+
+玩家卡片 API 使用 `badges` 返回全部展示位；兼容字段 `main_badge` 在存在展示项时镜像 `badges[0]`。
 
 ## 9. Evaluation
 

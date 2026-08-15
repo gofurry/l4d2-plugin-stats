@@ -57,7 +57,8 @@
 .previewHeader > div { min-width: 0; }
 .previewHeader strong, .previewHeader code { display: block; }
 .previewIdentity > span { min-width: 0; display: flex; align-items: center; gap: 8px; }
-.previewIdentity > span strong { min-width: 0; line-height: 1.2; }
+.previewIdentity > span strong { min-width: 0; flex: 1 1 auto; line-height: 1.2; }
+.previewBadges { flex: none; display: flex; align-items: center; gap: 4px; }
 .previewHeader strong { overflow: hidden; color: #4f382d; font-size: 23px; text-overflow: ellipsis; white-space: nowrap; }
 .previewHeader code { margin-top: 4px; color: #846d61; font-size: 11px; }
 .previewHeader > span { max-width: 44%; display: flex; align-items: center; gap: 7px; overflow: hidden; color: #705b50; font-size: 12px; text-overflow: ellipsis; white-space: nowrap; }
