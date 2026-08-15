@@ -18,12 +18,15 @@ All notable changes to this project are documented in this file.
 
 - Upgrade the Collector and Dashboard to `1.3.2`, Stats schema from 5 to 6, and Dashboard schema from 13 to 14; gameplay `stats_version=1`, Aggregate Contract v1, Incident Contract v1, Assist Contract v1, and Player Relationship Contract v1 remain unchanged.
 - Extend the Steam identity session used by self-service badge settings while keeping badge selection restricted to the authenticated player's own unlocked achievements.
+- Require a fresh Steam OpenID verification before badge showcase edits, grant only a 10-minute server-signed edit capability, and reject badge writes whose browser origin does not match the configured public origin.
 - Build the achievement atlas before every frontend production build and embed the refreshed frontend in the Dashboard binary.
+- Merge achievement category filters into the progress card, keep easter-egg discovery visible in the compact summary, render progress as full numeric values, and add named tooltips with better alignment for profile and preview badges.
 
 ### Fixed
 
 - Preserve historical `NULL` for fall deaths so pre-v1.3.2 rows are never interpreted as zero, while new snapshots always persist zero or a positive count bounded by total deaths.
 - Keep locked mystery achievements anonymous without leaking artwork, thresholds, progress, immutable keys, or accidental grouping, and omit locked secrets entirely.
+- Keep local player-query preferences separate from Steam authorization so changing browser storage cannot grant badge editing access.
 
 ## 1.3.1 - 2026-08-14
 
