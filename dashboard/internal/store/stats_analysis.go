@@ -221,7 +221,10 @@ func (s *statsStore) AnalysisMapDetail(ctx context.Context, filter AnalysisFilte
 	if err != nil {
 		return AnalysisMapDetail{}, err
 	}
-	result := AnalysisMapDetail{Timeline: make([]AnalysisTimelinePoint, 0)}
+	result := AnalysisMapDetail{
+		Timeline:        make([]AnalysisTimelinePoint, 0),
+		RecentIncidents: make([]AnalysisIncident, 0),
+	}
 	found := false
 	for _, item := range maps.Maps {
 		if item.MapName == mapName {

@@ -9,7 +9,7 @@ import (
 var ErrServerNotFound = errors.New("game server not found")
 
 const (
-	DashboardSchemaVersion int64 = 15
+	DashboardSchemaVersion int64 = 16
 	StatsSchemaVersion     int64 = 6
 )
 

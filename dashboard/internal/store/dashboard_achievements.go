@@ -183,6 +183,18 @@ FROM player_badge_showcase WHERE steam_id=? ORDER BY slot`, steamID)
 	return result, rows.Err()
 }
 
+func (s *dashboardStore) BadgeShowcaseConfigured(ctx context.Context, steamID string) (bool, error) {
+	var configured int
+	err := s.db.QueryRowContext(ctx, `SELECT 1 FROM player_badge_showcase_state WHERE steam_id=?`, steamID).Scan(&configured)
+	if err == sql.ErrNoRows {
+		return false, nil
+	}
+	if err != nil {
+		return false, fmt.Errorf("read badge showcase state: %w", err)
+	}
+	return true, nil
+}
+
 func (s *dashboardStore) ReplaceBadgeShowcase(ctx context.Context, steamID string, slots []BadgeShowcaseSlot, updatedAt int64) error {
 	tx, err := s.db.BeginTx(ctx, nil)
 	if err != nil {
@@ -206,6 +218,10 @@ WHERE steam_id=? AND achievement_key=?`, steamID, slot.AchievementKey).Scan(&exi
 		}
 	}
 	if _, err := tx.ExecContext(ctx, `DELETE FROM player_badge_showcase WHERE steam_id=?`, steamID); err != nil {
+		return err
+	}
+	if _, err := tx.ExecContext(ctx, `INSERT INTO player_badge_showcase_state (steam_id,configured_at)
+VALUES (?,?) ON CONFLICT(steam_id) DO UPDATE SET configured_at=excluded.configured_at`, steamID, updatedAt); err != nil {
 		return err
 	}
 	for _, slot := range slots {

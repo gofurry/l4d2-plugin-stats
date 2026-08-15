@@ -403,8 +403,12 @@ func (s *AchievementService) resolveBadges(ctx context.Context, steamID string, 
 	if err != nil {
 		return nil, err
 	}
+	configured, err := s.dashboard.BadgeShowcaseConfigured(ctx, steamID)
+	if err != nil {
+		return nil, err
+	}
 	keys := make([]store.BadgeShowcaseSlot, 0, 3)
-	if len(explicit) > 0 {
+	if configured {
 		keys = explicit
 	} else {
 		for _, unlock := range unlocks {

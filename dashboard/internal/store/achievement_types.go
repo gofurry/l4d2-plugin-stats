@@ -75,6 +75,7 @@ type DashboardAchievementStore interface {
 	AchievementUnlockRates(context.Context) ([]AchievementUnlockRate, error)
 	AchievementEvaluatedPlayerCount(context.Context) (int64, error)
 	BadgeShowcase(context.Context, string) ([]BadgeShowcaseSlot, error)
+	BadgeShowcaseConfigured(context.Context, string) (bool, error)
 	ReplaceBadgeShowcase(context.Context, string, []BadgeShowcaseSlot, int64) error
 }
 

@@ -134,6 +134,10 @@ func TestAchievementVisibilityCompletionAndShowcase(t *testing.T) {
 	if err != nil || len(badges.Items) != 1 || badges.Items[0].AchievementKey != "secret.crashed" {
 		t.Fatalf("manual secret showcase=%#v err=%v", badges, err)
 	}
+	badges, err = service.SetBadges(ctx, steamID, nil)
+	if err != nil || len(badges.Items) != 0 {
+		t.Fatalf("empty manual showcase=%#v err=%v", badges, err)
+	}
 }
 
 func TestAchievementBackfillResumeRestartAndSourceWatermark(t *testing.T) {

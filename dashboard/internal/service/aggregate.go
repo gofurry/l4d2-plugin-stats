@@ -339,7 +339,8 @@ func (s *RankingService) finishRanking(ctx context.Context, query store.RankingQ
 	total := len(visibleEntries)
 	start := min(query.Offset, total)
 	end := min(start+query.Limit, total)
-	pageEntries := append([]store.RankingEntry(nil), visibleEntries[start:end]...)
+	pageEntries := make([]store.RankingEntry, end-start)
+	copy(pageEntries, visibleEntries[start:end])
 	for i := range pageEntries {
 		player, err := s.stats.PlayerSummary(ctx, pageEntries[i].SteamID)
 		if err == nil && player != nil {

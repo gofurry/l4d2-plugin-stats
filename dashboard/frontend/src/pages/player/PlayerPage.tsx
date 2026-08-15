@@ -1,8 +1,9 @@
 import { DeleteOutlined, FilterOutlined, IdcardOutlined, LoginOutlined, SearchOutlined } from '@ant-design/icons'
 import { useInfiniteQuery, useQuery, useQueryClient } from '@tanstack/react-query'
 import { Alert, Empty, Input, Layout, Modal, Segmented, Select, Spin, Tabs, Tag, Typography, message } from 'antd'
-import { useEffect, useRef, useState } from 'react'
+import { type ReactNode, useEffect, useRef, useState } from 'react'
 import { useTranslation } from 'react-i18next'
+import { useLocation, useNavigate } from 'react-router-dom'
 import { api, APIError, type PlayerProfileSection } from '../../api'
 import { isAchievementArtworkKey } from '../../assets/achievements/achievementArtwork'
 import { FloatingNav } from '../../components/FloatingNav'
@@ -15,15 +16,17 @@ import { PlayerHistory } from './PlayerHistory'
 import { PlayerAnalysis } from './PlayerAnalysis'
 import { PlayerPVE } from './PlayerPVE'
 import { PlayerRelationships } from './PlayerRelationships'
-import { MetricList } from './PlayerShared'
+import { MetricList, PlayerTabPanel } from './PlayerShared'
 import { PlayerVersus } from './PlayerVersus'
 import { PlayerVisibilitySettings } from './PlayerVisibilitySettings'
 import { playerProfileSections } from './playerVisibility'
-import { date, hours, playerStorageKey, sharedSteamID, validSteamID } from './playerFormat'
+import { date, hours, playerStorageKey, preferredPlayerSteamID, validSteamID } from './playerFormat'
 import styles from './PlayerPage.module.scss'
 
 export function PlayerPage() {
   const queryClient = useQueryClient()
+  const location = useLocation()
+  const navigate = useNavigate()
   const { t, i18n } = useTranslation()
   const zh = i18n.language !== 'en'
   const copy = zh ? {
@@ -39,12 +42,14 @@ export function PlayerPage() {
   }
 
   const site = useQuery({ queryKey: ['site'], queryFn: api.site, staleTime: 300_000 })
-  const [steamID, setSteamID] = useState(() => {
-    const shared = sharedSteamID()
-    return validSteamID(shared) ? shared : localStorage.getItem(playerStorageKey) ?? ''
-  })
+  const routeSteamID = new URLSearchParams(location.search).get('steam_id') ?? ''
   const [savedSteamID, setSavedSteamID] = useState(() => localStorage.getItem(playerStorageKey) ?? '')
-  const [input, setInput] = useState(steamID)
+  const [selectedSteamID, setSelectedSteamID] = useState(savedSteamID)
+  const [manualSelection, setManualSelection] = useState(false)
+  const [authenticatedSteamID, setAuthenticatedSteamID] = useState('')
+  const [badgeEditAuthorized, setBadgeEditAuthorized] = useState(false)
+  const steamID = validSteamID(routeSteamID) ? routeSteamID : manualSelection ? selectedSteamID : preferredPlayerSteamID('', authenticatedSteamID, savedSteamID)
+  const [input, setInput] = useState(() => preferredPlayerSteamID(routeSteamID, '', savedSteamID))
   const [range, setRange] = useState('all')
   const [server, setServer] = useState('')
   const [gameMode, setGameMode] = useState('')
@@ -54,10 +59,8 @@ export function PlayerPage() {
   const [relationshipMode, setRelationshipMode] = useState('all')
   const [relationshipFilterOpen, setRelationshipFilterOpen] = useState(false)
   const [analysisView, setAnalysisView] = useState('pve')
-  const [authenticatedSteamID, setAuthenticatedSteamID] = useState('')
-  const [badgeEditAuthorized, setBadgeEditAuthorized] = useState(false)
   const achievementToastKey = useRef('')
-  useEffect(() => { void api.steamIdentity().then(identity => { if (identity?.steam_id) { setAuthenticatedSteamID(identity.steam_id); setBadgeEditAuthorized(identity.badge_edit_authorized); localStorage.setItem(playerStorageKey, identity.steam_id); setSavedSteamID(identity.steam_id); setSteamID(identity.steam_id); setInput(identity.steam_id) } else { setAuthenticatedSteamID(''); setBadgeEditAuthorized(false) } }).catch(() => undefined) }, [])
+  useEffect(() => { void api.steamIdentity().then(identity => { if (identity?.steam_id) { setAuthenticatedSteamID(identity.steam_id); setBadgeEditAuthorized(identity.badge_edit_authorized) } else { setAuthenticatedSteamID(''); setBadgeEditAuthorized(false) } }).catch(() => undefined) }, [])
   const enabled = validSteamID(steamID)
   const profile = useQuery({ queryKey: ['player-profile', steamID], queryFn: () => api.playerProfile(steamID), enabled })
   const self = profile.data?.self === true
@@ -66,20 +69,30 @@ export function PlayerPage() {
   const currentTab = availableTabKeys.includes(activeTab as PlayerProfileSection | 'settings') ? activeTab : availableTabKeys[0] ?? 'overview'
   const summary = useQuery({ queryKey: ['player-summary', steamID], queryFn: () => api.playerSummary(steamID), enabled: enabled && !!profile.data && canView('overview') })
   const activity = useQuery({ queryKey: ['player-activity', steamID, range, server], queryFn: () => api.playerActivity(steamID, range, server), enabled: enabled && !!profile.data && canView('overview') })
-  const pve = useQuery({ queryKey: ['player-pve', steamID, range, server, gameMode], queryFn: () => api.playerPVE(steamID, range, server, gameMode, 'pve'), enabled: enabled && !!profile.data && canView('pve') && currentTab === 'pve' })
-  const pveDetails = useQuery({ queryKey: ['player-pve-details', steamID, range, server, gameMode], queryFn: () => api.playerPVE(steamID, range, server, gameMode, 'pve-details'), enabled: enabled && !!profile.data && canView('pve-details') && currentTab === 'pve-details' })
-  const versusSurvivor = useQuery({ queryKey: ['player-versus-survivor', steamID, range, server], queryFn: () => api.playerVersus(steamID, range, server, 'versus-survivor'), enabled: enabled && !!profile.data && canView('versus-survivor') && currentTab === 'versus-survivor' })
-  const versusSurvivorDetails = useQuery({ queryKey: ['player-versus-survivor-details', steamID, range, server], queryFn: () => api.playerVersus(steamID, range, server, 'versus-survivor-details'), enabled: enabled && !!profile.data && canView('versus-survivor-details') && currentTab === 'versus-survivor-details' })
-  const versusInfected = useQuery({ queryKey: ['player-versus-infected', steamID, range, server], queryFn: () => api.playerVersus(steamID, range, server, 'versus-infected'), enabled: enabled && !!profile.data && canView('versus-infected') && currentTab === 'versus-infected' })
-  const versusInfectedDetails = useQuery({ queryKey: ['player-versus-infected-details', steamID, range, server], queryFn: () => api.playerVersus(steamID, range, server, 'versus-infected-details'), enabled: enabled && !!profile.data && canView('versus-infected-details') && currentTab === 'versus-infected-details' })
+  const pve = useQuery({ queryKey: ['player-pve', steamID, range, server, gameMode], queryFn: () => api.playerPVE(steamID, range, server, gameMode), enabled: enabled && !!profile.data && canView('pve') && currentTab === 'pve' })
+  const pveDetails = useQuery({ queryKey: ['player-pve-details', steamID, range, server, gameMode], queryFn: () => api.playerPVEDetails(steamID, range, server, gameMode), enabled: enabled && !!profile.data && canView('pve-details') && currentTab === 'pve-details' })
+  const versusSurvivor = useQuery({ queryKey: ['player-versus-survivor', steamID, range, server], queryFn: () => api.playerVersusSurvivor(steamID, range, server), enabled: enabled && !!profile.data && canView('versus-survivor') && currentTab === 'versus-survivor' })
+  const versusSurvivorDetails = useQuery({ queryKey: ['player-versus-survivor-details', steamID, range, server], queryFn: () => api.playerVersusSurvivorDetails(steamID, range, server), enabled: enabled && !!profile.data && canView('versus-survivor-details') && currentTab === 'versus-survivor-details' })
+  const versusInfected = useQuery({ queryKey: ['player-versus-infected', steamID, range, server], queryFn: () => api.playerVersusInfected(steamID, range, server), enabled: enabled && !!profile.data && canView('versus-infected') && currentTab === 'versus-infected' })
+  const versusInfectedDetails = useQuery({ queryKey: ['player-versus-infected-details', steamID, range, server], queryFn: () => api.playerVersusInfectedDetails(steamID, range, server), enabled: enabled && !!profile.data && canView('versus-infected-details') && currentTab === 'versus-infected-details' })
   const analysis = useQuery({ queryKey: ['player-analysis', steamID, range, server, analysisView], queryFn: () => api.playerAnalysis(steamID, range, server, analysisView), enabled: enabled && !!profile.data && canView('analysis') && currentTab === 'analysis' })
   const achievements = useQuery({ queryKey: ['player-achievements', steamID], queryFn: () => api.playerAchievements(steamID), enabled: enabled && !!profile.data && canView('achievements') })
   const sessionPage = useInfiniteQuery({ queryKey: ['player-sessions', steamID], queryFn: ({ pageParam }) => api.playerSessions(steamID, pageParam), initialPageParam: '', getNextPageParam: last => last.next_cursor, enabled: enabled && !!profile.data && canView('history') && currentTab === 'history' })
   const chapterPage = useInfiniteQuery({ queryKey: ['player-chapters', steamID], queryFn: ({ pageParam }) => api.playerChapters(steamID, pageParam), initialPageParam: '', getNextPageParam: last => last.next_cursor, enabled: enabled && !!profile.data && canView('history') && currentTab === 'history' })
   const sessions = sessionPage.data?.pages.flatMap(page => page.items) ?? []
   const chapters = chapterPage.data?.pages.flatMap(page => page.items) ?? []
-  const search = () => { const value = input.trim(); if (!validSteamID(value)) return; localStorage.setItem(playerStorageKey, value); setSavedSteamID(value); setSteamID(value); setQueryOpen(false) }
-  const clear = () => { localStorage.removeItem(playerStorageKey); setSavedSteamID(''); setSteamID(''); setInput(''); setPreviewOpen(false) }
+  const search = () => { const value = input.trim(); if (!validSteamID(value)) return; localStorage.setItem(playerStorageKey, value); setSavedSteamID(value); setSelectedSteamID(value); setManualSelection(true); setQueryOpen(false) }
+  const clear = () => {
+    localStorage.removeItem(playerStorageKey)
+    setSavedSteamID('')
+    setSelectedSteamID('')
+    setManualSelection(true)
+    setInput('')
+    setPreviewOpen(false)
+    const query = new URLSearchParams(location.search)
+    query.delete('steam_id')
+    navigate({ pathname: location.pathname, search: query.toString() ? `?${query}` : '' }, { replace: true })
+  }
   const requireBadgeAuthentication = () => {
     if (!site.data?.steam_openid_enabled) return void message.info(zh ? '站点尚未启用 Steam 登录' : 'Steam login is not enabled')
     const query = new URLSearchParams({ purpose: 'badge_edit', return_to: '/player?tab=achievements' })
@@ -105,23 +118,24 @@ export function PlayerPage() {
   ]
   const selectTab = (tab: string) => {
     setActiveTab(tab)
-    const url = new URL(window.location.href)
-    url.searchParams.set('tab', tab)
-    window.history.replaceState(null, '', `${url.pathname}${url.search}`)
+    const query = new URLSearchParams(location.search)
+    query.set('tab', tab)
+    navigate({ pathname: location.pathname, search: `?${query}` }, { replace: true })
   }
+  const panel = (key: string, children: ReactNode, error = false) => <PlayerTabPanel resetKey={`${steamID}:${key}`} error={error} zh={zh}>{children}</PlayerTabPanel>
   const allTabItems = [
-    { key: 'overview', label: zh ? '概览' : 'Overview', children: <PlayerActivity data={activity.data} loading={activity.isLoading} copy={copy} /> },
-    { key: 'achievements', label: zh ? '成就' : 'Achievements', children: <PlayerAchievements key={steamID} steamID={steamID} data={achievements.data} loading={achievements.isLoading} self={self} canEdit={self && badgeEditAuthorized} onRequireAuth={requireBadgeAuthentication} zh={zh} /> },
-    { key: 'analysis', label: zh ? '分析' : 'Analysis', children: <PlayerAnalysis data={analysis.data} loading={analysis.isLoading} view={analysisView} onView={setAnalysisView} zh={zh} /> },
-    { key: 'pve', label: copy.pveTab, children: <PlayerPVE data={pve.data} loading={pve.isLoading} copy={copy} zh={zh} /> },
-    { key: 'pve-details', label: zh ? 'PvE 明细' : 'PvE details', children: <PlayerPVE data={pveDetails.data} loading={pveDetails.isLoading} copy={copy} zh={zh} details /> },
-    { key: 'versus-survivor', label: copy.versusSurvivor, children: <PlayerVersus data={versusSurvivor.data} loading={versusSurvivor.isLoading} view="survivor" copy={copy} zh={zh} /> },
-    { key: 'versus-survivor-details', label: zh ? '对抗幸存者明细' : 'Versus survivor details', children: <PlayerVersus data={versusSurvivorDetails.data} loading={versusSurvivorDetails.isLoading} view="survivor-details" copy={copy} zh={zh} /> },
-    { key: 'versus-infected', label: copy.versusInfected, children: <PlayerVersus data={versusInfected.data} loading={versusInfected.isLoading} view="infected" copy={copy} zh={zh} /> },
-    { key: 'versus-infected-details', label: zh ? '对抗感染者明细' : 'Versus infected details', children: <PlayerVersus data={versusInfectedDetails.data} loading={versusInfectedDetails.isLoading} view="infected-details" copy={copy} zh={zh} /> },
-    { key: 'relationships', label: zh ? '玩家关系' : 'Player relationships', children: <PlayerRelationships key={`${range}:${server}:${relationshipMode}`} steamID={steamID} range={range} server={server} mode={relationshipMode} enabled={enabled && canView('relationships')} zh={zh} /> },
-    { key: 'history', label: copy.history, children: <PlayerHistory sessions={sessions} chapters={chapters} sessionPage={sessionPage} chapterPage={chapterPage} copy={copy} /> },
-    { key: 'settings', label: zh ? '设置' : 'Settings', children: <PlayerVisibilitySettings key={steamID} value={profile.data?.visible_sections ?? []} onSaved={sections => queryClient.setQueryData(['player-profile', steamID], current => current && typeof current === 'object' ? { ...current, visible_sections: sections } : current)} zh={zh} /> },
+    { key: 'overview', label: zh ? '概览' : 'Overview', children: panel('overview', <PlayerActivity data={activity.data} loading={activity.isLoading} copy={copy} />, summary.isError || activity.isError) },
+    { key: 'achievements', label: zh ? '成就' : 'Achievements', children: panel('achievements', <PlayerAchievements key={steamID} steamID={steamID} data={achievements.data} loading={achievements.isLoading} self={self} canEdit={self && badgeEditAuthorized} onRequireAuth={requireBadgeAuthentication} zh={zh} />, achievements.isError) },
+    { key: 'analysis', label: zh ? '分析' : 'Analysis', children: panel('analysis', <PlayerAnalysis data={analysis.data} loading={analysis.isLoading} view={analysisView} onView={setAnalysisView} zh={zh} />, analysis.isError) },
+    { key: 'pve', label: copy.pveTab, children: panel('pve', <PlayerPVE data={pve.data} loading={pve.isLoading} copy={copy} zh={zh} />, pve.isError) },
+    { key: 'pve-details', label: zh ? 'PvE 明细' : 'PvE details', children: panel('pve-details', <PlayerPVE data={pveDetails.data} loading={pveDetails.isLoading} copy={copy} zh={zh} details />, pveDetails.isError) },
+    { key: 'versus-survivor', label: copy.versusSurvivor, children: panel('versus-survivor', <PlayerVersus data={versusSurvivor.data} loading={versusSurvivor.isLoading} view="survivor" copy={copy} zh={zh} />, versusSurvivor.isError) },
+    { key: 'versus-survivor-details', label: zh ? '对抗幸存者明细' : 'Versus survivor details', children: panel('versus-survivor-details', <PlayerVersus data={versusSurvivorDetails.data} loading={versusSurvivorDetails.isLoading} view="survivor-details" copy={copy} zh={zh} />, versusSurvivorDetails.isError) },
+    { key: 'versus-infected', label: copy.versusInfected, children: panel('versus-infected', <PlayerVersus data={versusInfected.data} loading={versusInfected.isLoading} view="infected" copy={copy} zh={zh} />, versusInfected.isError) },
+    { key: 'versus-infected-details', label: zh ? '对抗感染者明细' : 'Versus infected details', children: panel('versus-infected-details', <PlayerVersus data={versusInfectedDetails.data} loading={versusInfectedDetails.isLoading} view="infected-details" copy={copy} zh={zh} />, versusInfectedDetails.isError) },
+    { key: 'relationships', label: zh ? '玩家关系' : 'Player relationships', children: panel('relationships', <PlayerRelationships key={`${range}:${server}:${relationshipMode}`} steamID={steamID} range={range} server={server} mode={relationshipMode} enabled={enabled && canView('relationships')} zh={zh} />) },
+    { key: 'history', label: copy.history, children: panel('history', <PlayerHistory sessions={sessions} chapters={chapters} sessionPage={sessionPage} chapterPage={chapterPage} copy={copy} />, sessionPage.isError || chapterPage.isError) },
+    { key: 'settings', label: zh ? '设置' : 'Settings', children: panel('settings', <PlayerVisibilitySettings key={steamID} value={profile.data?.visible_sections ?? []} onSaved={sections => queryClient.setQueryData(['player-profile', steamID], current => current && typeof current === 'object' ? { ...current, visible_sections: sections } : current)} zh={zh} />) },
   ]
   const tabItems = profile.data ? allTabItems.filter(item => item.key === 'settings' ? self : canView(item.key as PlayerProfileSection)) : []
 

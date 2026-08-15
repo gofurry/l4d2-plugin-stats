@@ -2,7 +2,11 @@ import type { EChartsCoreOption } from 'echarts/core'
 
 export const playerStorageKey = 'l4d2-stats.player.steam-id.v1'
 export const validSteamID = (value: string) => /^7656119\d{10}$/.test(value)
-export const sharedSteamID = () => new URLSearchParams(window.location.search).get('steam_id') ?? ''
+export const preferredPlayerSteamID = (routeSteamID: string, authenticatedSteamID: string, savedSteamID: string) => {
+  if (validSteamID(routeSteamID)) return routeSteamID
+  if (validSteamID(authenticatedSteamID)) return authenticatedSteamID
+  return validSteamID(savedSteamID) ? savedSteamID : ''
+}
 export const numberFormat = new Intl.NumberFormat()
 export const hours = (seconds: number) => `${(seconds / 3600).toFixed(seconds >= 36000 ? 0 : 1)} h`
 export const duration = (seconds: number) => seconds >= 3600 ? hours(seconds) : `${Math.round(seconds / 60)} min`

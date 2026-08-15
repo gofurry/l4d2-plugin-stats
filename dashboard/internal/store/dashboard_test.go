@@ -440,3 +440,41 @@ func TestPlayerProfileVisibilityMigrationFourteenToFifteen(t *testing.T) {
 		t.Fatal("schema 15 player profile visibility survived Down migration")
 	}
 }
+
+func TestBadgeShowcaseStateMigrationFifteenToSixteen(t *testing.T) {
+	ctx := context.Background()
+	db, err := sql.Open("sqlite", filepath.Join(t.TempDir(), "dashboard-15.db"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer db.Close()
+	goose.SetBaseFS(dashboarddb.Migrations)
+	if err := goose.SetDialect("sqlite3"); err != nil {
+		t.Fatal(err)
+	}
+	if err := goose.UpToContext(ctx, db, "migrations", 15); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := db.ExecContext(ctx, `INSERT INTO achievement_unlocks
+(steam_id,achievement_key,achievement_contract_version,unlocked_at,grant_kind,value_at_unlock)
+VALUES ('765','career.veteran.1',1,100,'backfill',36000)`); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := db.ExecContext(ctx, `INSERT INTO player_badge_showcase
+(steam_id,slot,achievement_key,updated_at) VALUES ('765',1,'career.veteran.1',123)`); err != nil {
+		t.Fatal(err)
+	}
+	if err := goose.UpToContext(ctx, db, "migrations", 16); err != nil {
+		t.Fatal(err)
+	}
+	var configuredAt int64
+	if err := db.QueryRowContext(ctx, `SELECT configured_at FROM player_badge_showcase_state WHERE steam_id='765'`).Scan(&configuredAt); err != nil || configuredAt != 123 {
+		t.Fatalf("configured_at=%d err=%v", configuredAt, err)
+	}
+	if err := goose.DownToContext(ctx, db, "migrations", 15); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := db.ExecContext(ctx, `SELECT 1 FROM player_badge_showcase_state`); err == nil {
+		t.Fatal("schema 16 badge showcase state survived Down migration")
+	}
+}

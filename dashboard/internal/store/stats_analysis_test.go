@@ -3,7 +3,9 @@ package store
 import (
 	"context"
 	"database/sql"
+	"encoding/json"
 	"path/filepath"
+	"strings"
 	"testing"
 	"time"
 
@@ -118,6 +120,16 @@ func TestSQLiteAnalysisOptionsFollowRangeAndMode(t *testing.T) {
 	detail, err := stats.(StatsAnalysisStore).AnalysisMapDetail(ctx, AnalysisFilter{Mode: "pve", Page: 2, PageSize: 1, Sort: "map_name", Order: "desc"}, "m1")
 	if err != nil || detail.Summary.MapName != "m1" {
 		t.Fatalf("map detail=%#v err=%v", detail, err)
+	}
+	if detail.Timeline == nil || detail.RecentIncidents == nil {
+		t.Fatalf("legacy map detail must use empty collections instead of nil: %#v", detail)
+	}
+	encoded, err := json.Marshal(detail)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if strings.Contains(string(encoded), `"timeline":null`) || strings.Contains(string(encoded), `"recent_incidents":null`) {
+		t.Fatalf("legacy map detail contains null collections: %s", encoded)
 	}
 	contexts, err := stats.(StatsAnalysisStore).AnalysisContexts(ctx, AnalysisFilter{Mode: "pve", Page: 2, PageSize: 1, Sort: "ruleset_name", Order: "asc"})
 	if err != nil {

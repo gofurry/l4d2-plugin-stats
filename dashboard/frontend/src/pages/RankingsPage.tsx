@@ -71,7 +71,7 @@ export function RankingsPage() {
   }, [playerLabels, players.data])
 
   const chartOption = useMemo<EChartsCoreOption>(() => {
-    const items = [...(topPage?.items.slice(0, 10) ?? [])].reverse()
+    const items = [...(topPage?.items ?? [])].slice(0, 10).reverse()
     return {
       animationDuration: 450,
       grid: { left: 16, right: 70, top: 12, bottom: 22, containLabel: true },
@@ -101,7 +101,7 @@ export function RankingsPage() {
     {noRankingData && <section className={styles.statePanel}><Empty image={Empty.PRESENTED_IMAGE_SIMPLE} description={zh ? '当前玩法或筛选条件下还没有排行榜数据。' : 'There is no ranking data for this mode or filter yet.'}><div className={styles.stateActions}>{mode !== 'pve' && <Button type="primary" onClick={() => chooseMode('pve')}>{zh ? '查看 PvE 排行榜' : 'View PvE rankings'}</Button>}<Button onClick={() => setFilterOpen(true)}>{zh ? '调整筛选' : 'Change filters'}</Button></div></Empty></section>}
     {!rankingError && !noRankingData && <><section className={styles.chartPanel}>
       <div className={styles.panelHeading}><h3>{label(metric)} · Top 10</h3><span>{topPage ? new Date(topPage.generated_at).toLocaleString() : ''}</span></div>
-      {rankingLoading ? <Spin /> : topPage?.items.length ? <EChart className={styles.chart} option={chartOption} ariaLabel={`${label(metric)} Top 10`} /> : <Empty image={Empty.PRESENTED_IMAGE_SIMPLE} />}
+      {rankingLoading ? <Spin /> : (topPage?.items ?? []).length ? <EChart className={styles.chart} option={chartOption} ariaLabel={`${label(metric)} Top 10`} /> : <Empty image={Empty.PRESENTED_IMAGE_SIMPLE} />}
     </section>
 
     <section className={styles.tablePanel}>

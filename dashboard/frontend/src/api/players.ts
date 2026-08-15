@@ -31,7 +31,7 @@ export interface PlayerActivity { timeline: PlayerActivityPoint[]; servers: Play
 export interface CollectionCoverage { collected_segments: number; total_segments: number; complete: boolean }
 export interface PVEInfectedClass { class_id: number; kills: number; assists: number | null; damage: number; controls_received: number; controlled_seconds: number; saves: number }
 export interface PVEEquipment { equipment_id: number; actions: number; common_kills: number; special_kills: number; tank_kills: number; witch_kills: number; headshot_kills: number; damage_to_special: number; damage_to_tank: number; damage_to_witch: number }
-export interface PlayerPVE {
+export interface PlayerPVEOverview {
   common_kills: number; special_kills: number; tank_kills: number; witch_kills: number; damage_to_special: number; damage_to_tank: number; damage_to_witch: number; damage_taken_infected: number; friendly_fire: number; friendly_fire_taken: number
   incapacitations: number; deaths: number; revives: number; incap_revives: number; ledge_rescues: number; defib_revives: number; rescues_received: number
   medkits_used: number; medkits_used_self: number; medkits_used_on_others: number; healing: number; medkit_healing_self: number; medkit_healing_others: number; pills_used: number; adrenaline_used: number; temporary_health_received: number
@@ -39,18 +39,21 @@ export interface PlayerPVE {
   melee_tongue_self_cuts: number; tank_rocks_destroyed: number; witch_oneshots: number; witch_solo_kills: number; tank_encounters: number; tank_kill_participations: number; witch_encounters: number; witch_kill_participations: number
   incendiary_packs_deployed: number; explosive_packs_deployed: number; objective_interactions: number; ammo_pile_uses: number; incapacitated_seconds: number; ledge_hanging_seconds: number; black_white_teammates_restored: number; car_alarms_triggered: number
   special_assists: number | null; tank_assists: number; witch_assists: number; assist_coverage: CollectionCoverage
-  infected_classes: PVEInfectedClass[]; equipment: PVEEquipment[]
 }
+export interface PlayerPVEDetails { infected_classes: PVEInfectedClass[]; equipment: PVEEquipment[] }
 export interface VersusSurvivorClass { class_id: number; human_controller_kills: number; bot_controller_kills: number; human_controller_assists: number | null; bot_controller_assists: number | null; damage_to_human_controllers: number; damage_to_bot_controllers: number }
 export interface VersusInfectedClass { class_id: number; spawns: number; damage_to_human_survivors: number; damage_to_bot_survivors: number; human_survivor_incaps: number; bot_survivor_incaps: number; human_survivor_kills: number; bot_survivor_kills: number; human_survivor_controls: number; bot_survivor_controls: number; human_survivor_control_seconds: number; bot_survivor_control_seconds: number; human_survivor_ability_hits: number; bot_survivor_ability_hits: number; human_survivor_ability_damage: number; bot_survivor_ability_damage: number }
-export interface PlayerVersus {
+export interface PlayerVersusSurvivor {
   survivor_common_kills: number; human_special_kills: number; bot_special_kills: number; human_tank_kills: number; bot_tank_kills: number; survivor_damage: number; survivor_damage_taken: number; survivor_friendly_fire: number; survivor_friendly_fire_taken: number; survivor_incapacitations: number; survivor_deaths: number; survivor_revives: number; survivor_incap_revives: number; survivor_ledge_rescues: number; survivor_defib_revives: number; survivor_rescues_received: number
   survivor_medkits_self: number; survivor_medkits_others: number; survivor_healing_self: number; survivor_healing_others: number; survivor_pills: number; survivor_adrenaline: number; survivor_temporary_health: number; survivor_witch_kills: number; survivor_witch_damage: number
   molotovs_thrown: number; pipe_bombs_thrown: number; vomit_jars_thrown: number; survivor_incendiary_packs: number; survivor_explosive_packs: number; survivor_tongue_self_cuts: number; survivor_tank_rocks_destroyed: number; survivor_witch_oneshots: number; survivor_witch_solo_kills: number; survivor_objective_interactions: number; survivor_car_alarms_triggered: number
   human_special_assists: number | null; bot_special_assists: number | null; human_tank_assists: number | null; bot_tank_assists: number | null; survivor_witch_encounters: number | null; survivor_witch_kill_participations: number | null; survivor_witch_assists: number | null; survivor_black_white_teammates_restored: number | null; assist_coverage: CollectionCoverage
-  infected_spawns: number; damage_to_human_survivors: number; damage_to_bot_survivors: number; human_survivor_incaps: number; bot_survivor_incaps: number; human_survivor_kills: number; bot_survivor_kills: number; human_survivor_controls: number; human_survivor_control_seconds: number
-  survivor_classes: VersusSurvivorClass[]; infected_classes: VersusInfectedClass[]
 }
+export interface PlayerVersusSurvivorDetails { survivor_classes: VersusSurvivorClass[] }
+export interface PlayerVersusInfected {
+  infected_spawns: number; damage_to_human_survivors: number; damage_to_bot_survivors: number; human_survivor_incaps: number; bot_survivor_incaps: number; human_survivor_kills: number; bot_survivor_kills: number; human_survivor_controls: number; human_survivor_control_seconds: number
+}
+export interface PlayerVersusInfectedDetails { infected_classes: VersusInfectedClass[] }
 export interface PlayerRelationshipDirection { incap_revives: number; ledge_rescues: number; defib_revives: number; smoker_rescues: number; hunter_rescues: number; jockey_rescues: number; charger_rescues: number; special_rescues: number; support_actions: number; control_rescue_duration_ms: number; average_control_rescue_ms?: number; medkits_used: number; medkit_healing: number; black_white_restores: number; friendly_fire_damage: number }
 export interface PlayerRelationship { peer_steam_id: string; peer_name: string; shared_rounds: number; shared_seconds: number; outgoing: PlayerRelationshipDirection; incoming: PlayerRelationshipDirection; mutual_support: number }
 export interface PlayerRelationshipSummary { peer_steam_id: string; peer_name: string; shared_rounds: number; shared_seconds: number; support_actions: number }
@@ -66,8 +69,12 @@ export const playersAPI = {
   playerSummary: (id: string) => request<PlayerSummary>(`/api/v1/players/${id}/summary`),
   playerPreview: (id: string) => request<PlayerPreview>(`/api/v1/players/${id}/preview`),
   playerActivity: (id: string, range: string, server = '') => request<PlayerActivity>(`/api/v1/players/${id}/activity?${queryString({ range, server })}`),
-  playerPVE: (id: string, range: string, server = '', mode = '', view: 'pve' | 'pve-details' = 'pve') => request<PlayerPVE>(`/api/v1/players/${id}/pve?${queryString({ range, server, mode, view })}`),
-  playerVersus: (id: string, range: string, server = '', view: 'versus-survivor' | 'versus-survivor-details' | 'versus-infected' | 'versus-infected-details' = 'versus-survivor') => request<PlayerVersus>(`/api/v1/players/${id}/versus?${queryString({ range, server, view })}`),
+  playerPVE: (id: string, range: string, server = '', mode = '') => request<PlayerPVEOverview>(`/api/v1/players/${id}/pve?${queryString({ range, server, mode, view: 'pve' })}`),
+  playerPVEDetails: (id: string, range: string, server = '', mode = '') => request<PlayerPVEDetails>(`/api/v1/players/${id}/pve?${queryString({ range, server, mode, view: 'pve-details' })}`),
+  playerVersusSurvivor: (id: string, range: string, server = '') => request<PlayerVersusSurvivor>(`/api/v1/players/${id}/versus?${queryString({ range, server, view: 'versus-survivor' })}`),
+  playerVersusSurvivorDetails: (id: string, range: string, server = '') => request<PlayerVersusSurvivorDetails>(`/api/v1/players/${id}/versus?${queryString({ range, server, view: 'versus-survivor-details' })}`),
+  playerVersusInfected: (id: string, range: string, server = '') => request<PlayerVersusInfected>(`/api/v1/players/${id}/versus?${queryString({ range, server, view: 'versus-infected' })}`),
+  playerVersusInfectedDetails: (id: string, range: string, server = '') => request<PlayerVersusInfectedDetails>(`/api/v1/players/${id}/versus?${queryString({ range, server, view: 'versus-infected-details' })}`),
   playerAnalysis: (id: string, range: string, server = '', view = 'pve') => request<PlayerAnalysis>(`/api/v1/players/${id}/analysis?${queryString({ range, server, view })}`),
   playerRelationships: (id: string, range: string, server = '', mode = 'all', page = 1, pageSize = 20, sort = 'shared_rounds', order: 'asc' | 'desc' = 'desc') => request<PlayerRelationshipPage>(`/api/v1/players/${id}/relationships?${queryString({ range, server, mode, page, page_size: pageSize, sort, order })}`),
   playerAchievements: (id: string) => request<PlayerAchievements>(`/api/v1/players/${id}/achievements`),

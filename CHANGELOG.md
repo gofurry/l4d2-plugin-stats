@@ -4,6 +4,16 @@ All notable changes to this project are documented in this file.
 
 ## Unreleased
 
+### Changed
+
+- Upgrade Dashboard schema from 15 to 16 so an explicitly empty badge showcase remains distinct from a player who has never configured showcase slots.
+
+### Fixed
+
+- Keep an explicitly linked leaderboard player as the active profile instead of replacing it with the signed-in Steam identity.
+- Allow players to remove their final showcased badge without the automatic default selection immediately restoring it.
+- Align scoped PvE and Versus response types with the server payloads and contain tab rendering failures instead of blanking the entire player center.
+
 ## 1.3.2 - 2026-08-14
 
 ### Added

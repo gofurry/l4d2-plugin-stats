@@ -55,6 +55,9 @@ func registerAnalysisRoutes(api fiber.Router, analysis *service.AnalysisService)
 		if err != nil {
 			return statsError(c, err)
 		}
+		if result.Summary.MapName == "" {
+			return sendError(c, 404, "analysis_map_not_found", "map has no data under the current filters")
+		}
 		return sendData(c, 200, result)
 	})
 	group.Get("/contexts", func(c fiber.Ctx) error {

@@ -43,12 +43,23 @@ func TestDashboardAchievementPersistence(t *testing.T) {
 	if err := dashboard.ReplaceBadgeShowcase(ctx, "765", []BadgeShowcaseSlot{{Slot: 1, AchievementKey: unlock.AchievementKey}}, 102); err != nil {
 		t.Fatal(err)
 	}
+	configured, err := dashboard.BadgeShowcaseConfigured(ctx, "765")
+	if err != nil || !configured {
+		t.Fatalf("configured=%v err=%v", configured, err)
+	}
 	badges, err := dashboard.BadgeShowcase(ctx, "765")
 	if err != nil || len(badges) != 1 || badges[0].AchievementKey != unlock.AchievementKey {
 		t.Fatalf("badges=%#v err=%v", badges, err)
 	}
 	if err := dashboard.ReplaceBadgeShowcase(ctx, "765", []BadgeShowcaseSlot{{Slot: 1, AchievementKey: "secret.crashed"}}, 103); err == nil {
 		t.Fatal("locked badge selection was accepted")
+	}
+	if err := dashboard.ReplaceBadgeShowcase(ctx, "765", nil, 104); err != nil {
+		t.Fatal(err)
+	}
+	badges, err = dashboard.BadgeShowcase(ctx, "765")
+	if err != nil || len(badges) != 0 {
+		t.Fatalf("empty badges=%#v err=%v", badges, err)
 	}
 	if err := dashboard.MarkAchievementUnlocksSeen(ctx, "765", 104); err != nil {
 		t.Fatal(err)

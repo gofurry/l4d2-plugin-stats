@@ -31,7 +31,7 @@ describe('PlayerAchievements', () => {
       overview: { unlocked: 1, total: 58, completion_percent: 1.7, easter_eggs: 1, badges: [] },
       items: [{
         achievement_key: 'combat.marksman.1', group_key: 'combat.marksman', title: '神射手', description: '累计爆头。', category: 'combat', metric_id: 'pve.headshots',
-        threshold: 1000, tier: 1, visibility: 'public', counts_toward_completion: true, artwork_key: 'combat.marksman', unlocked: true, current_value: 10000, global_unlock_rate: 10,
+        threshold: 1000, tier: 1, visibility: 'public', counts_toward_completion: true, artwork_key: 'combat.marksman', unlocked: true, unlocked_at: 1723593600, current_value: 10000, global_unlock_rate: 10,
       }, {
         achievement_key: 'combat.marksman.2', group_key: 'combat.marksman', title: '神射手', description: '累计爆头。', category: 'combat', metric_id: 'pve.headshots',
         threshold: 10000, tier: 2, visibility: 'public', counts_toward_completion: true, artwork_key: 'combat.marksman', unlocked: false, current_value: 10000, global_unlock_rate: 2,
@@ -42,7 +42,10 @@ describe('PlayerAchievements', () => {
     expect(screen.getByText('/ 10,000')).toBeInTheDocument()
     expect(screen.queryByText(/10K|1万/)).not.toBeInTheDocument()
     expect(screen.getByText('发现彩蛋 1')).toBeInTheDocument()
-    fireEvent.click(screen.getByRole('button', { name: /展示徽章/ }))
+    const action = screen.getByRole('button', { name: /展示徽章/ })
+    expect(action.parentElement).toHaveTextContent('已确认')
+    expect(action.parentElement).toHaveTextContent('全服 10.0%')
+    fireEvent.click(action)
     expect(requireAuth).toHaveBeenCalledOnce()
   })
 })

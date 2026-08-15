@@ -28,6 +28,8 @@
 .table :global(.ant-pagination) { margin: 16px 18px !important; }
 .state { display: grid; min-height: 340px; place-items: center; }
 .detail { display: grid; gap: 14px; }
+.detailState { min-height: 360px; display: grid; place-items: center; }
+.detailEmpty { margin: 0; padding: 26px 16px; border-radius: 14px; background: var(--surface-row); }
 .detailCards { grid-template-columns: repeat(3, 1fr); border-radius: 16px; }
 .detail h3 { margin: 12px 0 0; }
 .composition { display: grid; grid-template-columns: repeat(4, 1fr); gap: 8px; }

@@ -2,37 +2,43 @@ import { Spin, Table } from 'antd'
 import type { EChartsCoreOption } from 'echarts/core'
 import { useMemo } from 'react'
 import { useTranslation } from 'react-i18next'
-import type { PlayerPVE as PlayerPVEData, PVEEquipment, PVEInfectedClass } from '../../api'
+import type { PlayerPVEDetails, PlayerPVEOverview, PVEEquipment, PVEInfectedClass } from '../../api'
 import { EChart } from '../../components/EChart'
 import { MetricList, Section } from './PlayerShared'
 import { chartBase, duration, equipmentNames, infectedNames, numberFormat, palette, type PlayerCopy } from './playerFormat'
 import styles from './PlayerPage.module.scss'
 
-export function PlayerPVE({ data, loading, details, copy, zh }: { data?: PlayerPVEData; loading: boolean; details?: boolean; copy: PlayerCopy; zh: boolean }) {
+export function PlayerPVE({ data, loading, details, copy, zh }: { data?: PlayerPVEOverview | PlayerPVEDetails; loading: boolean; details?: boolean; copy: PlayerCopy; zh: boolean }) {
+  const { t } = useTranslation()
+  if (loading) return <Spin />
+  if (!data) return null
+  if (details) return <PVEDetails data={data as PlayerPVEDetails} copy={copy} zh={zh} />
+  const overview = data as PlayerPVEOverview
+  return <div className={styles.sectionGrid}>
+    <Section title={copy.combat}><MetricList items={[[t('commonKills'), overview.common_kills], [t('specialKills'), overview.special_kills], [zh ? '特感助攻' : 'Special assists', nullable(overview.special_assists, zh)], [t('damageSpecial'), overview.damage_to_special], [zh ? '对 Tank 伤害' : 'Damage to Tank', overview.damage_to_tank], [zh ? '对 Witch 伤害' : 'Damage to Witch', overview.damage_to_witch]]} /></Section>
+    <Section title={copy.survival}><MetricList items={[[t('deaths'), overview.deaths], [t('incaps'), overview.incapacitations], [copy.infectedDamage, overview.damage_taken_infected], [copy.friendlyFireDealt, overview.friendly_fire], [copy.friendlyFireTaken, overview.friendly_fire_taken], [zh ? '倒地时长' : 'Incapacitated time', duration(overview.incapacitated_seconds)], [zh ? '挂边时长' : 'Ledge time', duration(overview.ledge_hanging_seconds)]]} /></Section>
+    <Section title={copy.teamwork}><MetricList items={[[t('revives'), overview.incap_revives], [copy.ledgeRescue, overview.ledge_rescues], [copy.defib, overview.defib_revives], [copy.received, overview.rescues_received], [copy.medkitOthers, overview.medkits_used_on_others], [copy.healingOthers, overview.medkit_healing_others], [copy.blackWhite, overview.black_white_teammates_restored]]} /></Section>
+    <Section title={copy.supplies}><MetricList items={[[zh ? '对自己打包' : 'Medkits used on self', overview.medkits_used_self], [zh ? '自我治疗量' : 'Self healing', overview.medkit_healing_self], [zh ? '止痛药' : 'Pain pills', overview.pills_used], [zh ? '肾上腺素' : 'Adrenaline', overview.adrenaline_used], [zh ? '获得临时生命' : 'Temporary health received', overview.temporary_health_received], [zh ? '燃烧弹药包' : 'Incendiary packs', overview.incendiary_packs_deployed], [zh ? '高爆弹药包' : 'Explosive packs', overview.explosive_packs_deployed], [copy.ammo, overview.ammo_pile_uses]]} /></Section>
+    <Section title={copy.progress}><MetricList items={[[t('chapters'), overview.chapter_participations], [copy.survived, overview.chapter_completions_alive], [copy.deadCompletion, overview.chapter_completions_dead], [t('campaigns'), overview.campaign_completions]]} /></Section>
+    <Section title={zh ? '互动与事件' : 'Interactions and incidents'}><MetricList items={[[copy.objective, overview.objective_interactions], [zh ? '触发警报车' : 'Car alarms triggered', overview.car_alarms_triggered]]} /></Section>
+    <Section title={copy.skills}><MetricList items={[[copy.tongue, overview.melee_tongue_self_cuts], [copy.rocks, overview.tank_rocks_destroyed], [copy.witchOneShot, overview.witch_oneshots], [copy.witchSolo, overview.witch_solo_kills]]} /></Section>
+    <Section title={zh ? 'Boss 遭遇与参与' : 'Boss encounters and participation'}><MetricList items={[[zh ? 'Tank 遭遇' : 'Tank encounters', overview.tank_encounters], [zh ? 'Tank 击杀' : 'Tank kills', overview.tank_kills], [zh ? 'Tank 助攻' : 'Tank assists', overview.tank_assists], [copy.tankParticipation, overview.tank_kill_participations], [zh ? 'Witch 遭遇' : 'Witch encounters', overview.witch_encounters], [zh ? 'Witch 击杀' : 'Witch kills', overview.witch_kills], [zh ? 'Witch 助攻' : 'Witch assists', overview.witch_assists], [copy.witchParticipation, overview.witch_kill_participations]]} /></Section>
+  </div>
+}
+
+function PVEDetails({ data, copy, zh }: { data: PlayerPVEDetails; copy: PlayerCopy; zh: boolean }) {
   const { t } = useTranslation()
   const classOption = useMemo<EChartsCoreOption>(() => ({
     ...chartBase,
     legend: { top: 0, textStyle: { color: '#6f5b50' } },
-    xAxis: { type: 'category', data: data?.infected_classes.map(item => infectedNames[item.class_id - 1]) ?? [], axisLabel: { color: '#806d62' }, axisLine: { lineStyle: { color: 'rgba(102,75,60,.22)' } } },
+    xAxis: { type: 'category', data: data.infected_classes.map(item => infectedNames[item.class_id - 1]), axisLabel: { color: '#806d62' }, axisLine: { lineStyle: { color: 'rgba(102,75,60,.22)' } } },
     yAxis: { type: 'value', axisLabel: { color: '#806d62' }, splitLine: { lineStyle: { color: 'rgba(102,75,60,.1)' } } },
     series: [
-      { name: copy.kills, type: 'bar', data: data?.infected_classes.map(item => item.kills) ?? [], itemStyle: { color: palette[0], borderRadius: [5, 5, 0, 0] } },
-      { name: zh ? '助攻' : 'Assists', type: 'bar', data: data?.infected_classes.map(item => item.assists) ?? [], itemStyle: { color: palette[2], borderRadius: [5, 5, 0, 0] } },
-      { name: copy.saves, type: 'bar', data: data?.infected_classes.map(item => item.saves) ?? [], itemStyle: { color: palette[1], borderRadius: [5, 5, 0, 0] } },
+      { name: copy.kills, type: 'bar', data: data.infected_classes.map(item => item.kills), itemStyle: { color: palette[0], borderRadius: [5, 5, 0, 0] } },
+      { name: zh ? '助攻' : 'Assists', type: 'bar', data: data.infected_classes.map(item => item.assists), itemStyle: { color: palette[2], borderRadius: [5, 5, 0, 0] } },
+      { name: copy.saves, type: 'bar', data: data.infected_classes.map(item => item.saves), itemStyle: { color: palette[1], borderRadius: [5, 5, 0, 0] } },
     ],
   }), [copy.kills, copy.saves, data, zh])
-  if (loading) return <Spin />
-  if (!data) return null
-  if (!details) return <div className={styles.sectionGrid}>
-    <Section title={copy.combat}><MetricList items={[[t('commonKills'), data.common_kills], [t('specialKills'), data.special_kills], [zh ? '特感助攻' : 'Special assists', nullable(data.special_assists, zh)], [t('damageSpecial'), data.damage_to_special], [zh ? '对 Tank 伤害' : 'Damage to Tank', data.damage_to_tank], [zh ? '对 Witch 伤害' : 'Damage to Witch', data.damage_to_witch]]} /></Section>
-    <Section title={copy.survival}><MetricList items={[[t('deaths'), data.deaths], [t('incaps'), data.incapacitations], [copy.infectedDamage, data.damage_taken_infected], [copy.friendlyFireDealt, data.friendly_fire], [copy.friendlyFireTaken, data.friendly_fire_taken], [zh ? '倒地时长' : 'Incapacitated time', duration(data.incapacitated_seconds)], [zh ? '挂边时长' : 'Ledge time', duration(data.ledge_hanging_seconds)]]} /></Section>
-    <Section title={copy.teamwork}><MetricList items={[[t('revives'), data.incap_revives], [copy.ledgeRescue, data.ledge_rescues], [copy.defib, data.defib_revives], [copy.received, data.rescues_received], [copy.medkitOthers, data.medkits_used_on_others], [copy.healingOthers, data.medkit_healing_others], [copy.blackWhite, data.black_white_teammates_restored]]} /></Section>
-    <Section title={copy.supplies}><MetricList items={[[zh ? '对自己打包' : 'Medkits used on self', data.medkits_used_self], [zh ? '自我治疗量' : 'Self healing', data.medkit_healing_self], [zh ? '止痛药' : 'Pain pills', data.pills_used], [zh ? '肾上腺素' : 'Adrenaline', data.adrenaline_used], [zh ? '获得临时生命' : 'Temporary health received', data.temporary_health_received], [zh ? '燃烧弹药包' : 'Incendiary packs', data.incendiary_packs_deployed], [zh ? '高爆弹药包' : 'Explosive packs', data.explosive_packs_deployed], [copy.ammo, data.ammo_pile_uses]]} /></Section>
-    <Section title={copy.progress}><MetricList items={[[t('chapters'), data.chapter_participations], [copy.survived, data.chapter_completions_alive], [copy.deadCompletion, data.chapter_completions_dead], [t('campaigns'), data.campaign_completions]]} /></Section>
-    <Section title={zh ? '互动与事件' : 'Interactions and incidents'}><MetricList items={[[copy.objective, data.objective_interactions], [zh ? '触发警报车' : 'Car alarms triggered', data.car_alarms_triggered]]} /></Section>
-    <Section title={copy.skills}><MetricList items={[[copy.tongue, data.melee_tongue_self_cuts], [copy.rocks, data.tank_rocks_destroyed], [copy.witchOneShot, data.witch_oneshots], [copy.witchSolo, data.witch_solo_kills]]} /></Section>
-    <Section title={zh ? 'Boss 遭遇与参与' : 'Boss encounters and participation'}><MetricList items={[[zh ? 'Tank 遭遇' : 'Tank encounters', data.tank_encounters], [zh ? 'Tank 击杀' : 'Tank kills', data.tank_kills], [zh ? 'Tank 助攻' : 'Tank assists', data.tank_assists], [copy.tankParticipation, data.tank_kill_participations], [zh ? 'Witch 遭遇' : 'Witch encounters', data.witch_encounters], [zh ? 'Witch 击杀' : 'Witch kills', data.witch_kills], [zh ? 'Witch 助攻' : 'Witch assists', data.witch_assists], [copy.witchParticipation, data.witch_kill_participations]]} /></Section>
-  </div>
   const equipmentColumns = [
     { title: copy.equipment, dataIndex: 'equipment_id', key: 'equipment', render: (id: number) => equipmentNames[id] ?? `#${id}` },
     { title: copy.actions, dataIndex: 'actions', key: 'actions', sorter: (a: PVEEquipment, b: PVEEquipment) => a.actions - b.actions },
