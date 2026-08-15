@@ -158,6 +158,17 @@ type PlayerBadgeShowcase struct {
 	UpdatedAt      int64  `json:"updated_at"`
 }
 
+type PlayerBadgeShowcaseState struct {
+	SteamID      string `json:"steam_id"`
+	ConfiguredAt int64  `json:"configured_at"`
+}
+
+type PlayerProfileVisibility struct {
+	SteamID             string `json:"steam_id"`
+	VisibleSectionsJson string `json:"visible_sections_json"`
+	UpdatedAt           int64  `json:"updated_at"`
+}
+
 type RetentionRun struct {
 	ID                    string `json:"id"`
 	ExecutedAt            int64  `json:"executed_at"`
