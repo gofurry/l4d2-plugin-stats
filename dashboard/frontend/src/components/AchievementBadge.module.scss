@@ -1,4 +1,4 @@
-.badge { position: relative; flex: 0 0 auto; display: inline-grid; place-items: center; overflow: hidden; border-radius: 22%; background: rgba(24, 26, 28, .82); box-shadow: 0 0 0 2px rgba(137, 111, 91, .42), 0 5px 16px rgba(28, 21, 17, .22); }
+.badge { position: relative; flex: 0 0 auto; display: inline-grid; place-items: center; overflow: hidden; vertical-align: middle; border-radius: 22%; background: rgba(24, 26, 28, .82); box-shadow: 0 0 0 2px rgba(137, 111, 91, .42), 0 5px 16px rgba(28, 21, 17, .22); }
 .sprite { width: 100%; height: 100%; display: block; background-repeat: no-repeat; }
 .tier1 { box-shadow: 0 0 0 2px #a86d45, 0 5px 16px rgba(90, 52, 29, .3); }
 .tier2 { box-shadow: 0 0 0 2px #b8c1c8, 0 5px 16px rgba(88, 102, 111, .28); }

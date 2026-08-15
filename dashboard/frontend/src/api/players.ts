@@ -20,6 +20,7 @@ export interface PlayerAchievements {
   items: AchievementCard[]; unseen_live?: AchievementCard[]; unseen_backfill_count?: number
 }
 export interface PlayerBadges { achievement_contract_version: number; items: AchievementBadge[] }
+export interface SteamIdentity { steam_id: string; badge_edit_authorized: boolean }
 export interface PlayerAnalysis { view: string; active_play_seconds: number; metrics: Record<string, number | null>; samples: Record<string, number>; recent_incidents: { earliest_incident_at: number; latest_incident_at: number; controls_received: number; average_control_seconds?: number; incaps: number; deaths: number; teammates_rescued: number; rescued_by_teammates: number; control_classes: { infected_class: number; controls: number; average_duration_seconds: number }[]; top_rescuers: { player_name: string; rescues: number }[]; two_cap_episodes: number; three_cap_episodes: number; four_cap_episodes: number } }
 export interface PlayerActivityPoint { day: number; session_count: number; connected_seconds: number; active_play_seconds: number }
 export interface PlayerServerActivity { server_key: string; session_count: number; active_play_seconds: number }
@@ -56,7 +57,7 @@ export interface PlayerChapter { server_key: string; mode_family: string; game_m
 export interface Page<T> { items: T[]; next_cursor?: string }
 
 export const playersAPI = {
-  steamIdentity: () => request<{ steam_id: string } | null>('/api/v1/steam/identity'),
+  steamIdentity: () => request<SteamIdentity | null>('/api/v1/steam/identity'),
   playerSummary: (id: string) => request<PlayerSummary>(`/api/v1/players/${id}/summary`),
   playerPreview: (id: string) => request<PlayerPreview>(`/api/v1/players/${id}/preview`),
   playerActivity: (id: string, range: string, server = '') => request<PlayerActivity>(`/api/v1/players/${id}/activity?${queryString({ range, server })}`),

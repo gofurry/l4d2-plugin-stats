@@ -29,7 +29,7 @@ export function PlayerPreviewModal({ open, steamID, playerName, contextLabel, on
 
   return <Modal className={styles.playerPreviewModal} open={open} title={null} footer={null} onCancel={onClose} destroyOnHidden>
     <div className={styles.previewHeader}>
-      <div className={styles.previewIdentity}><span><strong>{data?.player_name || playerName || t('unnamedPlayer')}</strong>{data?.main_badge && <AchievementBadge artworkKey={isAchievementArtworkKey(data.main_badge.artwork_key) ? data.main_badge.artwork_key : undefined} tier={data.main_badge.tier} size={24} label={data.main_badge.title} />}</span><code>{steamID}</code></div>
+      <div className={styles.previewIdentity}><span><strong>{data?.player_name || playerName || t('unnamedPlayer')}</strong>{data?.main_badge && <AchievementBadge artworkKey={isAchievementArtworkKey(data.main_badge.artwork_key) ? data.main_badge.artwork_key : undefined} tier={data.main_badge.tier} size={30} label={data.main_badge.title} />}</span><code>{steamID}</code></div>
       {contextLabel && <span><i className={`${styles.statusDot} ${styles.statusDot_online}`} />{contextLabel}</span>}
     </div>
     {preview.isLoading && <Skeleton active paragraph={{ rows: 5 }} />}

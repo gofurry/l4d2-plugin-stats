@@ -1,4 +1,4 @@
-import { render, screen } from '@testing-library/react'
+import { fireEvent, render, screen } from '@testing-library/react'
 import { describe, expect, it } from 'vitest'
 import { achievementAtlas } from '../assets/achievements/generated/achievement-atlas.generated'
 import { AchievementBadge } from './AchievementBadge'
@@ -16,9 +16,12 @@ describe('Achievement badge atlas', () => {
     }
   })
 
-  it('uses the sprite for known artwork and hides it for mystery placeholders', () => {
+  it('uses the sprite for known artwork, provides a tooltip, and hides mystery artwork', async () => {
     const { rerender } = render(<AchievementBadge artworkKey="career.veteran" tier={4} label="老兵" />)
-    expect(screen.getByRole('img', { name: '老兵' }).querySelector('span')).toHaveStyle({ backgroundPosition: '0px 0px' })
+    const badge = screen.getByRole('img', { name: '老兵' })
+    expect(badge.querySelector('span')).toHaveStyle({ backgroundPosition: '0px 0px' })
+    fireEvent.mouseEnter(badge)
+    expect(await screen.findByText('老兵')).toBeInTheDocument()
     rerender(<AchievementBadge artworkKey="career.veteran" mystery label="隐藏成就" />)
     expect(screen.getByRole('img', { name: '隐藏成就' })).toHaveTextContent('?')
     expect(screen.getByRole('img', { name: '隐藏成就' }).querySelector('span')).toBeNull()
