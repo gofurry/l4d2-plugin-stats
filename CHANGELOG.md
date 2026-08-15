@@ -13,14 +13,16 @@ All notable changes to this project are documented in this file.
 - Add a top-level player Achievement view, three profile-header badges, one main badge in player previews, and a read-only Achievement Engine status panel without manual refresh, rebuild, claim, or threshold controls.
 - Add 26 validated 256×256 WebP badge sources and a deterministic build pipeline that produces a fixed 6×5, 128-pixel-tile WebP sprite atlas with generated TypeScript coordinates.
 - Add nullable survivor fall-death facts for PvE and Versus, including schema 6 migrations for SQLite, MySQL, and PostgreSQL and matching deep-doctor invariants.
+- Add authenticated per-player profile visibility settings at top-level tab granularity, defaulting public access to Overview, Analysis, and Player Relationships while keeping owner access complete.
 
 ### Changed
 
-- Upgrade the Collector and Dashboard to `1.3.2`, Stats schema from 5 to 6, and Dashboard schema from 13 to 14; gameplay `stats_version=1`, Aggregate Contract v1, Incident Contract v1, Assist Contract v1, and Player Relationship Contract v1 remain unchanged.
+- Upgrade the Collector and Dashboard to `1.3.2`, Stats schema from 5 to 6, and Dashboard schema from 13 to 15; gameplay `stats_version=1`, Aggregate Contract v1, Incident Contract v1, Assist Contract v1, and Player Relationship Contract v1 remain unchanged.
 - Extend the Steam identity session used by self-service badge settings while keeping badge selection restricted to the authenticated player's own unlocked achievements.
 - Require a fresh Steam OpenID verification before badge showcase edits, grant only a 10-minute server-signed edit capability, and reject badge writes whose browser origin does not match the configured public origin.
 - Build the achievement atlas before every frontend production build and embed the refreshed frontend in the Dashboard binary.
 - Merge achievement category filters into the progress card, keep easter-egg discovery visible in the compact summary, render progress as full numeric values, and add named tooltips with better alignment for profile and preview badges.
+- Enforce profile visibility on the server for summary, activity, PvE, Versus, analysis, relationships, history, achievements, and badges; shared PvE and Versus payloads are scoped to the requested visible tab.
 
 ### Fixed
 

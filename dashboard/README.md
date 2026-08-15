@@ -76,7 +76,9 @@ SQLite Stats DB 的常规连接会以只读模式打开。MySQL/PostgreSQL 若�
 
 玩家查询使用的本地 SteamID 记录不参与权限判断。修改徽章展示位前必须重新完成一次 Steam OpenID 验证；服务端只签发 10 分钟有效、绑定本人 SteamID 的 HttpOnly 编辑凭据，写请求还必须来自站点设置中的公开地址。
 
-Dashboard DB 使用内嵌 Goose migration 自动升级，当前 schema 为 14；Stats schema 为 6，`stats_version` 仍为 1，Aggregate Contract 与 Achievement Contract 均为 v1。升级前仍应停止服务并同时备份 Dashboard DB、Stats DB 与配置文件；不要通过删除 Stats DB 的方式处理版本变化。
+Steam 登录玩家可在个人中心“设置”中按一级 Tab 控制访客可见内容，默认只公开概览、分析和玩家关系；本人始终可以查看全部栏目。可见性由服务端接口强制执行，不是仅在浏览器中隐藏导航。
+
+Dashboard DB 使用内嵌 Goose migration 自动升级，当前 schema 为 15；Stats schema 为 6，`stats_version` 仍为 1，Aggregate Contract 与 Achievement Contract 均为 v1。升级前仍应停止服务并同时备份 Dashboard DB、Stats DB 与配置文件；不要通过删除 Stats DB 的方式处理版本变化。
 
 Dashboard 服务器 UUID 只标识网页中的实时服务器目录，不需要管理员填写。采集器的 `sm_lps_server_key` 仍是 Stats DB 中的数据来源标识，两者边界独立。L4D2 的加入链接和 A2S 状态查询统一使用同一个服务器地址。
 
