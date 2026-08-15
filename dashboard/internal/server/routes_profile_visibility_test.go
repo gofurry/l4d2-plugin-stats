@@ -80,10 +80,25 @@ func TestPlayerProfileVisibilityRoutesAndSectionEnforcement(t *testing.T) {
 	if response := performProfileRequest(t, app, http.MethodPut, "/api/v1/me/profile-visibility", `{"visible_sections":["pve-details"]}`, ""); response.StatusCode != http.StatusUnauthorized {
 		t.Fatalf("anonymous update status=%d", response.StatusCode)
 	}
+	crossOrigin := httptest.NewRequest(http.MethodPut, "/api/v1/me/profile-visibility", strings.NewReader(`{"visible_sections":["overview"]}`))
+	crossOrigin.Header.Set("Content-Type", "application/json")
+	crossOrigin.Header.Set("Origin", "https://evil.example")
+	crossOrigin.AddCookie(&http.Cookie{Name: steamIdentityCookie, Value: identity})
+	crossResponse, err := app.Test(crossOrigin)
+	if err != nil || crossResponse.StatusCode != http.StatusForbidden {
+		t.Fatalf("cross-origin update status=%d err=%v", crossResponse.StatusCode, err)
+	}
+	if response := performProfileRequest(t, app, http.MethodPut, "/api/v1/me/profile-visibility", `{"visible_sections":["unknown"]}`, identity); response.StatusCode != http.StatusBadRequest {
+		t.Fatalf("unknown section update status=%d", response.StatusCode)
+	}
 
 	update := performProfileRequest(t, app, http.MethodPut, "/api/v1/me/profile-visibility", `{"visible_sections":["pve-details"]}`, identity)
 	if update.StatusCode != http.StatusOK {
 		t.Fatalf("authenticated update status=%d", update.StatusCode)
+	}
+	ownerProfile := performProfileRequest(t, app, http.MethodGet, "/api/v1/players/"+profileTestSteamID+"/profile", "", identity)
+	if err := json.NewDecoder(ownerProfile.Body).Decode(&profilePayload); err != nil || !profilePayload.Data.Self || len(profilePayload.Data.VisibleSections) != 1 {
+		t.Fatalf("owner profile=%#v err=%v", profilePayload.Data, err)
 	}
 	if response := performProfileRequest(t, app, http.MethodGet, "/api/v1/players/"+profileTestSteamID+"/pve?view=pve", "", ""); response.StatusCode != http.StatusForbidden {
 		t.Fatalf("hidden PvE overview status=%d", response.StatusCode)
