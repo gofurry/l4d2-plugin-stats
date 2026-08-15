@@ -1,15 +1,17 @@
 package server
 
 import (
+	"encoding/json"
 	"strconv"
 	"strings"
 
 	"github.com/gofiber/fiber/v3"
+	"github.com/gofurry/l4d2-plugin-stats/dashboard/internal/auth"
 	"github.com/gofurry/l4d2-plugin-stats/dashboard/internal/service"
 	"github.com/gofurry/l4d2-plugin-stats/dashboard/internal/store"
 )
 
-func registerPlayerRoutes(api fiber.Router, players *service.PlayerService, analysis *service.AnalysisService, achievements *service.AchievementService) {
+func registerPlayerRoutes(api fiber.Router, players *service.PlayerService, analysis *service.AnalysisService, achievements *service.AchievementService, profiles store.DashboardProfileStore, authService *auth.Service) {
 	group := api.Group("/players/:steam_id")
 	group.Get("/preview", func(c fiber.Ctx) error {
 		steamID, ok := playerID(c)
@@ -23,7 +25,11 @@ func registerPlayerRoutes(api fiber.Router, players *service.PlayerService, anal
 		if result == nil {
 			return sendError(c, 404, "player_not_found", "player was not found")
 		}
-		if achievements != nil {
+		showAchievements, visibilityErr := playerSectionAllowed(c, profiles, authService, steamID, store.PlayerProfileAchievements)
+		if visibilityErr != nil {
+			return sendError(c, 503, "profile_visibility_unavailable", "player profile visibility is temporarily unavailable")
+		}
+		if achievements != nil && showAchievements {
 			badges, badgeErr := achievements.Badges(c.Context(), steamID)
 			if badgeErr == nil && len(badges.Items) > 0 {
 				badge := badges.Items[0]
@@ -35,6 +41,9 @@ func registerPlayerRoutes(api fiber.Router, players *service.PlayerService, anal
 	group.Get("/summary", func(c fiber.Ctx) error {
 		steamID, ok := playerID(c)
 		if !ok {
+			return nil
+		}
+		if !requirePlayerSection(c, profiles, authService, steamID, store.PlayerProfileOverview) {
 			return nil
 		}
 		result, err := players.Summary(c.Context(), steamID)
@@ -49,6 +58,14 @@ func registerPlayerRoutes(api fiber.Router, players *service.PlayerService, anal
 	group.Get("/pve", func(c fiber.Ctx) error {
 		steamID, ok := playerID(c)
 		if !ok {
+			return nil
+		}
+		view := c.Query("view", string(store.PlayerProfilePVE))
+		section := store.PlayerProfileSection(view)
+		if section != store.PlayerProfilePVE && section != store.PlayerProfilePVEDetails {
+			return sendError(c, 400, "invalid_view", "view must be pve or pve-details")
+		}
+		if !requirePlayerSection(c, profiles, authService, steamID, section) {
 			return nil
 		}
 		if exists, err := players.Summary(c.Context(), steamID); err != nil {
@@ -72,11 +89,29 @@ func registerPlayerRoutes(api fiber.Router, players *service.PlayerService, anal
 		if err != nil {
 			return statsError(c, err)
 		}
-		return sendData(c, 200, result)
+		payload, err := playerObject(result)
+		if err != nil {
+			return sendError(c, 503, "stats_unavailable", "statistics are temporarily unavailable")
+		}
+		if section == store.PlayerProfilePVEDetails {
+			payload = fiber.Map{"infected_classes": payload["infected_classes"], "equipment": payload["equipment"]}
+		} else {
+			delete(payload, "infected_classes")
+			delete(payload, "equipment")
+		}
+		return sendData(c, 200, payload)
 	})
 	group.Get("/versus", func(c fiber.Ctx) error {
 		steamID, ok := playerID(c)
 		if !ok {
+			return nil
+		}
+		view := c.Query("view", string(store.PlayerProfileVersusSurvivor))
+		section := store.PlayerProfileSection(view)
+		if section != store.PlayerProfileVersusSurvivor && section != store.PlayerProfileVersusSurvivorDetails && section != store.PlayerProfileVersusInfected && section != store.PlayerProfileVersusInfectedDetails {
+			return sendError(c, 400, "invalid_view", "unsupported versus view")
+		}
+		if !requirePlayerSection(c, profiles, authService, steamID, section) {
 			return nil
 		}
 		if exists, err := players.Summary(c.Context(), steamID); err != nil {
@@ -96,11 +131,18 @@ func registerPlayerRoutes(api fiber.Router, players *service.PlayerService, anal
 		if err != nil {
 			return statsError(c, err)
 		}
-		return sendData(c, 200, result)
+		payload, err := versusPayload(result, section)
+		if err != nil {
+			return sendError(c, 503, "stats_unavailable", "statistics are temporarily unavailable")
+		}
+		return sendData(c, 200, payload)
 	})
 	group.Get("/activity", func(c fiber.Ctx) error {
 		steamID, ok := playerID(c)
 		if !ok {
+			return nil
+		}
+		if !requirePlayerSection(c, profiles, authService, steamID, store.PlayerProfileOverview) {
 			return nil
 		}
 		if exists, err := players.Summary(c.Context(), steamID); err != nil {
@@ -125,6 +167,9 @@ func registerPlayerRoutes(api fiber.Router, players *service.PlayerService, anal
 	group.Get("/analysis", func(c fiber.Ctx) error {
 		steamID, ok := playerID(c)
 		if !ok {
+			return nil
+		}
+		if !requirePlayerSection(c, profiles, authService, steamID, store.PlayerProfileAnalysis) {
 			return nil
 		}
 		if players == nil || analysis == nil {
@@ -156,6 +201,9 @@ func registerPlayerRoutes(api fiber.Router, players *service.PlayerService, anal
 	group.Get("/relationships", func(c fiber.Ctx) error {
 		steamID, ok := playerID(c)
 		if !ok {
+			return nil
+		}
+		if !requirePlayerSection(c, profiles, authService, steamID, store.PlayerProfileRelationships) {
 			return nil
 		}
 		if exists, err := players.Summary(c.Context(), steamID); err != nil {
@@ -211,6 +259,9 @@ func registerPlayerRoutes(api fiber.Router, players *service.PlayerService, anal
 		if !ok {
 			return nil
 		}
+		if !requirePlayerSection(c, profiles, authService, steamID, store.PlayerProfileHistory) {
+			return nil
+		}
 		at, id, limit, ok := pageArgs(c)
 		if !ok {
 			return nil
@@ -232,6 +283,9 @@ func registerPlayerRoutes(api fiber.Router, players *service.PlayerService, anal
 		if !ok {
 			return nil
 		}
+		if !requirePlayerSection(c, profiles, authService, steamID, store.PlayerProfileHistory) {
+			return nil
+		}
 		at, id, limit, ok := pageArgs(c)
 		if !ok {
 			return nil
@@ -248,6 +302,51 @@ func registerPlayerRoutes(api fiber.Router, players *service.PlayerService, anal
 		}
 		return sendData(c, 200, page)
 	})
+}
+
+func playerObject(value any) (fiber.Map, error) {
+	raw, err := json.Marshal(value)
+	if err != nil {
+		return nil, err
+	}
+	result := fiber.Map{}
+	if err := json.Unmarshal(raw, &result); err != nil {
+		return nil, err
+	}
+	return result, nil
+}
+
+func versusPayload(value store.PlayerVersus, section store.PlayerProfileSection) (fiber.Map, error) {
+	object, err := playerObject(value)
+	if err != nil {
+		return nil, err
+	}
+	switch section {
+	case store.PlayerProfileVersusSurvivorDetails:
+		return fiber.Map{"survivor_classes": object["survivor_classes"]}, nil
+	case store.PlayerProfileVersusInfectedDetails:
+		return fiber.Map{"infected_classes": object["infected_classes"]}, nil
+	case store.PlayerProfileVersusInfected:
+		allowed := map[string]bool{
+			"infected_spawns": true, "damage_to_human_survivors": true, "damage_to_bot_survivors": true,
+			"human_survivor_incaps": true, "bot_survivor_incaps": true, "human_survivor_kills": true,
+			"bot_survivor_kills": true, "human_survivor_controls": true, "human_survivor_control_seconds": true,
+		}
+		for key := range object {
+			if !allowed[key] {
+				delete(object, key)
+			}
+		}
+		return object, nil
+	default:
+		for key := range object {
+			allowed := strings.HasPrefix(key, "survivor_") || strings.HasPrefix(key, "human_special_") || strings.HasPrefix(key, "bot_special_") || strings.HasPrefix(key, "human_tank_") || strings.HasPrefix(key, "bot_tank_") || key == "molotovs_thrown" || key == "pipe_bombs_thrown" || key == "vomit_jars_thrown" || key == "assist_coverage"
+			if !allowed || key == "survivor_classes" {
+				delete(object, key)
+			}
+		}
+		return object, nil
+	}
 }
 
 func playerID(c fiber.Ctx) (string, bool) {

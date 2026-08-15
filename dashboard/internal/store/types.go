@@ -9,9 +9,59 @@ import (
 var ErrServerNotFound = errors.New("game server not found")
 
 const (
-	DashboardSchemaVersion int64 = 14
+	DashboardSchemaVersion int64 = 15
 	StatsSchemaVersion     int64 = 6
 )
+
+type PlayerProfileSection string
+
+const (
+	PlayerProfileOverview              PlayerProfileSection = "overview"
+	PlayerProfileAchievements          PlayerProfileSection = "achievements"
+	PlayerProfileAnalysis              PlayerProfileSection = "analysis"
+	PlayerProfilePVE                   PlayerProfileSection = "pve"
+	PlayerProfilePVEDetails            PlayerProfileSection = "pve-details"
+	PlayerProfileVersusSurvivor        PlayerProfileSection = "versus-survivor"
+	PlayerProfileVersusSurvivorDetails PlayerProfileSection = "versus-survivor-details"
+	PlayerProfileVersusInfected        PlayerProfileSection = "versus-infected"
+	PlayerProfileVersusInfectedDetails PlayerProfileSection = "versus-infected-details"
+	PlayerProfileRelationships         PlayerProfileSection = "relationships"
+	PlayerProfileHistory               PlayerProfileSection = "history"
+)
+
+var PlayerProfileSections = []PlayerProfileSection{
+	PlayerProfileOverview,
+	PlayerProfileAchievements,
+	PlayerProfileAnalysis,
+	PlayerProfilePVE,
+	PlayerProfilePVEDetails,
+	PlayerProfileVersusSurvivor,
+	PlayerProfileVersusSurvivorDetails,
+	PlayerProfileVersusInfected,
+	PlayerProfileVersusInfectedDetails,
+	PlayerProfileRelationships,
+	PlayerProfileHistory,
+}
+
+var DefaultPlayerProfileSections = []PlayerProfileSection{
+	PlayerProfileOverview,
+	PlayerProfileAnalysis,
+	PlayerProfileRelationships,
+}
+
+type PlayerProfileVisibility struct {
+	VisibleSections []PlayerProfileSection `json:"visible_sections"`
+	UpdatedAt       int64                  `json:"updated_at,omitempty"`
+}
+
+func (v PlayerProfileVisibility) Visible(section PlayerProfileSection) bool {
+	for _, candidate := range v.VisibleSections {
+		if candidate == section {
+			return true
+		}
+	}
+	return false
+}
 
 type FooterLink struct {
 	ID    string `json:"id,omitempty"`
@@ -866,6 +916,11 @@ type DashboardStore interface {
 	Close() error
 }
 
+type DashboardProfileStore interface {
+	PlayerProfileVisibility(context.Context, string) (PlayerProfileVisibility, error)
+	ReplacePlayerProfileVisibility(context.Context, string, []PlayerProfileSection, int64) (PlayerProfileVisibility, error)
+}
+
 type DashboardAggregateStore interface {
 	AggregateStatus(context.Context) (AggregateStatus, error)
 	ReplaceAggregateRows(context.Context, []AggregateRow, int64) error
@@ -882,6 +937,7 @@ type DashboardAggregateStore interface {
 
 type DashboardDatabase interface {
 	DashboardStore
+	DashboardProfileStore
 	DashboardAggregateStore
 	DashboardAchievementStore
 	ServerStatusSnapshotStore

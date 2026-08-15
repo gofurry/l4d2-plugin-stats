@@ -10,13 +10,16 @@ import (
 	"github.com/gofurry/l4d2-plugin-stats/dashboard/internal/store"
 )
 
-func registerAchievementRoutes(api fiber.Router, achievements *service.AchievementService, authService *auth.Service, dashboard store.DashboardStore) {
+func registerAchievementRoutes(api fiber.Router, achievements *service.AchievementService, authService *auth.Service, dashboard store.DashboardStore, profiles store.DashboardProfileStore) {
 	if achievements == nil {
 		return
 	}
 	api.Get("/players/:steam_id/achievements", func(c fiber.Ctx) error {
 		steamID, ok := playerID(c)
 		if !ok {
+			return nil
+		}
+		if !requirePlayerSection(c, profiles, authService, steamID, store.PlayerProfileAchievements) {
 			return nil
 		}
 		viewer := steamIdentity(c, authService)
@@ -30,6 +33,9 @@ func registerAchievementRoutes(api fiber.Router, achievements *service.Achieveme
 	api.Get("/players/:steam_id/badges", func(c fiber.Ctx) error {
 		steamID, ok := playerID(c)
 		if !ok {
+			return nil
+		}
+		if !requirePlayerSection(c, profiles, authService, steamID, store.PlayerProfileAchievements) {
 			return nil
 		}
 		result, err := achievements.Badges(c.Context(), steamID)

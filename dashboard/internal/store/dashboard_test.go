@@ -409,3 +409,34 @@ VALUES ('765','career.veteran.1',1,100,'backfill',36000)`); err != nil {
 		t.Fatal("schema 14 achievement tables survived Down migration")
 	}
 }
+
+func TestPlayerProfileVisibilityMigrationFourteenToFifteen(t *testing.T) {
+	ctx := context.Background()
+	db, err := sql.Open("sqlite", filepath.Join(t.TempDir(), "dashboard-14.db"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer db.Close()
+	goose.SetBaseFS(dashboarddb.Migrations)
+	if err := goose.SetDialect("sqlite3"); err != nil {
+		t.Fatal(err)
+	}
+	if err := goose.UpToContext(ctx, db, "migrations", 14); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := db.ExecContext(ctx, `SELECT 1 FROM player_profile_visibility`); err == nil {
+		t.Fatal("schema 14 unexpectedly contains player profile visibility")
+	}
+	if err := goose.UpToContext(ctx, db, "migrations", 15); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := db.ExecContext(ctx, `INSERT INTO player_profile_visibility (steam_id,visible_sections_json,updated_at) VALUES ('765','[]',1)`); err != nil {
+		t.Fatal(err)
+	}
+	if err := goose.DownToContext(ctx, db, "migrations", 14); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := db.ExecContext(ctx, `SELECT 1 FROM player_profile_visibility`); err == nil {
+		t.Fatal("schema 15 player profile visibility survived Down migration")
+	}
+}

@@ -21,6 +21,7 @@ import (
 
 type Dependencies struct {
 	Dashboard    store.DashboardStore
+	Profiles     store.DashboardProfileStore
 	Stats        store.StatsStore
 	Overview     *service.OverviewService
 	Status       store.ServerStatusProvider
@@ -35,6 +36,10 @@ type Dependencies struct {
 }
 
 func New(cfg *config.Config, deps Dependencies) *fiber.App {
+	profiles := deps.Profiles
+	if profiles == nil {
+		profiles, _ = deps.Dashboard.(store.DashboardProfileStore)
+	}
 	app := fiber.New(fiber.Config{
 		AppName: "L4D2 Stats", BodyLimit: 1024 * 1024,
 		ReadTimeout: cfg.Server.ReadTimeout.Value(), WriteTimeout: cfg.Server.WriteTimeout.Value(),
@@ -118,8 +123,9 @@ func New(cfg *config.Config, deps Dependencies) *fiber.App {
 		}
 		return sendData(c, fiber.StatusOK, statuses)
 	})
-	registerPlayerRoutes(api, deps.Players, deps.Analysis, deps.Achievements)
-	registerAchievementRoutes(api, deps.Achievements, deps.Auth, deps.Dashboard)
+	registerPlayerProfileRoutes(api, deps.Players, profiles, deps.Dashboard, deps.Auth)
+	registerPlayerRoutes(api, deps.Players, deps.Analysis, deps.Achievements, profiles, deps.Auth)
+	registerAchievementRoutes(api, deps.Achievements, deps.Auth, deps.Dashboard, profiles)
 	registerAnalysisRoutes(api, deps.Analysis)
 	registerRankingRoutes(api, deps.Rankings)
 	registerAnnouncementRoutes(api, deps.Dashboard)
