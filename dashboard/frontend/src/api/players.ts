@@ -1,6 +1,9 @@
 import { queryString, request } from './client'
 
 export interface PlayerSummary { steam_id: string; last_name: string; first_seen_at: number; last_seen_at: number; session_count: number; connected_seconds: number; active_play_seconds: number }
+export type PlayerProfileSection = 'overview' | 'achievements' | 'analysis' | 'pve' | 'pve-details' | 'versus-survivor' | 'versus-survivor-details' | 'versus-infected' | 'versus-infected-details' | 'relationships' | 'history'
+export interface PlayerProfile { steam_id: string; player_name: string; visible_sections: PlayerProfileSection[]; self: boolean }
+export interface PlayerProfileVisibility { visible_sections: PlayerProfileSection[]; updated_at?: number }
 export interface PlayerPreview {
   steam_id: string; player_name: string; session_count: number; active_play_seconds: number; last_seen_at: number
   pve: { available: boolean; common_kills: number; special_kills: number; boss_kills: number; headshot_kills: number; rescues: number; campaign_completions: number }
@@ -58,11 +61,13 @@ export interface Page<T> { items: T[]; next_cursor?: string }
 
 export const playersAPI = {
   steamIdentity: () => request<SteamIdentity | null>('/api/v1/steam/identity'),
+  playerProfile: (id: string) => request<PlayerProfile>(`/api/v1/players/${id}/profile`),
+  savePlayerProfileVisibility: (visibleSections: PlayerProfileSection[]) => request<PlayerProfileVisibility>('/api/v1/me/profile-visibility', { method: 'PUT', body: JSON.stringify({ visible_sections: visibleSections }) }),
   playerSummary: (id: string) => request<PlayerSummary>(`/api/v1/players/${id}/summary`),
   playerPreview: (id: string) => request<PlayerPreview>(`/api/v1/players/${id}/preview`),
   playerActivity: (id: string, range: string, server = '') => request<PlayerActivity>(`/api/v1/players/${id}/activity?${queryString({ range, server })}`),
-  playerPVE: (id: string, range: string, server = '', mode = '') => request<PlayerPVE>(`/api/v1/players/${id}/pve?${queryString({ range, server, mode })}`),
-  playerVersus: (id: string, range: string, server = '') => request<PlayerVersus>(`/api/v1/players/${id}/versus?${queryString({ range, server })}`),
+  playerPVE: (id: string, range: string, server = '', mode = '', view: 'pve' | 'pve-details' = 'pve') => request<PlayerPVE>(`/api/v1/players/${id}/pve?${queryString({ range, server, mode, view })}`),
+  playerVersus: (id: string, range: string, server = '', view: 'versus-survivor' | 'versus-survivor-details' | 'versus-infected' | 'versus-infected-details' = 'versus-survivor') => request<PlayerVersus>(`/api/v1/players/${id}/versus?${queryString({ range, server, view })}`),
   playerAnalysis: (id: string, range: string, server = '', view = 'pve') => request<PlayerAnalysis>(`/api/v1/players/${id}/analysis?${queryString({ range, server, view })}`),
   playerRelationships: (id: string, range: string, server = '', mode = 'all', page = 1, pageSize = 20, sort = 'shared_rounds', order: 'asc' | 'desc' = 'desc') => request<PlayerRelationshipPage>(`/api/v1/players/${id}/relationships?${queryString({ range, server, mode, page, page_size: pageSize, sort, order })}`),
   playerAchievements: (id: string) => request<PlayerAchievements>(`/api/v1/players/${id}/achievements`),
