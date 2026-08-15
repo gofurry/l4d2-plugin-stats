@@ -4,15 +4,15 @@ import { achievementAtlas } from '../assets/achievements/generated/achievement-a
 import { AchievementBadge } from './AchievementBadge'
 
 describe('Achievement badge atlas', () => {
-  it('keeps all 26 artwork tiles unique and inside the fixed 6 by 5 atlas', () => {
+  it('keeps all 38 artwork tiles unique and inside the fixed 6 by 7 atlas', () => {
     const items = Object.values(achievementAtlas.items)
-    expect(items).toHaveLength(26)
-    expect(new Set(items.map(item => `${item.x}:${item.y}`))).toHaveLength(26)
+    expect(items).toHaveLength(38)
+    expect(new Set(items.map(item => `${item.x}:${item.y}`))).toHaveLength(38)
     for (const item of items) {
       expect(item.w).toBe(128)
       expect(item.h).toBe(128)
       expect(item.x + item.w).toBeLessThanOrEqual(768)
-      expect(item.y + item.h).toBeLessThanOrEqual(640)
+      expect(item.y + item.h).toBeLessThanOrEqual(896)
     }
   })
 

@@ -9,6 +9,9 @@ const expectedArtworkKeys = [
   'support.steadfast', 'support.defuser', 'support.field_medic',
   'boss.tank_hunter', 'boss.witch_hunter', 'boss.boss_nemesis',
   'versus.player_hunter', 'versus.infected_master', 'bond.comrade',
+  'weapon.throwable_expert', 'career.objective_master', 'career.temp_health_addict', 'support.firepower_upgrade',
+  'weapon.single_shotgun', 'weapon.chainsaw', 'weapon.machine_gun', 'weapon.smg',
+  'weapon.bolt_sniper', 'weapon.heavy_primary', 'weapon.grenade_launcher', 'weapon.melee',
   'special.rock_breaker', 'special.one_shot', 'special.witch_nemesis', 'special.tongue_cutter',
   'special.defib_rescuer', 'special.miracle_healer',
   'secret.crashed', 'secret.see_u_again', 'secret.dispatch', 'secret.ff_king', 'secret.submissive',
@@ -19,7 +22,7 @@ const sourceRoot = path.join(assetRoot, 'source')
 const generatedRoot = path.join(assetRoot, 'generated')
 const manifest = JSON.parse(await readFile(path.join(assetRoot, 'artwork-manifest.json'), 'utf8'))
 
-if (!Array.isArray(manifest) || manifest.length !== expectedArtworkKeys.length) throw new Error('artwork manifest must contain exactly 26 entries')
+if (!Array.isArray(manifest) || manifest.length !== expectedArtworkKeys.length) throw new Error(`artwork manifest must contain exactly ${expectedArtworkKeys.length} entries`)
 const keys = manifest.map(item => item.key)
 const files = manifest.map(item => item.file)
 if (new Set(keys).size !== keys.length) throw new Error('artwork manifest contains duplicate keys')
@@ -33,7 +36,7 @@ if (actualFiles.join('\n') !== expectedFiles.join('\n')) throw new Error('source
 const tileWidth = 128
 const tileHeight = 128
 const columns = 6
-const rows = 5
+const rows = Math.ceil(manifest.length / columns)
 const imageWidth = columns * tileWidth
 const imageHeight = rows * tileHeight
 const composites = []

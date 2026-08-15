@@ -4,7 +4,7 @@ import atlasImage from './achievements-atlas.webp'
 export const achievementAtlasImage = atlasImage
 export const achievementAtlas = {
   "imageWidth": 768,
-  "imageHeight": 640,
+  "imageHeight": 896,
   "tileWidth": 128,
   "tileHeight": 128,
   "items": {
@@ -98,69 +98,141 @@ export const achievementAtlas = {
       "w": 128,
       "h": 128
     },
-    "special.rock_breaker": {
+    "weapon.throwable_expert": {
       "x": 384,
       "y": 256,
       "w": 128,
       "h": 128
     },
-    "special.one_shot": {
+    "career.objective_master": {
       "x": 512,
       "y": 256,
       "w": 128,
       "h": 128
     },
-    "special.witch_nemesis": {
+    "career.temp_health_addict": {
       "x": 640,
       "y": 256,
       "w": 128,
       "h": 128
     },
-    "special.tongue_cutter": {
+    "support.firepower_upgrade": {
       "x": 0,
       "y": 384,
       "w": 128,
       "h": 128
     },
-    "special.defib_rescuer": {
+    "weapon.single_shotgun": {
       "x": 128,
       "y": 384,
       "w": 128,
       "h": 128
     },
-    "special.miracle_healer": {
+    "weapon.chainsaw": {
       "x": 256,
       "y": 384,
       "w": 128,
       "h": 128
     },
-    "secret.crashed": {
+    "weapon.machine_gun": {
       "x": 384,
       "y": 384,
       "w": 128,
       "h": 128
     },
-    "secret.see_u_again": {
+    "weapon.smg": {
       "x": 512,
       "y": 384,
       "w": 128,
       "h": 128
     },
-    "secret.dispatch": {
+    "weapon.bolt_sniper": {
       "x": 640,
       "y": 384,
       "w": 128,
       "h": 128
     },
-    "secret.ff_king": {
+    "weapon.heavy_primary": {
       "x": 0,
       "y": 512,
       "w": 128,
       "h": 128
     },
-    "secret.submissive": {
+    "weapon.grenade_launcher": {
       "x": 128,
       "y": 512,
+      "w": 128,
+      "h": 128
+    },
+    "weapon.melee": {
+      "x": 256,
+      "y": 512,
+      "w": 128,
+      "h": 128
+    },
+    "special.rock_breaker": {
+      "x": 384,
+      "y": 512,
+      "w": 128,
+      "h": 128
+    },
+    "special.one_shot": {
+      "x": 512,
+      "y": 512,
+      "w": 128,
+      "h": 128
+    },
+    "special.witch_nemesis": {
+      "x": 640,
+      "y": 512,
+      "w": 128,
+      "h": 128
+    },
+    "special.tongue_cutter": {
+      "x": 0,
+      "y": 640,
+      "w": 128,
+      "h": 128
+    },
+    "special.defib_rescuer": {
+      "x": 128,
+      "y": 640,
+      "w": 128,
+      "h": 128
+    },
+    "special.miracle_healer": {
+      "x": 256,
+      "y": 640,
+      "w": 128,
+      "h": 128
+    },
+    "secret.crashed": {
+      "x": 384,
+      "y": 640,
+      "w": 128,
+      "h": 128
+    },
+    "secret.see_u_again": {
+      "x": 512,
+      "y": 640,
+      "w": 128,
+      "h": 128
+    },
+    "secret.dispatch": {
+      "x": 640,
+      "y": 640,
+      "w": 128,
+      "h": 128
+    },
+    "secret.ff_king": {
+      "x": 0,
+      "y": 768,
+      "w": 128,
+      "h": 128
+    },
+    "secret.submissive": {
+      "x": 128,
+      "y": 768,
       "w": 128,
       "h": 128
     }
