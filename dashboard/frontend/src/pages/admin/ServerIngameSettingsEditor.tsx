@@ -50,7 +50,7 @@ export function ServerIngameSettingsEditor({ server }: { server: GameServer }) {
     </Form>
     <div className={styles.documentSection}>
       <Typography.Title level={5}>{label('服务器文档', 'Server documents')}</Typography.Title>
-      {query.data.documents.map(document => <ServerDocumentEditor key={document.key} serverID={server.id!} document={document} zh={zh} queryKey={queryKey} />)}
+      {query.data.documents.map(document => <ServerDocumentEditor key={`${document.key}-${document.updated_at}`} serverID={server.id!} document={document} zh={zh} queryKey={queryKey} />)}
     </div>
   </section>
 }
@@ -59,7 +59,6 @@ function ServerDocumentEditor({ serverID, document, zh, queryKey }: { serverID: 
   const label = (cn: string, en: string) => zh ? cn : en
   const client = useQueryClient()
   const [draft, setDraft] = useState(document)
-  useEffect(() => setDraft(document), [document])
   const save = useMutation({
     mutationFn: (value: IngameServerDocument) => api.saveServerIngameDocument(serverID, value),
     onSuccess: updated => {
