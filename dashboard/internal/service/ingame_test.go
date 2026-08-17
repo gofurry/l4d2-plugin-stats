@@ -13,7 +13,11 @@ type fakeIngameDashboard struct {
 	settings        store.IngameSettings
 	servers         []store.GameServer
 	visibility      store.PlayerProfileVisibility
+	overrides       []store.IngameServerSettings
+	documents       []store.ServerDocument
+	lastDocumentKey string
 	settingsCalls   int
+	overrideCalls   int
 	visibilityCalls int
 }
 
@@ -23,6 +27,10 @@ func (f *fakeIngameDashboard) IngameSettings(context.Context) (store.IngameSetti
 }
 func (f *fakeIngameDashboard) IngameServerSettings(context.Context, string) (store.IngameServerSettings, error) {
 	return store.IngameServerSettings{TitleMode: "inherit", DescriptionMode: "inherit", BannerMode: "inherit", BackgroundMode: "inherit", WebsiteMode: "inherit", HighlightMode: "inherit"}, nil
+}
+func (f *fakeIngameDashboard) ListIngameServerSettings(context.Context) ([]store.IngameServerSettings, error) {
+	f.overrideCalls++
+	return append([]store.IngameServerSettings(nil), f.overrides...), nil
 }
 func (f *fakeIngameDashboard) ListServers(context.Context) ([]store.GameServer, error) {
 	return append([]store.GameServer(nil), f.servers...), nil
@@ -34,10 +42,16 @@ func (f *fakeIngameDashboard) GetSiteDocument(context.Context, string, bool) (st
 	return store.SiteDocument{}, nil
 }
 func (f *fakeIngameDashboard) ListServerDocuments(context.Context, string) ([]store.ServerDocument, error) {
-	return []store.ServerDocument{}, nil
+	return append([]store.ServerDocument(nil), f.documents...), nil
 }
-func (f *fakeIngameDashboard) GetServerDocument(context.Context, string, string) (store.ServerDocument, error) {
-	return store.ServerDocument{Mode: "inherit"}, nil
+func (f *fakeIngameDashboard) GetServerDocument(_ context.Context, serverKey, documentKey string) (store.ServerDocument, error) {
+	f.lastDocumentKey = serverKey
+	for _, document := range f.documents {
+		if document.ServerKey == serverKey && document.Key == documentKey {
+			return document, nil
+		}
+	}
+	return store.ServerDocument{ServerKey: serverKey, Key: documentKey, Mode: "inherit"}, nil
 }
 func (f *fakeIngameDashboard) PlayerProfileVisibility(context.Context, string) (store.PlayerProfileVisibility, error) {
 	f.visibilityCalls++
@@ -95,9 +109,11 @@ type fakeIngameRankings struct {
 	highlightCalls int
 	ids            []string
 	metrics        [3]string
+	lastQuery      store.RankingQuery
 }
 
-func (f *fakeIngameRankings) List(context.Context, store.RankingQuery) (store.RankingPage, error) {
+func (f *fakeIngameRankings) List(_ context.Context, query store.RankingQuery) (store.RankingPage, error) {
+	f.lastQuery = query
 	return store.RankingPage{Items: []store.RankingEntry{}}, nil
 }
 func (f *fakeIngameRankings) IngameHighlights(_ context.Context, _ string, ids []string, metrics [3]string) ([]IngameHighlight, error) {
@@ -148,8 +164,8 @@ func TestIngameHomeUsesBoundedCachedView(t *testing.T) {
 	if len(rankings.ids) != 32 || rankings.metrics != dashboard.settings.HighlightMetrics {
 		t.Fatalf("bounded highlight ids=%d metrics=%v", len(rankings.ids), rankings.metrics)
 	}
-	if dashboard.settingsCalls != 1 || statuses.calls != 1 || rankings.highlightCalls != 1 {
-		t.Fatalf("cache miss counts settings=%d status=%d highlights=%d", dashboard.settingsCalls, statuses.calls, rankings.highlightCalls)
+	if dashboard.settingsCalls != 1 || dashboard.overrideCalls != 1 || statuses.calls != 1 || rankings.highlightCalls != 1 {
+		t.Fatalf("cache miss counts settings=%d overrides=%d status=%d highlights=%d", dashboard.settingsCalls, dashboard.overrideCalls, statuses.calls, rankings.highlightCalls)
 	}
 }
 
@@ -198,6 +214,111 @@ func TestIngameHomeSelectsAmongResolvedServers(t *testing.T) {
 	view, err := service.Home(context.Background(), "")
 	if err != nil || !view.SelectionOnly || len(view.ServerOptions) != 2 || view.ActivePage != "home" || view.Config.Appearance.BackgroundURL != settings.BackgroundURL {
 		t.Fatalf("selection view=%+v err=%v", view, err)
+	}
+}
+
+func TestIngameHomeAggregatesInstancesInOneServerGroup(t *testing.T) {
+	now := time.Now()
+	dashboard := &fakeIngameDashboard{
+		settings: defaultIngameTestSettings(),
+		servers: []store.GameServer{
+			{ID: "one", DisplayName: "Group #1", Address: "127.0.0.1:27015", Enabled: true, SortOrder: 1},
+			{ID: "two", DisplayName: "Group #2", Address: "127.0.0.1:27016", Enabled: true, SortOrder: 2},
+			{ID: "three", DisplayName: "Group #3", Address: "127.0.0.1:27017", Enabled: true, SortOrder: 3},
+			{ID: "other", DisplayName: "Other", Address: "127.0.0.1:27018", Enabled: true, SortOrder: 4},
+		},
+		overrides: []store.IngameServerSettings{{ServerKey: "shared", TitleMode: "override", Title: "Shared Group", DescriptionMode: "inherit", BannerMode: "inherit", BackgroundMode: "inherit", WebsiteMode: "inherit", HighlightMode: "inherit"}},
+	}
+	statuses := &fakeIngameStatuses{statuses: []store.ServerStatus{
+		{ServerID: "one", ServerKey: "shared", Online: true, Players: 3, Bots: 1, LastSuccessAt: now, PlayerList: []store.ServerPlayer{{Name: "Alice", SteamID: "76561198000000001"}}},
+		{ServerID: "two", ServerKey: "shared", Online: true, Players: 1, LastSuccessAt: now, PlayerList: []store.ServerPlayer{{Name: "Bob", SteamID: "76561198000000002"}}},
+		{ServerID: "three", ServerKey: "shared", Online: false, LastSuccessAt: now.Add(-time.Hour)},
+		{ServerID: "other", ServerKey: "other", Online: true, Players: 8, LastSuccessAt: now},
+	}}
+	service := NewIngameService(dashboard, statuses, &fakeIngamePlayers{}, &fakeIngameRankings{}, &fakeIngameAchievements{})
+	service.now = func() time.Time { return now }
+	view, err := service.Home(context.Background(), "shared")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if view.Config.Appearance.Title != "Shared Group" || view.OnlineInstances != 2 || view.TotalInstances != 3 || view.OnlinePlayerCount != 2 || view.BotCount != 1 || len(view.Players) != 2 || len(view.Instances) != 3 {
+		t.Fatalf("group view=%+v", view)
+	}
+	if view.Instances[0].JoinHref != "steam://connect/127.0.0.1:27015" || view.Instances[2].JoinHref != "" {
+		t.Fatalf("join links=%+v", view.Instances)
+	}
+	if dashboard.settingsCalls != 1 || dashboard.overrideCalls != 1 || statuses.calls != 1 {
+		t.Fatalf("group build calls settings=%d overrides=%d statuses=%d", dashboard.settingsCalls, dashboard.overrideCalls, statuses.calls)
+	}
+}
+
+func TestIngameSelectionDeduplicatesSharedServerKey(t *testing.T) {
+	dashboard := &fakeIngameDashboard{settings: defaultIngameTestSettings(), servers: []store.GameServer{
+		{ID: "one", DisplayName: "Shared #1", Address: "127.0.0.1:27015", Enabled: true},
+		{ID: "two", DisplayName: "Shared #2", Address: "127.0.0.1:27016", Enabled: true},
+		{ID: "other", DisplayName: "Other", Address: "127.0.0.1:27017", Enabled: true},
+	}}
+	statuses := &fakeIngameStatuses{statuses: []store.ServerStatus{
+		{ServerID: "one", ServerKey: "shared"}, {ServerID: "two", ServerKey: "shared"}, {ServerID: "other", ServerKey: "other"},
+	}}
+	service := NewIngameService(dashboard, statuses, &fakeIngamePlayers{}, &fakeIngameRankings{}, &fakeIngameAchievements{})
+	view, err := service.Home(context.Background(), "")
+	sharedInstances := 0
+	for _, option := range view.ServerOptions {
+		if option.ServerKey == "shared" {
+			sharedInstances = len(option.Instances)
+		}
+	}
+	if err != nil || !view.SelectionOnly || len(view.ServerOptions) != 2 || sharedInstances != 2 {
+		t.Fatalf("selection=%+v err=%v", view, err)
+	}
+}
+
+func TestIngameOfflineSnapshotStillResolvesGroup(t *testing.T) {
+	dashboard := &fakeIngameDashboard{settings: defaultIngameTestSettings(), servers: []store.GameServer{{ID: "one", DisplayName: "Offline", Address: "127.0.0.1:27015", Enabled: true}}}
+	statuses := &fakeIngameStatuses{statuses: []store.ServerStatus{{ServerID: "one", ServerKey: "offline-group", Online: false}}}
+	service := NewIngameService(dashboard, statuses, &fakeIngamePlayers{}, &fakeIngameRankings{}, &fakeIngameAchievements{})
+	view, err := service.Home(context.Background(), "offline-group")
+	if err != nil || view.ServerKey != "offline-group" || view.TotalInstances != 1 || view.OnlineInstances != 0 {
+		t.Fatalf("offline group=%+v err=%v", view, err)
+	}
+}
+
+func TestBuildIngameConnectHrefValidatesAddress(t *testing.T) {
+	for input, expected := range map[string]string{
+		"example.com:27015":   "steam://connect/example.com:27015",
+		"[2001:db8::1]:27015": "steam://connect/[2001:db8::1]:27015",
+		"bad host:27015":      "",
+		"example.com:70000":   "",
+		"evil.com:27015/path": "",
+	} {
+		if actual := BuildIngameConnectHref(input); actual != expected {
+			t.Errorf("BuildIngameConnectHref(%q)=%q, want %q", input, actual, expected)
+		}
+	}
+}
+
+func TestIngameRankingsAndDocumentsRemainGroupScoped(t *testing.T) {
+	dashboard := &fakeIngameDashboard{
+		settings: defaultIngameTestSettings(),
+		servers: []store.GameServer{
+			{ID: "one", DisplayName: "One", Address: "127.0.0.1:27015", Enabled: true},
+			{ID: "two", DisplayName: "Two", Address: "127.0.0.1:27016", Enabled: true},
+		},
+		documents: []store.ServerDocument{{ServerKey: "shared", Key: store.IngameDocumentCommands, Mode: "override", ContentMarkdown: "shared commands"}},
+	}
+	statuses := &fakeIngameStatuses{statuses: []store.ServerStatus{{ServerID: "one", ServerKey: "shared"}, {ServerID: "two", ServerKey: "shared"}}}
+	rankings := &fakeIngameRankings{}
+	service := NewIngameService(dashboard, statuses, &fakeIngamePlayers{}, rankings, &fakeIngameAchievements{})
+	if _, err := service.Rankings(context.Background(), "shared", "common_kills", 1); err != nil {
+		t.Fatal(err)
+	}
+	if rankings.lastQuery.ServerKey != "shared" || rankings.lastQuery.Limit != 10 {
+		t.Fatalf("ranking query=%+v", rankings.lastQuery)
+	}
+	view, err := service.Info(context.Background(), "shared", store.IngameDocumentCommands)
+	if err != nil || view.ContentMarkdown != "shared commands" || dashboard.lastDocumentKey != "shared" {
+		t.Fatalf("document view=%+v key=%q err=%v", view, dashboard.lastDocumentKey, err)
 	}
 }
 

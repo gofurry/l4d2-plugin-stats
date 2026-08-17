@@ -19,15 +19,17 @@ func TestDashboardIngameSettingsAndServerDocuments(t *testing.T) {
 	defer dashboard.Close()
 	ingame := dashboard.(DashboardIngameStore)
 	settings, err := ingame.IngameSettings(ctx)
-	if err != nil || !settings.Enabled || settings.HomeCacheSeconds != 30 || settings.HighlightMetrics != [3]string{"active_play_seconds", "special_kills", "rescues"} {
+	if err != nil || !settings.Enabled || !settings.ShowServerIntro || !settings.ShowServerStatus || settings.HomeCacheSeconds != 30 || settings.HighlightMetrics != [3]string{"active_play_seconds", "special_kills", "rescues"} {
 		t.Fatalf("default settings=%+v err=%v", settings, err)
 	}
 	settings.Title = "In-Game"
 	settings.BannerURL = "https://example.com/banner.jpg"
 	settings.BackgroundURL = "https://example.com/background.jpg?ver=2"
+	settings.ShowServerIntro = false
+	settings.ShowServerStatus = false
 	settings.HomeCacheSeconds = 60
 	saved, err := ingame.UpdateIngameSettings(ctx, settings)
-	if err != nil || saved.Title != settings.Title || saved.BackgroundURL != settings.BackgroundURL || saved.HomeCacheSeconds != 60 || saved.UpdatedAt == 0 {
+	if err != nil || saved.Title != settings.Title || saved.BackgroundURL != settings.BackgroundURL || saved.ShowServerIntro || saved.ShowServerStatus || saved.HomeCacheSeconds != 60 || saved.UpdatedAt == 0 {
 		t.Fatalf("saved settings=%+v err=%v", saved, err)
 	}
 
@@ -35,8 +37,9 @@ func TestDashboardIngameSettingsAndServerDocuments(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	serverSettings, err := ingame.IngameServerSettings(ctx, server.ID)
-	if err != nil || serverSettings.TitleMode != "inherit" || serverSettings.ServerID != server.ID {
+	serverKey := "community.one"
+	serverSettings, err := ingame.IngameServerSettings(ctx, serverKey)
+	if err != nil || serverSettings.TitleMode != "inherit" || serverSettings.ServerKey != serverKey {
 		t.Fatalf("default server settings=%+v err=%v", serverSettings, err)
 	}
 	serverSettings.TitleMode = "override"
@@ -61,12 +64,12 @@ func TestDashboardIngameSettingsAndServerDocuments(t *testing.T) {
 	}
 
 	document, err := ingame.UpdateServerDocument(ctx, ServerDocument{
-		ServerID: server.ID, Key: IngameDocumentCommands, Mode: "override", ContentMarkdown: "- !help",
+		ServerKey: serverKey, Key: IngameDocumentCommands, Mode: "override", ContentMarkdown: "- !help",
 	})
 	if err != nil || document.Mode != "override" || document.UpdatedAt == 0 {
 		t.Fatalf("saved document=%+v err=%v", document, err)
 	}
-	documents, err := ingame.ListServerDocuments(ctx, server.ID)
+	documents, err := ingame.ListServerDocuments(ctx, serverKey)
 	if err != nil || len(documents) != 1 || documents[0].Key != IngameDocumentCommands {
 		t.Fatalf("documents=%+v err=%v", documents, err)
 	}
@@ -76,10 +79,10 @@ func TestDashboardIngameSettingsAndServerDocuments(t *testing.T) {
 	}
 	store := dashboard.(*dashboardStore)
 	var count int
-	if err := store.db.QueryRowContext(ctx, `SELECT COUNT(*) FROM ingame_server_settings`).Scan(&count); err != nil || count != 0 {
+	if err := store.db.QueryRowContext(ctx, `SELECT COUNT(*) FROM ingame_server_settings`).Scan(&count); err != nil || count != 1 {
 		t.Fatalf("server settings after deletion=%d err=%v", count, err)
 	}
-	if err := store.db.QueryRowContext(ctx, `SELECT COUNT(*) FROM server_documents`).Scan(&count); err != nil || count != 0 {
+	if err := store.db.QueryRowContext(ctx, `SELECT COUNT(*) FROM server_documents`).Scan(&count); err != nil || count != 1 {
 		t.Fatalf("server documents after deletion=%d err=%v", count, err)
 	}
 }
@@ -182,7 +185,7 @@ func TestOpenDashboardCompletesPrereleaseSchemaSeventeen(t *testing.T) {
 		t.Fatal(err)
 	}
 	defer dashboard.Close()
-	if version, versionErr := dashboard.MigrationVersion(ctx); versionErr != nil || version != 17 {
+	if version, versionErr := dashboard.MigrationVersion(ctx); versionErr != nil || version != 18 {
 		t.Fatalf("migration version=%d err=%v", version, versionErr)
 	}
 	ingame := dashboard.(DashboardIngameStore)
@@ -193,12 +196,78 @@ func TestOpenDashboardCompletesPrereleaseSchemaSeventeen(t *testing.T) {
 	if settings.BackgroundURL != "" || settings.HighlightMetrics != [3]string{"active_play_seconds", "special_kills", "rescues"} || settings.HomeCacheSeconds != 30 || settings.PlayerCacheSeconds != 60 || settings.RankingCacheSeconds != 120 || settings.ContentCacheSeconds != 300 {
 		t.Fatalf("completed global settings=%+v", settings)
 	}
-	server, err := dashboard.CreateServer(ctx, GameServer{DisplayName: "Main", Address: "127.0.0.1:27015"})
+	serverSettings, err := ingame.IngameServerSettings(ctx, "community.one")
+	if err != nil || serverSettings.BackgroundMode != "inherit" || serverSettings.BackgroundURL != "" {
+		t.Fatalf("completed server settings=%+v err=%v", serverSettings, err)
+	}
+}
+
+func TestIngameMigrationSeventeenToEighteenCollapsesByServerKey(t *testing.T) {
+	ctx := context.Background()
+	db, err := sql.Open("sqlite", filepath.Join(t.TempDir(), "dashboard-17.db"))
 	if err != nil {
 		t.Fatal(err)
 	}
-	serverSettings, err := ingame.IngameServerSettings(ctx, server.ID)
-	if err != nil || serverSettings.BackgroundMode != "inherit" || serverSettings.BackgroundURL != "" {
-		t.Fatalf("completed server settings=%+v err=%v", serverSettings, err)
+	defer db.Close()
+	if _, err := db.ExecContext(ctx, `PRAGMA foreign_keys=ON`); err != nil {
+		t.Fatal(err)
+	}
+	goose.SetBaseFS(dashboarddb.Migrations)
+	if err := goose.SetDialect("sqlite3"); err != nil {
+		t.Fatal(err)
+	}
+	if err := goose.UpToContext(ctx, db, "migrations", 17); err != nil {
+		t.Fatal(err)
+	}
+	for _, row := range []struct{ id, name, address string }{
+		{"00000000-0000-0000-0000-000000000001", "One", "127.0.0.1:27015"},
+		{"00000000-0000-0000-0000-000000000002", "Two", "127.0.0.1:27016"},
+		{"00000000-0000-0000-0000-000000000003", "Unknown", "127.0.0.1:27017"},
+	} {
+		if _, err := db.ExecContext(ctx, `INSERT INTO game_servers(id,display_name,address,enabled,sort_order,created_at,updated_at) VALUES(?,?,?,1,0,1,1)`, row.id, row.name, row.address); err != nil {
+			t.Fatal(err)
+		}
+	}
+	if _, err := db.ExecContext(ctx, `INSERT INTO a2s_status_snapshots(server_id,status_json,checked_at,updated_at) VALUES
+		(?, '{"server_id":"00000000-0000-0000-0000-000000000001","server_key":"shared.key"}', 1, 1),
+		(?, '{"server_id":"00000000-0000-0000-0000-000000000002","server_key":"shared.key"}', 1, 1),
+		(?, '{"server_id":"00000000-0000-0000-0000-000000000003"}', 1, 1)`,
+		"00000000-0000-0000-0000-000000000001", "00000000-0000-0000-0000-000000000002", "00000000-0000-0000-0000-000000000003"); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := db.ExecContext(ctx, `INSERT INTO ingame_server_settings(server_id,title_mode,title,updated_at) VALUES
+		(?, 'override', 'Older', 10), (?, 'override', 'Newer', 20), (?, 'override', 'Discard me', 30)`,
+		"00000000-0000-0000-0000-000000000001", "00000000-0000-0000-0000-000000000002", "00000000-0000-0000-0000-000000000003"); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := db.ExecContext(ctx, `INSERT INTO server_documents(server_id,key,mode,content_markdown,updated_at) VALUES
+		(?, 'commands', 'override', 'low id', 40), (?, 'commands', 'override', 'high id', 40)`,
+		"00000000-0000-0000-0000-000000000001", "00000000-0000-0000-0000-000000000002"); err != nil {
+		t.Fatal(err)
+	}
+	if err := goose.UpToContext(ctx, db, "migrations", 18); err != nil {
+		t.Fatal(err)
+	}
+	var intro, status int
+	if err := db.QueryRowContext(ctx, `SELECT show_server_intro,show_server_status FROM ingame_settings WHERE id=1`).Scan(&intro, &status); err != nil || intro != 1 || status != 1 {
+		t.Fatalf("module defaults=%d/%d err=%v", intro, status, err)
+	}
+	var key, title string
+	if err := db.QueryRowContext(ctx, `SELECT server_key,title FROM ingame_server_settings`).Scan(&key, &title); err != nil || key != "shared.key" || title != "Newer" {
+		t.Fatalf("collapsed settings=%q/%q err=%v", key, title, err)
+	}
+	var content string
+	if err := db.QueryRowContext(ctx, `SELECT content_markdown FROM server_documents WHERE server_key='shared.key' AND key='commands'`).Scan(&content); err != nil || content != "high id" {
+		t.Fatalf("deterministic document winner=%q err=%v", content, err)
+	}
+	if err := goose.DownToContext(ctx, db, "migrations", 17); err != nil {
+		t.Fatal(err)
+	}
+	var restored int
+	if err := db.QueryRowContext(ctx, `SELECT COUNT(*) FROM ingame_server_settings WHERE title='Newer'`).Scan(&restored); err != nil || restored != 2 {
+		t.Fatalf("restored legacy rows=%d err=%v", restored, err)
+	}
+	if _, err := db.ExecContext(ctx, `SELECT show_server_intro FROM ingame_settings`); err == nil {
+		t.Fatal("schema 18 module columns survived Down migration")
 	}
 }

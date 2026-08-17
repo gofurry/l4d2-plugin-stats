@@ -19,7 +19,8 @@ func (s *dashboardStore) IngameSettings(ctx context.Context) (IngameSettings, er
 		Enabled: row.Enabled == 1, Title: row.Title, Description: row.Description,
 		BannerURL: row.BannerUrl, BackgroundURL: row.BackgroundUrl, WebsiteURL: row.WebsiteUrl,
 		ShowAnnouncements: row.ShowAnnouncements == 1, ShowPlayers: row.ShowPlayers == 1,
-		ShowHighlights:   row.ShowHighlights == 1,
+		ShowHighlights: row.ShowHighlights == 1, ShowServerIntro: row.ShowServerIntro == 1,
+		ShowServerStatus: row.ShowServerStatus == 1,
 		HighlightMetrics: [3]string{row.HighlightMetric1, row.HighlightMetric2, row.HighlightMetric3},
 		HomeCacheSeconds: row.HomeCacheSeconds, PlayerCacheSeconds: row.PlayerCacheSeconds,
 		RankingCacheSeconds: row.RankingCacheSeconds, ContentCacheSeconds: row.ContentCacheSeconds,
@@ -33,7 +34,8 @@ func (s *dashboardStore) UpdateIngameSettings(ctx context.Context, settings Inga
 		Enabled: boolInt(settings.Enabled), Title: settings.Title, Description: settings.Description,
 		BannerUrl: settings.BannerURL, BackgroundUrl: settings.BackgroundURL, WebsiteUrl: settings.WebsiteURL,
 		ShowAnnouncements: boolInt(settings.ShowAnnouncements), ShowPlayers: boolInt(settings.ShowPlayers),
-		ShowHighlights:   boolInt(settings.ShowHighlights),
+		ShowHighlights: boolInt(settings.ShowHighlights), ShowServerIntro: boolInt(settings.ShowServerIntro),
+		ShowServerStatus: boolInt(settings.ShowServerStatus),
 		HighlightMetric1: settings.HighlightMetrics[0], HighlightMetric2: settings.HighlightMetrics[1],
 		HighlightMetric3: settings.HighlightMetrics[2], HomeCacheSeconds: settings.HomeCacheSeconds,
 		PlayerCacheSeconds: settings.PlayerCacheSeconds, RankingCacheSeconds: settings.RankingCacheSeconds,
@@ -45,11 +47,11 @@ func (s *dashboardStore) UpdateIngameSettings(ctx context.Context, settings Inga
 	return s.IngameSettings(ctx)
 }
 
-func (s *dashboardStore) IngameServerSettings(ctx context.Context, serverID string) (IngameServerSettings, error) {
-	row, err := s.q.GetIngameServerSettings(ctx, serverID)
+func (s *dashboardStore) IngameServerSettings(ctx context.Context, serverKey string) (IngameServerSettings, error) {
+	row, err := s.q.GetIngameServerSettings(ctx, serverKey)
 	if errors.Is(err, sql.ErrNoRows) {
 		return IngameServerSettings{
-			ServerID: serverID, TitleMode: "inherit", DescriptionMode: "inherit",
+			ServerKey: serverKey, TitleMode: "inherit", DescriptionMode: "inherit",
 			BannerMode: "inherit", BackgroundMode: "inherit", WebsiteMode: "inherit", HighlightMode: "inherit",
 		}, nil
 	}
@@ -57,7 +59,7 @@ func (s *dashboardStore) IngameServerSettings(ctx context.Context, serverID stri
 		return IngameServerSettings{}, fmt.Errorf("get server in-game settings: %w", err)
 	}
 	return IngameServerSettings{
-		ServerID: row.ServerID, TitleMode: row.TitleMode, Title: row.Title,
+		ServerKey: row.ServerKey, TitleMode: row.TitleMode, Title: row.Title,
 		DescriptionMode: row.DescriptionMode, Description: row.Description,
 		BannerMode: row.BannerMode, BannerURL: row.BannerUrl,
 		BackgroundMode: row.BackgroundMode, BackgroundURL: row.BackgroundUrl,
@@ -68,10 +70,31 @@ func (s *dashboardStore) IngameServerSettings(ctx context.Context, serverID stri
 	}, nil
 }
 
+func (s *dashboardStore) ListIngameServerSettings(ctx context.Context) ([]IngameServerSettings, error) {
+	rows, err := s.q.ListIngameServerSettings(ctx)
+	if err != nil {
+		return nil, fmt.Errorf("list server-group in-game settings: %w", err)
+	}
+	result := make([]IngameServerSettings, 0, len(rows))
+	for _, row := range rows {
+		result = append(result, IngameServerSettings{
+			ServerKey: row.ServerKey, TitleMode: row.TitleMode, Title: row.Title,
+			DescriptionMode: row.DescriptionMode, Description: row.Description,
+			BannerMode: row.BannerMode, BannerURL: row.BannerUrl,
+			BackgroundMode: row.BackgroundMode, BackgroundURL: row.BackgroundUrl,
+			WebsiteMode: row.WebsiteMode, WebsiteURL: row.WebsiteUrl,
+			HighlightMode:    row.HighlightMode,
+			HighlightMetrics: [3]string{row.HighlightMetric1, row.HighlightMetric2, row.HighlightMetric3},
+			UpdatedAt:        row.UpdatedAt,
+		})
+	}
+	return result, nil
+}
+
 func (s *dashboardStore) UpdateIngameServerSettings(ctx context.Context, settings IngameServerSettings) (IngameServerSettings, error) {
 	settings.UpdatedAt = time.Now().Unix()
 	err := s.q.UpsertIngameServerSettings(ctx, dashsql.UpsertIngameServerSettingsParams{
-		ServerID: settings.ServerID, TitleMode: settings.TitleMode, Title: settings.Title,
+		ServerKey: settings.ServerKey, TitleMode: settings.TitleMode, Title: settings.Title,
 		DescriptionMode: settings.DescriptionMode, Description: settings.Description,
 		BannerMode: settings.BannerMode, BannerUrl: settings.BannerURL,
 		BackgroundMode: settings.BackgroundMode, BackgroundUrl: settings.BackgroundURL,
@@ -83,41 +106,41 @@ func (s *dashboardStore) UpdateIngameServerSettings(ctx context.Context, setting
 	if err != nil {
 		return IngameServerSettings{}, fmt.Errorf("update server in-game settings: %w", err)
 	}
-	return s.IngameServerSettings(ctx, settings.ServerID)
+	return s.IngameServerSettings(ctx, settings.ServerKey)
 }
 
-func (s *dashboardStore) DeleteIngameServerSettings(ctx context.Context, serverID string) error {
-	if err := s.q.DeleteIngameServerSettings(ctx, serverID); err != nil {
+func (s *dashboardStore) DeleteIngameServerSettings(ctx context.Context, serverKey string) error {
+	if err := s.q.DeleteIngameServerSettings(ctx, serverKey); err != nil {
 		return fmt.Errorf("delete server in-game settings: %w", err)
 	}
 	return nil
 }
 
-func (s *dashboardStore) ListServerDocuments(ctx context.Context, serverID string) ([]ServerDocument, error) {
-	rows, err := s.q.ListServerDocuments(ctx, serverID)
+func (s *dashboardStore) ListServerDocuments(ctx context.Context, serverKey string) ([]ServerDocument, error) {
+	rows, err := s.q.ListServerDocuments(ctx, serverKey)
 	if err != nil {
 		return nil, fmt.Errorf("list server documents: %w", err)
 	}
 	documents := make([]ServerDocument, 0, len(rows))
 	for _, row := range rows {
 		documents = append(documents, ServerDocument{
-			ServerID: row.ServerID, Key: row.Key, Mode: row.Mode,
+			ServerKey: row.ServerKey, Key: row.Key, Mode: row.Mode,
 			ContentMarkdown: row.ContentMarkdown, UpdatedAt: row.UpdatedAt,
 		})
 	}
 	return documents, nil
 }
 
-func (s *dashboardStore) GetServerDocument(ctx context.Context, serverID, key string) (ServerDocument, error) {
-	row, err := s.q.GetServerDocument(ctx, dashsql.GetServerDocumentParams{ServerID: serverID, Key: key})
+func (s *dashboardStore) GetServerDocument(ctx context.Context, serverKey, key string) (ServerDocument, error) {
+	row, err := s.q.GetServerDocument(ctx, dashsql.GetServerDocumentParams{ServerKey: serverKey, Key: key})
 	if errors.Is(err, sql.ErrNoRows) {
-		return ServerDocument{ServerID: serverID, Key: key, Mode: "inherit"}, nil
+		return ServerDocument{ServerKey: serverKey, Key: key, Mode: "inherit"}, nil
 	}
 	if err != nil {
 		return ServerDocument{}, fmt.Errorf("get server document: %w", err)
 	}
 	return ServerDocument{
-		ServerID: row.ServerID, Key: row.Key, Mode: row.Mode,
+		ServerKey: row.ServerKey, Key: row.Key, Mode: row.Mode,
 		ContentMarkdown: row.ContentMarkdown, UpdatedAt: row.UpdatedAt,
 	}, nil
 }
@@ -125,17 +148,17 @@ func (s *dashboardStore) GetServerDocument(ctx context.Context, serverID, key st
 func (s *dashboardStore) UpdateServerDocument(ctx context.Context, document ServerDocument) (ServerDocument, error) {
 	document.UpdatedAt = time.Now().Unix()
 	err := s.q.UpsertServerDocument(ctx, dashsql.UpsertServerDocumentParams{
-		ServerID: document.ServerID, Key: document.Key, Mode: document.Mode,
+		ServerKey: document.ServerKey, Key: document.Key, Mode: document.Mode,
 		ContentMarkdown: document.ContentMarkdown, UpdatedAt: document.UpdatedAt,
 	})
 	if err != nil {
 		return ServerDocument{}, fmt.Errorf("update server document: %w", err)
 	}
-	return s.GetServerDocument(ctx, document.ServerID, document.Key)
+	return s.GetServerDocument(ctx, document.ServerKey, document.Key)
 }
 
-func (s *dashboardStore) DeleteServerDocuments(ctx context.Context, serverID string) error {
-	if err := s.q.DeleteServerDocuments(ctx, serverID); err != nil {
+func (s *dashboardStore) DeleteServerDocuments(ctx context.Context, serverKey string) error {
+	if err := s.q.DeleteServerDocuments(ctx, serverKey); err != nil {
 		return fmt.Errorf("delete server documents: %w", err)
 	}
 	return nil

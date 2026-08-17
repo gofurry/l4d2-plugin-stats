@@ -29,7 +29,7 @@ func TestValidateIngameURL(t *testing.T) {
 func TestResolveIngameConfig(t *testing.T) {
 	global := store.IngameSettings{
 		Title: "Global", Description: "Global description", BannerURL: "https://example.com/global.jpg", BackgroundURL: "https://example.com/global-bg.jpg",
-		WebsiteURL: "https://example.com", ShowAnnouncements: true, ShowPlayers: true, ShowHighlights: true,
+		WebsiteURL: "https://example.com", ShowAnnouncements: true, ShowPlayers: true, ShowHighlights: true, ShowServerIntro: true, ShowServerStatus: true,
 		HighlightMetrics: [3]string{"active_play_seconds", "special_kills", "rescues"},
 	}
 	server := store.IngameServerSettings{
@@ -41,7 +41,7 @@ func TestResolveIngameConfig(t *testing.T) {
 	if resolved.Appearance.Title != "Server" || resolved.Appearance.Description != "" || resolved.Appearance.WebsiteURL != "" || resolved.Appearance.BannerURL != server.BannerURL || resolved.Appearance.BackgroundURL != server.BackgroundURL {
 		t.Fatalf("resolved appearance=%+v", resolved.Appearance)
 	}
-	if resolved.Metrics != server.HighlightMetrics || !resolved.Modules.ShowPlayers {
+	if resolved.Metrics != server.HighlightMetrics || !resolved.Modules.ShowPlayers || !resolved.Modules.ShowServerIntro || !resolved.Modules.ShowServerStatus {
 		t.Fatalf("resolved config=%+v", resolved)
 	}
 	global.Title = ""
@@ -59,6 +59,19 @@ func TestResolveIngameConfig(t *testing.T) {
 	}
 }
 
+func TestValidateIngameServerKey(t *testing.T) {
+	for _, value := range []string{"one", "community.one", "group_01-east"} {
+		if err := ValidateIngameServerKey(value); err != nil {
+			t.Errorf("valid key %q: %v", value, err)
+		}
+	}
+	for _, value := range []string{"", "change-me", "space key", "slash/key", strings.Repeat("a", 65)} {
+		if err := ValidateIngameServerKey(value); err == nil {
+			t.Errorf("invalid key accepted: %q", value)
+		}
+	}
+}
+
 func TestValidateIngameBackgroundSettings(t *testing.T) {
 	global := store.IngameSettings{
 		BackgroundURL:    "https://example.com/background.jpg?ver=2",
@@ -73,6 +86,7 @@ func TestValidateIngameBackgroundSettings(t *testing.T) {
 		t.Fatal("unsafe global background URL accepted")
 	}
 	server := store.IngameServerSettings{
+		ServerKey: "community.one",
 		TitleMode: "inherit", DescriptionMode: "inherit", BannerMode: "inherit", BackgroundMode: "override",
 		BackgroundURL: "https://example.com/background.jpg", WebsiteMode: "inherit", HighlightMode: "inherit",
 	}

@@ -152,7 +152,7 @@ type IncidentRetentionRun struct {
 }
 
 type IngameServerSetting struct {
-	ServerID         string `json:"server_id"`
+	ServerKey        string `json:"server_key"`
 	TitleMode        string `json:"title_mode"`
 	Title            string `json:"title"`
 	DescriptionMode  string `json:"description_mode"`
@@ -189,6 +189,8 @@ type IngameSetting struct {
 	RankingCacheSeconds int64  `json:"ranking_cache_seconds"`
 	ContentCacheSeconds int64  `json:"content_cache_seconds"`
 	UpdatedAt           int64  `json:"updated_at"`
+	ShowServerIntro     int64  `json:"show_server_intro"`
+	ShowServerStatus    int64  `json:"show_server_status"`
 }
 
 type PlayerBadgeShowcase struct {
@@ -225,7 +227,7 @@ type RetentionRun struct {
 }
 
 type ServerDocument struct {
-	ServerID        string `json:"server_id"`
+	ServerKey       string `json:"server_key"`
 	Key             string `json:"key"`
 	Mode            string `json:"mode"`
 	ContentMarkdown string `json:"content_markdown"`

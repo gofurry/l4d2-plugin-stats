@@ -59,6 +59,20 @@ func ValidateIngameURL(value string) error {
 	return nil
 }
 
+func ValidateIngameServerKey(value string) error {
+	value = strings.TrimSpace(value)
+	if len(value) < 1 || len(value) > 64 || strings.EqualFold(value, "change-me") {
+		return errors.New("server_key must contain 1 to 64 characters and must not be change-me")
+	}
+	for _, character := range value {
+		if (character >= 'A' && character <= 'Z') || (character >= 'a' && character <= 'z') || (character >= '0' && character <= '9') || character == '.' || character == '_' || character == '-' {
+			continue
+		}
+		return errors.New("server_key may only contain letters, numbers, dot, underscore, and hyphen")
+	}
+	return nil
+}
+
 func ValidateIngameSettings(settings store.IngameSettings) error {
 	settings.Title = strings.TrimSpace(settings.Title)
 	if len(settings.Title) > 128 {
@@ -95,6 +109,9 @@ func ValidateIngameSettings(settings store.IngameSettings) error {
 }
 
 func ValidateIngameServerSettings(settings store.IngameServerSettings) error {
+	if err := ValidateIngameServerKey(settings.ServerKey); err != nil {
+		return err
+	}
 	if !slices.Contains([]string{"inherit", "override"}, settings.TitleMode) {
 		return errors.New("title_mode is invalid")
 	}
@@ -150,6 +167,9 @@ func ValidateIngameServerSettings(settings store.IngameServerSettings) error {
 }
 
 func ValidateServerDocument(document store.ServerDocument) error {
+	if err := ValidateIngameServerKey(document.ServerKey); err != nil {
+		return err
+	}
 	if !slices.Contains([]string{store.IngameDocumentIntroduction, store.IngameDocumentCommands, store.IngameDocumentResources}, document.Key) {
 		return errors.New("document key is invalid")
 	}
@@ -191,6 +211,8 @@ type ResolvedIngameModules struct {
 	ShowAnnouncements bool
 	ShowPlayers       bool
 	ShowHighlights    bool
+	ShowServerIntro   bool
+	ShowServerStatus  bool
 }
 
 type ResolvedIngameConfig struct {
@@ -209,6 +231,8 @@ func ResolveIngameConfig(global store.IngameSettings, server store.IngameServerS
 			ShowAnnouncements: global.ShowAnnouncements,
 			ShowPlayers:       global.ShowPlayers,
 			ShowHighlights:    global.ShowHighlights,
+			ShowServerIntro:   global.ShowServerIntro,
+			ShowServerStatus:  global.ShowServerStatus,
 		},
 		Metrics: global.HighlightMetrics,
 	}

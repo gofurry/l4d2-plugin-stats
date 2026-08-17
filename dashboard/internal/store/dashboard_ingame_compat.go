@@ -7,8 +7,8 @@ import (
 )
 
 // ensureIngameVisualV2Schema completes pre-release schema 17 databases that
-// were created before Visual v2 added portal background settings. The release
-// schema version remains 17, so Goose intentionally has no migration 18 to run.
+// were created before Visual v2 added portal background settings. It runs
+// before normal migrations so migration 18 can safely read the legacy tables.
 func ensureIngameVisualV2Schema(ctx context.Context, db *sql.DB) error {
 	tx, err := db.BeginTx(ctx, nil)
 	if err != nil {
@@ -26,6 +26,13 @@ func ensureIngameVisualV2Schema(ctx context.Context, db *sql.DB) error {
 		{table: "ingame_server_settings", name: "background_url", statement: `ALTER TABLE ingame_server_settings ADD COLUMN background_url TEXT NOT NULL DEFAULT ''`},
 	}
 	for _, column := range columns {
+		tableExists, existsErr := sqliteTableExists(ctx, tx, column.table)
+		if existsErr != nil {
+			return existsErr
+		}
+		if !tableExists {
+			continue
+		}
 		exists, existsErr := sqliteColumnExists(ctx, tx, column.table, column.name)
 		if existsErr != nil {
 			return existsErr
@@ -38,6 +45,14 @@ func ensureIngameVisualV2Schema(ctx context.Context, db *sql.DB) error {
 		}
 	}
 	return tx.Commit()
+}
+
+func sqliteTableExists(ctx context.Context, tx *sql.Tx, table string) (bool, error) {
+	var count int
+	if err := tx.QueryRowContext(ctx, `SELECT COUNT(*) FROM sqlite_master WHERE type = 'table' AND name = ?`, table).Scan(&count); err != nil {
+		return false, fmt.Errorf("inspect %s table: %w", table, err)
+	}
+	return count > 0, nil
 }
 
 func sqliteColumnExists(ctx context.Context, tx *sql.Tx, table, column string) (bool, error) {

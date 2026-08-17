@@ -30,6 +30,10 @@ func (ingameMIMEStore) IngameServerSettings(context.Context, string) (store.Inga
 	}, nil
 }
 
+func (ingameMIMEStore) ListIngameServerSettings(context.Context) ([]store.IngameServerSettings, error) {
+	return []store.IngameServerSettings{}, nil
+}
+
 func (ingameMIMEStore) ListServers(context.Context) ([]store.GameServer, error) {
 	return []store.GameServer{{ID: "server-id", DisplayName: "MIME Test", Enabled: true}}, nil
 }

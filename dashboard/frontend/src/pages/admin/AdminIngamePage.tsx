@@ -6,6 +6,7 @@ import { useTranslation } from 'react-i18next'
 import { api, type IngameSettings } from '../../api'
 import { FloatingToolbar } from '../../components/FloatingToolbar'
 import { cachePresets, completeIngameSettings, defaultIngameSettings, fallbackIngameMetrics } from './AdminIngameDefaults'
+import { IngameGroupSettingsEditor } from './IngameGroupSettingsEditor'
 import styles from './AdminIngamePage.module.scss'
 
 function validHTTPURL(value?: string) {
@@ -22,11 +23,12 @@ export function AdminIngamePage() {
   const label = (cn: string, en: string) => zh ? cn : en
   const client = useQueryClient()
   const query = useQuery({ queryKey: ['admin-ingame'], queryFn: api.ingameSettings })
-  const servers = useQuery({ queryKey: ['admin-servers'], queryFn: api.servers })
+  const groups = useQuery({ queryKey: ['admin-ingame-groups'], queryFn: api.ingameGroups })
   const [deploymentOpen, setDeploymentOpen] = useState(false)
-  const [selectedServer, setSelectedServer] = useState<string>()
-  const deployment = useQuery({ queryKey: ['admin-server-ingame', selectedServer], queryFn: () => api.serverIngameSettings(selectedServer!), enabled: deploymentOpen && Boolean(selectedServer) })
+  const [selectedGroup, setSelectedGroup] = useState<string>()
+  const [editingGroup, setEditingGroup] = useState<string>()
   const [form] = Form.useForm<IngameSettings>()
+  const editGroup = groups.data?.find(group => group.server_key === editingGroup)
   useEffect(() => { if (query.data) form.setFieldsValue(completeIngameSettings(query.data.settings)) }, [form, query.data])
   const showHighlights = Form.useWatch('show_highlights', form) ?? true
   const save = useMutation({
@@ -40,8 +42,8 @@ export function AdminIngamePage() {
   const metrics = query.data?.metric_catalog?.length
     ? query.data.metric_catalog.map(metric => ({ value: metric.key, label: metric.label }))
     : fallbackIngameMetrics.map(metric => ({ value: metric.key, label: zh ? metric.cn : metric.en }))
-  const serverKey = deployment.data?.server_key ?? ''
-  const publicOrigin = deployment.data?.public_origin || query.data?.public_origin || ''
+  const serverKey = selectedGroup ?? ''
+  const publicOrigin = query.data?.public_origin || ''
   const portalURL = publicOrigin && serverKey ? `${publicOrigin.replace(/\/$/, '')}/ingame?server=${encodeURIComponent(serverKey)}` : ''
   const motd = portalURL ? `<html>\n<head>\n<meta http-equiv="refresh"\ncontent="0;url=${portalURL}">\n</head>\n<body>\nLoading...\n</body>\n</html>` : ''
   const copyMotd = async () => {
@@ -73,6 +75,8 @@ export function AdminIngamePage() {
             <Form.Item name="show_announcements" valuePropName="checked" label={label('显示最新公告', 'Show latest announcement')}><Switch /></Form.Item>
             <Form.Item name="show_players" valuePropName="checked" label={label('显示在线玩家', 'Show online players')}><Switch /></Form.Item>
             <Form.Item name="show_highlights" valuePropName="checked" label={label('显示生涯亮点', 'Show career highlights')}><Switch /></Form.Item>
+            <Form.Item name="show_server_intro" valuePropName="checked" label={label('显示服务器介绍', 'Show server introduction')}><Switch /></Form.Item>
+            <Form.Item name="show_server_status" valuePropName="checked" label={label('显示服务器状态', 'Show server status')}><Switch /></Form.Item>
           </div>
         </section>
 
@@ -95,11 +99,18 @@ export function AdminIngamePage() {
       </Card>
     </Form>
 
+    <Card className={styles.settingsCard}>
+      <div className={styles.groupHeading}><div><Typography.Title level={3}>{label('服务器组覆盖', 'Server-group overrides')}</Typography.Title><Typography.Text type="secondary">{label('同一 server_key 下的多个 IP:PORT 共用一套外观与文档。', 'Instances sharing one server_key use one appearance and document configuration.')}</Typography.Text></div></div>
+      {groups.isError && <Alert type="error" showIcon title={groups.error.message} />}
+      {!groups.isLoading && groups.data?.length === 0 && <Alert type="info" showIcon title={label('尚未从 A2S 快照发现可配置的服务器组。', 'No configurable server group has been discovered from A2S snapshots.')} />}
+      {(groups.data?.length ?? 0) > 0 && <Select className={styles.groupSelect} value={editingGroup} onChange={setEditingGroup} placeholder={label('选择服务器组', 'Select a server group')} options={groups.data?.map(group => ({ value: group.server_key, label: `${group.title} · ${group.server_key} · ${group.instances.length} ${label('个实例', 'instances')}` }))} />}
+      {editGroup && <IngameGroupSettingsEditor group={editGroup} />}
+    </Card>
+
     <Modal className={styles.deploymentModal} width={720} open={deploymentOpen} title={label('MOTD 部署帮助', 'MOTD deployment help')} footer={null} onCancel={() => setDeploymentOpen(false)} destroyOnHidden>
-      <Typography.Paragraph>{label('选择服务器后生成可复制的 motd.txt。Dashboard 和 Collector 不会写入游戏服务器文件；host.txt 只能使用普通文本。', 'Select a server to generate motd.txt. Dashboard and Collector never write game-server files; host.txt only supports plain text.')}</Typography.Paragraph>
-      <Select className={styles.serverSelect} value={selectedServer} onChange={setSelectedServer} placeholder={label('选择服务器', 'Select a server')} options={servers.data?.filter(server => server.id).map(server => ({ value: server.id!, label: `${server.display_name} (${server.address})` }))} />
-      {!publicOrigin && selectedServer && <Alert type="warning" showIcon title={label('请先在站点设置中配置公开地址 public_origin。', 'Configure public_origin in Site settings first.')} />}
-      {publicOrigin && selectedServer && !deployment.isLoading && !serverKey && <Alert type="warning" showIcon title={label('尚未从该服务器的 A2S 规则中发现 sm_lps_server_key，请先确保 Collector 正常上报并刷新 A2S。', 'sm_lps_server_key has not been found in this server’s A2S rules. Ensure Collector is reporting and refresh A2S.')} />}
+      <Typography.Paragraph>{label('选择服务器组后生成可复制的 motd.txt。组内所有实例使用同一 server_key URL；Dashboard 和 Collector 不会写入游戏服务器文件。', 'Select a server group to generate motd.txt. Every instance in the group uses the same server_key URL; Dashboard and Collector never write game-server files.')}</Typography.Paragraph>
+      <Select className={styles.serverSelect} value={selectedGroup} onChange={setSelectedGroup} placeholder={label('选择服务器组', 'Select a server group')} options={groups.data?.map(group => ({ value: group.server_key, label: `${group.title} · ${group.server_key} (${group.instances.map(instance => instance.address).join(', ')})` }))} />
+      {!publicOrigin && selectedGroup && <Alert type="warning" showIcon title={label('请先在站点设置中配置公开地址 public_origin。', 'Configure public_origin in Site settings first.')} />}
       {motd && <><pre className={styles.code}>{motd}</pre><div className={styles.deploymentActions}>
         <Button icon={<CopyOutlined />} onClick={() => void copyMotd()}>{label('复制 motd.txt', 'Copy motd.txt')}</Button>
         <Button type="primary" href={portalURL} target="_blank" rel="noopener noreferrer">{label('预览页面', 'Preview portal')}</Button>

@@ -31,6 +31,8 @@ export const defaultIngameSettings: IngameSettings = {
   show_announcements: true,
   show_players: true,
   show_highlights: true,
+  show_server_intro: true,
+  show_server_status: true,
   highlight_metrics: ['active_play_seconds', 'special_kills', 'rescues'],
   home_cache_seconds: 30,
   player_cache_seconds: 60,

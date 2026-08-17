@@ -21,6 +21,13 @@
 .switchGrid, .threeColumns { grid-template-columns: repeat(3, minmax(0, 1fr)); }
 .cacheGrid { grid-template-columns: repeat(4, minmax(0, 1fr)); }
 .saveButton { margin-top: 4px; }
+.groupHeading { margin-bottom: 18px; }
+.groupHeading h3 { margin: 0 0 4px; }
+.groupSelect { width: min(720px, 100%); margin-bottom: 20px; }
+.instanceList { display: flex; flex-wrap: wrap; gap: 8px 16px; padding: 12px 14px; border-radius: 8px; background: rgba(0,0,0,.1); }
+.instanceList span { display: inline-flex; align-items: center; gap: 7px; color: #7e685c; }
+.instanceOnline, .instanceOffline { width: 7px; height: 7px; border-radius: 50%; background: #7f9b68; }
+.instanceOffline { background: #a9564b; }
 .serverSelect { width: min(560px, 100%); margin-bottom: 16px; }
 .deploymentModal :global(.ant-alert) { margin-bottom: 16px; }
 .deploymentActions { display: flex; align-items: center; flex-wrap: wrap; gap: 10px; }

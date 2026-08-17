@@ -35,7 +35,7 @@ func TestVisualV2CSSRemainsLegacySafe(t *testing.T) {
 		t.Fatal(err)
 	}
 	css := strings.ToLower(string(cssBytes))
-	for _, required := range []string{"background-size:100% auto", ".page{width:auto", ".home-hero.has-banner{height:168px", "::-webkit-scrollbar", "-webkit-border-radius", "-webkit-box-shadow"} {
+	for _, required := range []string{"position:fixed", "background-position:center center", "background-size:cover", ".page{position:relative", ".home-banner img{display:block;width:100%;height:auto", "::-webkit-scrollbar", "-webkit-border-radius", "-webkit-box-shadow"} {
 		if !strings.Contains(css, required) {
 			t.Errorf("Visual v2 CSS missing %q", required)
 		}
@@ -54,8 +54,8 @@ func TestIngameTemplatesContainNoClientApplication(t *testing.T) {
 	}
 	base := service.IngameBaseView{
 		ServerKey: "main", Config: service.ResolvedIngameConfig{Appearance: service.ResolvedIngameAppearance{Title: "Main", BackgroundURL: "https://example.com/background.jpg?ver=2"}},
-		WebsiteHref: "steam://openurl_external/https://example.com/full",
-		Status:      store.ServerStatus{Online: true, Map: "c1m1_hotel", Players: 2, MaxPlayers: 8},
+		WebsiteHref:     "steam://openurl_external/https://example.com/full",
+		OnlineInstances: 1, TotalInstances: 1, OnlinePlayerCount: 2,
 	}
 	views := []struct {
 		name string
@@ -130,13 +130,14 @@ func TestVisualV2ShellsNavigationAndBackground(t *testing.T) {
 		ServerKey: "main-key", ActivePage: "home",
 		Config: service.ResolvedIngameConfig{
 			Appearance: service.ResolvedIngameAppearance{Title: "Main", Description: "Description", BannerURL: "https://example.com/banner.jpg", BackgroundURL: "https://example.com/background.jpg?ver=2"},
-			Modules:    service.ResolvedIngameModules{ShowPlayers: true},
+			Modules:    service.ResolvedIngameModules{ShowPlayers: true, ShowServerIntro: true, ShowServerStatus: true},
 		},
-		Status:    store.ServerStatus{Online: true, Map: "c1m1_hotel", Players: 2, MaxPlayers: 8},
+		OnlineInstances: 1, TotalInstances: 1, OnlinePlayerCount: 2,
+		Instances: []service.IngameServerInstance{{DisplayName: "Main #1", Address: "127.0.0.1:27015", Online: true, Map: "c1m1_hotel", Players: 2, MaxPlayers: 8, JoinHref: "steam://connect/127.0.0.1:27015"}},
 		Documents: []service.IngameDocumentLink{{Key: "commands", Label: "常用命令"}},
 	}
 	home := renderTemplate(t, renderer, "home.html", service.IngameHomeView{IngameBaseView: base})
-	for _, expected := range []string{`class="home-hero has-banner"`, `href="#players"`, `background-image:url(&#34;https://example.com/background.jpg?ver=2&#34;)`, "/ingame/assets/" + AssetFingerprint() + "/ingame.css"} {
+	for _, expected := range []string{`class="home-banner"`, `class="panel home-intro"`, `href="#players"`, `class="page-background"`, `background-image:url(&#34;https://example.com/background.jpg?ver=2&#34;)`, `href="steam://connect/127.0.0.1:27015"`, "/ingame/assets/" + AssetFingerprint() + "/ingame.css"} {
 		if !strings.Contains(home, expected) {
 			t.Fatalf("home missing %q: %s", expected, home)
 		}
@@ -144,18 +145,38 @@ func TestVisualV2ShellsNavigationAndBackground(t *testing.T) {
 	if strings.Contains(home, `>服务器首页</a>`) {
 		t.Fatalf("home contains redundant server-home navigation: %s", home)
 	}
+	if strings.Contains(home, "hero-overlay") {
+		t.Fatalf("title card is still overlaid on Banner: %s", home)
+	}
 
 	noBanner := base
 	noBanner.Config.Appearance.BannerURL = ""
 	home = renderTemplate(t, renderer, "home.html", service.IngameHomeView{IngameBaseView: noBanner})
-	if !strings.Contains(home, `class="home-hero no-banner"`) || strings.Contains(home, `class="home-hero has-banner"`) {
-		t.Fatalf("no-banner home did not use compact hero: %s", home)
+	if strings.Contains(home, `class="home-banner"`) || !strings.Contains(home, `class="panel home-intro"`) {
+		t.Fatalf("no-banner home left an empty banner region: %s", home)
+	}
+
+	hiddenIntro := base
+	hiddenIntro.Config.Modules.ShowServerIntro = false
+	home = renderTemplate(t, renderer, "home.html", service.IngameHomeView{IngameBaseView: hiddenIntro})
+	if !strings.Contains(home, `class="home-banner"`) || strings.Contains(home, `class="panel home-intro"`) || !strings.Contains(home, `class="nav"`) {
+		t.Fatalf("intro switch affected unrelated Home content: %s", home)
 	}
 
 	playerBase := withActivePage(base, "player")
 	player := renderTemplate(t, renderer, "player.html", service.IngamePlayerView{IngameBaseView: playerBase, PlayerName: "Player", Achievements: &service.CompactAchievementOverview{Badges: []service.AchievementBadge{{ArtworkKey: "career.veteran", Title: "Veteran"}}}})
 	if !strings.Contains(player, `class="compact-server-header"`) || strings.Contains(player, `class="home-hero`) || !strings.Contains(player, "/ingame/assets/"+AssetFingerprint()+"/achievements.png") {
 		t.Fatalf("player shell or badge asset is invalid: %s", player)
+	}
+	statusHidden := playerBase
+	statusHidden.Config.Modules.ShowServerStatus = false
+	player = renderTemplate(t, renderer, "player.html", service.IngamePlayerView{IngameBaseView: statusHidden, PlayerName: "Player"})
+	if strings.Contains(player, `class="compact-status`) || !strings.Contains(player, `class="compact-title"`) {
+		t.Fatalf("status switch did not hide only compact summary: %s", player)
+	}
+	home = renderTemplate(t, renderer, "home.html", service.IngameHomeView{IngameBaseView: statusHidden})
+	if strings.Contains(home, `class="panel instance-status"`) {
+		t.Fatalf("status switch left Home status panel: %s", home)
 	}
 
 	rankingBase := withActivePage(base, "rankings")

@@ -18,6 +18,8 @@ type IngameSettings struct {
 	ShowAnnouncements   bool      `json:"show_announcements"`
 	ShowPlayers         bool      `json:"show_players"`
 	ShowHighlights      bool      `json:"show_highlights"`
+	ShowServerIntro     bool      `json:"show_server_intro"`
+	ShowServerStatus    bool      `json:"show_server_status"`
 	HighlightMetrics    [3]string `json:"highlight_metrics"`
 	HomeCacheSeconds    int64     `json:"home_cache_seconds"`
 	PlayerCacheSeconds  int64     `json:"player_cache_seconds"`
@@ -27,7 +29,7 @@ type IngameSettings struct {
 }
 
 type IngameServerSettings struct {
-	ServerID         string    `json:"server_id"`
+	ServerKey        string    `json:"server_key"`
 	TitleMode        string    `json:"title_mode"`
 	Title            string    `json:"title"`
 	DescriptionMode  string    `json:"description_mode"`
@@ -44,7 +46,7 @@ type IngameServerSettings struct {
 }
 
 type ServerDocument struct {
-	ServerID        string `json:"server_id"`
+	ServerKey       string `json:"server_key"`
 	Key             string `json:"key"`
 	Mode            string `json:"mode"`
 	ContentMarkdown string `json:"content_markdown"`
@@ -55,6 +57,7 @@ type DashboardIngameStore interface {
 	IngameSettings(context.Context) (IngameSettings, error)
 	UpdateIngameSettings(context.Context, IngameSettings) (IngameSettings, error)
 	IngameServerSettings(context.Context, string) (IngameServerSettings, error)
+	ListIngameServerSettings(context.Context) ([]IngameServerSettings, error)
 	UpdateIngameServerSettings(context.Context, IngameServerSettings) (IngameServerSettings, error)
 	DeleteIngameServerSettings(context.Context, string) error
 	ListServerDocuments(context.Context, string) ([]ServerDocument, error)

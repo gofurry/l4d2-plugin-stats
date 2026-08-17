@@ -14,6 +14,8 @@ describe('in-game admin defaults', () => {
     })
     expect(completed.title).toBe('Portal')
     expect(completed.show_players).toBe(false)
+    expect(completed.show_server_intro).toBe(true)
+    expect(completed.show_server_status).toBe(true)
     expect(completed.highlight_metrics).toEqual(defaultIngameSettings.highlight_metrics)
     expect(completed.home_cache_seconds).toBe(30)
     expect(completed.player_cache_seconds).toBe(300)

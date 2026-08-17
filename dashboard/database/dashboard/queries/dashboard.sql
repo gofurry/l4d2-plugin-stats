@@ -137,6 +137,7 @@ DELETE FROM game_servers WHERE id = ?1;
 -- name: GetIngameSettings :one
 SELECT enabled, title, description, banner_url, background_url, website_url,
        show_announcements, show_players, show_highlights,
+       show_server_intro, show_server_status,
        highlight_metric_1, highlight_metric_2, highlight_metric_3,
        home_cache_seconds, player_cache_seconds, ranking_cache_seconds,
        content_cache_seconds, updated_at
@@ -147,10 +148,11 @@ WHERE id = 1;
 INSERT INTO ingame_settings (
   id, enabled, title, description, banner_url, background_url, website_url,
   show_announcements, show_players, show_highlights,
+  show_server_intro, show_server_status,
   highlight_metric_1, highlight_metric_2, highlight_metric_3,
   home_cache_seconds, player_cache_seconds, ranking_cache_seconds,
   content_cache_seconds, updated_at
-) VALUES (1, ?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9, ?10, ?11, ?12, ?13, ?14, ?15, ?16, ?17)
+) VALUES (1, ?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9, ?10, ?11, ?12, ?13, ?14, ?15, ?16, ?17, ?18, ?19)
 ON CONFLICT(id) DO UPDATE SET
   enabled = excluded.enabled,
   title = excluded.title,
@@ -161,6 +163,8 @@ ON CONFLICT(id) DO UPDATE SET
   show_announcements = excluded.show_announcements,
   show_players = excluded.show_players,
   show_highlights = excluded.show_highlights,
+  show_server_intro = excluded.show_server_intro,
+  show_server_status = excluded.show_server_status,
   highlight_metric_1 = excluded.highlight_metric_1,
   highlight_metric_2 = excluded.highlight_metric_2,
   highlight_metric_3 = excluded.highlight_metric_3,
@@ -171,23 +175,32 @@ ON CONFLICT(id) DO UPDATE SET
   updated_at = excluded.updated_at;
 
 -- name: GetIngameServerSettings :one
-SELECT server_id, title_mode, title, description_mode, description,
+SELECT server_key, title_mode, title, description_mode, description,
        banner_mode, banner_url, background_mode, background_url,
        website_mode, website_url,
        highlight_mode, highlight_metric_1, highlight_metric_2,
        highlight_metric_3, updated_at
 FROM ingame_server_settings
-WHERE server_id = ?1;
+WHERE server_key = ?1;
+
+-- name: ListIngameServerSettings :many
+SELECT server_key, title_mode, title, description_mode, description,
+       banner_mode, banner_url, background_mode, background_url,
+       website_mode, website_url,
+       highlight_mode, highlight_metric_1, highlight_metric_2,
+       highlight_metric_3, updated_at
+FROM ingame_server_settings
+ORDER BY server_key;
 
 -- name: UpsertIngameServerSettings :exec
 INSERT INTO ingame_server_settings (
-  server_id, title_mode, title, description_mode, description,
+  server_key, title_mode, title, description_mode, description,
   banner_mode, banner_url, background_mode, background_url,
   website_mode, website_url,
   highlight_mode, highlight_metric_1, highlight_metric_2,
   highlight_metric_3, updated_at
 ) VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9, ?10, ?11, ?12, ?13, ?14, ?15, ?16)
-ON CONFLICT(server_id) DO UPDATE SET
+ON CONFLICT(server_key) DO UPDATE SET
   title_mode = excluded.title_mode,
   title = excluded.title,
   description_mode = excluded.description_mode,
@@ -205,29 +218,29 @@ ON CONFLICT(server_id) DO UPDATE SET
   updated_at = excluded.updated_at;
 
 -- name: DeleteIngameServerSettings :exec
-DELETE FROM ingame_server_settings WHERE server_id = ?1;
+DELETE FROM ingame_server_settings WHERE server_key = ?1;
 
 -- name: ListServerDocuments :many
-SELECT server_id, key, mode, content_markdown, updated_at
+SELECT server_key, key, mode, content_markdown, updated_at
 FROM server_documents
-WHERE server_id = ?1
+WHERE server_key = ?1
 ORDER BY CASE key WHEN 'introduction' THEN 1 WHEN 'commands' THEN 2 ELSE 3 END;
 
 -- name: GetServerDocument :one
-SELECT server_id, key, mode, content_markdown, updated_at
+SELECT server_key, key, mode, content_markdown, updated_at
 FROM server_documents
-WHERE server_id = ?1 AND key = ?2;
+WHERE server_key = ?1 AND key = ?2;
 
 -- name: UpsertServerDocument :exec
-INSERT INTO server_documents (server_id, key, mode, content_markdown, updated_at)
+INSERT INTO server_documents (server_key, key, mode, content_markdown, updated_at)
 VALUES (?1, ?2, ?3, ?4, ?5)
-ON CONFLICT(server_id, key) DO UPDATE SET
+ON CONFLICT(server_key, key) DO UPDATE SET
   mode = excluded.mode,
   content_markdown = excluded.content_markdown,
   updated_at = excluded.updated_at;
 
 -- name: DeleteServerDocuments :exec
-DELETE FROM server_documents WHERE server_id = ?1;
+DELETE FROM server_documents WHERE server_key = ?1;
 
 -- name: ListA2SStatusSnapshots :many
 SELECT status_json

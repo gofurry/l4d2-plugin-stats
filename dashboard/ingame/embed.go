@@ -52,6 +52,13 @@ func NewRenderer() (*Renderer, error) {
 			}
 			return template.URL(value)
 		},
+		"connectHref": func(value string) template.URL {
+			const prefix = "steam://connect/"
+			if !strings.HasPrefix(value, prefix) || service.BuildIngameConnectHref(strings.TrimPrefix(value, prefix)) != value {
+				return ""
+			}
+			return template.URL(value)
+		},
 		"assetFingerprint": func() string {
 			return AssetFingerprint()
 		},

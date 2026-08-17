@@ -4,6 +4,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"net"
 	"sort"
 	"strconv"
 	"strings"
@@ -22,7 +23,7 @@ var (
 
 type ingameDashboard interface {
 	IngameSettings(context.Context) (store.IngameSettings, error)
-	IngameServerSettings(context.Context, string) (store.IngameServerSettings, error)
+	ListIngameServerSettings(context.Context) ([]store.IngameServerSettings, error)
 	ListServers(context.Context) ([]store.GameServer, error)
 	ListSiteDocuments(context.Context, bool) ([]store.SiteDocument, error)
 	GetSiteDocument(context.Context, string, bool) (store.SiteDocument, error)
@@ -74,6 +75,23 @@ func NewIngameService(dashboard ingameDashboard, statuses ingameStatusSource, pl
 type IngameServerOption struct {
 	ServerKey string
 	Title     string
+	Instances []string
+}
+
+type IngameServerInstance struct {
+	ServerID      string
+	DisplayName   string
+	Address       string
+	SortOrder     int64
+	Online        bool
+	Stale         bool
+	Checking      bool
+	Map           string
+	Players       int
+	MaxPlayers    int
+	Bots          int
+	LastSuccessAt time.Time
+	JoinHref      string
 }
 
 type IngameDocumentLink struct {
@@ -82,15 +100,18 @@ type IngameDocumentLink struct {
 }
 
 type IngameBaseView struct {
-	ServerKey     string
-	Server        store.GameServer
-	Status        store.ServerStatus
-	Config        ResolvedIngameConfig
-	Documents     []IngameDocumentLink
-	WebsiteHref   string
-	ServerOptions []IngameServerOption
-	SelectionOnly bool
-	ActivePage    string
+	ServerKey         string
+	Config            ResolvedIngameConfig
+	Documents         []IngameDocumentLink
+	WebsiteHref       string
+	Instances         []IngameServerInstance
+	OnlineInstances   int
+	TotalInstances    int
+	OnlinePlayerCount int
+	BotCount          int
+	ServerOptions     []IngameServerOption
+	SelectionOnly     bool
+	ActivePage        string
 }
 
 type IngameAnnouncementSummary struct {
@@ -116,7 +137,6 @@ type IngameHomeView struct {
 	IngameBaseView
 	Announcement *IngameAnnouncementSummary
 	Players      []IngameOnlinePlayer
-	Bots         int
 	Highlights   []IngameHighlightView
 	StatsFailed  bool
 }
@@ -178,6 +198,7 @@ type IngameAnnouncementView struct {
 type ingamePortalContext struct {
 	base     IngameBaseView
 	settings store.IngameSettings
+	players  []store.ServerPlayer
 }
 
 func (s *IngameService) Home(ctx context.Context, serverKey string) (IngameHomeView, error) {
@@ -198,11 +219,10 @@ func (s *IngameService) Home(ctx context.Context, serverKey string) (IngameHomeV
 				view.Announcement = &IngameAnnouncementSummary{ID: item.ID, Title: item.Title, Summary: markdownSummary(item.ContentMarkdown, 140), UpdatedAt: item.UpdatedAt}
 			}
 		}
-		if portal.base.Status.Online && portal.base.Config.Modules.ShowPlayers {
-			view.Players = onlinePlayers(portal.base.Status.PlayerList)
-			view.Bots = portal.base.Status.Bots
+		if portal.base.OnlineInstances > 0 && portal.base.Config.Modules.ShowPlayers {
+			view.Players = onlinePlayers(portal.players)
 		}
-		if portal.base.Status.Online && portal.base.Config.Modules.ShowHighlights {
+		if portal.base.OnlineInstances > 0 && portal.base.Config.Modules.ShowHighlights {
 			ids, names := highlightPlayers(view.Players)
 			if len(ids) >= 2 && s.rankings != nil {
 				highlightCtx, cancel := context.WithTimeout(buildCtx, 750*time.Millisecond)
@@ -337,7 +357,7 @@ func (s *IngameService) Info(ctx context.Context, serverKey, documentKey string)
 		if err != nil {
 			return ingameBuildResult{}, err
 		}
-		serverDocument, err := s.dashboard.GetServerDocument(buildCtx, portal.base.Server.ID, documentKey)
+		serverDocument, err := s.dashboard.GetServerDocument(buildCtx, portal.base.ServerKey, documentKey)
 		if err != nil {
 			return ingameBuildResult{}, err
 		}
@@ -399,68 +419,124 @@ func (s *IngameService) portalContext(ctx context.Context, requestedKey string, 
 	if err != nil {
 		return ingamePortalContext{}, err
 	}
+	serverSettings, err := s.dashboard.ListIngameServerSettings(ctx)
+	if err != nil {
+		return ingamePortalContext{}, err
+	}
+	settingsByKey := make(map[string]store.IngameServerSettings, len(serverSettings))
+	for _, value := range serverSettings {
+		settingsByKey[value.ServerKey] = value
+	}
 	statusByServer := make(map[string]store.ServerStatus, len(statuses))
 	for _, status := range statuses {
 		statusByServer[status.ServerID] = status
 	}
-	options := make([]IngameServerOption, 0, len(servers))
-	var selectedServer store.GameServer
-	var selectedStatus store.ServerStatus
-	requestedKey = strings.TrimSpace(requestedKey)
+	sort.SliceStable(servers, func(i, j int) bool {
+		if servers[i].SortOrder != servers[j].SortOrder {
+			return servers[i].SortOrder < servers[j].SortOrder
+		}
+		if servers[i].DisplayName != servers[j].DisplayName {
+			return servers[i].DisplayName < servers[j].DisplayName
+		}
+		return servers[i].Address < servers[j].Address
+	})
+	type groupMember struct {
+		server store.GameServer
+		status store.ServerStatus
+	}
+	type groupValue struct {
+		key     string
+		title   string
+		config  ResolvedIngameConfig
+		members []groupMember
+	}
+	groups := make([]*groupValue, 0, len(servers))
+	groupByKey := make(map[string]*groupValue, len(servers))
 	for _, server := range servers {
 		if !server.Enabled {
 			continue
 		}
 		status, ok := statusByServer[server.ID]
-		if !ok || status.ServerKey == "" {
+		if !ok || ValidateIngameServerKey(status.ServerKey) != nil {
 			continue
 		}
-		options = append(options, IngameServerOption{ServerKey: status.ServerKey, Title: server.DisplayName})
-		if requestedKey != "" && status.ServerKey == requestedKey {
-			selectedServer, selectedStatus = server, status
+		group := groupByKey[status.ServerKey]
+		if group == nil {
+			group = &groupValue{key: status.ServerKey}
+			groupByKey[status.ServerKey] = group
+			groups = append(groups, group)
 		}
+		group.members = append(group.members, groupMember{server: server, status: status})
 	}
-	if requestedKey == "" && len(options) == 1 {
-		for _, server := range servers {
-			status := statusByServer[server.ID]
-			if server.Enabled && status.ServerKey == options[0].ServerKey {
-				selectedServer, selectedStatus = server, status
-				break
-			}
+	options := make([]IngameServerOption, 0, len(groups))
+	for _, group := range groups {
+		fallbackTitle := group.key
+		if len(group.members) > 0 && strings.TrimSpace(group.members[0].server.DisplayName) != "" {
+			fallbackTitle = group.members[0].server.DisplayName
 		}
+		group.config = ResolveIngameConfig(settings, settingsByKey[group.key], fallbackTitle)
+		group.title = group.config.Appearance.Title
+		addresses := make([]string, 0, len(group.members))
+		for _, member := range group.members {
+			addresses = append(addresses, member.server.Address)
+		}
+		options = append(options, IngameServerOption{ServerKey: group.key, Title: group.title, Instances: addresses})
 	}
-	if selectedServer.ID == "" {
+	requestedKey = strings.TrimSpace(requestedKey)
+	var selected *groupValue
+	if requestedKey != "" {
+		selected = groupByKey[requestedKey]
+	} else if len(groups) == 1 {
+		selected = groups[0]
+	}
+	if selected == nil {
 		if requestedKey == "" && allowSelection && len(options) > 1 {
 			selectionConfig := ResolveIngameConfig(settings, store.IngameServerSettings{}, "选择服务器")
 			return ingamePortalContext{settings: settings, base: IngameBaseView{Config: selectionConfig, ServerOptions: options, SelectionOnly: true, ActivePage: "home"}}, nil
 		}
 		return ingamePortalContext{}, ErrIngameUnknownServer
 	}
-	if site, siteErr := s.dashboard.SiteSettings(ctx); siteErr == nil && selectedStatus.Online && !selectedStatus.LastSuccessAt.IsZero() {
+	refreshSeconds := int64(30)
+	if site, siteErr := s.dashboard.SiteSettings(ctx); siteErr == nil {
 		refresh := site.A2SRefreshSeconds
 		if refresh <= 0 {
 			refresh = 30
 		}
-		if s.now().Sub(selectedStatus.LastSuccessAt) > time.Duration(refresh*2)*time.Second {
-			selectedStatus.Stale = true
-		}
+		refreshSeconds = refresh
 	}
-	serverSettings, err := s.dashboard.IngameServerSettings(ctx, selectedServer.ID)
-	if err != nil {
-		serverSettings = store.IngameServerSettings{ServerID: selectedServer.ID, TitleMode: "inherit", DescriptionMode: "inherit", BannerMode: "inherit", BackgroundMode: "inherit", WebsiteMode: "inherit", HighlightMode: "inherit"}
-	}
-	config := ResolveIngameConfig(settings, serverSettings, selectedServer.DisplayName)
 	base := IngameBaseView{
-		ServerKey: selectedStatus.ServerKey, Server: selectedServer, Status: selectedStatus,
-		Config: config, WebsiteHref: BuildExternalBrowserHref(config.Appearance.WebsiteURL),
+		ServerKey: selected.key, Config: selected.config,
+		WebsiteHref:    BuildExternalBrowserHref(selected.config.Appearance.WebsiteURL),
+		TotalInstances: len(selected.members),
 	}
-	base.Documents = s.documentLinks(ctx, selectedServer.ID)
-	return ingamePortalContext{settings: settings, base: base}, nil
+	players := make([]store.ServerPlayer, 0)
+	for _, member := range selected.members {
+		status := member.status
+		if status.Online && !status.LastSuccessAt.IsZero() && s.now().Sub(status.LastSuccessAt) > time.Duration(refreshSeconds*2)*time.Second {
+			status.Stale = true
+		}
+		instance := IngameServerInstance{
+			ServerID: member.server.ID, DisplayName: member.server.DisplayName,
+			Address: member.server.Address, SortOrder: member.server.SortOrder, Online: status.Online, Stale: status.Stale,
+			Checking: status.Checking, Map: status.Map, MaxPlayers: status.MaxPlayers,
+			Players: status.Players, Bots: status.Bots, LastSuccessAt: status.LastSuccessAt,
+		}
+		if status.Online {
+			base.OnlineInstances++
+			base.OnlinePlayerCount += len(status.PlayerList)
+			base.BotCount += status.Bots
+			instance.JoinHref = BuildIngameConnectHref(member.server.Address)
+			players = append(players, status.PlayerList...)
+		}
+		base.Instances = append(base.Instances, instance)
+	}
+	base.Documents = s.documentLinks(ctx, selected.key)
+	return ingamePortalContext{settings: settings, base: base, players: players}, nil
 }
 
-func (s *IngameService) documentLinks(ctx context.Context, serverID string) []IngameDocumentLink {
+func (s *IngameService) documentLinks(ctx context.Context, serverKey string) []IngameDocumentLink {
 	siteDocuments, siteErr := s.dashboard.ListSiteDocuments(ctx, false)
-	serverDocuments, serverErr := s.dashboard.ListServerDocuments(ctx, serverID)
+	serverDocuments, serverErr := s.dashboard.ListServerDocuments(ctx, serverKey)
 	if siteErr != nil || serverErr != nil {
 		return nil
 	}
@@ -476,7 +552,7 @@ func (s *IngameService) documentLinks(ctx context.Context, serverID string) []In
 	for _, key := range []string{store.IngameDocumentIntroduction, store.IngameDocumentCommands, store.IngameDocumentResources} {
 		serverDocument := serverByKey[key]
 		if serverDocument.Mode == "" {
-			serverDocument = store.ServerDocument{ServerID: serverID, Key: key, Mode: "inherit"}
+			serverDocument = store.ServerDocument{ServerKey: serverKey, Key: key, Mode: "inherit"}
 		}
 		if _, available := ResolveIngameDocument(serverDocument, siteByKey[key]); available {
 			links = append(links, IngameDocumentLink{Key: key, Label: ingameDocumentLabel(key)})
@@ -580,6 +656,40 @@ func validSteamID64(value string) bool {
 
 func validIngameDocumentKey(value string) bool {
 	return value == store.IngameDocumentIntroduction || value == store.IngameDocumentCommands || value == store.IngameDocumentResources
+}
+
+func BuildIngameConnectHref(address string) string {
+	host, port, err := net.SplitHostPort(strings.TrimSpace(address))
+	if err != nil || !validConnectHost(host) {
+		return ""
+	}
+	portNumber, err := strconv.Atoi(port)
+	if err != nil || portNumber < 1 || portNumber > 65535 {
+		return ""
+	}
+	return "steam://connect/" + net.JoinHostPort(host, strconv.Itoa(portNumber))
+}
+
+func validConnectHost(host string) bool {
+	host = strings.TrimSpace(host)
+	if host == "" || len(host) > 253 {
+		return false
+	}
+	if net.ParseIP(host) != nil {
+		return true
+	}
+	for _, label := range strings.Split(host, ".") {
+		if len(label) < 1 || len(label) > 63 || label[0] == '-' || label[len(label)-1] == '-' {
+			return false
+		}
+		for _, character := range label {
+			if (character >= 'a' && character <= 'z') || (character >= 'A' && character <= 'Z') || (character >= '0' && character <= '9') || character == '-' {
+				continue
+			}
+			return false
+		}
+	}
+	return true
 }
 
 func ingameDocumentLabel(key string) string {

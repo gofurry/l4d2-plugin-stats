@@ -51,13 +51,16 @@ func OpenDashboard(ctx context.Context, path string) (DashboardDatabase, error) 
 		db.Close()
 		return nil, fmt.Errorf("set dashboard migration dialect: %w", err)
 	}
-	if err := goose.UpContext(ctx, db, "migrations"); err != nil {
-		db.Close()
-		return nil, fmt.Errorf("migrate dashboard database: %w", err)
-	}
+	// A few pre-release schema 17 databases were created before Visual v2
+	// gained background columns. Complete those columns before migration 18
+	// reads the legacy tables.
 	if err := ensureIngameVisualV2Schema(ctx, db); err != nil {
 		db.Close()
 		return nil, fmt.Errorf("complete in-game Visual v2 schema: %w", err)
+	}
+	if err := goose.UpContext(ctx, db, "migrations"); err != nil {
+		db.Close()
+		return nil, fmt.Errorf("migrate dashboard database: %w", err)
 	}
 	store := &dashboardStore{db: db, q: dashsql.New(db), path: path}
 	if err := store.ensureAggregateRollups(ctx); err != nil {

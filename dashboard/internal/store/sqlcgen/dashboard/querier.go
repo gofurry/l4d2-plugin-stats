@@ -29,14 +29,14 @@ type Querier interface {
 	DeleteFooterLinks(ctx context.Context) error
 	DeleteGameServer(ctx context.Context, id string) (int64, error)
 	DeleteGameServers(ctx context.Context) error
-	DeleteIngameServerSettings(ctx context.Context, serverID string) error
-	DeleteServerDocuments(ctx context.Context, serverID string) error
+	DeleteIngameServerSettings(ctx context.Context, serverKey string) error
+	DeleteServerDocuments(ctx context.Context, serverKey string) error
 	GetAdminAccount(ctx context.Context) (GetAdminAccountRow, error)
 	GetAggregateStatus(ctx context.Context) (GetAggregateStatusRow, error)
 	GetAnnouncement(ctx context.Context, id string) (Announcement, error)
 	GetDataMaintenanceSettings(ctx context.Context) (GetDataMaintenanceSettingsRow, error)
 	GetGameServer(ctx context.Context, id string) (GetGameServerRow, error)
-	GetIngameServerSettings(ctx context.Context, serverID string) (IngameServerSetting, error)
+	GetIngameServerSettings(ctx context.Context, serverKey string) (IngameServerSetting, error)
 	GetIngameSettings(ctx context.Context) (GetIngameSettingsRow, error)
 	GetMetadata(ctx context.Context, key string) (string, error)
 	GetPublicSiteDocument(ctx context.Context, key string) (SiteDocument, error)
@@ -50,9 +50,10 @@ type Querier interface {
 	ListAnnouncements(ctx context.Context, arg ListAnnouncementsParams) ([]Announcement, error)
 	ListFooterLinks(ctx context.Context) ([]ListFooterLinksRow, error)
 	ListGameServers(ctx context.Context) ([]ListGameServersRow, error)
+	ListIngameServerSettings(ctx context.Context) ([]IngameServerSetting, error)
 	ListPublicFooterLinks(ctx context.Context) ([]ListPublicFooterLinksRow, error)
 	ListPublicSiteDocuments(ctx context.Context) ([]string, error)
-	ListServerDocuments(ctx context.Context, serverID string) ([]ServerDocument, error)
+	ListServerDocuments(ctx context.Context, serverKey string) ([]ServerDocument, error)
 	ListSiteDocuments(ctx context.Context) ([]SiteDocument, error)
 	MarkAggregateFailed(ctx context.Context, lastError string) error
 	MarkAggregateStarted(ctx context.Context, lastStartedAt int64) error

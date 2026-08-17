@@ -21,6 +21,8 @@ export interface IngameSettings {
   show_announcements: boolean
   show_players: boolean
   show_highlights: boolean
+  show_server_intro: boolean
+  show_server_status: boolean
   highlight_metrics: [string, string, string]
   home_cache_seconds: number
   player_cache_seconds: number
@@ -30,7 +32,7 @@ export interface IngameSettings {
 }
 
 export interface IngameServerSettings {
-  server_id: string
+  server_key: string
   title_mode: Exclude<IngameMode, 'hidden'>
   title: string
   description_mode: IngameMode
@@ -47,7 +49,7 @@ export interface IngameServerSettings {
 }
 
 export interface IngameServerDocument {
-  server_id: string
+  server_key: string
   key: IngameDocumentKey
   mode: IngameMode
   content_markdown: string
@@ -60,19 +62,36 @@ export interface IngameAdminConfig {
   public_origin: string
 }
 
-export interface IngameServerConfig {
+export interface IngameGroupInstance {
+  server_id: string
+  name: string
+  address: string
+  sort_order: number
+  online: boolean
+  stale: boolean
+}
+
+export interface IngameGroup {
+  server_key: string
+  title: string
+  instances: IngameGroupInstance[]
+}
+
+export interface IngameGroupConfig {
   settings: IngameServerSettings
   documents: IngameServerDocument[]
   metric_catalog: IngameMetricDefinition[]
   server_key: string
+  title: string
+  instances: IngameGroupInstance[]
   public_origin: string
 }
 
 export const ingameAPI = {
   ingameSettings: () => request<IngameAdminConfig>('/api/v1/admin/ingame'),
   saveIngameSettings: (settings: IngameSettings) => adminWrite<IngameAdminConfig>('/api/v1/admin/ingame', 'PUT', settings),
-  serverIngameSettings: (id: string) => request<IngameServerConfig>(`/api/v1/admin/servers/${id}/ingame`),
-  saveServerIngameSettings: (id: string, settings: IngameServerSettings) => adminWrite<IngameServerSettings>(`/api/v1/admin/servers/${id}/ingame`, 'PUT', settings),
-  serverIngameDocuments: (id: string) => request<IngameServerDocument[]>(`/api/v1/admin/servers/${id}/ingame/documents`),
-  saveServerIngameDocument: (id: string, document: IngameServerDocument) => adminWrite<IngameServerDocument>(`/api/v1/admin/servers/${id}/ingame/documents/${document.key}`, 'PUT', document),
+  ingameGroups: () => request<IngameGroup[]>('/api/v1/admin/ingame/groups'),
+  ingameGroup: (serverKey: string) => request<IngameGroupConfig>(`/api/v1/admin/ingame/groups/${encodeURIComponent(serverKey)}`),
+  saveIngameGroup: (serverKey: string, settings: IngameServerSettings) => adminWrite<IngameServerSettings>(`/api/v1/admin/ingame/groups/${encodeURIComponent(serverKey)}`, 'PUT', settings),
+  saveIngameGroupDocument: (serverKey: string, document: IngameServerDocument) => adminWrite<IngameServerDocument>(`/api/v1/admin/ingame/groups/${encodeURIComponent(serverKey)}/documents/${document.key}`, 'PUT', document),
 }

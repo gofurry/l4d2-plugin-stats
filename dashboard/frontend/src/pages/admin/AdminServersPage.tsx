@@ -5,7 +5,6 @@ import { useState } from 'react'
 import { useTranslation } from 'react-i18next'
 import { api, type GameServer, type GameServerInput } from '../../api'
 import styles from '../Portal.module.scss'
-import { ServerIngameSettingsEditor } from './ServerIngameSettingsEditor'
 
 const emptyServer: GameServerInput = { display_name: '', address: '' }
 
@@ -54,7 +53,7 @@ export function AdminServersPage() {
           </div>
         </div>
         <div className={`${styles.serverExpandRegion} ${expanded ? styles.open : ''}`}><div className={styles.serverExpandInner}>
-          {expanded && <><ServerA2SDetails server={server} /><ServerIngameSettingsEditor server={server} /></>}
+          {expanded && <ServerA2SDetails server={server} />}
         </div></div>
       </article>
     })}</div>

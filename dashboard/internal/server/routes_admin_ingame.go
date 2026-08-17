@@ -1,12 +1,13 @@
 package server
 
 import (
+	"context"
+	"sort"
 	"strings"
 
 	"github.com/gofiber/fiber/v3"
 	"github.com/gofurry/l4d2-plugin-stats/dashboard/internal/service"
 	"github.com/gofurry/l4d2-plugin-stats/dashboard/internal/store"
-	"github.com/google/uuid"
 	"go.uber.org/zap"
 )
 
@@ -16,11 +17,28 @@ type adminIngameResponse struct {
 	PublicOrigin  string                           `json:"public_origin"`
 }
 
-type adminServerIngameResponse struct {
+type adminIngameGroupInstance struct {
+	ServerID  string `json:"server_id"`
+	Name      string `json:"name"`
+	Address   string `json:"address"`
+	SortOrder int64  `json:"sort_order"`
+	Online    bool   `json:"online"`
+	Stale     bool   `json:"stale"`
+}
+
+type adminIngameGroup struct {
+	ServerKey string                     `json:"server_key"`
+	Title     string                     `json:"title"`
+	Instances []adminIngameGroupInstance `json:"instances"`
+}
+
+type adminIngameGroupResponse struct {
 	Settings      store.IngameServerSettings       `json:"settings"`
 	Documents     []store.ServerDocument           `json:"documents"`
 	MetricCatalog []service.IngameMetricDefinition `json:"metric_catalog"`
 	ServerKey     string                           `json:"server_key"`
+	Title         string                           `json:"title"`
+	Instances     []adminIngameGroupInstance       `json:"instances"`
 	PublicOrigin  string                           `json:"public_origin"`
 }
 
@@ -56,20 +74,28 @@ func (r *adminRoutes) putIngameSettings(c fiber.Ctx) error {
 	return sendData(c, 200, r.ingameResponse(c, updated))
 }
 
-func (r *adminRoutes) getServerIngameSettings(c fiber.Ctx) error {
-	id, ok := r.ingameServerID(c)
+func (r *adminRoutes) listIngameGroups(c fiber.Ctx) error {
+	groups, err := r.ingameGroups(c)
+	if err != nil {
+		return sendError(c, 503, "ingame_groups_unavailable", "in-game server groups are unavailable")
+	}
+	return sendData(c, 200, groups)
+}
+
+func (r *adminRoutes) getIngameGroup(c fiber.Ctx) error {
+	group, ok := r.requireIngameGroup(c)
 	if !ok {
 		return nil
 	}
-	response, err := r.serverIngameResponse(c, id)
+	response, err := r.ingameGroupResponse(c, group)
 	if err != nil {
-		return sendError(c, 503, "server_ingame_settings_unavailable", "server in-game settings are unavailable")
+		return sendError(c, 503, "ingame_group_settings_unavailable", "server-group in-game settings are unavailable")
 	}
 	return sendData(c, 200, response)
 }
 
-func (r *adminRoutes) putServerIngameSettings(c fiber.Ctx) error {
-	id, ok := r.ingameServerID(c)
+func (r *adminRoutes) putIngameGroup(c fiber.Ctx) error {
+	group, ok := r.requireIngameGroup(c)
 	if !ok {
 		return nil
 	}
@@ -77,53 +103,53 @@ func (r *adminRoutes) putServerIngameSettings(c fiber.Ctx) error {
 	if err := c.Bind().Body(&settings); err != nil {
 		return sendError(c, 400, "invalid_body", "request body is invalid")
 	}
-	settings.ServerID = id
+	settings.ServerKey = group.ServerKey
 	normalizeIngameServerSettings(&settings)
 	if err := service.ValidateIngameServerSettings(settings); err != nil {
-		return sendError(c, 400, "invalid_server_ingame_settings", err.Error())
+		return sendError(c, 400, "invalid_ingame_group_settings", err.Error())
 	}
 	updated, err := r.ingameStore.UpdateIngameServerSettings(c.Context(), settings)
 	if err != nil {
-		return sendError(c, 500, "server_ingame_settings_update_failed", "server in-game settings could not be saved")
+		return sendError(c, 500, "ingame_group_settings_update_failed", "server-group in-game settings could not be saved")
 	}
-	r.invalidateIngameServer(c, id)
-	r.logger.Info("server in-game portal settings updated", zap.String("server_id", id), zap.String("request_id", c.RequestID()))
+	r.invalidateIngameGroup(group.ServerKey)
+	r.logger.Info("server-group in-game portal settings updated", zap.String("server_key", group.ServerKey), zap.String("request_id", c.RequestID()))
 	return sendData(c, 200, updated)
 }
 
-func (r *adminRoutes) listServerIngameDocuments(c fiber.Ctx) error {
-	id, ok := r.ingameServerID(c)
+func (r *adminRoutes) listIngameGroupDocuments(c fiber.Ctx) error {
+	group, ok := r.requireIngameGroup(c)
 	if !ok {
 		return nil
 	}
-	documents, err := r.completeServerDocuments(c, id)
+	documents, err := r.completeServerDocuments(c, group.ServerKey)
 	if err != nil {
-		return sendError(c, 503, "server_ingame_documents_unavailable", "server in-game documents are unavailable")
+		return sendError(c, 503, "ingame_group_documents_unavailable", "server-group in-game documents are unavailable")
 	}
 	return sendData(c, 200, documents)
 }
 
-func (r *adminRoutes) putServerIngameDocument(c fiber.Ctx) error {
-	id, ok := r.ingameServerID(c)
+func (r *adminRoutes) putIngameGroupDocument(c fiber.Ctx) error {
+	group, ok := r.requireIngameGroup(c)
 	if !ok {
 		return nil
 	}
-	document := store.ServerDocument{ServerID: id, Key: c.Params("key")}
+	document := store.ServerDocument{ServerKey: group.ServerKey, Key: c.Params("key")}
 	if err := c.Bind().Body(&document); err != nil {
 		return sendError(c, 400, "invalid_body", "request body is invalid")
 	}
-	document.ServerID = id
+	document.ServerKey = group.ServerKey
 	document.Key = c.Params("key")
 	document.Mode = strings.TrimSpace(document.Mode)
 	if err := service.ValidateServerDocument(document); err != nil {
-		return sendError(c, 400, "invalid_server_ingame_document", err.Error())
+		return sendError(c, 400, "invalid_ingame_group_document", err.Error())
 	}
 	updated, err := r.ingameStore.UpdateServerDocument(c.Context(), document)
 	if err != nil {
-		return sendError(c, 500, "server_ingame_document_update_failed", "server in-game document could not be saved")
+		return sendError(c, 500, "ingame_group_document_update_failed", "server-group in-game document could not be saved")
 	}
-	r.invalidateIngameServer(c, id)
-	r.logger.Info("server in-game document updated", zap.String("server_id", id), zap.String("document", document.Key), zap.String("request_id", c.RequestID()))
+	r.invalidateIngameGroup(group.ServerKey)
+	r.logger.Info("server-group in-game document updated", zap.String("server_key", group.ServerKey), zap.String("document", document.Key), zap.String("request_id", c.RequestID()))
 	return sendData(c, 200, updated)
 }
 
@@ -132,34 +158,27 @@ func (r *adminRoutes) ingameResponse(c fiber.Ctx, settings store.IngameSettings)
 	return adminIngameResponse{Settings: settings, MetricCatalog: service.IngameMetricCatalog(), PublicOrigin: site.PublicOrigin}
 }
 
-func (r *adminRoutes) serverIngameResponse(c fiber.Ctx, serverID string) (adminServerIngameResponse, error) {
-	settings, err := r.ingameStore.IngameServerSettings(c.Context(), serverID)
+func (r *adminRoutes) ingameGroupResponse(c fiber.Ctx, group adminIngameGroup) (adminIngameGroupResponse, error) {
+	settings, err := r.ingameStore.IngameServerSettings(c.Context(), group.ServerKey)
 	if err != nil {
-		return adminServerIngameResponse{}, err
+		return adminIngameGroupResponse{}, err
 	}
-	documents, err := r.completeServerDocuments(c, serverID)
+	documents, err := r.completeServerDocuments(c, group.ServerKey)
 	if err != nil {
-		return adminServerIngameResponse{}, err
+		return adminIngameGroupResponse{}, err
 	}
 	site, err := r.dashboard.SiteSettings(c.Context())
 	if err != nil {
-		return adminServerIngameResponse{}, err
+		return adminIngameGroupResponse{}, err
 	}
-	serverKey := ""
-	if r.status != nil {
-		status, available, statusErr := r.status.LastStatus(c.Context(), serverID)
-		if statusErr == nil && available {
-			serverKey = status.ServerKey
-		}
-	}
-	return adminServerIngameResponse{
+	return adminIngameGroupResponse{
 		Settings: settings, Documents: documents, MetricCatalog: service.IngameMetricCatalog(),
-		ServerKey: serverKey, PublicOrigin: site.PublicOrigin,
+		ServerKey: group.ServerKey, Title: group.Title, Instances: group.Instances, PublicOrigin: site.PublicOrigin,
 	}, nil
 }
 
-func (r *adminRoutes) completeServerDocuments(c fiber.Ctx, serverID string) ([]store.ServerDocument, error) {
-	documents, err := r.ingameStore.ListServerDocuments(c.Context(), serverID)
+func (r *adminRoutes) completeServerDocuments(c fiber.Ctx, serverKey string) ([]store.ServerDocument, error) {
+	documents, err := r.ingameStore.ListServerDocuments(c.Context(), serverKey)
 	if err != nil {
 		return nil, err
 	}
@@ -171,35 +190,102 @@ func (r *adminRoutes) completeServerDocuments(c fiber.Ctx, serverID string) ([]s
 	for _, key := range []string{store.IngameDocumentIntroduction, store.IngameDocumentCommands, store.IngameDocumentResources} {
 		document, exists := byKey[key]
 		if !exists {
-			document = store.ServerDocument{ServerID: serverID, Key: key, Mode: "inherit"}
+			document = store.ServerDocument{ServerKey: serverKey, Key: key, Mode: "inherit"}
 		}
 		result = append(result, document)
 	}
 	return result, nil
 }
 
-func (r *adminRoutes) ingameServerID(c fiber.Ctx) (string, bool) {
+func (r *adminRoutes) ingameGroups(c fiber.Ctx) ([]adminIngameGroup, error) {
 	if r.ingameStore == nil {
-		_ = sendError(c, 503, "ingame_settings_unavailable", "in-game portal settings are unavailable")
-		return "", false
-	}
-	id := c.Params("id")
-	if _, err := uuid.Parse(id); err != nil {
-		_ = sendError(c, 400, "invalid_server_id", "server id is invalid")
-		return "", false
+		return nil, store.ErrServerNotFound
 	}
 	servers, err := r.dashboard.ListServers(c.Context())
 	if err != nil {
-		_ = sendError(c, 503, "servers_unavailable", "server directory is unavailable")
-		return "", false
+		return nil, err
 	}
-	for _, server := range servers {
-		if server.ID == id {
-			return id, true
+	statuses := make([]store.ServerStatus, 0, len(servers))
+	if cached, ok := r.status.(interface {
+		CachedStatuses(context.Context) ([]store.ServerStatus, error)
+	}); ok {
+		statuses, err = cached.CachedStatuses(c.Context())
+		if err != nil {
+			return nil, err
+		}
+	} else if r.status != nil {
+		for _, server := range servers {
+			status, available, statusErr := r.status.LastStatus(c.Context(), server.ID)
+			if statusErr == nil && available {
+				statuses = append(statuses, status)
+			}
 		}
 	}
-	_ = sendError(c, 404, "server_not_found", "server was not found")
-	return "", false
+	statusByID := make(map[string]store.ServerStatus, len(statuses))
+	for _, status := range statuses {
+		statusByID[status.ServerID] = status
+	}
+	sort.SliceStable(servers, func(i, j int) bool {
+		if servers[i].SortOrder != servers[j].SortOrder {
+			return servers[i].SortOrder < servers[j].SortOrder
+		}
+		if servers[i].DisplayName != servers[j].DisplayName {
+			return servers[i].DisplayName < servers[j].DisplayName
+		}
+		return servers[i].Address < servers[j].Address
+	})
+	global, err := r.ingameStore.IngameSettings(c.Context())
+	if err != nil {
+		return nil, err
+	}
+	overrides, err := r.ingameStore.ListIngameServerSettings(c.Context())
+	if err != nil {
+		return nil, err
+	}
+	overrideByKey := make(map[string]store.IngameServerSettings, len(overrides))
+	for _, override := range overrides {
+		overrideByKey[override.ServerKey] = override
+	}
+	groups := make([]adminIngameGroup, 0)
+	indexByKey := make(map[string]int)
+	for _, server := range servers {
+		status, exists := statusByID[server.ID]
+		if !server.Enabled || !exists || service.ValidateIngameServerKey(status.ServerKey) != nil {
+			continue
+		}
+		index, exists := indexByKey[status.ServerKey]
+		if !exists {
+			config := service.ResolveIngameConfig(global, overrideByKey[status.ServerKey], server.DisplayName)
+			groups = append(groups, adminIngameGroup{ServerKey: status.ServerKey, Title: config.Appearance.Title})
+			index = len(groups) - 1
+			indexByKey[status.ServerKey] = index
+		}
+		groups[index].Instances = append(groups[index].Instances, adminIngameGroupInstance{
+			ServerID: server.ID, Name: server.DisplayName, Address: server.Address,
+			SortOrder: server.SortOrder, Online: status.Online, Stale: status.Stale,
+		})
+	}
+	return groups, nil
+}
+
+func (r *adminRoutes) requireIngameGroup(c fiber.Ctx) (adminIngameGroup, bool) {
+	key := strings.TrimSpace(c.Params("server_key"))
+	if service.ValidateIngameServerKey(key) != nil {
+		_ = sendError(c, 400, "invalid_server_key", "server key is invalid")
+		return adminIngameGroup{}, false
+	}
+	groups, err := r.ingameGroups(c)
+	if err != nil {
+		_ = sendError(c, 503, "ingame_groups_unavailable", "in-game server groups are unavailable")
+		return adminIngameGroup{}, false
+	}
+	for _, group := range groups {
+		if group.ServerKey == key {
+			return group, true
+		}
+	}
+	_ = sendError(c, 404, "ingame_group_not_found", "server group was not found")
+	return adminIngameGroup{}, false
 }
 
 func (r *adminRoutes) invalidateIngameAll() {
@@ -208,18 +294,10 @@ func (r *adminRoutes) invalidateIngameAll() {
 	}
 }
 
-func (r *adminRoutes) invalidateIngameServer(c fiber.Ctx, serverID string) {
-	if r.ingame == nil {
-		return
+func (r *adminRoutes) invalidateIngameGroup(serverKey string) {
+	if r.ingame != nil {
+		r.ingame.InvalidateServer(serverKey)
 	}
-	if r.status != nil {
-		status, available, err := r.status.LastStatus(c.Context(), serverID)
-		if err == nil && available && status.ServerKey != "" {
-			r.ingame.InvalidateServer(status.ServerKey)
-			return
-		}
-	}
-	r.ingame.InvalidateAll()
 }
 
 func normalizeIngameSettings(settings *store.IngameSettings) {
