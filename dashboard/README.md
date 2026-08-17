@@ -89,9 +89,9 @@ Dashboard 服务器 UUID 只标识网页中的实时服务器目录，不需要�
 
 后台“MOTD 部署帮助”会从服务器已经持久化的 A2S 规则中读取 `sm_lps_server_key`，生成跳转到 `/ingame?server=<server_key>` 的 `motd.txt`。Dashboard/Collector 不会写入游戏服务器文件，`host.txt` 仍只能放普通文本。页面请求只使用已有 A2S 快照，不会同步查服。
 
-游戏内 Home、Player、Rankings、公告/文档分别使用批准的缓存档位：Home 10/30/60/120 秒，Player 30/60/120/300 秒，Rankings 60/120/300/600 秒，内容 60/300/600/1800 秒。这里的 View Cache 与“站点设置 → 服务”的 A2S 刷新周期相互独立；缓存命中不会重新查 Stats DB 或 A2S，设置、公告、文档、服务器和个人可见性更新会主动失效相应缓存。
+游戏内 Home、Player、Rankings、公告/文档分别使用批准的缓存档位：Home 10/30/60/120 秒，Player 30/60/120/300 秒，Rankings 60/120/300/600 秒，内容 60/300/600/1800 秒。这里的 View Cache 与“站点设置 → 服务”的 A2S 刷新周期相互独立；缓存命中不会重新查 Stats DB 或 A2S，设置、公告、文档、服务器和个人可见性更新会主动失效相应缓存。Visual v2 使用接近 MOTD viewport 全宽的 Survival Overlay 布局：Banner 仅用于 Home Hero，Player、Rankings、公告和文档使用紧凑服务器 Header；页面保持 SSR-only 与 0 JavaScript。
 
-Banner 和完整网站目的地只接受不含账号密码的绝对 HTTP/HTTPS URL。服务端不会下载、代理、探测或生成外部图片缩略图；Markdown 仅渲染安全的轻量子集，不允许脚本、iframe、音视频、样式、复杂表格和外部图片。所有 `/ingame` 玩家数据都按匿名公开可见性查询，即使请求携带 Steam 或管理员会话也不会提升权限。“完整网站”使用 Steam 外部浏览器入口，不在 MOTD WebView 内加载现代 React 站点。
+Background、Banner 和完整网站目的地只接受不含账号密码的绝对 HTTP/HTTPS URL。服务端不会下载、代理、探测或生成外部图片缩略图；更换图片时应使用新 URL 或查询版本。Markdown 仅渲染安全的轻量子集，不允许脚本、iframe、音视频、样式、复杂表格和外部图片，经过校验的 HTTP/HTTPS 外链统一交给 Steam 外部浏览器打开。所有 `/ingame` 玩家数据都按匿名公开可见性查询，即使请求携带 Steam 或管理员会话也不会提升权限。内嵌 CSS/PNG 使用基于内容 SHA-256 的稳定短指纹并保持一年 immutable cache；HTML 继续使用 `no-cache`。
 
 ## 本地开发
 

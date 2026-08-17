@@ -131,9 +131,9 @@ func ValidateIngameServerSettings(settings store.IngameServerSettings) error {
 		if strings.TrimSpace(settings.BackgroundURL) == "" {
 			return errors.New("background_url is required in override mode")
 		}
-		if err := ValidateIngameURL(strings.TrimSpace(settings.BackgroundURL)); err != nil {
-			return fmt.Errorf("background_url: %w", err)
-		}
+	}
+	if err := ValidateIngameURL(strings.TrimSpace(settings.BackgroundURL)); err != nil {
+		return fmt.Errorf("background_url: %w", err)
 	}
 	if settings.WebsiteMode == "override" {
 		if strings.TrimSpace(settings.WebsiteURL) == "" {

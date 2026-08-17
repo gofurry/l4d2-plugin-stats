@@ -86,16 +86,17 @@ func TestIngameRoutesSetExplicitContentTypes(t *testing.T) {
 	defer app.Shutdown()
 
 	tests := []struct {
-		name        string
-		path        string
-		status      int
-		contentType string
-		body        string
+		name         string
+		path         string
+		status       int
+		contentType  string
+		cacheControl string
+		body         string
 	}{
-		{name: "home HTML", path: "/ingame?server=valid-server-key", status: http.StatusOK, contentType: fiber.MIMETextHTMLCharsetUTF8, body: "<!doctype html>"},
-		{name: "error HTML", path: "/ingame?server=invalid", status: http.StatusNotFound, contentType: fiber.MIMETextHTMLCharsetUTF8, body: "无法识别服务器"},
-		{name: "CSS", path: "/ingame/assets/v1.3.4/ingame.css", status: http.StatusOK, contentType: fiber.MIMETextCSSCharsetUTF8},
-		{name: "PNG", path: "/ingame/assets/v1.3.4/achievements.png", status: http.StatusOK, contentType: "image/png"},
+		{name: "home HTML", path: "/ingame?server=valid-server-key", status: http.StatusOK, contentType: fiber.MIMETextHTMLCharsetUTF8, cacheControl: "no-cache", body: "<!doctype html>"},
+		{name: "error HTML", path: "/ingame?server=invalid", status: http.StatusNotFound, contentType: fiber.MIMETextHTMLCharsetUTF8, cacheControl: "no-cache", body: "无法识别服务器"},
+		{name: "CSS", path: "/ingame/assets/" + ingameassets.AssetFingerprint() + "/ingame.css", status: http.StatusOK, contentType: fiber.MIMETextCSSCharsetUTF8, cacheControl: "public, max-age=31536000, immutable"},
+		{name: "PNG", path: "/ingame/assets/" + ingameassets.AssetFingerprint() + "/achievements.png", status: http.StatusOK, contentType: "image/png", cacheControl: "public, max-age=31536000, immutable"},
 	}
 	for _, test := range tests {
 		t.Run(test.name, func(t *testing.T) {
@@ -113,6 +114,9 @@ func TestIngameRoutesSetExplicitContentTypes(t *testing.T) {
 			}
 			if contentType == fiber.MIMEOctetStream || strings.HasPrefix(contentType, fiber.MIMEOctetStream+";") {
 				t.Fatalf("GET %s regressed to %q", test.path, contentType)
+			}
+			if cacheControl := response.Header.Get(fiber.HeaderCacheControl); cacheControl != test.cacheControl {
+				t.Fatalf("GET %s Cache-Control=%q, want %q", test.path, cacheControl, test.cacheControl)
 			}
 			if test.body != "" {
 				buffer := make([]byte, 8192)

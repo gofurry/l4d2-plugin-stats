@@ -83,6 +83,11 @@ func TestValidateIngameBackgroundSettings(t *testing.T) {
 	if err := ValidateIngameServerSettings(server); err == nil {
 		t.Fatal("empty override background URL accepted")
 	}
+	server.BackgroundMode = "hidden"
+	server.BackgroundURL = "file:///tmp/background.jpg"
+	if err := ValidateIngameServerSettings(server); err == nil {
+		t.Fatal("unsafe hidden background URL accepted")
+	}
 	server.BackgroundMode = "invalid"
 	if err := ValidateIngameServerSettings(server); err == nil {
 		t.Fatal("invalid background mode accepted")

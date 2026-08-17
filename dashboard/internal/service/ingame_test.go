@@ -188,14 +188,29 @@ func TestIngamePlayerChecksAnonymousVisibilityBeforeQueries(t *testing.T) {
 }
 
 func TestIngameHomeSelectsAmongResolvedServers(t *testing.T) {
-	dashboard := &fakeIngameDashboard{settings: defaultIngameTestSettings(), servers: []store.GameServer{
+	settings := defaultIngameTestSettings()
+	settings.BackgroundURL = "https://example.com/background.jpg"
+	dashboard := &fakeIngameDashboard{settings: settings, servers: []store.GameServer{
 		{ID: "one", DisplayName: "One", Enabled: true}, {ID: "two", DisplayName: "Two", Enabled: true},
 	}}
 	statuses := &fakeIngameStatuses{statuses: []store.ServerStatus{{ServerID: "one", ServerKey: "one"}, {ServerID: "two", ServerKey: "two"}}}
 	service := NewIngameService(dashboard, statuses, &fakeIngamePlayers{}, &fakeIngameRankings{}, &fakeIngameAchievements{})
 	view, err := service.Home(context.Background(), "")
-	if err != nil || !view.SelectionOnly || len(view.ServerOptions) != 2 {
+	if err != nil || !view.SelectionOnly || len(view.ServerOptions) != 2 || view.ActivePage != "home" || view.Config.Appearance.BackgroundURL != settings.BackgroundURL {
 		t.Fatalf("selection view=%+v err=%v", view, err)
+	}
+}
+
+func TestIngameErrorBackgroundRejectsUnsafeStoredValue(t *testing.T) {
+	dashboard := &fakeIngameDashboard{settings: defaultIngameTestSettings()}
+	dashboard.settings.BackgroundURL = "https://example.com/background.jpg?ver=2"
+	service := NewIngameService(dashboard, &fakeIngameStatuses{}, nil, nil, nil)
+	if background := service.ErrorBackground(context.Background()); background != dashboard.settings.BackgroundURL {
+		t.Fatalf("safe error background=%q", background)
+	}
+	dashboard.settings.BackgroundURL = "javascript:alert(1)"
+	if background := service.ErrorBackground(context.Background()); background != "" {
+		t.Fatalf("unsafe error background=%q", background)
 	}
 }
 

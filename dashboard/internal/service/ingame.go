@@ -90,6 +90,7 @@ type IngameBaseView struct {
 	WebsiteHref   string
 	ServerOptions []IngameServerOption
 	SelectionOnly bool
+	ActivePage    string
 }
 
 type IngameAnnouncementSummary struct {
@@ -187,6 +188,7 @@ func (s *IngameService) Home(ctx context.Context, serverKey string) (IngameHomeV
 			return ingameBuildResult{}, err
 		}
 		view := IngameHomeView{IngameBaseView: portal.base}
+		view.ActivePage = "home"
 		if view.SelectionOnly {
 			return ingameBuildResult{value: view, ttl: time.Duration(portal.settings.HomeCacheSeconds) * time.Second}, nil
 		}
@@ -239,6 +241,7 @@ func (s *IngameService) Player(ctx context.Context, serverKey, steamID string) (
 			return ingameBuildResult{}, err
 		}
 		view := IngamePlayerView{IngameBaseView: portal.base, SteamID: steamID}
+		view.ActivePage = "player"
 		view.ShowOverview = visibility.Visible(store.PlayerProfileOverview)
 		if view.ShowOverview {
 			summary, summaryErr := s.players.Summary(buildCtx, steamID)
@@ -315,6 +318,7 @@ func (s *IngameService) Rankings(ctx context.Context, serverKey, metricKey strin
 		}
 		pageCount := int((ranking.Total + 9) / 10)
 		view := IngameRankingView{IngameBaseView: portal.base, Metric: metric, Page: ranking, PageNumber: page, PageCount: pageCount, Catalog: IngameMetricCatalog()}
+		view.ActivePage = "rankings"
 		return ingameBuildResult{value: view, ttl: time.Duration(portal.settings.RankingCacheSeconds) * time.Second}, nil
 	})
 	if err != nil {
@@ -346,6 +350,7 @@ func (s *IngameService) Info(ctx context.Context, serverKey, documentKey string)
 			return ingameBuildResult{}, ErrIngameContentUnavailable
 		}
 		view := IngameInfoView{IngameBaseView: portal.base, Key: documentKey, Title: ingameDocumentLabel(documentKey), ContentMarkdown: content}
+		view.ActivePage = documentKey
 		return ingameBuildResult{value: view, ttl: time.Duration(portal.settings.ContentCacheSeconds) * time.Second}, nil
 	})
 	if err != nil {
@@ -369,6 +374,7 @@ func (s *IngameService) Announcement(ctx context.Context, serverKey, id string) 
 			return ingameBuildResult{}, ErrIngameContentUnavailable
 		}
 		view := IngameAnnouncementView{IngameBaseView: portal.base, Announcement: announcement}
+		view.ActivePage = "announcement"
 		return ingameBuildResult{value: view, ttl: time.Duration(portal.settings.ContentCacheSeconds) * time.Second}, nil
 	})
 	if err != nil {
@@ -425,7 +431,8 @@ func (s *IngameService) portalContext(ctx context.Context, requestedKey string, 
 	}
 	if selectedServer.ID == "" {
 		if requestedKey == "" && allowSelection && len(options) > 1 {
-			return ingamePortalContext{settings: settings, base: IngameBaseView{ServerOptions: options, SelectionOnly: true}}, nil
+			selectionConfig := ResolveIngameConfig(settings, store.IngameServerSettings{}, "选择服务器")
+			return ingamePortalContext{settings: settings, base: IngameBaseView{Config: selectionConfig, ServerOptions: options, SelectionOnly: true, ActivePage: "home"}}, nil
 		}
 		return ingamePortalContext{}, ErrIngameUnknownServer
 	}
@@ -481,6 +488,18 @@ func (s *IngameService) documentLinks(ctx context.Context, serverID string) []In
 func (s *IngameService) InvalidateAll()                    { s.cache.clear() }
 func (s *IngameService) InvalidateServer(serverKey string) { s.cache.clearServer(serverKey) }
 func (s *IngameService) InvalidatePlayer(steamID string)   { s.cache.clearPlayer(steamID) }
+
+func (s *IngameService) ErrorBackground(ctx context.Context) string {
+	settings, err := s.dashboard.IngameSettings(ctx)
+	if err != nil {
+		return ""
+	}
+	background := strings.TrimSpace(settings.BackgroundURL)
+	if ValidateIngameURL(background) != nil {
+		return ""
+	}
+	return background
+}
 
 func onlinePlayers(players []store.ServerPlayer) []IngameOnlinePlayer {
 	result := make([]IngameOnlinePlayer, 0, len(players))

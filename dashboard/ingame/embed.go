@@ -2,7 +2,9 @@ package ingame
 
 import (
 	"bytes"
+	"crypto/sha256"
 	"embed"
+	"encoding/hex"
 	"fmt"
 	"html/template"
 	"io"
@@ -18,7 +20,7 @@ import (
 //go:embed templates/*.html static/*
 var files embed.FS
 
-const AssetVersion = "v1.3.4"
+var assetFingerprint = fingerprintAssets(mustAsset("static/ingame.css"), mustAsset("static/achievements.png"))
 
 type Renderer struct {
 	templates *template.Template
@@ -39,8 +41,10 @@ func NewRenderer() (*Renderer, error) {
 		"metricValue": func(metric service.IngameMetricDefinition, value float64) string {
 			return service.FormatIngameValue(metric, value)
 		},
-		"markdown":   renderMarkdown,
-		"badgeStyle": badgeStyle,
+		"markdown":        renderMarkdown,
+		"badgeStyle":      badgeStyle,
+		"backgroundStyle": backgroundStyle,
+		"rankNumber":      func(index int) string { return fmt.Sprintf("%02d", index+1) },
 		"externalHref": func(value string) template.URL {
 			const prefix = "steam://openurl_external/"
 			if !strings.HasPrefix(value, prefix) || service.ValidateIngameURL(strings.TrimPrefix(value, prefix)) != nil {
@@ -48,8 +52,8 @@ func NewRenderer() (*Renderer, error) {
 			}
 			return template.URL(value)
 		},
-		"assetVersion": func() string {
-			return AssetVersion
+		"assetFingerprint": func() string {
+			return AssetFingerprint()
 		},
 	}
 	templates, err := template.New("ingame").Funcs(functions).ParseFS(files, "templates/*.html")
@@ -71,12 +75,42 @@ func AchievementAtlas() ([]byte, error) {
 	return files.ReadFile("static/achievements.png")
 }
 
+func AssetFingerprint() string {
+	return assetFingerprint
+}
+
+func fingerprintAssets(assets ...[]byte) string {
+	hash := sha256.New()
+	for _, asset := range assets {
+		_, _ = hash.Write(asset)
+		_, _ = hash.Write([]byte{0})
+	}
+	return hex.EncodeToString(hash.Sum(nil))[:12]
+}
+
+func mustAsset(name string) []byte {
+	asset, err := files.ReadFile(name)
+	if err != nil {
+		panic(fmt.Sprintf("read embedded in-game asset %s: %v", name, err))
+	}
+	return asset
+}
+
 func badgeStyle(key string) template.CSS {
 	position, ok := achievementAtlasPositions[key]
 	if !ok {
 		return "background-image:none"
 	}
-	return template.CSS(fmt.Sprintf("background-position:-%dpx -%dpx", position[0], position[1]))
+	return template.CSS(fmt.Sprintf("background-image:url('/ingame/assets/%s/achievements.png');background-position:-%dpx -%dpx", AssetFingerprint(), position[0], position[1]))
+}
+
+func backgroundStyle(value string) template.CSS {
+	value = strings.TrimSpace(value)
+	if service.ValidateIngameURL(value) != nil {
+		return ""
+	}
+	escaped := strings.NewReplacer(`\`, `\\`, `"`, `\"`, "\r", "", "\n", "", "\f", "").Replace(value)
+	return template.CSS(`background-image:url("` + escaped + `")`)
 }
 
 func formatDuration(seconds int64) string {
@@ -216,8 +250,8 @@ func renderInline(value string) string {
 		output.WriteString(renderInlineText(value[last:match[0]]))
 		label := value[match[2]:match[3]]
 		destination := value[match[4]:match[5]]
-		if service.ValidateIngameURL(destination) == nil && destination != "" {
-			output.WriteString(`<a href="` + template.HTMLEscapeString(destination) + `">` + renderInlineText(label) + `</a>`)
+		if href := service.BuildExternalBrowserHref(destination); href != "" {
+			output.WriteString(`<a href="` + template.HTMLEscapeString(href) + `">` + renderInlineText(label) + `</a>`)
 		} else {
 			output.WriteString(renderInlineText(label))
 		}

@@ -51,6 +51,14 @@ func TestDashboardIngameSettingsAndServerDocuments(t *testing.T) {
 	if err != nil || serverSettings.Title != "Main Portal" || serverSettings.BackgroundMode != "override" || serverSettings.BackgroundURL == "" || serverSettings.UpdatedAt == 0 {
 		t.Fatalf("saved server settings=%+v err=%v", serverSettings, err)
 	}
+	for _, mode := range []string{"hidden", "inherit", "override"} {
+		serverSettings.BackgroundMode = mode
+		savedMode, saveErr := ingame.UpdateIngameServerSettings(ctx, serverSettings)
+		if saveErr != nil || savedMode.BackgroundMode != mode || savedMode.BackgroundURL != serverSettings.BackgroundURL {
+			t.Fatalf("persist background mode %q: settings=%+v err=%v", mode, savedMode, saveErr)
+		}
+		serverSettings = savedMode
+	}
 
 	document, err := ingame.UpdateServerDocument(ctx, ServerDocument{
 		ServerID: server.ID, Key: IngameDocumentCommands, Mode: "override", ContentMarkdown: "- !help",

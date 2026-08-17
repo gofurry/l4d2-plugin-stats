@@ -13,17 +13,21 @@ All notable changes to this project are documented in this file.
 - Add per-server inherit, override, and hide behavior for introduction, command, and resource documents.
 - Add a no-JavaScript legacy presentation and a dedicated PNG Achievement atlas generated from the same artwork sources as the modern WebP atlas.
 - Add MOTD deployment guidance and generated `motd.txt` HTML redirection to `/ingame?server=<server_key>`.
+- Add a global portal Background URL plus per-server inherit, override, and hidden modes without server-side fetching or proxying.
 
 ### Changed
 
 - Upgrade Collector and Dashboard package versions to `1.3.4` and Dashboard schema from 16 to 17 while keeping Stats schema 6, `stats_version=1`, and all gameplay/statistical contracts unchanged.
 - Reuse persisted A2S snapshots and existing Player, Achievement, Relationship, and Ranking services through bounded server-side views rather than browser-side API fan-out.
 - Cache bounded in-game view models with approved TTL presets, request coalescing, stale-value fallback, and targeted invalidation after settings, content, server, and profile-visibility changes.
+- Redesign the legacy-safe portal as a viewport-filling Survival Overlay with a Home-only Hero, compact subpage header, denser Player and Ranking views, translucent panels, and old-WebKit scrollbar styling.
+- Fingerprint embedded CSS and Achievement atlas URLs from their content while retaining immutable asset caching and no-cache HTML responses.
 
 ### Security
 
 - Restrict in-game Banner and full-site destinations to credential-free absolute HTTP/HTTPS URLs, never server-fetch configured external URLs, and render all `/ingame` player data using anonymous public profile visibility.
 - Sanitize the supported Markdown subset, reject executable or embedded content, and keep all in-game pages free of client-side scripts and API calls.
+- Route validated HTTP/HTTPS links from server Markdown through the controlled Steam external-browser helper instead of navigating the native MOTD WebView.
 
 ## 1.3.3 - 2026-08-15
 
