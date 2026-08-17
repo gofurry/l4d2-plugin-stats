@@ -1,0 +1,1 @@
+{{define "announcement.html"}}{{template "head" .}}{{template "brand" .}}{{template "nav" .}}<div class="panel content"><h2>{{.Announcement.Title}}</h2><p class="date">{{date .Announcement.UpdatedAt}}</p>{{markdown .Announcement.ContentMarkdown}}</div>{{template "footer" .}}{{end}}

@@ -159,6 +159,7 @@ type IngameRankingView struct {
 	Page       store.RankingPage
 	PageNumber int
 	PageCount  int
+	Catalog    []IngameMetricDefinition
 }
 
 type IngameInfoView struct {
@@ -313,7 +314,7 @@ func (s *IngameService) Rankings(ctx context.Context, serverKey, metricKey strin
 			return ingameBuildResult{}, err
 		}
 		pageCount := int((ranking.Total + 9) / 10)
-		view := IngameRankingView{IngameBaseView: portal.base, Metric: metric, Page: ranking, PageNumber: page, PageCount: pageCount}
+		view := IngameRankingView{IngameBaseView: portal.base, Metric: metric, Page: ranking, PageNumber: page, PageCount: pageCount, Catalog: IngameMetricCatalog()}
 		return ingameBuildResult{value: view, ttl: time.Duration(portal.settings.RankingCacheSeconds) * time.Second}, nil
 	})
 	if err != nil {

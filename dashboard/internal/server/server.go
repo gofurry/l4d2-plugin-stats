@@ -12,6 +12,7 @@ import (
 	"github.com/gofiber/fiber/v3/middleware/helmet"
 	recoverer "github.com/gofiber/fiber/v3/middleware/recover"
 	"github.com/gofiber/fiber/v3/middleware/requestid"
+	ingameassets "github.com/gofurry/l4d2-plugin-stats/dashboard/ingame"
 	"github.com/gofurry/l4d2-plugin-stats/dashboard/internal/auth"
 	"github.com/gofurry/l4d2-plugin-stats/dashboard/internal/config"
 	"github.com/gofurry/l4d2-plugin-stats/dashboard/internal/service"
@@ -33,6 +34,8 @@ type Dependencies struct {
 	Auth         *auth.Service
 	Logger       *zap.Logger
 	Assets       fs.FS
+	Ingame       *service.IngameService
+	IngameRender *ingameassets.Renderer
 }
 
 func New(cfg *config.Config, deps Dependencies) *fiber.App {
@@ -137,6 +140,7 @@ func New(cfg *config.Config, deps Dependencies) *fiber.App {
 	})
 
 	registerSEORoutes(app, deps.Dashboard)
+	registerIngameRoutes(app, deps.Ingame, deps.IngameRender)
 	assets := staticHandler(deps.Assets, deps.Dashboard)
 	app.Get("/", assets)
 	app.Get("/*", assets)

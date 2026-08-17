@@ -939,6 +939,7 @@ type DashboardAggregateStore interface {
 
 type DashboardDatabase interface {
 	DashboardStore
+	DashboardIngameStore
 	DashboardProfileStore
 	DashboardAggregateStore
 	DashboardAchievementStore
