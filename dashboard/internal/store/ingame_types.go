@@ -13,6 +13,7 @@ type IngameSettings struct {
 	Title               string    `json:"title"`
 	Description         string    `json:"description"`
 	BannerURL           string    `json:"banner_url"`
+	BackgroundURL       string    `json:"background_url"`
 	WebsiteURL          string    `json:"website_url"`
 	ShowAnnouncements   bool      `json:"show_announcements"`
 	ShowPlayers         bool      `json:"show_players"`
@@ -33,6 +34,8 @@ type IngameServerSettings struct {
 	Description      string    `json:"description"`
 	BannerMode       string    `json:"banner_mode"`
 	BannerURL        string    `json:"banner_url"`
+	BackgroundMode   string    `json:"background_mode"`
+	BackgroundURL    string    `json:"background_url"`
 	WebsiteMode      string    `json:"website_mode"`
 	WebsiteURL       string    `json:"website_url"`
 	HighlightMode    string    `json:"highlight_mode"`

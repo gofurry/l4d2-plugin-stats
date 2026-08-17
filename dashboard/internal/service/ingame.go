@@ -440,7 +440,7 @@ func (s *IngameService) portalContext(ctx context.Context, requestedKey string, 
 	}
 	serverSettings, err := s.dashboard.IngameServerSettings(ctx, selectedServer.ID)
 	if err != nil {
-		serverSettings = store.IngameServerSettings{ServerID: selectedServer.ID, TitleMode: "inherit", DescriptionMode: "inherit", BannerMode: "inherit", WebsiteMode: "inherit", HighlightMode: "inherit"}
+		serverSettings = store.IngameServerSettings{ServerID: selectedServer.ID, TitleMode: "inherit", DescriptionMode: "inherit", BannerMode: "inherit", BackgroundMode: "inherit", WebsiteMode: "inherit", HighlightMode: "inherit"}
 	}
 	config := ResolveIngameConfig(settings, serverSettings, selectedServer.DisplayName)
 	base := IngameBaseView{

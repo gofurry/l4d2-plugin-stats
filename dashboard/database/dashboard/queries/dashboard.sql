@@ -135,7 +135,7 @@ UPDATE game_servers SET sort_order = ?2, updated_at = ?3 WHERE id = ?1;
 DELETE FROM game_servers WHERE id = ?1;
 
 -- name: GetIngameSettings :one
-SELECT enabled, title, description, banner_url, website_url,
+SELECT enabled, title, description, banner_url, background_url, website_url,
        show_announcements, show_players, show_highlights,
        highlight_metric_1, highlight_metric_2, highlight_metric_3,
        home_cache_seconds, player_cache_seconds, ranking_cache_seconds,
@@ -145,17 +145,18 @@ WHERE id = 1;
 
 -- name: UpsertIngameSettings :exec
 INSERT INTO ingame_settings (
-  id, enabled, title, description, banner_url, website_url,
+  id, enabled, title, description, banner_url, background_url, website_url,
   show_announcements, show_players, show_highlights,
   highlight_metric_1, highlight_metric_2, highlight_metric_3,
   home_cache_seconds, player_cache_seconds, ranking_cache_seconds,
   content_cache_seconds, updated_at
-) VALUES (1, ?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9, ?10, ?11, ?12, ?13, ?14, ?15, ?16)
+) VALUES (1, ?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9, ?10, ?11, ?12, ?13, ?14, ?15, ?16, ?17)
 ON CONFLICT(id) DO UPDATE SET
   enabled = excluded.enabled,
   title = excluded.title,
   description = excluded.description,
   banner_url = excluded.banner_url,
+  background_url = excluded.background_url,
   website_url = excluded.website_url,
   show_announcements = excluded.show_announcements,
   show_players = excluded.show_players,
@@ -171,7 +172,8 @@ ON CONFLICT(id) DO UPDATE SET
 
 -- name: GetIngameServerSettings :one
 SELECT server_id, title_mode, title, description_mode, description,
-       banner_mode, banner_url, website_mode, website_url,
+       banner_mode, banner_url, background_mode, background_url,
+       website_mode, website_url,
        highlight_mode, highlight_metric_1, highlight_metric_2,
        highlight_metric_3, updated_at
 FROM ingame_server_settings
@@ -180,10 +182,11 @@ WHERE server_id = ?1;
 -- name: UpsertIngameServerSettings :exec
 INSERT INTO ingame_server_settings (
   server_id, title_mode, title, description_mode, description,
-  banner_mode, banner_url, website_mode, website_url,
+  banner_mode, banner_url, background_mode, background_url,
+  website_mode, website_url,
   highlight_mode, highlight_metric_1, highlight_metric_2,
   highlight_metric_3, updated_at
-) VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9, ?10, ?11, ?12, ?13, ?14)
+) VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9, ?10, ?11, ?12, ?13, ?14, ?15, ?16)
 ON CONFLICT(server_id) DO UPDATE SET
   title_mode = excluded.title_mode,
   title = excluded.title,
@@ -191,6 +194,8 @@ ON CONFLICT(server_id) DO UPDATE SET
   description = excluded.description,
   banner_mode = excluded.banner_mode,
   banner_url = excluded.banner_url,
+  background_mode = excluded.background_mode,
+  background_url = excluded.background_url,
   website_mode = excluded.website_mode,
   website_url = excluded.website_url,
   highlight_mode = excluded.highlight_mode,

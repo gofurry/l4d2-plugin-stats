@@ -22,7 +22,7 @@ func (f *fakeIngameDashboard) IngameSettings(context.Context) (store.IngameSetti
 	return f.settings, nil
 }
 func (f *fakeIngameDashboard) IngameServerSettings(context.Context, string) (store.IngameServerSettings, error) {
-	return store.IngameServerSettings{TitleMode: "inherit", DescriptionMode: "inherit", BannerMode: "inherit", WebsiteMode: "inherit", HighlightMode: "inherit"}, nil
+	return store.IngameServerSettings{TitleMode: "inherit", DescriptionMode: "inherit", BannerMode: "inherit", BackgroundMode: "inherit", WebsiteMode: "inherit", HighlightMode: "inherit"}, nil
 }
 func (f *fakeIngameDashboard) ListServers(context.Context) ([]store.GameServer, error) {
 	return append([]store.GameServer(nil), f.servers...), nil

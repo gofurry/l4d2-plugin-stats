@@ -26,7 +26,7 @@ func (ingameMIMEStore) IngameSettings(context.Context) (store.IngameSettings, er
 func (ingameMIMEStore) IngameServerSettings(context.Context, string) (store.IngameServerSettings, error) {
 	return store.IngameServerSettings{
 		TitleMode: "inherit", DescriptionMode: "inherit", BannerMode: "inherit",
-		WebsiteMode: "inherit", HighlightMode: "inherit",
+		BackgroundMode: "inherit", WebsiteMode: "inherit", HighlightMode: "inherit",
 	}, nil
 }
 

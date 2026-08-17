@@ -521,7 +521,8 @@ func (q *Queries) GetGameServer(ctx context.Context, id string) (GetGameServerRo
 
 const getIngameServerSettings = `-- name: GetIngameServerSettings :one
 SELECT server_id, title_mode, title, description_mode, description,
-       banner_mode, banner_url, website_mode, website_url,
+       banner_mode, banner_url, background_mode, background_url,
+       website_mode, website_url,
        highlight_mode, highlight_metric_1, highlight_metric_2,
        highlight_metric_3, updated_at
 FROM ingame_server_settings
@@ -539,6 +540,8 @@ func (q *Queries) GetIngameServerSettings(ctx context.Context, serverID string) 
 		&i.Description,
 		&i.BannerMode,
 		&i.BannerUrl,
+		&i.BackgroundMode,
+		&i.BackgroundUrl,
 		&i.WebsiteMode,
 		&i.WebsiteUrl,
 		&i.HighlightMode,
@@ -551,7 +554,7 @@ func (q *Queries) GetIngameServerSettings(ctx context.Context, serverID string) 
 }
 
 const getIngameSettings = `-- name: GetIngameSettings :one
-SELECT enabled, title, description, banner_url, website_url,
+SELECT enabled, title, description, banner_url, background_url, website_url,
        show_announcements, show_players, show_highlights,
        highlight_metric_1, highlight_metric_2, highlight_metric_3,
        home_cache_seconds, player_cache_seconds, ranking_cache_seconds,
@@ -565,6 +568,7 @@ type GetIngameSettingsRow struct {
 	Title               string `json:"title"`
 	Description         string `json:"description"`
 	BannerUrl           string `json:"banner_url"`
+	BackgroundUrl       string `json:"background_url"`
 	WebsiteUrl          string `json:"website_url"`
 	ShowAnnouncements   int64  `json:"show_announcements"`
 	ShowPlayers         int64  `json:"show_players"`
@@ -587,6 +591,7 @@ func (q *Queries) GetIngameSettings(ctx context.Context) (GetIngameSettingsRow, 
 		&i.Title,
 		&i.Description,
 		&i.BannerUrl,
+		&i.BackgroundUrl,
 		&i.WebsiteUrl,
 		&i.ShowAnnouncements,
 		&i.ShowPlayers,
@@ -1333,10 +1338,11 @@ func (q *Queries) UpsertA2SStatusSnapshot(ctx context.Context, arg UpsertA2SStat
 const upsertIngameServerSettings = `-- name: UpsertIngameServerSettings :exec
 INSERT INTO ingame_server_settings (
   server_id, title_mode, title, description_mode, description,
-  banner_mode, banner_url, website_mode, website_url,
+  banner_mode, banner_url, background_mode, background_url,
+  website_mode, website_url,
   highlight_mode, highlight_metric_1, highlight_metric_2,
   highlight_metric_3, updated_at
-) VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9, ?10, ?11, ?12, ?13, ?14)
+) VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9, ?10, ?11, ?12, ?13, ?14, ?15, ?16)
 ON CONFLICT(server_id) DO UPDATE SET
   title_mode = excluded.title_mode,
   title = excluded.title,
@@ -1344,6 +1350,8 @@ ON CONFLICT(server_id) DO UPDATE SET
   description = excluded.description,
   banner_mode = excluded.banner_mode,
   banner_url = excluded.banner_url,
+  background_mode = excluded.background_mode,
+  background_url = excluded.background_url,
   website_mode = excluded.website_mode,
   website_url = excluded.website_url,
   highlight_mode = excluded.highlight_mode,
@@ -1361,6 +1369,8 @@ type UpsertIngameServerSettingsParams struct {
 	Description      string `json:"description"`
 	BannerMode       string `json:"banner_mode"`
 	BannerUrl        string `json:"banner_url"`
+	BackgroundMode   string `json:"background_mode"`
+	BackgroundUrl    string `json:"background_url"`
 	WebsiteMode      string `json:"website_mode"`
 	WebsiteUrl       string `json:"website_url"`
 	HighlightMode    string `json:"highlight_mode"`
@@ -1379,6 +1389,8 @@ func (q *Queries) UpsertIngameServerSettings(ctx context.Context, arg UpsertInga
 		arg.Description,
 		arg.BannerMode,
 		arg.BannerUrl,
+		arg.BackgroundMode,
+		arg.BackgroundUrl,
 		arg.WebsiteMode,
 		arg.WebsiteUrl,
 		arg.HighlightMode,
@@ -1392,17 +1404,18 @@ func (q *Queries) UpsertIngameServerSettings(ctx context.Context, arg UpsertInga
 
 const upsertIngameSettings = `-- name: UpsertIngameSettings :exec
 INSERT INTO ingame_settings (
-  id, enabled, title, description, banner_url, website_url,
+  id, enabled, title, description, banner_url, background_url, website_url,
   show_announcements, show_players, show_highlights,
   highlight_metric_1, highlight_metric_2, highlight_metric_3,
   home_cache_seconds, player_cache_seconds, ranking_cache_seconds,
   content_cache_seconds, updated_at
-) VALUES (1, ?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9, ?10, ?11, ?12, ?13, ?14, ?15, ?16)
+) VALUES (1, ?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9, ?10, ?11, ?12, ?13, ?14, ?15, ?16, ?17)
 ON CONFLICT(id) DO UPDATE SET
   enabled = excluded.enabled,
   title = excluded.title,
   description = excluded.description,
   banner_url = excluded.banner_url,
+  background_url = excluded.background_url,
   website_url = excluded.website_url,
   show_announcements = excluded.show_announcements,
   show_players = excluded.show_players,
@@ -1422,6 +1435,7 @@ type UpsertIngameSettingsParams struct {
 	Title               string `json:"title"`
 	Description         string `json:"description"`
 	BannerUrl           string `json:"banner_url"`
+	BackgroundUrl       string `json:"background_url"`
 	WebsiteUrl          string `json:"website_url"`
 	ShowAnnouncements   int64  `json:"show_announcements"`
 	ShowPlayers         int64  `json:"show_players"`
@@ -1442,6 +1456,7 @@ func (q *Queries) UpsertIngameSettings(ctx context.Context, arg UpsertIngameSett
 		arg.Title,
 		arg.Description,
 		arg.BannerUrl,
+		arg.BackgroundUrl,
 		arg.WebsiteUrl,
 		arg.ShowAnnouncements,
 		arg.ShowPlayers,

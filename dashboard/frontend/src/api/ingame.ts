@@ -16,6 +16,7 @@ export interface IngameSettings {
   title: string
   description: string
   banner_url: string
+  background_url: string
   website_url: string
   show_announcements: boolean
   show_players: boolean
@@ -36,6 +37,8 @@ export interface IngameServerSettings {
   description: string
   banner_mode: IngameMode
   banner_url: string
+  background_mode: IngameMode
+  background_url: string
   website_mode: IngameMode
   website_url: string
   highlight_mode: Exclude<IngameMode, 'hidden'>

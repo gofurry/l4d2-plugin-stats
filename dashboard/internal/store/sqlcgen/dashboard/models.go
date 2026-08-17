@@ -159,6 +159,8 @@ type IngameServerSetting struct {
 	Description      string `json:"description"`
 	BannerMode       string `json:"banner_mode"`
 	BannerUrl        string `json:"banner_url"`
+	BackgroundMode   string `json:"background_mode"`
+	BackgroundUrl    string `json:"background_url"`
 	WebsiteMode      string `json:"website_mode"`
 	WebsiteUrl       string `json:"website_url"`
 	HighlightMode    string `json:"highlight_mode"`
@@ -174,6 +176,7 @@ type IngameSetting struct {
 	Title               string `json:"title"`
 	Description         string `json:"description"`
 	BannerUrl           string `json:"banner_url"`
+	BackgroundUrl       string `json:"background_url"`
 	WebsiteUrl          string `json:"website_url"`
 	ShowAnnouncements   int64  `json:"show_announcements"`
 	ShowPlayers         int64  `json:"show_players"`

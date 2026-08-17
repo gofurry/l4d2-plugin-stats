@@ -8,6 +8,14 @@ import styles from './AdminIngamePage.module.scss'
 const inheritOverride = [{ value: 'inherit', cn: '继承全站', en: 'Inherit' }, { value: 'override', cn: '单独设置', en: 'Override' }]
 const inheritOverrideHidden = [...inheritOverride, { value: 'hidden', cn: '隐藏', en: 'Hidden' }]
 
+function validHTTPURL(value?: string) {
+  if (!value?.trim()) return true
+  try {
+    const url = new URL(value)
+    return value.length <= 2048 && (url.protocol === 'http:' || url.protocol === 'https:') && Boolean(url.host) && !url.username && !url.password
+  } catch { return false }
+}
+
 export function ServerIngameSettingsEditor({ server }: { server: GameServer }) {
   const { i18n } = useTranslation()
   const zh = !i18n.language.startsWith('en')
@@ -28,6 +36,7 @@ export function ServerIngameSettingsEditor({ server }: { server: GameServer }) {
   const titleMode = Form.useWatch('title_mode', form)
   const descriptionMode = Form.useWatch('description_mode', form)
   const bannerMode = Form.useWatch('banner_mode', form)
+  const backgroundMode = Form.useWatch('background_mode', form)
   const websiteMode = Form.useWatch('website_mode', form)
   const highlightMode = Form.useWatch('highlight_mode', form)
   const modes = (values: typeof inheritOverrideHidden) => values.map(item => ({ value: item.value, label: zh ? item.cn : item.en }))
@@ -41,8 +50,9 @@ export function ServerIngameSettingsEditor({ server }: { server: GameServer }) {
       <div className={styles.overrideGrid}>
         <div><Form.Item name="title_mode" label={label('标题', 'Title')}><Select options={modes(inheritOverride)} /></Form.Item>{titleMode === 'override' && <Form.Item name="title" rules={[{ required: true }, { max: 128 }]}><Input maxLength={128} /></Form.Item>}</div>
         <div><Form.Item name="description_mode" label={label('描述', 'Description')}><Select options={modes(inheritOverrideHidden)} /></Form.Item>{descriptionMode === 'override' && <Form.Item name="description" rules={[{ max: 1000 }]}><Input.TextArea rows={3} maxLength={1000} /></Form.Item>}</div>
-        <div><Form.Item name="banner_mode" label="Banner"><Select options={modes(inheritOverrideHidden)} /></Form.Item>{bannerMode === 'override' && <Form.Item name="banner_url" rules={[{ required: true }, { type: 'url' }]}><Input placeholder="https://example.com/banner.jpg" /></Form.Item>}</div>
-        <div><Form.Item name="website_mode" label={label('完整网站', 'Full website')}><Select options={modes(inheritOverrideHidden)} /></Form.Item>{websiteMode === 'override' && <Form.Item name="website_url" rules={[{ required: true }, { type: 'url' }]}><Input placeholder="https://stats.example.com" /></Form.Item>}</div>
+        <div><Form.Item name="banner_mode" label="Banner"><Select options={modes(inheritOverrideHidden)} /></Form.Item>{bannerMode === 'override' && <Form.Item name="banner_url" rules={[{ required: true }, { validator: (_, value) => validHTTPURL(value) ? Promise.resolve() : Promise.reject(new Error(label('请输入不含账号密码的 HTTP/HTTPS 地址', 'Enter a credential-free HTTP/HTTPS URL'))) }]}><Input placeholder="https://example.com/banner.jpg?v=2" /></Form.Item>}</div>
+        <div><Form.Item name="background_mode" label={label('背景图片', 'Background image')}><Select options={modes(inheritOverrideHidden)} /></Form.Item>{backgroundMode === 'override' && <Form.Item name="background_url" rules={[{ required: true }, { validator: (_, value) => validHTTPURL(value) ? Promise.resolve() : Promise.reject(new Error(label('请输入不含账号密码的 HTTP/HTTPS 地址', 'Enter a credential-free HTTP/HTTPS URL'))) }]} extra={label('推荐 1600×900 或 1920×1080 JPEG，建议小于 500KB。', 'Recommended: 1600×900 or 1920×1080 JPEG under 500KB.')}><Input placeholder="https://example.com/background.jpg?v=2" /></Form.Item>}</div>
+        <div><Form.Item name="website_mode" label={label('完整网站', 'Full website')}><Select options={modes(inheritOverrideHidden)} /></Form.Item>{websiteMode === 'override' && <Form.Item name="website_url" rules={[{ required: true }, { validator: (_, value) => validHTTPURL(value) ? Promise.resolve() : Promise.reject(new Error(label('请输入不含账号密码的 HTTP/HTTPS 地址', 'Enter a credential-free HTTP/HTTPS URL'))) }]}><Input placeholder="https://stats.example.com" /></Form.Item>}</div>
       </div>
       <Form.Item name="highlight_mode" label={label('生涯亮点', 'Highlights')}><Select options={modes(inheritOverride)} /></Form.Item>
       {highlightMode === 'override' && <div className={styles.threeColumns}>{[0, 1, 2].map(index => <Form.Item key={index} name={['highlight_metrics', index]} label={`${label('指标', 'Metric')} ${index + 1}`} rules={[{ required: true }]}><Select options={metrics} /></Form.Item>)}</div>}

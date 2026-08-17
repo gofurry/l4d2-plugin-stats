@@ -24,9 +24,10 @@ func TestDashboardIngameSettingsAndServerDocuments(t *testing.T) {
 	}
 	settings.Title = "In-Game"
 	settings.BannerURL = "https://example.com/banner.jpg"
+	settings.BackgroundURL = "https://example.com/background.jpg?ver=2"
 	settings.HomeCacheSeconds = 60
 	saved, err := ingame.UpdateIngameSettings(ctx, settings)
-	if err != nil || saved.Title != settings.Title || saved.HomeCacheSeconds != 60 || saved.UpdatedAt == 0 {
+	if err != nil || saved.Title != settings.Title || saved.BackgroundURL != settings.BackgroundURL || saved.HomeCacheSeconds != 60 || saved.UpdatedAt == 0 {
 		t.Fatalf("saved settings=%+v err=%v", saved, err)
 	}
 
@@ -42,10 +43,12 @@ func TestDashboardIngameSettingsAndServerDocuments(t *testing.T) {
 	serverSettings.Title = "Main Portal"
 	serverSettings.DescriptionMode = "hidden"
 	serverSettings.BannerMode = "inherit"
+	serverSettings.BackgroundMode = "override"
+	serverSettings.BackgroundURL = "https://example.com/server-background.jpg"
 	serverSettings.WebsiteMode = "hidden"
 	serverSettings.HighlightMode = "inherit"
 	serverSettings, err = ingame.UpdateIngameServerSettings(ctx, serverSettings)
-	if err != nil || serverSettings.Title != "Main Portal" || serverSettings.UpdatedAt == 0 {
+	if err != nil || serverSettings.Title != "Main Portal" || serverSettings.BackgroundMode != "override" || serverSettings.BackgroundURL == "" || serverSettings.UpdatedAt == 0 {
 		t.Fatalf("saved server settings=%+v err=%v", serverSettings, err)
 	}
 
@@ -97,11 +100,29 @@ func TestIngameMigrationSixteenToSeventeen(t *testing.T) {
 		t.Fatal(err)
 	}
 	var enabled, home, player, ranking, content int64
-	if err := db.QueryRowContext(ctx, `SELECT enabled,home_cache_seconds,player_cache_seconds,ranking_cache_seconds,content_cache_seconds FROM ingame_settings WHERE id=1`).Scan(&enabled, &home, &player, &ranking, &content); err != nil {
+	var background string
+	if err := db.QueryRowContext(ctx, `SELECT enabled,background_url,home_cache_seconds,player_cache_seconds,ranking_cache_seconds,content_cache_seconds FROM ingame_settings WHERE id=1`).Scan(&enabled, &background, &home, &player, &ranking, &content); err != nil {
 		t.Fatal(err)
 	}
-	if enabled != 1 || home != 30 || player != 60 || ranking != 120 || content != 300 {
-		t.Fatalf("migration defaults=%d/%d/%d/%d/%d", enabled, home, player, ranking, content)
+	if enabled != 1 || background != "" || home != 30 || player != 60 || ranking != 120 || content != 300 {
+		t.Fatalf("migration defaults=%d/%q/%d/%d/%d/%d", enabled, background, home, player, ranking, content)
+	}
+	serverID := "00000000-0000-0000-0000-000000000001"
+	if _, err := db.ExecContext(ctx, `INSERT INTO game_servers(id,display_name,address,enabled,sort_order,created_at,updated_at) VALUES(?, 'Main', '127.0.0.1:27015', 1, 0, unixepoch(), unixepoch())`, serverID); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := db.ExecContext(ctx, `INSERT INTO ingame_server_settings(server_id,updated_at) VALUES(?,unixepoch())`, serverID); err != nil {
+		t.Fatal(err)
+	}
+	var backgroundMode, serverBackground string
+	if err := db.QueryRowContext(ctx, `SELECT background_mode,background_url FROM ingame_server_settings WHERE server_id=?`, serverID).Scan(&backgroundMode, &serverBackground); err != nil {
+		t.Fatal(err)
+	}
+	if backgroundMode != "inherit" || serverBackground != "" {
+		t.Fatalf("server background defaults=%q/%q", backgroundMode, serverBackground)
+	}
+	if _, err := db.ExecContext(ctx, `UPDATE ingame_server_settings SET background_mode='invalid' WHERE server_id=?`, serverID); err == nil {
+		t.Fatal("background_mode CHECK accepted invalid value")
 	}
 	for _, statement := range []string{
 		`UPDATE ingame_settings SET home_cache_seconds=5 WHERE id=1`,

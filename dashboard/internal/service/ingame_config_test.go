@@ -8,14 +8,14 @@ import (
 )
 
 func TestValidateIngameURL(t *testing.T) {
-	allowed := []string{"", "http://example.com/x", "https://example.com/x?y=1#z"}
+	allowed := []string{"", "http://example.com/a.jpg", "https://example.com/a.jpg?ver=2", "https://example.com/x?y=1#z"}
 	for _, value := range allowed {
 		if err := ValidateIngameURL(value); err != nil {
 			t.Errorf("allowed URL %q: %v", value, err)
 		}
 	}
 	rejected := []string{
-		"/banner.jpg", "../x.jpg", "file:///tmp/x", "data:image/png;base64,x",
+		"/a.jpg", "../a.jpg", "file:///tmp/x", "data:image/png;base64,x",
 		"javascript:alert(1)", "steam://x", "ftp://example.com/x",
 		"https://user:pass@example.com/", "https:///missing-host", "https://" + strings.Repeat("a", 2049),
 	}
@@ -28,17 +28,17 @@ func TestValidateIngameURL(t *testing.T) {
 
 func TestResolveIngameConfig(t *testing.T) {
 	global := store.IngameSettings{
-		Title: "Global", Description: "Global description", BannerURL: "https://example.com/global.jpg",
+		Title: "Global", Description: "Global description", BannerURL: "https://example.com/global.jpg", BackgroundURL: "https://example.com/global-bg.jpg",
 		WebsiteURL: "https://example.com", ShowAnnouncements: true, ShowPlayers: true, ShowHighlights: true,
 		HighlightMetrics: [3]string{"active_play_seconds", "special_kills", "rescues"},
 	}
 	server := store.IngameServerSettings{
 		TitleMode: "override", Title: "Server", DescriptionMode: "hidden", BannerMode: "override",
-		BannerURL: "https://example.com/server.jpg", WebsiteMode: "hidden", HighlightMode: "override",
+		BannerURL: "https://example.com/server.jpg", BackgroundMode: "override", BackgroundURL: "https://example.com/server-bg.jpg", WebsiteMode: "hidden", HighlightMode: "override",
 		HighlightMetrics: [3]string{"common_kills", "boss_kills", "sessions"},
 	}
 	resolved := ResolveIngameConfig(global, server, "Fallback")
-	if resolved.Appearance.Title != "Server" || resolved.Appearance.Description != "" || resolved.Appearance.WebsiteURL != "" || resolved.Appearance.BannerURL != server.BannerURL {
+	if resolved.Appearance.Title != "Server" || resolved.Appearance.Description != "" || resolved.Appearance.WebsiteURL != "" || resolved.Appearance.BannerURL != server.BannerURL || resolved.Appearance.BackgroundURL != server.BackgroundURL {
 		t.Fatalf("resolved appearance=%+v", resolved.Appearance)
 	}
 	if resolved.Metrics != server.HighlightMetrics || !resolved.Modules.ShowPlayers {
@@ -48,6 +48,44 @@ func TestResolveIngameConfig(t *testing.T) {
 	server.TitleMode = "inherit"
 	if title := ResolveIngameConfig(global, server, "Fallback").Appearance.Title; title != "Fallback" {
 		t.Fatalf("fallback title=%q", title)
+	}
+	server.BackgroundMode = "inherit"
+	if background := ResolveIngameConfig(global, server, "Fallback").Appearance.BackgroundURL; background != global.BackgroundURL {
+		t.Fatalf("inherited background=%q", background)
+	}
+	server.BackgroundMode = "hidden"
+	if background := ResolveIngameConfig(global, server, "Fallback").Appearance.BackgroundURL; background != "" {
+		t.Fatalf("hidden background=%q", background)
+	}
+}
+
+func TestValidateIngameBackgroundSettings(t *testing.T) {
+	global := store.IngameSettings{
+		BackgroundURL:    "https://example.com/background.jpg?ver=2",
+		HighlightMetrics: [3]string{"active_play_seconds", "special_kills", "rescues"},
+		HomeCacheSeconds: 30, PlayerCacheSeconds: 60, RankingCacheSeconds: 120, ContentCacheSeconds: 300,
+	}
+	if err := ValidateIngameSettings(global); err != nil {
+		t.Fatal(err)
+	}
+	global.BackgroundURL = "data:image/png;base64,x"
+	if err := ValidateIngameSettings(global); err == nil {
+		t.Fatal("unsafe global background URL accepted")
+	}
+	server := store.IngameServerSettings{
+		TitleMode: "inherit", DescriptionMode: "inherit", BannerMode: "inherit", BackgroundMode: "override",
+		BackgroundURL: "https://example.com/background.jpg", WebsiteMode: "inherit", HighlightMode: "inherit",
+	}
+	if err := ValidateIngameServerSettings(server); err != nil {
+		t.Fatal(err)
+	}
+	server.BackgroundURL = ""
+	if err := ValidateIngameServerSettings(server); err == nil {
+		t.Fatal("empty override background URL accepted")
+	}
+	server.BackgroundMode = "invalid"
+	if err := ValidateIngameServerSettings(server); err == nil {
+		t.Fatal("invalid background mode accepted")
 	}
 }
 

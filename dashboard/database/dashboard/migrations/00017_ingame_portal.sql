@@ -5,6 +5,7 @@ CREATE TABLE ingame_settings (
   title TEXT NOT NULL DEFAULT '',
   description TEXT NOT NULL DEFAULT '',
   banner_url TEXT NOT NULL DEFAULT '',
+  background_url TEXT NOT NULL DEFAULT '',
   website_url TEXT NOT NULL DEFAULT '',
   show_announcements INTEGER NOT NULL DEFAULT 1 CHECK (show_announcements IN (0, 1)),
   show_players INTEGER NOT NULL DEFAULT 1 CHECK (show_players IN (0, 1)),
@@ -36,6 +37,9 @@ CREATE TABLE ingame_server_settings (
   banner_mode TEXT NOT NULL DEFAULT 'inherit'
     CHECK (banner_mode IN ('inherit', 'override', 'hidden')),
   banner_url TEXT NOT NULL DEFAULT '',
+  background_mode TEXT NOT NULL DEFAULT 'inherit'
+    CHECK (background_mode IN ('inherit', 'override', 'hidden')),
+  background_url TEXT NOT NULL DEFAULT '',
   website_mode TEXT NOT NULL DEFAULT 'inherit'
     CHECK (website_mode IN ('inherit', 'override', 'hidden')),
   website_url TEXT NOT NULL DEFAULT '',

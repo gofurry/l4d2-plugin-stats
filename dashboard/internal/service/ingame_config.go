@@ -70,6 +70,9 @@ func ValidateIngameSettings(settings store.IngameSettings) error {
 	if err := ValidateIngameURL(strings.TrimSpace(settings.BannerURL)); err != nil {
 		return fmt.Errorf("banner_url: %w", err)
 	}
+	if err := ValidateIngameURL(strings.TrimSpace(settings.BackgroundURL)); err != nil {
+		return fmt.Errorf("background_url: %w", err)
+	}
 	if err := ValidateIngameURL(strings.TrimSpace(settings.WebsiteURL)); err != nil {
 		return fmt.Errorf("website_url: %w", err)
 	}
@@ -101,6 +104,9 @@ func ValidateIngameServerSettings(settings store.IngameServerSettings) error {
 	if !slices.Contains([]string{"inherit", "override", "hidden"}, settings.BannerMode) {
 		return errors.New("banner_mode is invalid")
 	}
+	if !slices.Contains([]string{"inherit", "override", "hidden"}, settings.BackgroundMode) {
+		return errors.New("background_mode is invalid")
+	}
 	if !slices.Contains([]string{"inherit", "override", "hidden"}, settings.WebsiteMode) {
 		return errors.New("website_mode is invalid")
 	}
@@ -119,6 +125,14 @@ func ValidateIngameServerSettings(settings store.IngameServerSettings) error {
 		}
 		if err := ValidateIngameURL(strings.TrimSpace(settings.BannerURL)); err != nil {
 			return fmt.Errorf("banner_url: %w", err)
+		}
+	}
+	if settings.BackgroundMode == "override" {
+		if strings.TrimSpace(settings.BackgroundURL) == "" {
+			return errors.New("background_url is required in override mode")
+		}
+		if err := ValidateIngameURL(strings.TrimSpace(settings.BackgroundURL)); err != nil {
+			return fmt.Errorf("background_url: %w", err)
 		}
 	}
 	if settings.WebsiteMode == "override" {
@@ -166,10 +180,11 @@ func validateIngameMetrics(metrics [3]string) error {
 }
 
 type ResolvedIngameAppearance struct {
-	Title       string
-	Description string
-	BannerURL   string
-	WebsiteURL  string
+	Title         string
+	Description   string
+	BannerURL     string
+	BackgroundURL string
+	WebsiteURL    string
 }
 
 type ResolvedIngameModules struct {
@@ -188,7 +203,7 @@ func ResolveIngameConfig(global store.IngameSettings, server store.IngameServerS
 	resolved := ResolvedIngameConfig{
 		Appearance: ResolvedIngameAppearance{
 			Title: strings.TrimSpace(global.Title), Description: global.Description,
-			BannerURL: strings.TrimSpace(global.BannerURL), WebsiteURL: strings.TrimSpace(global.WebsiteURL),
+			BannerURL: strings.TrimSpace(global.BannerURL), BackgroundURL: strings.TrimSpace(global.BackgroundURL), WebsiteURL: strings.TrimSpace(global.WebsiteURL),
 		},
 		Modules: ResolvedIngameModules{
 			ShowAnnouncements: global.ShowAnnouncements,
@@ -205,6 +220,7 @@ func ResolveIngameConfig(global store.IngameSettings, server store.IngameServerS
 	}
 	resolved.Appearance.Description = resolveMode(server.DescriptionMode, global.Description, server.Description)
 	resolved.Appearance.BannerURL = resolveMode(server.BannerMode, global.BannerURL, server.BannerURL)
+	resolved.Appearance.BackgroundURL = resolveMode(server.BackgroundMode, global.BackgroundURL, server.BackgroundURL)
 	resolved.Appearance.WebsiteURL = resolveMode(server.WebsiteMode, global.WebsiteURL, server.WebsiteURL)
 	if server.HighlightMode == "override" {
 		resolved.Metrics = server.HighlightMetrics

@@ -226,6 +226,7 @@ func normalizeIngameSettings(settings *store.IngameSettings) {
 	settings.Title = strings.TrimSpace(settings.Title)
 	settings.Description = strings.TrimSpace(settings.Description)
 	settings.BannerURL = strings.TrimSpace(settings.BannerURL)
+	settings.BackgroundURL = strings.TrimSpace(settings.BackgroundURL)
 	settings.WebsiteURL = strings.TrimSpace(settings.WebsiteURL)
 }
 
@@ -236,6 +237,8 @@ func normalizeIngameServerSettings(settings *store.IngameServerSettings) {
 	settings.Description = strings.TrimSpace(settings.Description)
 	settings.BannerMode = strings.TrimSpace(settings.BannerMode)
 	settings.BannerURL = strings.TrimSpace(settings.BannerURL)
+	settings.BackgroundMode = strings.TrimSpace(settings.BackgroundMode)
+	settings.BackgroundURL = strings.TrimSpace(settings.BackgroundURL)
 	settings.WebsiteMode = strings.TrimSpace(settings.WebsiteMode)
 	settings.WebsiteURL = strings.TrimSpace(settings.WebsiteURL)
 	settings.HighlightMode = strings.TrimSpace(settings.HighlightMode)
