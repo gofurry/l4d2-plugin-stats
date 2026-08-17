@@ -126,7 +126,7 @@ func New(cfg *config.Config, deps Dependencies) *fiber.App {
 		}
 		return sendData(c, fiber.StatusOK, statuses)
 	})
-	registerPlayerProfileRoutes(api, deps.Players, profiles, deps.Dashboard, deps.Auth)
+	registerPlayerProfileRoutes(api, deps.Players, profiles, deps.Dashboard, deps.Auth, deps.Ingame)
 	registerPlayerRoutes(api, deps.Players, deps.Analysis, deps.Achievements, profiles, deps.Auth)
 	registerAchievementRoutes(api, deps.Achievements, deps.Auth, deps.Dashboard, profiles)
 	registerAnalysisRoutes(api, deps.Analysis)
@@ -134,7 +134,7 @@ func New(cfg *config.Config, deps Dependencies) *fiber.App {
 	registerAnnouncementRoutes(api, deps.Dashboard)
 	registerSiteDocumentRoutes(api, deps.Dashboard)
 	registerSteamRoutes(api, deps.Dashboard, deps.Auth, deps.Logger)
-	registerAdminRoutes(api, deps.Dashboard, deps.Status, deps.Auth, deps.Data, deps.Achievements, deps.Logger, runtimeMonitor)
+	registerAdminRoutes(api, deps.Dashboard, deps.Status, deps.Auth, deps.Data, deps.Achievements, deps.Ingame, deps.Logger, runtimeMonitor)
 	api.All("/*", func(c fiber.Ctx) error {
 		return sendError(c, fiber.StatusNotFound, "not_found", "API route not found")
 	})

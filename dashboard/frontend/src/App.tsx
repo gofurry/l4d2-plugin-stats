@@ -16,6 +16,7 @@ const AdminLoginPage=lazy(()=>import('./pages/AdminLoginPage').then(module=>({de
 const AdminLayout=lazy(()=>import('./pages/admin').then(module=>({default:module.AdminLayout})))
 const AdminSitePage=lazy(()=>import('./pages/admin').then(module=>({default:module.AdminSitePage})))
 const AdminServersPage=lazy(()=>import('./pages/admin').then(module=>({default:module.AdminServersPage})))
+const AdminIngamePage=lazy(()=>import('./pages/admin').then(module=>({default:module.AdminIngamePage})))
 const AdminSecurityPage=lazy(()=>import('./pages/admin').then(module=>({default:module.AdminSecurityPage})))
 const AdminAnnouncementsPage=lazy(()=>import('./pages/AdminAnnouncementsPage').then(module=>({default:module.AdminAnnouncementsPage})))
 const AdminDataPage=lazy(()=>import('./pages/AdminDataPage').then(module=>({default:module.AdminDataPage})))
@@ -55,6 +56,7 @@ function AppRoutes() {
       <Route index element={<Navigate to="site" replace />} />
       <Route path="site" element={<AdminSitePage />} />
       <Route path="servers" element={<AdminServersPage />} />
+      <Route path="ingame" element={<AdminIngamePage />} />
       <Route path="announcements" element={<AdminAnnouncementsPage />} />
       <Route path="security" element={<AdminSecurityPage />} />
       <Route path="data" element={<AdminDataPage />} />

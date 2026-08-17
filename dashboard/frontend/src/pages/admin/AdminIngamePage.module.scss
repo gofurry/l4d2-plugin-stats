@@ -1,0 +1,41 @@
+.page {
+  width: min(1120px, calc(100% - 32px));
+  margin: 56px auto 96px;
+  display: grid;
+  gap: 20px;
+}
+
+.header { display: flex; align-items: flex-end; justify-content: space-between; gap: 16px; }
+.header h2 { margin: 0 0 4px; }
+.page form { display: grid; gap: 16px; }
+.page :global(.ant-card) { background: var(--portal-panel, rgba(24, 28, 30, .88)); }
+.switchRow { display: flex; align-items: center; justify-content: space-between; gap: 20px; margin-bottom: 20px; }
+.switchRow div { display: grid; gap: 4px; }
+.switchRow span { color: var(--portal-muted, rgba(255,255,255,.62)); }
+.switchGrid, .threeColumns, .cacheGrid { display: grid; gap: 16px; }
+.switchGrid, .threeColumns { grid-template-columns: repeat(3, minmax(0, 1fr)); }
+.cacheGrid { grid-template-columns: repeat(4, minmax(0, 1fr)); }
+.deployment { margin-top: 4px; }
+.serverSelect { width: min(560px, 100%); margin-bottom: 16px; }
+.deployment :global(.ant-alert) { margin-bottom: 16px; }
+.code { max-height: 320px; overflow: auto; padding: 16px; border: 1px solid rgba(255,255,255,.12); border-radius: 10px; background: rgba(0,0,0,.35); color: rgba(255,255,255,.86); white-space: pre-wrap; }
+.serverOverride { display: grid; gap: 18px; padding-top: 24px; border-top: 1px solid rgba(255,255,255,.1); }
+.serverOverrideHeading { display: flex; align-items: flex-start; justify-content: space-between; gap: 16px; }
+.serverOverrideHeading h4 { margin: 0 0 4px; }
+.serverOverrideHeading > span { color: var(--portal-muted, rgba(255,255,255,.62)); font-family: monospace; }
+.serverOverride form { display: grid; gap: 12px; }
+.overrideGrid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 0 16px; }
+.documentSection { display: grid; gap: 12px; }
+.documentSection h5 { margin: 0; }
+.documentEditor { display: grid; gap: 12px; padding: 16px; border: 1px solid rgba(255,255,255,.1); border-radius: 10px; background: rgba(0,0,0,.12); }
+.documentToolbar { display: flex; align-items: center; justify-content: space-between; gap: 12px; }
+.documentToolbar :global(.ant-select) { width: 150px; }
+.documentEditor > button { justify-self: start; }
+
+@media (max-width: 900px) { .cacheGrid { grid-template-columns: repeat(2, minmax(0, 1fr)); } }
+@media (max-width: 620px) {
+  .page { width: min(100% - 20px, 1120px); margin-top: 24px; }
+  .switchGrid, .threeColumns, .cacheGrid { grid-template-columns: 1fr; }
+  .overrideGrid { grid-template-columns: 1fr; }
+  .serverOverrideHeading { display: grid; }
+}

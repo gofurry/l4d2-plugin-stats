@@ -85,6 +85,7 @@ func (r *adminRoutes) createAnnouncement(c fiber.Ctx) error {
 	if err != nil {
 		return sendError(c, 500, "announcement_create_failed", "announcement could not be created")
 	}
+	r.invalidateIngameAll()
 	r.logger.Info("announcement created", zap.String("announcement_id", created.ID), zap.String("request_id", c.RequestID()))
 	return sendData(c, 201, created)
 }
@@ -106,6 +107,7 @@ func (r *adminRoutes) updateAnnouncement(c fiber.Ctx) error {
 	if err != nil {
 		return sendError(c, 500, "announcement_update_failed", "announcement could not be updated")
 	}
+	r.invalidateIngameAll()
 	r.logger.Info("announcement updated", zap.String("announcement_id", id), zap.String("request_id", c.RequestID()))
 	return sendData(c, 200, updated)
 }
@@ -120,6 +122,7 @@ func (r *adminRoutes) deleteAnnouncement(c fiber.Ctx) error {
 	} else if err != nil {
 		return sendError(c, 500, "announcement_delete_failed", "announcement could not be deleted")
 	}
+	r.invalidateIngameAll()
 	r.logger.Info("announcement deleted", zap.String("announcement_id", id), zap.String("request_id", c.RequestID()))
 	return sendData(c, 200, fiber.Map{"deleted": true})
 }
