@@ -55,6 +55,10 @@ func OpenDashboard(ctx context.Context, path string) (DashboardDatabase, error) 
 		db.Close()
 		return nil, fmt.Errorf("migrate dashboard database: %w", err)
 	}
+	if err := ensureIngameVisualV2Schema(ctx, db); err != nil {
+		db.Close()
+		return nil, fmt.Errorf("complete in-game Visual v2 schema: %w", err)
+	}
 	store := &dashboardStore{db: db, q: dashsql.New(db), path: path}
 	if err := store.ensureAggregateRollups(ctx); err != nil {
 		db.Close()

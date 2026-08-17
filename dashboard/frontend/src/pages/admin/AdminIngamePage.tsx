@@ -5,14 +5,8 @@ import { useEffect, useState } from 'react'
 import { useTranslation } from 'react-i18next'
 import { api, type IngameSettings } from '../../api'
 import { FloatingToolbar } from '../../components/FloatingToolbar'
+import { cachePresets, completeIngameSettings, defaultIngameSettings, fallbackIngameMetrics } from './AdminIngameDefaults'
 import styles from './AdminIngamePage.module.scss'
-
-const cachePresets = {
-  home_cache_seconds: [10, 30, 60, 120],
-  player_cache_seconds: [30, 60, 120, 300],
-  ranking_cache_seconds: [60, 120, 300, 600],
-  content_cache_seconds: [60, 300, 600, 1800],
-} as const
 
 function validHTTPURL(value?: string) {
   if (!value?.trim()) return true
@@ -33,17 +27,19 @@ export function AdminIngamePage() {
   const [selectedServer, setSelectedServer] = useState<string>()
   const deployment = useQuery({ queryKey: ['admin-server-ingame', selectedServer], queryFn: () => api.serverIngameSettings(selectedServer!), enabled: deploymentOpen && Boolean(selectedServer) })
   const [form] = Form.useForm<IngameSettings>()
-  useEffect(() => { if (query.data) form.setFieldsValue(query.data.settings) }, [form, query.data])
-  const showHighlights = Form.useWatch('show_highlights', form)
+  useEffect(() => { if (query.data) form.setFieldsValue(completeIngameSettings(query.data.settings)) }, [form, query.data])
+  const showHighlights = Form.useWatch('show_highlights', form) ?? true
   const save = useMutation({
     mutationFn: api.saveIngameSettings,
     onSuccess: data => {
       client.setQueryData(['admin-ingame'], data)
-      form.setFieldsValue(data.settings)
+      form.setFieldsValue(completeIngameSettings(data.settings))
       void message.success(label('游戏内页面设置已保存', 'In-game portal settings saved'))
     },
   })
-  const metrics = query.data?.metric_catalog.map(metric => ({ value: metric.key, label: metric.label })) ?? []
+  const metrics = query.data?.metric_catalog?.length
+    ? query.data.metric_catalog.map(metric => ({ value: metric.key, label: metric.label }))
+    : fallbackIngameMetrics.map(metric => ({ value: metric.key, label: zh ? metric.cn : metric.en }))
   const serverKey = deployment.data?.server_key ?? ''
   const publicOrigin = deployment.data?.public_origin || query.data?.public_origin || ''
   const portalURL = publicOrigin && serverKey ? `${publicOrigin.replace(/\/$/, '')}/ingame?server=${encodeURIComponent(serverKey)}` : ''
@@ -57,7 +53,7 @@ export function AdminIngamePage() {
     <FloatingToolbar ariaLabel={label('游戏内页面工具', 'In-game portal tools')} items={[{
       key: 'motd', label: label('MOTD 部署帮助', 'MOTD deployment help'), icon: <CodeOutlined />, onClick: () => setDeploymentOpen(true),
     }]} />
-    <Form form={form} layout="vertical" onFinish={value => save.mutate(value)}>
+    <Form form={form} layout="vertical" initialValues={defaultIngameSettings} onFinish={value => save.mutate(value)}>
       <Card className={styles.settingsCard}>
         <div className={styles.header}><div><Typography.Title level={2}>{label('游戏内页面', 'In-game portal')}</Typography.Title><Typography.Text type="secondary">{label('配置原生 L4D2 MOTD 浏览器使用的轻量页面。', 'Configure the lightweight portal used by the native L4D2 MOTD browser.')}</Typography.Text></div></div>
         {query.isError && <Alert className={styles.queryError} type="error" showIcon title={query.error.message} />}

@@ -29,6 +29,11 @@ All notable changes to this project are documented in this file.
 - Sanitize the supported Markdown subset, reject executable or embedded content, and keep all in-game pages free of client-side scripts and API calls.
 - Route validated HTTP/HTTPS links from server Markdown through the controlled Steam external-browser helper instead of navigating the native MOTD WebView.
 
+### Fixed
+
+- Complete Background columns automatically for pre-release Dashboard schema 17 databases that were created before Visual v2, without introducing schema 18.
+- Keep the In-Game administrator form populated with approved highlight metrics and cache defaults while settings load or when an older partial response omits those values.
+
 ## 1.3.3 - 2026-08-15
 
 ### Added

@@ -149,3 +149,56 @@ func TestIngameMigrationSixteenToSeventeen(t *testing.T) {
 		t.Fatal("schema 17 in-game tables survived Down migration")
 	}
 }
+
+func TestOpenDashboardCompletesPrereleaseSchemaSeventeen(t *testing.T) {
+	ctx := context.Background()
+	path := filepath.Join(t.TempDir(), "dashboard-prerelease-17.db")
+	db, err := sql.Open("sqlite", path)
+	if err != nil {
+		t.Fatal(err)
+	}
+	goose.SetBaseFS(dashboarddb.Migrations)
+	if err := goose.SetDialect("sqlite3"); err != nil {
+		t.Fatal(err)
+	}
+	if err := goose.UpToContext(ctx, db, "migrations", 17); err != nil {
+		t.Fatal(err)
+	}
+	for _, statement := range []string{
+		`ALTER TABLE ingame_settings DROP COLUMN background_url`,
+		`ALTER TABLE ingame_server_settings DROP COLUMN background_url`,
+		`ALTER TABLE ingame_server_settings DROP COLUMN background_mode`,
+	} {
+		if _, err := db.ExecContext(ctx, statement); err != nil {
+			t.Fatalf("prepare pre-release schema 17 with %q: %v", statement, err)
+		}
+	}
+	if err := db.Close(); err != nil {
+		t.Fatal(err)
+	}
+
+	dashboard, err := OpenDashboard(ctx, path)
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer dashboard.Close()
+	if version, versionErr := dashboard.MigrationVersion(ctx); versionErr != nil || version != 17 {
+		t.Fatalf("migration version=%d err=%v", version, versionErr)
+	}
+	ingame := dashboard.(DashboardIngameStore)
+	settings, err := ingame.IngameSettings(ctx)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if settings.BackgroundURL != "" || settings.HighlightMetrics != [3]string{"active_play_seconds", "special_kills", "rescues"} || settings.HomeCacheSeconds != 30 || settings.PlayerCacheSeconds != 60 || settings.RankingCacheSeconds != 120 || settings.ContentCacheSeconds != 300 {
+		t.Fatalf("completed global settings=%+v", settings)
+	}
+	server, err := dashboard.CreateServer(ctx, GameServer{DisplayName: "Main", Address: "127.0.0.1:27015"})
+	if err != nil {
+		t.Fatal(err)
+	}
+	serverSettings, err := ingame.IngameServerSettings(ctx, server.ID)
+	if err != nil || serverSettings.BackgroundMode != "inherit" || serverSettings.BackgroundURL != "" {
+		t.Fatalf("completed server settings=%+v err=%v", serverSettings, err)
+	}
+}
