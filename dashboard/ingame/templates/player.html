@@ -1,0 +1,20 @@
+{{define "player.html"}}
+{{template "head" .}}
+{{template "subpageNavigation" .}}
+<div class="panel player-panel">
+  <div class="player-section player-identity">
+    <div class="player-header">
+      <div class="identity-cell"><h1>{{.PlayerName}}</h1>{{if .Summary}}<p>生涯游戏 {{duration .Summary.ActiveSeconds}} · {{number .Summary.SessionCount}} 次会话</p>{{if and .Summary.FirstSeenAt .Summary.LastSeenAt}}<p class="player-dates">首次游玩 {{date .Summary.FirstSeenAt}} · 最近游玩 {{date .Summary.LastSeenAt}}</p>{{end}}{{end}}</div>
+      {{if .Achievements}}{{if .Achievements.Badges}}<div class="badge-cell">{{range .Achievements.Badges}}<span class="badge" style="{{badgeStyle .ArtworkKey}}" title="{{.Title}}"></span>{{end}}</div>{{end}}{{end}}
+    </div>
+    {{if .NothingPublic}}<p class="empty">该玩家未公开游戏内档案内容。</p>{{end}}
+  </div>
+  {{if not .NothingPublic}}
+    {{if .ShowOverview}}{{if .PVE}}{{if .PVE.Available}}<div class="player-section"><h2>PvE</h2><div class="stats"><div><span>普通感染者</span><strong>{{number .PVE.CommonKills}}</strong></div><div><span>特殊感染者</span><strong>{{number .PVE.SpecialKills}}</strong></div><div><span>Boss</span><strong>{{number .PVE.BossKills}}</strong></div><div><span>队友救援</span><strong>{{number .PVE.Rescues}}</strong></div><div><span>战役完成</span><strong>{{number .PVE.CampaignCompletions}}</strong></div><div><span>爆头击杀</span><strong>{{number .PVE.HeadshotKills}}</strong></div></div></div>{{end}}{{end}}{{end}}
+    {{if .Achievements}}<div class="player-section"><h2>成就 <span>{{.Achievements.Unlocked}} / {{.Achievements.Total}} · {{printf "%.0f" .Achievements.CompletionPercent}}%</span></h2><div class="achievement-summary"><i><b style="width:{{printf "%.0f" .Achievements.CompletionPercent}}%"></b></i>{{if .Achievements.RecentTitle}}<p>最近解锁 · {{.Achievements.RecentTitle}}</p>{{end}}</div></div>{{end}}
+    {{if .Companions}}<div class="player-section"><h2>最多陪伴</h2><div class="companions">{{range $index, $item := .Companions}}<div><b>{{rankNumber $index}}</b><strong>{{$item.PeerName}}</strong><span>{{duration $item.SharedSeconds}} · {{number $item.SharedRounds}} 场</span></div>{{end}}</div></div>{{end}}
+    {{if .Versus}}{{if .Versus.Available}}<div class="player-section"><h2>对抗</h2><div class="stats versus-stats">{{if .Versus.ShowSurvivor}}<div><span>真人特感击杀</span><strong>{{number .Versus.HumanSIKills}}</strong></div>{{end}}{{if .Versus.ShowInfected}}<div><span>感染者伤害</span><strong>{{number .Versus.InfectedDamage}}</strong></div><div><span>控制幸存者</span><strong>{{number .Versus.SurvivorControls}}</strong></div><div><span>击倒幸存者</span><strong>{{number .Versus.SurvivorIncapacitations}}</strong></div>{{end}}</div></div>{{end}}{{end}}
+  {{end}}
+</div>
+{{template "footer" .}}
+{{end}}

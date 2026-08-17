@@ -1,0 +1,34 @@
+{{define "home.html"}}
+{{template "head" .}}
+{{if .SelectionOnly}}
+<div class="panel selection">
+  <h1>选择服务器</h1>
+  <p>请选择要查看的服务器组。</p>
+  <div class="server-choices">
+    {{range .ServerOptions}}<a class="server-choice" href="/ingame?server={{.ServerKey}}"><strong>{{.Title}}</strong><small>{{range $index, $address := .Instances}}{{if $index}} · {{end}}{{$address}}{{end}}</small><span>进入 ›</span></a>{{end}}
+  </div>
+</div></div></body></html>
+{{else}}
+{{template "homeBanner" .}}
+{{template "homeNavigation" .}}
+{{if .Announcement}}<div class="panel announcement"><h2>最新公告 <span>{{date .Announcement.UpdatedAt}}</span></h2><a href="/ingame/announcement/{{.Announcement.ID}}?server={{.ServerKey}}"><strong>{{.Announcement.Title}}</strong><p>{{.Announcement.Summary}}</p></a></div>{{end}}
+{{if .Config.Modules.ShowPlayers}}
+<div class="panel players" id="players">
+  <h2>在线玩家 <span>{{.OnlinePlayerCount}} 人在线{{if .BotCount}} · {{.BotCount}} Bot{{end}}</span></h2>
+  {{if gt .OnlineInstances 0}}
+    {{if .Players}}<div class="rows online-player-rows">{{range .Players}}<div class="row"><strong>{{.Name}}</strong><span>{{.InstanceName}}</span><span>已连接 {{duration .DurationSeconds}}</span>{{if .SteamID}}<a href="/ingame/player/{{.SteamID}}?server={{$.ServerKey}}">查看档案 ›</a>{{end}}</div>{{end}}</div>{{else}}<p class="empty">在线名单暂不可用。</p>{{end}}
+  {{else}}<p class="empty">服务器组当前没有在线实例。</p>{{end}}
+</div>
+{{end}}
+{{if .Config.Modules.ShowHighlights}}{{if gt .OnlineInstances 0}}{{if .Highlights}}<div class="panel highlights"><h2>本局玩家 · 生涯亮点</h2><div class="highlight-cards">{{range .Highlights}}<div class="highlight-card"><span>{{.Metric.Label}}</span><strong>{{.Name}}</strong><b>{{metricValue .Metric .Value}}</b></div>{{end}}</div></div>{{else if .StatsFailed}}<div class="panel compact-message"><p class="empty">生涯亮点暂时不可用。</p></div>{{end}}{{end}}{{end}}
+{{if .Config.Modules.ShowServerStatus}}
+<div class="panel instance-status">
+  <h2>服务器状态 <span>{{.OnlineInstances}} / {{.TotalInstances}} 在线</span></h2>
+  <div class="instance-table">
+    {{range .Instances}}<div class="instance-row {{if .Online}}online{{else}}offline{{end}} {{if .Stale}}stale-instance{{end}}"><span class="status-dot"></span><strong>{{.DisplayName}}{{if or .GameMode .Difficulty}}<small>{{if .GameMode}}模式 {{.GameMode}}{{end}}{{if .Difficulty}}{{if .GameMode}} · {{end}}难度 {{.Difficulty}}{{end}}</small>{{end}}</strong><span>{{if .Stale}}STALE{{else if .Online}}ONLINE{{else if .Checking}}CHECKING{{else}}OFFLINE{{end}}</span><span>{{if .Map}}{{.Map}}{{else}}—{{end}}</span><b>{{if .Online}}{{.Players}} / {{.MaxPlayers}}{{else}}—{{end}}</b><span class="instance-latency">{{if .LatencyMS}}{{.LatencyMS}} ms{{end}}</span>{{if .ActionID}}<a href="#{{.ActionID}}">加入游戏 ›</a>{{else}}<i>—</i>{{end}}</div>{{end}}
+  </div>
+</div>
+{{end}}
+{{template "footer" .}}
+{{end}}
+{{end}}

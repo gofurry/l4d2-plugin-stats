@@ -51,6 +51,7 @@ func (r *adminRoutes) updateSiteDocument(c fiber.Ctx) error {
 	if err != nil {
 		return sendError(c, 500, "site_document_update_failed", "site document could not be saved")
 	}
+	r.invalidateIngameAll()
 	r.logger.Info("site document updated", zap.String("site_document", document.Key), zap.String("request_id", c.RequestID()))
 	return sendData(c, 200, updated)
 }

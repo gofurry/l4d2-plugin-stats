@@ -54,7 +54,7 @@ func TestPlayerProfileVisibilityRoutesAndSectionEnforcement(t *testing.T) {
 	players := service.NewPlayerService(profileStatsStore{})
 	app := fiber.New()
 	api := app.Group("/api/v1")
-	registerPlayerProfileRoutes(api, players, dashboard, dashboard, authService)
+	registerPlayerProfileRoutes(api, players, dashboard, dashboard, authService, nil)
 	registerPlayerRoutes(api, players, nil, nil, dashboard, authService)
 
 	profile := performProfileRequest(t, app, http.MethodGet, "/api/v1/players/"+profileTestSteamID+"/profile", "", "")

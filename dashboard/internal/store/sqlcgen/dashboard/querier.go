@@ -29,24 +29,34 @@ type Querier interface {
 	DeleteFooterLinks(ctx context.Context) error
 	DeleteGameServer(ctx context.Context, id string) (int64, error)
 	DeleteGameServers(ctx context.Context) error
+	DeleteIngameQuickLinks(ctx context.Context, serverKey string) error
+	DeleteIngameServerSettings(ctx context.Context, serverKey string) error
+	DeleteServerDocuments(ctx context.Context, serverKey string) error
 	GetAdminAccount(ctx context.Context) (GetAdminAccountRow, error)
 	GetAggregateStatus(ctx context.Context) (GetAggregateStatusRow, error)
 	GetAnnouncement(ctx context.Context, id string) (Announcement, error)
 	GetDataMaintenanceSettings(ctx context.Context) (GetDataMaintenanceSettingsRow, error)
 	GetGameServer(ctx context.Context, id string) (GetGameServerRow, error)
+	GetIngameServerSettings(ctx context.Context, serverKey string) (IngameServerSetting, error)
+	GetIngameSettings(ctx context.Context) (GetIngameSettingsRow, error)
 	GetMetadata(ctx context.Context, key string) (string, error)
 	GetPublicSiteDocument(ctx context.Context, key string) (SiteDocument, error)
 	GetSEOSettings(ctx context.Context) (GetSEOSettingsRow, error)
+	GetServerDocument(ctx context.Context, arg GetServerDocumentParams) (ServerDocument, error)
 	GetSiteDocument(ctx context.Context, key string) (SiteDocument, error)
 	GetSiteSettings(ctx context.Context) (GetSiteSettingsRow, error)
 	InsertAggregateRow(ctx context.Context, arg InsertAggregateRowParams) error
+	InsertIngameQuickLink(ctx context.Context, arg InsertIngameQuickLinkParams) error
 	ListA2SStatusSnapshots(ctx context.Context) ([]string, error)
 	ListAnnouncementYears(ctx context.Context) ([]int64, error)
 	ListAnnouncements(ctx context.Context, arg ListAnnouncementsParams) ([]Announcement, error)
 	ListFooterLinks(ctx context.Context) ([]ListFooterLinksRow, error)
 	ListGameServers(ctx context.Context) ([]ListGameServersRow, error)
+	ListIngameQuickLinks(ctx context.Context, serverKey string) ([]ListIngameQuickLinksRow, error)
+	ListIngameServerSettings(ctx context.Context) ([]IngameServerSetting, error)
 	ListPublicFooterLinks(ctx context.Context) ([]ListPublicFooterLinksRow, error)
 	ListPublicSiteDocuments(ctx context.Context) ([]string, error)
+	ListServerDocuments(ctx context.Context, serverKey string) ([]ServerDocument, error)
 	ListSiteDocuments(ctx context.Context) ([]SiteDocument, error)
 	MarkAggregateFailed(ctx context.Context, lastError string) error
 	MarkAggregateStarted(ctx context.Context, lastStartedAt int64) error
@@ -60,8 +70,11 @@ type Querier interface {
 	UpdateGameServer(ctx context.Context, arg UpdateGameServerParams) (int64, error)
 	UpdateSiteDocument(ctx context.Context, arg UpdateSiteDocumentParams) (int64, error)
 	UpsertA2SStatusSnapshot(ctx context.Context, arg UpsertA2SStatusSnapshotParams) error
+	UpsertIngameServerSettings(ctx context.Context, arg UpsertIngameServerSettingsParams) error
+	UpsertIngameSettings(ctx context.Context, arg UpsertIngameSettingsParams) error
 	UpsertMetadata(ctx context.Context, arg UpsertMetadataParams) error
 	UpsertSEOSettings(ctx context.Context, arg UpsertSEOSettingsParams) error
+	UpsertServerDocument(ctx context.Context, arg UpsertServerDocumentParams) error
 	UpsertSiteSettings(ctx context.Context, arg UpsertSiteSettingsParams) error
 }
 

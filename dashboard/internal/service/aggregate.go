@@ -145,7 +145,7 @@ func NewRankingService(dashboard store.DashboardAggregateStore, stats store.Stat
 func (s *RankingService) List(ctx context.Context, query store.RankingQuery) (store.RankingPage, error) {
 	selectedIDs := append([]string(nil), query.SteamIDs...)
 	sort.Strings(selectedIDs)
-	key := fmt.Sprintf("%s|%s|%s|%d|%d|%d|%d|%s|%s", query.Mode, query.Metric, query.ServerKey, query.Cutoff, query.MinimumActiveSec, query.Limit, query.Offset, strings.Join(selectedIDs, ","), query.SubjectSteamID)
+	key := fmt.Sprintf("%s|%s|%s|%d|%d|%d|%d|%s|%s|%t", query.Mode, query.Metric, query.ServerKey, query.Cutoff, query.MinimumActiveSec, query.Limit, query.Offset, strings.Join(selectedIDs, ","), query.SubjectSteamID, query.SkipPlayerNames)
 	now := time.Now()
 	s.mu.Lock()
 	cached, ok := s.cache[key]
@@ -213,6 +213,36 @@ func (s *RankingService) Servers(ctx context.Context) ([]string, error) {
 
 func (s *RankingService) SearchPlayers(ctx context.Context, query string) ([]store.PlayerIdentity, error) {
 	return s.stats.SearchPlayers(ctx, strings.TrimSpace(query), 20)
+}
+
+type IngameHighlight struct {
+	Metric  IngameMetricDefinition
+	SteamID string
+	Value   float64
+}
+
+func (s *RankingService) IngameHighlights(ctx context.Context, serverKey string, steamIDs []string, metrics [3]string) ([]IngameHighlight, error) {
+	if len(steamIDs) < 2 || len(steamIDs) > 32 {
+		return nil, fmt.Errorf("in-game highlights require 2 to 32 players")
+	}
+	result := make([]IngameHighlight, 0, len(metrics))
+	for _, metricKey := range metrics {
+		metric, ok := IngameMetric(metricKey)
+		if !ok {
+			return nil, fmt.Errorf("unsupported in-game highlight metric %q", metricKey)
+		}
+		page, err := s.List(ctx, store.RankingQuery{
+			Mode: metric.Mode, Metric: metric.RankingMetric, ServerKey: serverKey,
+			SteamIDs: steamIDs, Limit: len(steamIDs), SkipPlayerNames: true,
+		})
+		if err != nil {
+			return nil, err
+		}
+		if len(page.Items) > 0 {
+			result = append(result, IngameHighlight{Metric: metric, SteamID: page.Items[0].SteamID, Value: page.Items[0].Value})
+		}
+	}
+	return result, nil
 }
 
 type rankingAccumulator struct {
@@ -341,13 +371,15 @@ func (s *RankingService) finishRanking(ctx context.Context, query store.RankingQ
 	end := min(start+query.Limit, total)
 	pageEntries := make([]store.RankingEntry, end-start)
 	copy(pageEntries, visibleEntries[start:end])
-	for i := range pageEntries {
-		player, err := s.stats.PlayerSummary(ctx, pageEntries[i].SteamID)
-		if err == nil && player != nil {
-			pageEntries[i].PlayerName = player.LastName
+	if !query.SkipPlayerNames {
+		for i := range pageEntries {
+			player, err := s.stats.PlayerSummary(ctx, pageEntries[i].SteamID)
+			if err == nil && player != nil {
+				pageEntries[i].PlayerName = player.LastName
+			}
 		}
 	}
-	if self != nil {
+	if self != nil && !query.SkipPlayerNames {
 		player, err := s.stats.PlayerSummary(ctx, self.SteamID)
 		if err == nil && player != nil {
 			self.PlayerName = player.LastName

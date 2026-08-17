@@ -9,7 +9,7 @@ import (
 var ErrServerNotFound = errors.New("game server not found")
 
 const (
-	DashboardSchemaVersion int64 = 16
+	DashboardSchemaVersion int64 = 19
 	StatsSchemaVersion     int64 = 6
 )
 
@@ -677,6 +677,7 @@ type RankingQuery struct {
 	SubjectSteamID   string
 	Limit            int
 	Offset           int
+	SkipPlayerNames  bool
 }
 
 type AggregateStatus struct {
@@ -938,6 +939,7 @@ type DashboardAggregateStore interface {
 
 type DashboardDatabase interface {
 	DashboardStore
+	DashboardIngameStore
 	DashboardProfileStore
 	DashboardAggregateStore
 	DashboardAchievementStore

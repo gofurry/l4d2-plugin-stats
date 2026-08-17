@@ -22,6 +22,7 @@ const csrfCookie = "l4d2_stats_csrf"
 
 type adminRoutes struct {
 	dashboard                  store.DashboardStore
+	ingameStore                store.DashboardIngameStore
 	status                     store.ServerStatusProvider
 	auth                       *auth.Service
 	logger                     *zap.Logger
@@ -29,10 +30,12 @@ type adminRoutes struct {
 	monitor                    *runtimeMonitor
 	data                       *service.DataMaintenanceService
 	achievements               *service.AchievementService
+	ingame                     *service.IngameService
 }
 
-func registerAdminRoutes(api fiber.Router, dashboard store.DashboardStore, status store.ServerStatusProvider, authService *auth.Service, data *service.DataMaintenanceService, achievements *service.AchievementService, logger *zap.Logger, runtimeMonitor *runtimeMonitor) {
-	r := &adminRoutes{dashboard: dashboard, status: status, auth: authService, data: data, achievements: achievements, logger: logger, monitor: runtimeMonitor, loginLimiter: auth.NewLimiter(5, 15*time.Minute, 1024), setupLimiter: auth.NewLimiter(10, 15*time.Minute, 256)}
+func registerAdminRoutes(api fiber.Router, dashboard store.DashboardStore, status store.ServerStatusProvider, authService *auth.Service, data *service.DataMaintenanceService, achievements *service.AchievementService, ingame *service.IngameService, logger *zap.Logger, runtimeMonitor *runtimeMonitor) {
+	ingameStore, _ := dashboard.(store.DashboardIngameStore)
+	r := &adminRoutes{dashboard: dashboard, ingameStore: ingameStore, status: status, auth: authService, data: data, achievements: achievements, ingame: ingame, logger: logger, monitor: runtimeMonitor, loginLimiter: auth.NewLimiter(5, 15*time.Minute, 1024), setupLimiter: auth.NewLimiter(10, 15*time.Minute, 256)}
 	api.Get("/setup/status", r.setupStatus)
 	api.Post("/setup/admin", r.setupAdmin)
 	api.Post("/admin/auth/login", r.login)
@@ -54,6 +57,14 @@ func registerAdminRoutes(api fiber.Router, dashboard store.DashboardStore, statu
 	admin.Post("/auth/logout", r.logout)
 	admin.Get("/site", r.getSite)
 	admin.Put("/site", r.putSite)
+	admin.Get("/ingame", r.getIngameSettings)
+	admin.Put("/ingame", r.putIngameSettings)
+	admin.Get("/ingame/groups", r.listIngameGroups)
+	admin.Get("/ingame/groups/:server_key", r.getIngameGroup)
+	admin.Put("/ingame/groups/:server_key", r.putIngameGroup)
+	admin.Put("/ingame/groups/:server_key/quick-links", r.putIngameGroupQuickLinks)
+	admin.Get("/ingame/groups/:server_key/documents", r.listIngameGroupDocuments)
+	admin.Put("/ingame/groups/:server_key/documents/:key", r.putIngameGroupDocument)
 	admin.Get("/servers", r.listServers)
 	admin.Post("/servers", r.createServer)
 	admin.Put("/servers/:id", r.updateServer)
@@ -281,6 +292,7 @@ func (r *adminRoutes) putSite(c fiber.Ctx) error {
 	if err := r.dashboard.UpdateSite(c.Context(), settings); err != nil {
 		return sendError(c, 500, "site_update_failed", "site settings could not be saved")
 	}
+	r.invalidateIngameAll()
 	r.logger.Info("site settings updated", zap.String("request_id", c.RequestID()))
 	return sendData(c, 200, settings)
 }
@@ -308,6 +320,7 @@ func (r *adminRoutes) createServer(c fiber.Ctx) error {
 	if err != nil {
 		return sendError(c, 409, "server_create_failed", "server address may already exist")
 	}
+	r.invalidateIngameAll()
 	r.logger.Info("game server created", zap.String("server_id", created.ID), zap.String("request_id", c.RequestID()))
 	return sendData(c, 201, created)
 }
@@ -333,6 +346,7 @@ func (r *adminRoutes) updateServer(c fiber.Ctx) error {
 		return sendError(c, 409, "server_update_failed", "server could not be updated")
 	}
 	r.status.InvalidateServer(id)
+	r.invalidateIngameAll()
 	r.logger.Info("game server updated", zap.String("server_id", server.ID), zap.String("request_id", c.RequestID()))
 	return sendData(c, 200, server)
 }
@@ -352,6 +366,7 @@ func (r *adminRoutes) setServerEnabled(c fiber.Ctx) error {
 	} else if err != nil {
 		return sendError(c, 500, "server_update_failed", "server could not be updated")
 	}
+	r.invalidateIngameAll()
 	r.logger.Info("game server availability updated", zap.String("server_id", id), zap.Bool("enabled", *body.Enabled), zap.String("request_id", c.RequestID()))
 	return sendData(c, 200, fiber.Map{"enabled": *body.Enabled})
 }
@@ -371,6 +386,7 @@ func (r *adminRoutes) moveServer(c fiber.Ctx) error {
 	} else if err != nil {
 		return sendError(c, 500, "server_move_failed", "server could not be moved")
 	}
+	r.invalidateIngameAll()
 	r.logger.Info("game server moved", zap.String("server_id", id), zap.String("direction", body.Direction), zap.String("request_id", c.RequestID()))
 	return sendData(c, 200, fiber.Map{"moved": true})
 }
@@ -419,6 +435,7 @@ func (r *adminRoutes) deleteServer(c fiber.Ctx) error {
 		return sendError(c, 500, "server_delete_failed", "server could not be deleted")
 	}
 	r.status.InvalidateServer(id)
+	r.invalidateIngameAll()
 	r.logger.Info("game server deleted", zap.String("server_id", id), zap.String("request_id", c.RequestID()))
 	return sendData(c, 200, fiber.Map{"deleted": true})
 }

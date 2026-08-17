@@ -1,11 +1,26 @@
-import { fireEvent, render, screen, waitFor } from '@testing-library/react'
+import { cleanup, fireEvent, render, screen, waitFor } from '@testing-library/react'
 import { afterEach, describe, expect, it, vi } from 'vitest'
 import { api } from '../../api'
 import { PlayerVisibilitySettings } from './PlayerVisibilitySettings'
 import { defaultPlayerProfileSections } from './playerVisibility'
 
+vi.mock('antd', async importOriginal => {
+  const actual = await importOriginal<typeof import('antd')>()
+  return {
+    ...actual,
+    message: {
+      ...actual.message,
+      success: vi.fn(),
+      error: vi.fn(),
+    },
+  }
+})
+
 describe('PlayerVisibilitySettings', () => {
-  afterEach(() => vi.restoreAllMocks())
+  afterEach(() => {
+    cleanup()
+    vi.restoreAllMocks()
+  })
 
   it('starts with the three default public tabs and saves explicit choices', async () => {
     const save = vi.spyOn(api, 'savePlayerProfileVisibility').mockResolvedValue({ visible_sections: [...defaultPlayerProfileSections, 'pve'] })
@@ -20,7 +35,7 @@ describe('PlayerVisibilitySettings', () => {
     fireEvent.click(screen.getByRole('switch', { name: 'PvE' }))
     fireEvent.click(screen.getByRole('button', { name: '保存设置' }))
     await waitFor(() => expect(save).toHaveBeenCalledWith([...defaultPlayerProfileSections, 'pve']))
-    expect(onSaved).toHaveBeenCalledWith([...defaultPlayerProfileSections, 'pve'])
+    await waitFor(() => expect(onSaved).toHaveBeenCalledWith([...defaultPlayerProfileSections, 'pve']))
   })
 
   it('explains what visitors see when every tab is private', () => {

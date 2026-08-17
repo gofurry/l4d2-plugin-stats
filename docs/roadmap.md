@@ -2,9 +2,9 @@
 
 ## Current Position
 
-当前版本为 `v1.3.3`。SourceMod 采集器使用 Stats schema 6 / `stats_version = 1`，支持 SQLite、MySQL 和 PostgreSQL；Dashboard 使用 schema 16，Aggregate Contract 与 Achievement Contract 均为 v1。Achievement Catalog 现包含 105 个底层项目和 38 个 artwork key。详细版本变化统一记录在 [`CHANGELOG.md`](../CHANGELOG.md)。
+当前版本为 `v1.3.4`。SourceMod 采集器使用 Stats schema 6 / `stats_version = 1`，支持 SQLite、MySQL 和 PostgreSQL；Dashboard 使用 schema 19，Aggregate Contract 与 Achievement Contract 均为 v1。Achievement Catalog 现包含 105 个底层项目和 38 个 artwork key。详细版本变化统一记录在 [`CHANGELOG.md`](../CHANGELOG.md)。
 
-系统已经具备身份与生命周期、PvE/装备、Versus 双阵营/职业和比赛结果采集，以及 Assist、真人定向互动关系、Round Context、低频 Incident、自动成就与徽章、地图/Boss/玩家分析、公开首页、个人中心、排行榜、Steam OpenID、单管理员后台、多服务器 A2S、日/月/终身聚合、安全保留、深度数据检查、备份恢复和脱敏诊断导出。
+系统已经具备身份与生命周期、PvE/装备、Versus 双阵营/职业和比赛结果采集，以及 Assist、真人定向互动关系、Round Context、低频 Incident、自动成就与徽章、地图/Boss/玩家分析、公开首页、个人中心、排行榜、Steam OpenID、单管理员后台、多服务器 A2S、原生 MOTD 游戏内轻量页面、日/月/终身聚合、安全保留、深度数据检查、备份恢复和脱敏诊断导出。
 
 ## Compatibility Principles
 

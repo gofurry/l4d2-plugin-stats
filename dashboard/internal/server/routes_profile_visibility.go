@@ -16,7 +16,7 @@ type playerPublicProfile struct {
 	Self            bool                         `json:"self"`
 }
 
-func registerPlayerProfileRoutes(api fiber.Router, players *service.PlayerService, profiles store.DashboardProfileStore, dashboard store.DashboardStore, authService *auth.Service) {
+func registerPlayerProfileRoutes(api fiber.Router, players *service.PlayerService, profiles store.DashboardProfileStore, dashboard store.DashboardStore, authService *auth.Service, ingame *service.IngameService) {
 	api.Get("/players/:steam_id/profile", func(c fiber.Ctx) error {
 		steamID, ok := playerID(c)
 		if !ok {
@@ -66,6 +66,9 @@ func registerPlayerProfileRoutes(api fiber.Router, players *service.PlayerServic
 		visibility, err := profiles.ReplacePlayerProfileVisibility(c.Context(), steamID, body.VisibleSections, time.Now().Unix())
 		if err != nil {
 			return sendError(c, 400, "invalid_profile_visibility", err.Error())
+		}
+		if ingame != nil {
+			ingame.InvalidatePlayer(steamID)
 		}
 		c.Set(fiber.HeaderCacheControl, "no-store")
 		return sendData(c, 200, visibility)

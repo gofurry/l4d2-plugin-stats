@@ -4,6 +4,48 @@ All notable changes to this project are documented in this file.
 
 ## Unreleased
 
+### Added
+
+- Add server-group quick links backed by Dashboard schema 19, with bounded administrator editing and legacy-safe in-game Action Info Cards.
+- Show cached game mode, difficulty, latency, player instance, and first/last-play dates in the in-game portal when those values are available.
+
+### Changed
+
+- Replace unreliable MOTD external-site and direct-connect navigation with reusable zero-JavaScript `:target` instruction cards that display validated URLs and console commands as text.
+
+## 1.3.4 - 2026-08-17
+
+### Added
+
+- Add a dedicated server-rendered L4D2 in-game portal for the native MOTD browser, including current-server status, online players, compact public player profiles, Achievement badges, lifetime highlights, rankings, announcements, and server documents.
+- Add administrator-managed in-game defaults and per-server-group overrides for title, description, HTTP/HTTPS banner, external full-site link, homepage modules, highlight metrics, and bounded cache presets.
+- Add per-server-group inherit, override, and hide behavior for introduction, command, and resource documents.
+- Add a no-JavaScript legacy presentation and a dedicated PNG Achievement atlas generated from the same artwork sources as the modern WebP atlas.
+- Add MOTD deployment guidance and generated `motd.txt` HTML redirection to `/ingame?server=<server_key>`.
+- Add a global portal Background URL plus per-server-group inherit, override, and hidden modes without server-side fetching or proxying.
+- Add independent server-introduction and per-instance status module switches, validated per-instance Steam join links, and group-wide status/player summaries.
+
+### Changed
+
+- Upgrade Collector and Dashboard package versions to `1.3.4` and Dashboard schema from 16 to 18 while keeping Stats schema 6, `stats_version=1`, and all gameplay/statistical contracts unchanged.
+- Treat `server_key` as a logical server-group identity: multiple configured IP:PORT instances may intentionally share one key, portal configuration, document set, selection entry, and ranking scope.
+- Reuse persisted A2S snapshots and existing Player, Achievement, Relationship, and Ranking services through bounded server-side views rather than browser-side API fan-out.
+- Cache bounded in-game view models with approved TTL presets, request coalescing, stale-value fallback, and targeted invalidation after settings, content, server, and profile-visibility changes.
+- Redesign the legacy-safe portal with a normal-flow proportional Home Banner, centered introduction panel, fixed cover background layer, compact group summary header, per-instance status table, denser Player and Ranking views, translucent panels, and old-WebKit scrollbar styling.
+- Fingerprint embedded CSS and Achievement atlas URLs from their content while retaining immutable asset caching and no-cache HTML responses.
+
+### Security
+
+- Restrict in-game Banner and full-site destinations to credential-free absolute HTTP/HTTPS URLs, never server-fetch configured external URLs, and render all `/ingame` player data using anonymous public profile visibility.
+- Sanitize the supported Markdown subset, reject executable or embedded content, and keep all in-game pages free of client-side scripts and API calls.
+- Route validated HTTP/HTTPS links from server Markdown through the controlled Steam external-browser helper instead of navigating the native MOTD WebView.
+
+### Fixed
+
+- Complete Background columns automatically for pre-release Dashboard schema 17 databases before migrating group-scoped settings and documents to schema 18.
+- Keep the last known valid `server_key` through instance outages, avoid copying group-wide Stats presence into each instance, and only attach SteamID64 when A2S and Stats display-name matching is unique.
+- Keep the In-Game administrator form populated with approved highlight metrics and cache defaults while settings load or when an older partial response omits those values.
+
 ## 1.3.3 - 2026-08-15
 
 ### Added

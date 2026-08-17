@@ -40,7 +40,11 @@ v1.3 继续执行 `0004_analysis_foundation.sql`，把 Stats schema 升至 4 并
 
 v1.3.1 继续执行 `0005_relationships_and_assists.sql`，把 Stats schema 升至 5。该迁移新增真人幸存者定向关系表，并为 PvE/对抗幸存者加入可空的 Assist、Witch 参与和对抗黑白恢复字段。旧 Segment 中新字段保持 `NULL`（当时未采集），不得回填为 0；定向关系也不会从旧累计值反推。Dashboard schema 保持 13，`stats_version=1`、Aggregate Contract v1 和 Incident Contract v1 保持不变。
 
-v1.3.2 继续执行 `0006_fall_deaths.sql`，把 Stats schema 升至 6，为 PvE 与对抗幸存者增加可空的坠落死亡计数。升级前的 Segment 保持 `NULL`，表示当时没有采集；新 Segment 从 0 开始，并满足 `0 <= fall_deaths <= deaths`。Dashboard schema 升至 14，用于保存 Achievement Contract v1 的永久解锁、自动判定/历史补判进度和玩家徽章展示位。成就由后台和访问个人资料时自动判定，不需要领取，也没有玩家或管理员手动刷新入口。`stats_version=1`、Aggregate Contract v1 与 Incident Contract v1 保持不变。
+v1.3.2 继续执行 `0006_fall_deaths.sql`，把 Stats schema 升至 6，为 PvE 与对抗幸存者增加可空的坠落死亡计数。升级前的 Segment 保持 `NULL`，表示当时没有采集；新 Segment 从 0 开始，并满足 `0 <= fall_deaths <= deaths`。Dashboard schema 升至 15，用于保存 Achievement Contract v1 的永久解锁、自动判定/历史补判进度、玩家徽章展示位和个人中心公开可见性。成就由后台和访问个人资料时自动判定，不需要领取，也没有玩家或管理员手动刷新入口。`stats_version=1`、Aggregate Contract v1 与 Incident Contract v1 保持不变。
+
+v1.3.3 不修改 Stats schema，采集器继续使用 schema 6 和 `stats_version=1`。Dashboard schema 升至 16，用于区分“从未设置徽章展示位”和“明确取消全部展示”；Achievement Contract v1 以兼容方式扩充 Catalog，历史自动补判继续由后台执行，无需领取或手动刷新。
+
+v1.3.4 不修改任何 gameplay 数据、Stats schema 或冻结契约；Collector 只统一版本号。Dashboard schema 从 16 升至 17 时新增独立的游戏内页面表，再升至 18，把覆盖设置和服务器文档迁移为 `server_key` 服务器组范围，并新增介绍/状态模块开关。同组旧记录按更新时间和 server ID 确定性折叠，无法从持久化 A2S 快照映射的记录不会被任意归组。升级后默认启用轻量 `/ingame` 路由，但仍需管理员配置 `public_origin`、确认 A2S 已识别 `sm_lps_server_key`，并手工部署 `motd.txt`。迁移不会修改现有站点、服务器、公告、玩家可见性或统计数据。
 
 ## 升级 Dashboard
 
@@ -79,7 +83,9 @@ Dashboard 启动时会自动迁移自己的 `dashboard.db`。不要使用发布�
 /api/v1/health/ready
 ```
 
-进入至少一个真人参与的完整 Round 后，还应检查 `/analysis`、个人页的 PvE、对抗、“玩家关系”和“成就”标签，以及管理后台数据运维页的只读成就引擎状态。`sm_lps_status` 应为 `version=1.3.2`、`schema=6/6`；深度检查不应报告 Context、Incident、Relationship、Assist 或坠落死亡契约错误。首次启动会以每批约 100 名玩家自动执行可恢复的历史成就补判，期间不需要人工操作。
+进入至少一个真人参与的完整 Round 后，还应检查 `/analysis`、个人页的 PvE、对抗、“玩家关系”和“成就”标签，以及管理后台数据运维页的只读成就引擎状态。`sm_lps_status` 应为 `version=1.3.4`、`schema=6/6`；深度检查不应报告 Context、Incident、Relationship、Assist 或坠落死亡契约错误。首次启动会以每批约 100 名玩家自动执行可恢复的历史成就补判，期间不需要人工操作。
+
+v1.3.4 还应在后台“游戏内页面”完成一次专项检查：保存全站默认值和固定缓存预设；展开单服验证继承/覆盖/隐藏；确认 A2S server key 后复制 `motd.txt`；最后用生产所用的 Windows Steam + L4D2 客户端验证按 H 打开 Home、Player、Rankings、公告/文档，以及“完整网站”确实拉起外部普通浏览器。游戏内请求不应触发即时 A2S 查询，页面源代码不应包含 React、JavaScript、`fetch` 或 XHR。
 
 ## 回滚
 
@@ -91,7 +97,7 @@ cp ./l4d2-stats.previous ./l4d2-stats
 sudo systemctl start l4d2-stats
 ```
 
-如果新版本已经升级 Stats DB 或 `dashboard.db` 结构，旧二进制未必兼容新 schema。从 v1.3.2 回滚到 v1.3.1 时，安全边界是同时恢复 v1.3.1 Collector/Dashboard、升级前的 Stats schema 5 和 Dashboard schema 13 备份；不要只回退 Collector，也不要手工删除 schema 6 字段或成就表。此时应停止 Dashboard 服务，并同时恢复升级前数据库备份：
+如果新版本已经升级 Stats DB 或 `dashboard.db` 结构，旧二进制未必兼容新 schema。从 v1.3.4 回滚到 v1.3.3 时，Stats schema 仍为 6，但必须同时恢复 v1.3.3 Collector/Dashboard 和升级前的 Dashboard schema 16 备份；不要只回退二进制，也不要手工删除 schema 17/18 表。更早版本还需按对应发布的 Stats/Dashboard schema 一起恢复。此时应停止 Dashboard 服务，并同时恢复升级前数据库备份：
 
 ```sh
 sudo systemctl stop l4d2-stats

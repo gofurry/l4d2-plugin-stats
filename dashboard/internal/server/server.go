@@ -12,6 +12,7 @@ import (
 	"github.com/gofiber/fiber/v3/middleware/helmet"
 	recoverer "github.com/gofiber/fiber/v3/middleware/recover"
 	"github.com/gofiber/fiber/v3/middleware/requestid"
+	ingameassets "github.com/gofurry/l4d2-plugin-stats/dashboard/ingame"
 	"github.com/gofurry/l4d2-plugin-stats/dashboard/internal/auth"
 	"github.com/gofurry/l4d2-plugin-stats/dashboard/internal/config"
 	"github.com/gofurry/l4d2-plugin-stats/dashboard/internal/service"
@@ -33,6 +34,8 @@ type Dependencies struct {
 	Auth         *auth.Service
 	Logger       *zap.Logger
 	Assets       fs.FS
+	Ingame       *service.IngameService
+	IngameRender *ingameassets.Renderer
 }
 
 func New(cfg *config.Config, deps Dependencies) *fiber.App {
@@ -123,7 +126,7 @@ func New(cfg *config.Config, deps Dependencies) *fiber.App {
 		}
 		return sendData(c, fiber.StatusOK, statuses)
 	})
-	registerPlayerProfileRoutes(api, deps.Players, profiles, deps.Dashboard, deps.Auth)
+	registerPlayerProfileRoutes(api, deps.Players, profiles, deps.Dashboard, deps.Auth, deps.Ingame)
 	registerPlayerRoutes(api, deps.Players, deps.Analysis, deps.Achievements, profiles, deps.Auth)
 	registerAchievementRoutes(api, deps.Achievements, deps.Auth, deps.Dashboard, profiles)
 	registerAnalysisRoutes(api, deps.Analysis)
@@ -131,12 +134,13 @@ func New(cfg *config.Config, deps Dependencies) *fiber.App {
 	registerAnnouncementRoutes(api, deps.Dashboard)
 	registerSiteDocumentRoutes(api, deps.Dashboard)
 	registerSteamRoutes(api, deps.Dashboard, deps.Auth, deps.Logger)
-	registerAdminRoutes(api, deps.Dashboard, deps.Status, deps.Auth, deps.Data, deps.Achievements, deps.Logger, runtimeMonitor)
+	registerAdminRoutes(api, deps.Dashboard, deps.Status, deps.Auth, deps.Data, deps.Achievements, deps.Ingame, deps.Logger, runtimeMonitor)
 	api.All("/*", func(c fiber.Ctx) error {
 		return sendError(c, fiber.StatusNotFound, "not_found", "API route not found")
 	})
 
 	registerSEORoutes(app, deps.Dashboard)
+	registerIngameRoutes(app, deps.Ingame, deps.IngameRender)
 	assets := staticHandler(deps.Assets, deps.Dashboard)
 	app.Get("/", assets)
 	app.Get("/*", assets)

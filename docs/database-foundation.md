@@ -43,7 +43,7 @@ left4dead2/cfg/sourcemod/l4d2_player_stats.cfg
 sm_lps_server_key "my-l4d2-server-01"
 ```
 
-`server_key` 在共享数据库内必须唯一，只允许字母、数字、点、下划线和连字符，长度 1～64。默认值 `change-me` 会让采集器停在配置错误状态，避免不同服务器意外共用身份。
+`server_key` 标识一个逻辑服务器组，只允许字母、数字、点、下划线和连字符，长度 1～64。同一台机器或同一社区组下的多个 IP:PORT 实例可以有意填写相同值；它们会共享 Stats 排行范围与游戏内页面配置。共享数据库中的不同逻辑组必须填写不同值。默认值 `change-me` 会让采集器停在配置错误状态，避免意外共用身份。
 
 常用配置：
 
@@ -68,7 +68,7 @@ sm_lps_versus_stats_enabled "1"
 
 1. 运行 `scripts/deploy.ps1`。
 2. 合并 SQLite 数据库配置。
-3. 加载插件，让它生成 cfg；填写唯一 `server_key`。
+3. 加载插件，让它生成 cfg；按所属逻辑服务器组填写稳定的 `server_key`。
 4. 执行 `sm plugins reload l4d2_player_stats`。
 5. 执行 `sm_lps_status`。
 

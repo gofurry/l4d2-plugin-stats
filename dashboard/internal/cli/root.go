@@ -13,6 +13,7 @@ import (
 	"time"
 
 	"github.com/gofiber/fiber/v3"
+	ingameassets "github.com/gofurry/l4d2-plugin-stats/dashboard/ingame"
 	"github.com/gofurry/l4d2-plugin-stats/dashboard/internal/a2s"
 	"github.com/gofurry/l4d2-plugin-stats/dashboard/internal/auth"
 	"github.com/gofurry/l4d2-plugin-stats/dashboard/internal/config"
@@ -26,7 +27,7 @@ import (
 	"go.uber.org/zap"
 )
 
-var Version = "1.3.3"
+var Version = "1.3.4"
 
 type rootOptions struct{ configPath string }
 
@@ -159,7 +160,12 @@ func serveCommand(options *rootOptions) *cobra.Command {
 		a2sClient := a2s.SteamClient{}
 		status := a2s.NewProvider(dashboard, a2sClient, stats)
 		status.Start(runCtx)
-		app := server.New(cfg, server.Dependencies{Dashboard: dashboard, Profiles: dashboard, Stats: stats, Overview: overview, Status: status, Players: players, Analysis: analysis, Rankings: rankings, Achievements: achievements, Data: dataMaintenance, Auth: authService, Logger: logger, Assets: assets})
+		ingameRenderer, err := ingameassets.NewRenderer()
+		if err != nil {
+			return err
+		}
+		ingameService := service.NewIngameService(dashboard, status, players, rankings, achievements)
+		app := server.New(cfg, server.Dependencies{Dashboard: dashboard, Profiles: dashboard, Stats: stats, Overview: overview, Status: status, Players: players, Analysis: analysis, Rankings: rankings, Achievements: achievements, Ingame: ingameService, IngameRender: ingameRenderer, Data: dataMaintenance, Auth: authService, Logger: logger, Assets: assets})
 		logger.Info("dashboard starting", zap.String("listen", cfg.Server.Listen), zap.String("config", cfg.Path))
 		errCh := make(chan error, 1)
 		go func() { errCh <- app.Listen(cfg.Server.Listen, fiber.ListenConfig{DisableStartupMessage: true}) }()
