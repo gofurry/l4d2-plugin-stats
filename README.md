@@ -43,7 +43,7 @@
 
 ![L4D2 Player Stats 多服务器部署架构](docs/assets/l4d2-player-stats-architecture.svg)
 
-每台 L4D2 服务器运行一份采集器并使用唯一的 `server_key`；多台服务器可以写入同一个 Stats 数据库，由 Go Dashboard 统一只读查询和聚合。采集插件可以独立运行；只有需要网页展示和数据维护时才部署 Dashboard。
+每个逻辑服务器组使用一个稳定的 `server_key`；同一台机器或同一社区组下的多个 IP:PORT 实例可以有意共用该值，Dashboard 会把它们聚合成一个入口与排行榜范围。共享 Stats 数据库中的不同逻辑组必须使用不同的 `server_key`。每个 L4D2 实例仍各自运行一份采集器；采集插件可以独立运行，只有需要网页展示和数据维护时才部署 Dashboard。
 
 ## 支持范围
 
@@ -114,7 +114,7 @@ left4dead2/addons/sourcemod/configs/databases.cfg
 left4dead2/cfg/sourcemod/l4d2_player_stats.cfg
 ```
 
-至少设置一个在共享数据库中唯一的服务器标识：
+至少设置一个稳定的逻辑服务器组标识；同组实例填写相同值，不同组在共享数据库中填写不同值：
 
 ```text
 sm_lps_server_key "my-l4d2-server-01"
@@ -169,11 +169,11 @@ sudo ./l4d2-stats install --config ./config.yaml
 
 ### 3. 启用游戏内 MOTD 页面
 
-先确认采集器已设置唯一的 `sm_lps_server_key`，并让 Dashboard 在“服务器管理”中至少成功读取一次该服务器的 A2S 规则。然后进入后台“游戏内页面”：
+先确认采集器已设置所属逻辑组的 `sm_lps_server_key`，并让 Dashboard 在“服务器管理”中至少成功读取一次各实例的 A2S 规则。然后进入后台“游戏内页面”：
 
 1. 启用游戏内页面，设置默认标题、Banner、全页背景、首页模块、三个生涯亮点指标和缓存预设；
-2. 在“服务器管理”展开服务器，可按服继承、覆盖或隐藏背景、Banner、描述和完整网站链接，并覆盖亮点指标和三份 Markdown 文档；
-3. 在“MOTD 部署帮助”选择服务器，可先预览目标页面，再复制生成的 `motd.txt` 内容到游戏服务器。
+2. 在同页选择服务器组，可按组继承、覆盖或隐藏背景、Banner、描述和完整网站链接，并覆盖亮点指标和三份 Markdown 文档；
+3. 在“MOTD 部署帮助”选择服务器组，可先预览目标页面，再把同一份 `motd.txt` 内容复制到组内各游戏实例。
 
 生成内容使用原生 HTML 跳转，目标形如：
 
@@ -189,7 +189,7 @@ Loading...
 </html>
 ```
 
-`server` 参数来自已持久化的 A2S `sm_lps_server_key` 规则；玩家打开页面时不会触发即时 A2S 查询。游戏内页面使用独立的 10–1800 秒安全缓存预设，和“站点设置 → 服务”中的 A2S 刷新周期不是同一个配置。Background、Banner 与完整网站链接只接受不含账号密码的绝对 HTTP/HTTPS 地址，Dashboard 不下载、代理或探测这些外部资源；换图时应使用新 URL 或 `?v=2` 一类查询版本。游戏内 Markdown 外链和“完整网站”按钮都通过 Steam 外部浏览器入口打开普通浏览器。游戏内个人资料始终按匿名访客的公开可见性渲染，不会因 Steam 或管理员 Cookie 获得额外权限。内嵌 CSS 与成就 Atlas 使用内容指纹 URL 和 immutable cache，资源内容变化后会自动换址，避免 L4D2 WebView 长期命中旧样式。
+`server` 参数来自已持久化的 A2S `sm_lps_server_key` 规则，代表整个服务器组而非单个端口；玩家打开页面时不会触发即时 A2S 查询。游戏内页面使用独立的 10–1800 秒安全缓存预设，和“站点设置 → 服务”中的 A2S 刷新周期不是同一个配置。Background、Banner 与完整网站链接只接受不含账号密码的绝对 HTTP/HTTPS 地址，Dashboard 不下载、代理或探测这些外部资源；换图时应使用新 URL 或 `?v=2` 一类查询版本。游戏内 Markdown 外链和“完整网站”按钮都通过 Steam 外部浏览器入口打开普通浏览器。游戏内个人资料始终按匿名访客的公开可见性渲染，不会因 Steam 或管理员 Cookie 获得额外权限。内嵌 CSS 与成就 Atlas 使用内容指纹 URL 和 immutable cache，资源内容变化后会自动换址，避免 L4D2 WebView 长期命中旧样式。
 
 ## 管理命令
 

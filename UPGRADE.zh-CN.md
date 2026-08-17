@@ -44,7 +44,7 @@ v1.3.2 继续执行 `0006_fall_deaths.sql`，把 Stats schema 升至 6，为 PvE
 
 v1.3.3 不修改 Stats schema，采集器继续使用 schema 6 和 `stats_version=1`。Dashboard schema 升至 16，用于区分“从未设置徽章展示位”和“明确取消全部展示”；Achievement Contract v1 以兼容方式扩充 Catalog，历史自动补判继续由后台执行，无需领取或手动刷新。
 
-v1.3.4 不修改任何 gameplay 数据、Stats schema 或冻结契约；Collector 只统一版本号。Dashboard schema 从 16 升至 17，新增独立的游戏内页面全站设置、单服覆盖和服务器文档表。升级后默认启用轻量 `/ingame` 路由，但仍需管理员配置 `public_origin`、确认 A2S 已识别 `sm_lps_server_key`，并手工部署 `motd.txt`。迁移不会修改现有站点、服务器、公告、玩家可见性或统计数据。
+v1.3.4 不修改任何 gameplay 数据、Stats schema 或冻结契约；Collector 只统一版本号。Dashboard schema 从 16 升至 17 时新增独立的游戏内页面表，再升至 18，把覆盖设置和服务器文档迁移为 `server_key` 服务器组范围，并新增介绍/状态模块开关。同组旧记录按更新时间和 server ID 确定性折叠，无法从持久化 A2S 快照映射的记录不会被任意归组。升级后默认启用轻量 `/ingame` 路由，但仍需管理员配置 `public_origin`、确认 A2S 已识别 `sm_lps_server_key`，并手工部署 `motd.txt`。迁移不会修改现有站点、服务器、公告、玩家可见性或统计数据。
 
 ## 升级 Dashboard
 
@@ -97,7 +97,7 @@ cp ./l4d2-stats.previous ./l4d2-stats
 sudo systemctl start l4d2-stats
 ```
 
-如果新版本已经升级 Stats DB 或 `dashboard.db` 结构，旧二进制未必兼容新 schema。从 v1.3.4 回滚到 v1.3.3 时，Stats schema 仍为 6，但必须同时恢复 v1.3.3 Collector/Dashboard 和升级前的 Dashboard schema 16 备份；不要只回退二进制，也不要手工删除 schema 17 表。更早版本还需按对应发布的 Stats/Dashboard schema 一起恢复。此时应停止 Dashboard 服务，并同时恢复升级前数据库备份：
+如果新版本已经升级 Stats DB 或 `dashboard.db` 结构，旧二进制未必兼容新 schema。从 v1.3.4 回滚到 v1.3.3 时，Stats schema 仍为 6，但必须同时恢复 v1.3.3 Collector/Dashboard 和升级前的 Dashboard schema 16 备份；不要只回退二进制，也不要手工删除 schema 17/18 表。更早版本还需按对应发布的 Stats/Dashboard schema 一起恢复。此时应停止 Dashboard 服务，并同时恢复升级前数据库备份：
 
 ```sh
 sudo systemctl stop l4d2-stats

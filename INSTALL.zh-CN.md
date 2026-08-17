@@ -21,7 +21,7 @@ L4D2 专用服务器
 | 部署方式 | 推荐数据库 | 说明 |
 |---|---|---|
 | 单台游戏服务器，Dashboard 与游戏同机 | SQLite | 配置最少，适合绝大多数小型服务器 |
-| 多台游戏服务器共享统计 | MySQL 或 PostgreSQL | 每台采集器必须使用不同的 `server_key` |
+| 多台游戏服务器共享统计 | MySQL 或 PostgreSQL | 同一逻辑组的实例可共用 `server_key`，不同逻辑组必须使用不同值 |
 | Dashboard 与游戏服务器分开部署 | MySQL 或 PostgreSQL | 不要通过网络共享目录访问 SQLite |
 
 SQLite 文件只适合由同一台机器上的进程访问。不要把 `.sq3` 放在 SMB/NFS 等网络共享目录中。
@@ -254,7 +254,7 @@ http://服务器IP:18848/admin/setup
 2. 添加游戏服务器，只需填写展示名称和连接地址；Dashboard 会从已持久化的 A2S 规则识别采集器的 `sm_lps_server_key`；
 3. 配置页脚、更新公告和主页信息；
 4. 需要 Steam 登录或游戏内页面时填写公开访问地址；Steam 登录再单独启用 Steam OpenID；
-5. 在“游戏内页面”配置 MOTD 默认值、缓存和单服覆盖；
+5. 在“游戏内页面”配置 MOTD 默认值、缓存和按 `server_key` 分组的覆盖设置；
 6. 在 Operations 页面检查聚合、数据库增长和保留策略。
 
 ## 7. 访问方式
@@ -276,13 +276,13 @@ http://服务器IP:18848
 游戏内页面需要满足：
 
 - 站点设置中的 `public_origin` 是玩家可访问的完整 HTTP/HTTPS 站点根地址；
-- 采集器已设置唯一的 `sm_lps_server_key`；
+- 采集器已设置所属逻辑服务器组的 `sm_lps_server_key`；同组实例使用相同值，不同组使用不同值；
 - Dashboard 已对该服务器完成过一次成功 A2S 查询，并在规则中持久化这个 server key；
 - 后台“游戏内页面”已启用。
 
-在后台“游戏内页面”可以设置默认标题、描述、Banner、完整网站地址、首页模块、三个在线玩家生涯亮点指标，以及 Home、Player、Rankings、公告/文档的安全缓存预设。在“服务器管理”展开单台服务器后，可以让标题、描述、Banner、完整网站、亮点和三份文档继承全站、单独覆盖或隐藏（标题和亮点不能隐藏）。
+在后台“游戏内页面”可以设置默认标题、描述、Banner、背景、完整网站地址、首页模块、三个在线玩家生涯亮点指标，以及 Home、Player、Rankings、公告/文档的安全缓存预设。在同页选择服务器组后，可以让标题、描述、Banner、背景、完整网站、亮点和三份文档继承全站、按组覆盖或隐藏（标题和亮点不能隐藏）。
 
-回到“游戏内页面”的“MOTD 部署帮助”，选择服务器并复制生成内容到：
+回到“游戏内页面”的“MOTD 部署帮助”，选择服务器组并把生成内容复制到组内各实例的：
 
 ```text
 left4dead2/motd.txt
@@ -353,7 +353,7 @@ journalctl -u l4d2-stats -n 100 --no-pager
 
 - `sm plugins list` 显示 `L4D2 Player Stats`；
 - `sm_lps_status` 显示 `version=1.3.4`、`state=ready` 和 `schema=6/6`；
-- `sm_lps_server_key` 不再是默认占位值，并在共享 DB 中唯一；
+- `sm_lps_server_key` 不再是默认占位值；同组实例一致，不同逻辑组在共享 DB 中互不重复；
 - 真人进入受支持模式后，`sm_lps_flush` 能写入数据；
 - 完成一个真人参与的 Round 后，`lps_round_contexts` 出现一行规则快照；启用 Incident 时，状态中的分析队列与 expected/dropped 计数合理；
 - SourceMod `logs/errors_*.log` 没有持续数据库错误。
