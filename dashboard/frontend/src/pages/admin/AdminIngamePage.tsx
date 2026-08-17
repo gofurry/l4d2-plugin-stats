@@ -103,7 +103,10 @@ export function AdminIngamePage() {
       <Select className={styles.serverSelect} value={selectedServer} onChange={setSelectedServer} placeholder={label('选择服务器', 'Select a server')} options={servers.data?.filter(server => server.id).map(server => ({ value: server.id!, label: `${server.display_name} (${server.address})` }))} />
       {!publicOrigin && selectedServer && <Alert type="warning" showIcon title={label('请先在站点设置中配置公开地址 public_origin。', 'Configure public_origin in Site settings first.')} />}
       {publicOrigin && selectedServer && !deployment.isLoading && !serverKey && <Alert type="warning" showIcon title={label('尚未从该服务器的 A2S 规则中发现 sm_lps_server_key，请先确保 Collector 正常上报并刷新 A2S。', 'sm_lps_server_key has not been found in this server’s A2S rules. Ensure Collector is reporting and refresh A2S.')} />}
-      {motd && <><pre className={styles.code}>{motd}</pre><Button icon={<CopyOutlined />} onClick={() => void copyMotd()}>{label('复制 motd.txt', 'Copy motd.txt')}</Button></>}
+      {motd && <><pre className={styles.code}>{motd}</pre><div className={styles.deploymentActions}>
+        <Button icon={<CopyOutlined />} onClick={() => void copyMotd()}>{label('复制 motd.txt', 'Copy motd.txt')}</Button>
+        <Button type="primary" href={portalURL} target="_blank" rel="noopener noreferrer">{label('预览页面', 'Preview portal')}</Button>
+      </div></>}
     </Modal>
   </div>
 }

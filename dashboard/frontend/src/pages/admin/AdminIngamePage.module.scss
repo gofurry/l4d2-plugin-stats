@@ -23,6 +23,7 @@
 .saveButton { margin-top: 4px; }
 .serverSelect { width: min(560px, 100%); margin-bottom: 16px; }
 .deploymentModal :global(.ant-alert) { margin-bottom: 16px; }
+.deploymentActions { display: flex; align-items: center; flex-wrap: wrap; gap: 10px; }
 .code { max-height: 320px; overflow: auto; padding: 16px; border: 1px solid rgba(255,255,255,.12); border-radius: 10px; background: rgba(0,0,0,.35); color: rgba(255,255,255,.86); white-space: pre-wrap; }
 .serverOverride { display: grid; gap: 18px; padding-top: 24px; border-top: 1px solid rgba(255,255,255,.1); }
 .serverOverrideHeading { display: flex; align-items: flex-start; justify-content: space-between; gap: 16px; }
