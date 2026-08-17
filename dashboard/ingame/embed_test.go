@@ -145,7 +145,7 @@ func TestVisualV2ShellsNavigationAndBackground(t *testing.T) {
 		},
 	}
 	home := renderTemplate(t, renderer, "home.html", service.IngameHomeView{IngameBaseView: base, Players: []service.IngameOnlinePlayer{{Name: "福狼", InstanceName: "Main #1", DurationSeconds: 1080}}})
-	for _, expected := range []string{`class="home-banner"`, `class="home-intro"`, `class="panel server-navigation-card home-navigation-card"`, `href="#players"`, `class="page-background"`, `background-image:url(&#34;https://example.com/background.jpg?ver=2&#34;)`, `href="#action-03"`, `connect 127.0.0.1:27015`, `模式 coop`, `难度 Hard`, `24 ms`, `Main #1`, `地图合集`, "/ingame/assets/" + AssetFingerprint() + "/ingame.css"} {
+	for _, expected := range []string{`class="home-banner"`, `class="home-intro"`, `class="panel server-navigation-card home-navigation-card"`, `href="#players"`, `class="page-background"`, `background-image:url(&#34;https://example.com/background.jpg?ver=2&#34;)`, `href="#action-03"`, `connect 127.0.0.1:27015`, `模式 coop`, `难度 Hard`, `class="instance-latency">24 ms`, `Main #1`, `地图合集`, "/ingame/assets/" + AssetFingerprint() + "/ingame.css"} {
 		if !strings.Contains(home, expected) {
 			t.Fatalf("home missing %q: %s", expected, home)
 		}

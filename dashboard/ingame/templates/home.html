@@ -25,7 +25,7 @@
 <div class="panel instance-status">
   <h2>服务器状态 <span>{{.OnlineInstances}} / {{.TotalInstances}} 在线</span></h2>
   <div class="instance-table">
-    {{range .Instances}}<div class="instance-row {{if .Online}}online{{else}}offline{{end}} {{if .Stale}}stale-instance{{end}}"><span class="status-dot"></span><strong>{{.DisplayName}}{{if or .GameMode .Difficulty .LatencyMS}}<small>{{if .GameMode}}模式 {{.GameMode}}{{end}}{{if .Difficulty}}{{if .GameMode}} · {{end}}难度 {{.Difficulty}}{{end}}{{if .LatencyMS}}{{if or .GameMode .Difficulty}} · {{end}}{{.LatencyMS}} ms{{end}}</small>{{end}}</strong><span>{{if .Stale}}STALE{{else if .Online}}ONLINE{{else if .Checking}}CHECKING{{else}}OFFLINE{{end}}</span><span>{{if .Map}}{{.Map}}{{else}}—{{end}}</span><b>{{if .Online}}{{.Players}} / {{.MaxPlayers}}{{else}}—{{end}}</b>{{if .ActionID}}<a href="#{{.ActionID}}">加入游戏 ›</a>{{else}}<i>—</i>{{end}}</div>{{end}}
+    {{range .Instances}}<div class="instance-row {{if .Online}}online{{else}}offline{{end}} {{if .Stale}}stale-instance{{end}}"><span class="status-dot"></span><strong>{{.DisplayName}}{{if or .GameMode .Difficulty}}<small>{{if .GameMode}}模式 {{.GameMode}}{{end}}{{if .Difficulty}}{{if .GameMode}} · {{end}}难度 {{.Difficulty}}{{end}}</small>{{end}}</strong><span>{{if .Stale}}STALE{{else if .Online}}ONLINE{{else if .Checking}}CHECKING{{else}}OFFLINE{{end}}</span><span>{{if .Map}}{{.Map}}{{else}}—{{end}}</span><b>{{if .Online}}{{.Players}} / {{.MaxPlayers}}{{else}}—{{end}}</b><span class="instance-latency">{{if .LatencyMS}}{{.LatencyMS}} ms{{end}}</span>{{if .ActionID}}<a href="#{{.ActionID}}">加入游戏 ›</a>{{else}}<i>—</i>{{end}}</div>{{end}}
   </div>
 </div>
 {{end}}

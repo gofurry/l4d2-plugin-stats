@@ -56,12 +56,13 @@ a:hover{color:#ffb45c;text-decoration:none}
 .instance-row>*{display:table-cell;height:39px;padding:7px 8px;overflow:hidden;border-bottom:1px solid rgba(255,255,255,.09);vertical-align:middle;white-space:nowrap;text-overflow:ellipsis}
 .instance-row:hover>*{background:rgba(255,255,255,.04)}
 .instance-row>.status-dot{width:16px;padding-right:0}
-.instance-row>strong{width:26%}
+.instance-row>strong{width:24%}
 .instance-row>strong small{display:block;overflow:hidden;margin-top:1px;color:#909090;font-size:10px;font-weight:normal;white-space:nowrap;text-overflow:ellipsis}
 .instance-row>span:nth-of-type(2){width:78px}
-.instance-row>span:nth-of-type(3){width:28%}
+.instance-row>span:nth-of-type(3){width:24%}
 .instance-row>span{color:#b0b0b0}
 .instance-row>b{width:72px;text-align:right;color:#eee}
+.instance-row>.instance-latency{width:62px;text-align:right;color:#b0b0b0}
 .instance-row>a,.instance-row>i{width:76px;text-align:right}
 .instance-row>i{color:#777;font-style:normal}
 .instance-row.stale-instance>span{color:#d5aa63}

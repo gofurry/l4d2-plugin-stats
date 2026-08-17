@@ -1,6 +1,6 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { Alert, Button, Form, Input, Select, Spin, Switch, Typography, message } from 'antd'
-import { useEffect, useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import { useTranslation } from 'react-i18next'
 import { api, type IngameGroup, type IngameQuickLink, type IngameServerDocument, type IngameServerSettings } from '../../api'
 import styles from './AdminIngamePage.module.scss'
@@ -71,12 +71,13 @@ export function IngameGroupSettingsEditor({ group }: { group: IngameGroup }) {
 function GroupQuickLinksEditor({ serverKey, initialLinks, zh, queryKey }: { serverKey: string; initialLinks: IngameQuickLink[]; zh: boolean; queryKey: unknown[] }) {
   const label = (cn: string, en: string) => zh ? cn : en
   const client = useQueryClient()
-  const [quickLinks, setQuickLinks] = useState(initialLinks)
+  const nextDraftID = useRef(initialLinks.length)
+  const [quickLinks, setQuickLinks] = useState(() => initialLinks.map((item, index) => ({ ...item, draftKey: `saved-${index}` })))
   const save = useMutation({
     mutationFn: (links: IngameQuickLink[]) => api.saveIngameGroupQuickLinks(serverKey, links),
     onSuccess: links => {
       client.setQueryData(queryKey, (current: { quick_links: IngameQuickLink[] } | undefined) => current ? { ...current, quick_links: links } : current)
-      setQuickLinks(links)
+      setQuickLinks(links.map((item, index) => ({ ...item, draftKey: `saved-${index}` })))
       void message.success(label('快速链接已保存', 'Quick links saved'))
     },
   })
@@ -89,7 +90,7 @@ function GroupQuickLinksEditor({ serverKey, initialLinks, zh, queryKey }: { serv
     return next
   })
   const submit = () => {
-    const normalized = quickLinks.map((item, index) => ({ ...item, server_key: serverKey, label: item.label.trim(), url: item.url.trim(), sort_order: index }))
+    const normalized = quickLinks.map((item, index) => ({ server_key: serverKey, label: item.label.trim(), url: item.url.trim(), sort_order: index, enabled: item.enabled }))
     if (normalized.some(item => !item.label || [...item.label].length > 32 || !item.url || !validHTTPURL(item.url))) {
       void message.error(label('请填写 1-32 字符名称和有效的 HTTP/HTTPS 地址', 'Enter a 1-32 character label and a valid HTTP/HTTPS URL'))
       return
@@ -97,9 +98,9 @@ function GroupQuickLinksEditor({ serverKey, initialLinks, zh, queryKey }: { serv
     save.mutate(normalized)
   }
   return <div className={styles.quickLinkSection}>
-    <div className={styles.quickLinkHeading}><div><Typography.Title level={5}>{label('快速链接', 'Quick links')}</Typography.Title><Typography.Text type="secondary">{label('最多 8 条，仅允许 HTTP/HTTPS；游戏内只显示供玩家手动复制的地址。', 'Up to 8 HTTP/HTTPS links; the in-game portal only shows addresses for manual copying.')}</Typography.Text></div><Button disabled={quickLinks.length >= 8} onClick={() => setQuickLinks(current => [...current, { server_key: serverKey, label: '', url: '', sort_order: current.length, enabled: true }])}>{label('新增链接', 'Add link')}</Button></div>
+    <div className={styles.quickLinkHeading}><div><Typography.Title level={5}>{label('快速链接', 'Quick links')}</Typography.Title><Typography.Text type="secondary">{label('最多 8 条，仅允许 HTTP/HTTPS；游戏内只显示供玩家手动复制的地址。', 'Up to 8 HTTP/HTTPS links; the in-game portal only shows addresses for manual copying.')}</Typography.Text></div><Button disabled={quickLinks.length >= 8} onClick={() => { const draftKey = `new-${nextDraftID.current++}`; setQuickLinks(current => [...current, { server_key: serverKey, label: '', url: '', sort_order: current.length, enabled: true, draftKey }]) }}>{label('新增链接', 'Add link')}</Button></div>
     {quickLinks.length === 0 && <Typography.Text type="secondary">{label('尚未配置快速链接。', 'No quick links configured.')}</Typography.Text>}
-    {quickLinks.map((link, index) => <div className={styles.quickLinkRow} key={`${index}-${link.label}`}>
+    {quickLinks.map((link, index) => <div className={styles.quickLinkRow} key={link.draftKey}>
       <Input aria-label={label(`链接 ${index + 1} 名称`, `Link ${index + 1} label`)} value={link.label} maxLength={32} placeholder={label('名称，例如：地图合集', 'Label, e.g. Map collection')} onChange={event => update(index, { label: event.target.value })} />
       <Input aria-label={label(`链接 ${index + 1} 地址`, `Link ${index + 1} URL`)} value={link.url} maxLength={2048} placeholder="https://example.com" onChange={event => update(index, { url: event.target.value })} />
       <Switch checked={link.enabled} checkedChildren={label('启用', 'On')} unCheckedChildren={label('停用', 'Off')} onChange={enabled => update(index, { enabled })} />
