@@ -27,7 +27,7 @@ func registerIngameRoutes(app *fiber.App, ingame *service.IngameService, rendere
 			return err
 		}
 		c.Set(fiber.HeaderCacheControl, "public, max-age=31536000, immutable")
-		c.Type("text/css", "utf-8")
+		c.Set(fiber.HeaderContentType, fiber.MIMETextCSSCharsetUTF8)
 		return c.Send(content)
 	})
 	app.Get("/ingame/assets/"+ingameassets.AssetVersion+"/achievements.png", func(c fiber.Ctx) error {
@@ -36,7 +36,7 @@ func registerIngameRoutes(app *fiber.App, ingame *service.IngameService, rendere
 			return err
 		}
 		c.Set(fiber.HeaderCacheControl, "public, max-age=31536000, immutable")
-		c.Type("image/png")
+		c.Set(fiber.HeaderContentType, "image/png")
 		return c.Send(content)
 	})
 	app.Get("/ingame", func(c fiber.Ctx) error {
@@ -89,7 +89,7 @@ func renderIngame(c fiber.Ctx, renderer *ingameassets.Renderer, templateName str
 		return err
 	}
 	c.Set(fiber.HeaderCacheControl, "no-cache")
-	c.Type("text/html", "utf-8")
+	c.Set(fiber.HeaderContentType, fiber.MIMETextHTMLCharsetUTF8)
 	return c.Status(status).Send(output.Bytes())
 }
 
