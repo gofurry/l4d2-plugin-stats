@@ -4,7 +4,7 @@
 <div class="panel player-panel">
   <div class="player-section player-identity">
     <div class="player-header">
-      <div class="identity-cell"><h1>{{.PlayerName}}</h1>{{if .Summary}}<p>生涯游戏 {{duration .Summary.ActiveSeconds}} · {{number .Summary.SessionCount}} 次会话</p>{{end}}</div>
+      <div class="identity-cell"><h1>{{.PlayerName}}</h1>{{if .Summary}}<p>生涯游戏 {{duration .Summary.ActiveSeconds}} · {{number .Summary.SessionCount}} 次会话</p>{{if and .Summary.FirstSeenAt .Summary.LastSeenAt}}<p class="player-dates">首次游玩 {{date .Summary.FirstSeenAt}} · 最近游玩 {{date .Summary.LastSeenAt}}</p>{{end}}{{end}}</div>
       {{if .Achievements}}{{if .Achievements.Badges}}<div class="badge-cell">{{range .Achievements.Badges}}<span class="badge" style="{{badgeStyle .ArtworkKey}}" title="{{.Title}}"></span>{{end}}</div>{{end}}{{end}}
     </div>
     {{if .NothingPublic}}<p class="empty">该玩家未公开游戏内档案内容。</p>{{end}}

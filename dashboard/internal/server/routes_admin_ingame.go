@@ -35,6 +35,7 @@ type adminIngameGroup struct {
 type adminIngameGroupResponse struct {
 	Settings      store.IngameServerSettings       `json:"settings"`
 	Documents     []store.ServerDocument           `json:"documents"`
+	QuickLinks    []store.IngameQuickLink          `json:"quick_links"`
 	MetricCatalog []service.IngameMetricDefinition `json:"metric_catalog"`
 	ServerKey     string                           `json:"server_key"`
 	Title         string                           `json:"title"`
@@ -117,6 +118,35 @@ func (r *adminRoutes) putIngameGroup(c fiber.Ctx) error {
 	return sendData(c, 200, updated)
 }
 
+func (r *adminRoutes) putIngameGroupQuickLinks(c fiber.Ctx) error {
+	group, ok := r.requireIngameGroup(c)
+	if !ok {
+		return nil
+	}
+	var body struct {
+		Links []store.IngameQuickLink `json:"links"`
+	}
+	if err := c.Bind().Body(&body); err != nil {
+		return sendError(c, 400, "invalid_body", "request body is invalid")
+	}
+	for index := range body.Links {
+		body.Links[index].ServerKey = group.ServerKey
+		body.Links[index].Label = strings.TrimSpace(body.Links[index].Label)
+		body.Links[index].URL = strings.TrimSpace(body.Links[index].URL)
+		body.Links[index].SortOrder = int64(index)
+	}
+	if err := service.ValidateServerQuickLinks(body.Links); err != nil {
+		return sendError(c, 400, "invalid_ingame_quick_links", err.Error())
+	}
+	links, err := r.ingameStore.ReplaceServerQuickLinks(c.Context(), group.ServerKey, body.Links)
+	if err != nil {
+		return sendError(c, 500, "ingame_quick_links_update_failed", "server-group quick links could not be saved")
+	}
+	r.invalidateIngameGroup(group.ServerKey)
+	r.logger.Info("server-group in-game quick links updated", zap.String("server_key", group.ServerKey), zap.Int("count", len(links)), zap.String("request_id", c.RequestID()))
+	return sendData(c, 200, links)
+}
+
 func (r *adminRoutes) listIngameGroupDocuments(c fiber.Ctx) error {
 	group, ok := r.requireIngameGroup(c)
 	if !ok {
@@ -163,6 +193,10 @@ func (r *adminRoutes) ingameGroupResponse(c fiber.Ctx, group adminIngameGroup) (
 	if err != nil {
 		return adminIngameGroupResponse{}, err
 	}
+	quickLinks, err := r.ingameStore.ListServerQuickLinks(c.Context(), group.ServerKey)
+	if err != nil {
+		return adminIngameGroupResponse{}, err
+	}
 	documents, err := r.completeServerDocuments(c, group.ServerKey)
 	if err != nil {
 		return adminIngameGroupResponse{}, err
@@ -172,7 +206,7 @@ func (r *adminRoutes) ingameGroupResponse(c fiber.Ctx, group adminIngameGroup) (
 		return adminIngameGroupResponse{}, err
 	}
 	return adminIngameGroupResponse{
-		Settings: settings, Documents: documents, MetricCatalog: service.IngameMetricCatalog(),
+		Settings: settings, Documents: documents, QuickLinks: quickLinks, MetricCatalog: service.IngameMetricCatalog(),
 		ServerKey: group.ServerKey, Title: group.Title, Instances: group.Instances, PublicOrigin: site.PublicOrigin,
 	}, nil
 }

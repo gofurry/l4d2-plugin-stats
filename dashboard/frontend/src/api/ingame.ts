@@ -56,6 +56,14 @@ export interface IngameServerDocument {
   updated_at: number
 }
 
+export interface IngameQuickLink {
+  server_key: string
+  label: string
+  url: string
+  sort_order: number
+  enabled: boolean
+}
+
 export interface IngameAdminConfig {
   settings: IngameSettings
   metric_catalog: IngameMetricDefinition[]
@@ -80,6 +88,7 @@ export interface IngameGroup {
 export interface IngameGroupConfig {
   settings: IngameServerSettings
   documents: IngameServerDocument[]
+  quick_links: IngameQuickLink[]
   metric_catalog: IngameMetricDefinition[]
   server_key: string
   title: string
@@ -93,5 +102,6 @@ export const ingameAPI = {
   ingameGroups: () => request<IngameGroup[]>('/api/v1/admin/ingame/groups'),
   ingameGroup: (serverKey: string) => request<IngameGroupConfig>(`/api/v1/admin/ingame/groups/${encodeURIComponent(serverKey)}`),
   saveIngameGroup: (serverKey: string, settings: IngameServerSettings) => adminWrite<IngameServerSettings>(`/api/v1/admin/ingame/groups/${encodeURIComponent(serverKey)}`, 'PUT', settings),
+  saveIngameGroupQuickLinks: (serverKey: string, links: IngameQuickLink[]) => adminWrite<IngameQuickLink[]>(`/api/v1/admin/ingame/groups/${encodeURIComponent(serverKey)}/quick-links`, 'PUT', { links }),
   saveIngameGroupDocument: (serverKey: string, document: IngameServerDocument) => adminWrite<IngameServerDocument>(`/api/v1/admin/ingame/groups/${encodeURIComponent(serverKey)}/documents/${document.key}`, 'PUT', document),
 }

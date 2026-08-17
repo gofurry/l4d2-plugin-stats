@@ -1,8 +1,8 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
-import { Alert, Button, Form, Input, Select, Spin, Typography, message } from 'antd'
+import { Alert, Button, Form, Input, Select, Spin, Switch, Typography, message } from 'antd'
 import { useEffect, useState } from 'react'
 import { useTranslation } from 'react-i18next'
-import { api, type IngameGroup, type IngameServerDocument, type IngameServerSettings } from '../../api'
+import { api, type IngameGroup, type IngameQuickLink, type IngameServerDocument, type IngameServerSettings } from '../../api'
 import styles from './AdminIngamePage.module.scss'
 
 const inheritOverride = [{ value: 'inherit', cn: '继承全站', en: 'Inherit' }, { value: 'override', cn: '单独设置', en: 'Override' }]
@@ -60,11 +60,53 @@ export function IngameGroupSettingsEditor({ group }: { group: IngameGroup }) {
       {highlightMode === 'override' && <div className={styles.threeColumns}>{[0, 1, 2].map(index => <Form.Item key={index} name={['highlight_metrics', index]} label={`${label('指标', 'Metric')} ${index + 1}`} rules={[{ required: true }]}><Select options={metrics} /></Form.Item>)}</div>}
       <Button type="primary" htmlType="submit" loading={save.isPending}>{label('保存服务器组设置', 'Save server-group settings')}</Button>
     </Form>
+    <GroupQuickLinksEditor key={`${group.server_key}-${query.data.quick_links.map(item => `${item.sort_order}:${item.label}:${item.url}:${item.enabled}`).join('|')}`} serverKey={group.server_key} initialLinks={query.data.quick_links} zh={zh} queryKey={queryKey} />
     <div className={styles.documentSection}>
       <Typography.Title level={5}>{label('服务器组文档', 'Server-group documents')}</Typography.Title>
       {query.data.documents.map(document => <GroupDocumentEditor key={`${document.key}-${document.updated_at}`} serverKey={group.server_key} document={document} zh={zh} queryKey={queryKey} />)}
     </div>
   </section>
+}
+
+function GroupQuickLinksEditor({ serverKey, initialLinks, zh, queryKey }: { serverKey: string; initialLinks: IngameQuickLink[]; zh: boolean; queryKey: unknown[] }) {
+  const label = (cn: string, en: string) => zh ? cn : en
+  const client = useQueryClient()
+  const [quickLinks, setQuickLinks] = useState(initialLinks)
+  const save = useMutation({
+    mutationFn: (links: IngameQuickLink[]) => api.saveIngameGroupQuickLinks(serverKey, links),
+    onSuccess: links => {
+      client.setQueryData(queryKey, (current: { quick_links: IngameQuickLink[] } | undefined) => current ? { ...current, quick_links: links } : current)
+      setQuickLinks(links)
+      void message.success(label('快速链接已保存', 'Quick links saved'))
+    },
+  })
+  const update = (index: number, patch: Partial<IngameQuickLink>) => setQuickLinks(current => current.map((item, itemIndex) => itemIndex === index ? { ...item, ...patch } : item))
+  const move = (index: number, direction: -1 | 1) => setQuickLinks(current => {
+    const target = index + direction
+    if (target < 0 || target >= current.length) return current
+    const next = [...current]
+    ;[next[index], next[target]] = [next[target], next[index]]
+    return next
+  })
+  const submit = () => {
+    const normalized = quickLinks.map((item, index) => ({ ...item, server_key: serverKey, label: item.label.trim(), url: item.url.trim(), sort_order: index }))
+    if (normalized.some(item => !item.label || [...item.label].length > 32 || !item.url || !validHTTPURL(item.url))) {
+      void message.error(label('请填写 1-32 字符名称和有效的 HTTP/HTTPS 地址', 'Enter a 1-32 character label and a valid HTTP/HTTPS URL'))
+      return
+    }
+    save.mutate(normalized)
+  }
+  return <div className={styles.quickLinkSection}>
+    <div className={styles.quickLinkHeading}><div><Typography.Title level={5}>{label('快速链接', 'Quick links')}</Typography.Title><Typography.Text type="secondary">{label('最多 8 条，仅允许 HTTP/HTTPS；游戏内只显示供玩家手动复制的地址。', 'Up to 8 HTTP/HTTPS links; the in-game portal only shows addresses for manual copying.')}</Typography.Text></div><Button disabled={quickLinks.length >= 8} onClick={() => setQuickLinks(current => [...current, { server_key: serverKey, label: '', url: '', sort_order: current.length, enabled: true }])}>{label('新增链接', 'Add link')}</Button></div>
+    {quickLinks.length === 0 && <Typography.Text type="secondary">{label('尚未配置快速链接。', 'No quick links configured.')}</Typography.Text>}
+    {quickLinks.map((link, index) => <div className={styles.quickLinkRow} key={`${index}-${link.label}`}>
+      <Input aria-label={label(`链接 ${index + 1} 名称`, `Link ${index + 1} label`)} value={link.label} maxLength={32} placeholder={label('名称，例如：地图合集', 'Label, e.g. Map collection')} onChange={event => update(index, { label: event.target.value })} />
+      <Input aria-label={label(`链接 ${index + 1} 地址`, `Link ${index + 1} URL`)} value={link.url} maxLength={2048} placeholder="https://example.com" onChange={event => update(index, { url: event.target.value })} />
+      <Switch checked={link.enabled} checkedChildren={label('启用', 'On')} unCheckedChildren={label('停用', 'Off')} onChange={enabled => update(index, { enabled })} />
+      <div className={styles.quickLinkActions}><Button size="small" disabled={index === 0} onClick={() => move(index, -1)}>{label('上移', 'Up')}</Button><Button size="small" disabled={index === quickLinks.length - 1} onClick={() => move(index, 1)}>{label('下移', 'Down')}</Button><Button size="small" danger onClick={() => setQuickLinks(current => current.filter((_, itemIndex) => itemIndex !== index))}>{label('删除', 'Delete')}</Button></div>
+    </div>)}
+    <Button disabled={quickLinks.length === 0 && initialLinks.length === 0} loading={save.isPending} onClick={submit}>{label('保存快速链接', 'Save quick links')}</Button>
+  </div>
 }
 
 function GroupDocumentEditor({ serverKey, document, zh, queryKey }: { serverKey: string; document: IngameServerDocument; zh: boolean; queryKey: unknown[] }) {

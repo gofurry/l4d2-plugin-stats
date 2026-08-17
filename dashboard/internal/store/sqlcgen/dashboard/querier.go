@@ -29,6 +29,7 @@ type Querier interface {
 	DeleteFooterLinks(ctx context.Context) error
 	DeleteGameServer(ctx context.Context, id string) (int64, error)
 	DeleteGameServers(ctx context.Context) error
+	DeleteIngameQuickLinks(ctx context.Context, serverKey string) error
 	DeleteIngameServerSettings(ctx context.Context, serverKey string) error
 	DeleteServerDocuments(ctx context.Context, serverKey string) error
 	GetAdminAccount(ctx context.Context) (GetAdminAccountRow, error)
@@ -45,11 +46,13 @@ type Querier interface {
 	GetSiteDocument(ctx context.Context, key string) (SiteDocument, error)
 	GetSiteSettings(ctx context.Context) (GetSiteSettingsRow, error)
 	InsertAggregateRow(ctx context.Context, arg InsertAggregateRowParams) error
+	InsertIngameQuickLink(ctx context.Context, arg InsertIngameQuickLinkParams) error
 	ListA2SStatusSnapshots(ctx context.Context) ([]string, error)
 	ListAnnouncementYears(ctx context.Context) ([]int64, error)
 	ListAnnouncements(ctx context.Context, arg ListAnnouncementsParams) ([]Announcement, error)
 	ListFooterLinks(ctx context.Context) ([]ListFooterLinksRow, error)
 	ListGameServers(ctx context.Context) ([]ListGameServersRow, error)
+	ListIngameQuickLinks(ctx context.Context, serverKey string) ([]ListIngameQuickLinksRow, error)
 	ListIngameServerSettings(ctx context.Context) ([]IngameServerSetting, error)
 	ListPublicFooterLinks(ctx context.Context) ([]ListPublicFooterLinksRow, error)
 	ListPublicSiteDocuments(ctx context.Context) ([]string, error)

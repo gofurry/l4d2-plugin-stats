@@ -72,6 +72,33 @@ func TestValidateIngameServerKey(t *testing.T) {
 	}
 }
 
+func TestValidateServerQuickLinks(t *testing.T) {
+	valid := []store.IngameQuickLink{
+		{ServerKey: "community.one", Label: "地图合集", URL: "https://example.com/maps", SortOrder: 0, Enabled: true},
+		{ServerKey: "community.one", Label: "问题反馈", URL: "http://example.com/issues", SortOrder: 1},
+	}
+	if err := ValidateServerQuickLinks(valid); err != nil {
+		t.Fatal(err)
+	}
+	invalid := [][]store.IngameQuickLink{
+		append(append([]store.IngameQuickLink{}, valid...), store.IngameQuickLink{ServerKey: "community.one", Label: "重复排序", URL: "https://example.com", SortOrder: 1}),
+		{{ServerKey: "community.one", Label: "", URL: "https://example.com", SortOrder: 0}},
+		{{ServerKey: "community.one", Label: strings.Repeat("长", 33), URL: "https://example.com", SortOrder: 0}},
+		{{ServerKey: "community.one", Label: "Steam", URL: "steam://connect/127.0.0.1", SortOrder: 0}},
+		{{ServerKey: "community.one", Label: "凭据", URL: "https://user:pass@example.com", SortOrder: 0}},
+	}
+	tooMany := make([]store.IngameQuickLink, 9)
+	for index := range tooMany {
+		tooMany[index] = store.IngameQuickLink{ServerKey: "community.one", Label: "Link", URL: "https://example.com", SortOrder: int64(index)}
+	}
+	invalid = append(invalid, tooMany)
+	for index, links := range invalid {
+		if err := ValidateServerQuickLinks(links); err == nil {
+			t.Errorf("invalid quick-link case %d accepted: %+v", index, links)
+		}
+	}
+}
+
 func TestValidateIngameBackgroundSettings(t *testing.T) {
 	global := store.IngameSettings{
 		BackgroundURL:    "https://example.com/background.jpg?ver=2",

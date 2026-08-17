@@ -54,7 +54,8 @@ func TestIngameTemplatesContainNoClientApplication(t *testing.T) {
 	}
 	base := service.IngameBaseView{
 		ServerKey: "main", Config: service.ResolvedIngameConfig{Appearance: service.ResolvedIngameAppearance{Title: "Main", BackgroundURL: "https://example.com/background.jpg?ver=2"}},
-		WebsiteHref:     "steam://openurl_external/https://example.com/full",
+		WebsiteActionID: "action-01",
+		Actions:         []service.IngameActionView{{ID: "action-01", Title: "完整网站", Prompt: "请使用普通浏览器访问：", Value: "https://example.com/full"}},
 		OnlineInstances: 1, TotalInstances: 1, OnlinePlayerCount: 2,
 	}
 	views := []struct {
@@ -75,22 +76,18 @@ func TestIngameTemplatesContainNoClientApplication(t *testing.T) {
 			}
 			html := output.String()
 			t.Logf("rendered HTML bytes=%d", len(html))
-			if strings.Contains(html, "#ZgotmplZ") || !strings.Contains(html, `href="steam://openurl_external/https://example.com/full"`) {
-				t.Fatalf("external browser URL was not rendered safely: %s", html)
+			if strings.Contains(html, "#ZgotmplZ") || !strings.Contains(html, `href="#action-01"`) || !strings.Contains(html, `https://example.com/full`) {
+				t.Fatalf("action info card was not rendered safely: %s", html)
 			}
 			if len(html) >= 40*1024 {
 				t.Fatalf("HTML size=%d, budget < 40 KiB", len(html))
 			}
-			for _, forbidden := range []string{"<script", "type=module", "fetch(", "XMLHttpRequest", "react", "<img src=\"https://example.com/a.png", "javascript:"} {
+			for _, forbidden := range []string{"<script", "type=module", "fetch(", "XMLHttpRequest", "react", "<img src=\"https://example.com/a.png", "javascript:", "steam://connect"} {
 				if strings.Contains(strings.ToLower(html), strings.ToLower(forbidden)) {
 					t.Fatalf("rendered forbidden client content %q: %s", forbidden, html)
 				}
 			}
 		})
-	}
-	connect := renderTemplate(t, renderer, "connect.html", service.IngameConnectView{ConnectHref: "steam://connect/127.0.0.1:27015"})
-	if strings.Contains(strings.ToLower(connect), "<script") || !strings.Contains(connect, `http-equiv="refresh"`) || !strings.Contains(connect, "steam://connect/127.0.0.1:27015") {
-		t.Fatalf("connect redirect is not a zero-JS Steam redirect: %s", connect)
 	}
 }
 
@@ -137,14 +134,24 @@ func TestVisualV2ShellsNavigationAndBackground(t *testing.T) {
 			Modules:    service.ResolvedIngameModules{ShowPlayers: true, ShowServerIntro: true, ShowServerStatus: true},
 		},
 		OnlineInstances: 1, TotalInstances: 1, OnlinePlayerCount: 2,
-		Instances: []service.IngameServerInstance{{DisplayName: "Main #1", Address: "127.0.0.1:27015", Online: true, Map: "c1m1_hotel", Players: 2, MaxPlayers: 8, JoinHref: "steam://openurl_external/https://stats.example.com/ingame/connect?instance=server-id&server=main-key"}},
-		Documents: []service.IngameDocumentLink{{Key: "commands", Label: "常用命令"}},
+		Instances:       []service.IngameServerInstance{{DisplayName: "Main #1", Address: "127.0.0.1:27015", Online: true, Map: "c1m1_hotel", Players: 2, MaxPlayers: 8, GameMode: "coop", Difficulty: "Hard", LatencyMS: 24, ActionID: "action-03"}},
+		Documents:       []service.IngameDocumentLink{{Key: "commands", Label: "常用命令"}},
+		QuickLinks:      []service.IngameQuickLinkView{{Label: "地图合集", ActionID: "action-02"}},
+		WebsiteActionID: "action-01",
+		Actions: []service.IngameActionView{
+			{ID: "action-01", Title: "完整网站", Prompt: "请使用普通浏览器访问：", Value: "https://example.com"},
+			{ID: "action-02", Title: "地图合集", Prompt: "请使用普通浏览器访问：", Value: "https://example.com/maps"},
+			{ID: "action-03", Title: "加入游戏", Prompt: "请在游戏控制台输入：", Value: "connect 127.0.0.1:27015"},
+		},
 	}
-	home := renderTemplate(t, renderer, "home.html", service.IngameHomeView{IngameBaseView: base})
-	for _, expected := range []string{`class="home-banner"`, `class="home-intro"`, `class="panel server-navigation-card home-navigation-card"`, `href="#players"`, `class="page-background"`, `background-image:url(&#34;https://example.com/background.jpg?ver=2&#34;)`, `href="steam://openurl_external/https://stats.example.com/ingame/connect?instance=server-id&amp;server=main-key"`, "/ingame/assets/" + AssetFingerprint() + "/ingame.css"} {
+	home := renderTemplate(t, renderer, "home.html", service.IngameHomeView{IngameBaseView: base, Players: []service.IngameOnlinePlayer{{Name: "福狼", InstanceName: "Main #1", DurationSeconds: 1080}}})
+	for _, expected := range []string{`class="home-banner"`, `class="home-intro"`, `class="panel server-navigation-card home-navigation-card"`, `href="#players"`, `class="page-background"`, `background-image:url(&#34;https://example.com/background.jpg?ver=2&#34;)`, `href="#action-03"`, `connect 127.0.0.1:27015`, `模式 coop`, `难度 Hard`, `24 ms`, `Main #1`, `地图合集`, "/ingame/assets/" + AssetFingerprint() + "/ingame.css"} {
 		if !strings.Contains(home, expected) {
 			t.Fatalf("home missing %q: %s", expected, home)
 		}
+	}
+	if strings.Contains(home, "steam://connect") || strings.Contains(home, `href="https://example.com`) {
+		t.Fatalf("home retained a direct external action: %s", home)
 	}
 	if strings.Contains(home, `>服务器首页</a>`) {
 		t.Fatalf("home contains redundant server-home navigation: %s", home)
@@ -168,9 +175,12 @@ func TestVisualV2ShellsNavigationAndBackground(t *testing.T) {
 	}
 
 	playerBase := withActivePage(base, "player")
-	player := renderTemplate(t, renderer, "player.html", service.IngamePlayerView{IngameBaseView: playerBase, PlayerName: "Player", Achievements: &service.CompactAchievementOverview{Badges: []service.AchievementBadge{{ArtworkKey: "career.veteran", Title: "Veteran"}}}})
+	player := renderTemplate(t, renderer, "player.html", service.IngamePlayerView{IngameBaseView: playerBase, PlayerName: "Player", Summary: &store.PlayerSummary{FirstSeenAt: 1721260800, LastSeenAt: 1755388800}, Achievements: &service.CompactAchievementOverview{Badges: []service.AchievementBadge{{ArtworkKey: "career.veteran", Title: "Veteran"}}}})
 	if !strings.Contains(player, `class="panel server-navigation-card subpage-navigation-card"`) || !strings.Contains(player, `class="compact-server-header"`) || !strings.Contains(player, `class="panel player-panel"`) || strings.Contains(player, `class="home-hero`) || !strings.Contains(player, "/ingame/assets/"+AssetFingerprint()+"/achievements.png") {
 		t.Fatalf("player shell or badge asset is invalid: %s", player)
+	}
+	if !strings.Contains(player, "首次游玩") || !strings.Contains(player, "最近游玩") {
+		t.Fatalf("player dates are missing: %s", player)
 	}
 	statusHidden := playerBase
 	statusHidden.Config.Modules.ShowServerStatus = false

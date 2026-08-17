@@ -73,6 +73,16 @@ func TestDashboardIngameSettingsAndServerDocuments(t *testing.T) {
 	if err != nil || len(documents) != 1 || documents[0].Key != IngameDocumentCommands {
 		t.Fatalf("documents=%+v err=%v", documents, err)
 	}
+	links, err := ingame.ReplaceServerQuickLinks(ctx, serverKey, []IngameQuickLink{
+		{Label: "问题反馈", URL: "https://example.com/issues", SortOrder: 1, Enabled: false},
+		{Label: "地图合集", URL: "https://example.com/maps", SortOrder: 0, Enabled: true},
+	})
+	if err != nil || len(links) != 2 || links[0].Label != "地图合集" || links[1].Enabled || links[0].ServerKey != serverKey {
+		t.Fatalf("quick links=%+v err=%v", links, err)
+	}
+	if _, err := ingame.ReplaceServerQuickLinks(ctx, serverKey, []IngameQuickLink{{Label: "Steam", URL: "steam://connect/127.0.0.1", SortOrder: 0, Enabled: true}}); err == nil {
+		t.Fatal("store accepted unsafe quick-link URL")
+	}
 
 	if err := dashboard.DeleteServer(ctx, server.ID); err != nil {
 		t.Fatal(err)
@@ -84,6 +94,9 @@ func TestDashboardIngameSettingsAndServerDocuments(t *testing.T) {
 	}
 	if err := store.db.QueryRowContext(ctx, `SELECT COUNT(*) FROM server_documents`).Scan(&count); err != nil || count != 1 {
 		t.Fatalf("server documents after deletion=%d err=%v", count, err)
+	}
+	if err := store.db.QueryRowContext(ctx, `SELECT COUNT(*) FROM ingame_quick_links`).Scan(&count); err != nil || count != 2 {
+		t.Fatalf("server quick links after instance deletion=%d err=%v", count, err)
 	}
 }
 
@@ -185,7 +198,7 @@ func TestOpenDashboardCompletesPrereleaseSchemaSeventeen(t *testing.T) {
 		t.Fatal(err)
 	}
 	defer dashboard.Close()
-	if version, versionErr := dashboard.MigrationVersion(ctx); versionErr != nil || version != 18 {
+	if version, versionErr := dashboard.MigrationVersion(ctx); versionErr != nil || version != DashboardSchemaVersion {
 		t.Fatalf("migration version=%d err=%v", version, versionErr)
 	}
 	ingame := dashboard.(DashboardIngameStore)
@@ -199,6 +212,55 @@ func TestOpenDashboardCompletesPrereleaseSchemaSeventeen(t *testing.T) {
 	serverSettings, err := ingame.IngameServerSettings(ctx, "community.one")
 	if err != nil || serverSettings.BackgroundMode != "inherit" || serverSettings.BackgroundURL != "" {
 		t.Fatalf("completed server settings=%+v err=%v", serverSettings, err)
+	}
+}
+
+func TestIngameMigrationEighteenToNineteenAddsQuickLinks(t *testing.T) {
+	ctx := context.Background()
+	db, err := sql.Open("sqlite", filepath.Join(t.TempDir(), "dashboard-18.db"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer db.Close()
+	goose.SetBaseFS(dashboarddb.Migrations)
+	if err := goose.SetDialect("sqlite3"); err != nil {
+		t.Fatal(err)
+	}
+	if err := goose.UpToContext(ctx, db, "migrations", 18); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := db.ExecContext(ctx, `SELECT 1 FROM ingame_quick_links`); err == nil {
+		t.Fatal("schema 18 unexpectedly contains quick links")
+	}
+	if err := goose.UpToContext(ctx, db, "migrations", 19); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := db.ExecContext(ctx, `INSERT INTO ingame_quick_links(server_key,label,url,sort_order,enabled) VALUES
+		('shared.key','地图合集','https://example.com/maps',1,1),
+		('shared.key','问题反馈','https://example.com/issues',0,0)`); err != nil {
+		t.Fatal(err)
+	}
+	var first string
+	if err := db.QueryRowContext(ctx, `SELECT label FROM ingame_quick_links WHERE server_key='shared.key' ORDER BY sort_order,id LIMIT 1`).Scan(&first); err != nil || first != "问题反馈" {
+		t.Fatalf("stable quick-link order=%q err=%v", first, err)
+	}
+	if _, err := db.ExecContext(ctx, `INSERT INTO ingame_quick_links(server_key,label,url,sort_order,enabled) VALUES('shared.key','overflow','https://example.com',8,1)`); err == nil {
+		t.Fatal("schema accepted a ninth sort position")
+	}
+	if _, err := db.ExecContext(ctx, `INSERT INTO ingame_quick_links(server_key,label,url,sort_order,enabled) VALUES('shared.key','', 'https://example.com',2,1)`); err == nil {
+		t.Fatal("schema accepted an empty label")
+	}
+	if _, err := db.ExecContext(ctx, `INSERT INTO ingame_quick_links(server_key,label,url,sort_order,enabled) VALUES('shared.key','Steam','steam://connect/127.0.0.1',2,1)`); err == nil {
+		t.Fatal("schema accepted a non-HTTP quick link")
+	}
+	if _, err := db.ExecContext(ctx, `INSERT INTO ingame_quick_links(server_key,label,url,sort_order,enabled) VALUES('shared.key','Credential','https://user:pass@example.com',2,1)`); err == nil {
+		t.Fatal("schema accepted a credential-bearing quick link")
+	}
+	if err := goose.DownToContext(ctx, db, "migrations", 18); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := db.ExecContext(ctx, `SELECT 1 FROM ingame_quick_links`); err == nil {
+		t.Fatal("quick-link table survived Down migration")
 	}
 }
 

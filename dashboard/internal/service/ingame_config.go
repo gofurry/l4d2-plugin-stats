@@ -6,6 +6,7 @@ import (
 	"net/url"
 	"slices"
 	"strings"
+	"unicode/utf8"
 
 	"github.com/gofurry/l4d2-plugin-stats/dashboard/internal/store"
 )
@@ -69,6 +70,34 @@ func ValidateIngameServerKey(value string) error {
 			continue
 		}
 		return errors.New("server_key may only contain letters, numbers, dot, underscore, and hyphen")
+	}
+	return nil
+}
+
+func ValidateServerQuickLinks(links []store.IngameQuickLink) error {
+	if len(links) > 8 {
+		return errors.New("at most 8 quick links are allowed per server group")
+	}
+	orders := make(map[int64]struct{}, len(links))
+	for _, link := range links {
+		if ValidateIngameServerKey(link.ServerKey) != nil {
+			return errors.New("quick-link server_key is invalid")
+		}
+		label := strings.TrimSpace(link.Label)
+		if count := utf8.RuneCountInString(label); count < 1 || count > 32 {
+			return errors.New("quick-link label must contain 1 to 32 characters")
+		}
+		urlValue := strings.TrimSpace(link.URL)
+		if urlValue == "" || len(urlValue) > 2048 || ValidateIngameURL(urlValue) != nil {
+			return errors.New("quick-link URL must be an absolute credential-free HTTP or HTTPS URL up to 2048 bytes")
+		}
+		if link.SortOrder < 0 || link.SortOrder > 7 {
+			return errors.New("quick-link sort_order must be between 0 and 7")
+		}
+		if _, exists := orders[link.SortOrder]; exists {
+			return errors.New("quick-link sort_order values must be unique")
+		}
+		orders[link.SortOrder] = struct{}{}
 	}
 	return nil
 }

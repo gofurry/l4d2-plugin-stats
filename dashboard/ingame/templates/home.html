@@ -16,7 +16,7 @@
 <div class="panel players" id="players">
   <h2>在线玩家 <span>{{.OnlinePlayerCount}} 人在线{{if .BotCount}} · {{.BotCount}} Bot{{end}}</span></h2>
   {{if gt .OnlineInstances 0}}
-    {{if .Players}}<div class="rows">{{range .Players}}<div class="row"><strong>{{.Name}}</strong><span>已连接 {{duration .DurationSeconds}}</span>{{if .SteamID}}<a href="/ingame/player/{{.SteamID}}?server={{$.ServerKey}}">查看档案 ›</a>{{end}}</div>{{end}}</div>{{else}}<p class="empty">在线名单暂不可用。</p>{{end}}
+    {{if .Players}}<div class="rows online-player-rows">{{range .Players}}<div class="row"><strong>{{.Name}}</strong><span>{{.InstanceName}}</span><span>已连接 {{duration .DurationSeconds}}</span>{{if .SteamID}}<a href="/ingame/player/{{.SteamID}}?server={{$.ServerKey}}">查看档案 ›</a>{{end}}</div>{{end}}</div>{{else}}<p class="empty">在线名单暂不可用。</p>{{end}}
   {{else}}<p class="empty">服务器组当前没有在线实例。</p>{{end}}
 </div>
 {{end}}
@@ -25,7 +25,7 @@
 <div class="panel instance-status">
   <h2>服务器状态 <span>{{.OnlineInstances}} / {{.TotalInstances}} 在线</span></h2>
   <div class="instance-table">
-    {{range .Instances}}<div class="instance-row {{if .Online}}online{{else}}offline{{end}} {{if .Stale}}stale-instance{{end}}"><span class="status-dot"></span><strong>{{.DisplayName}}</strong><span>{{if .Stale}}STALE{{else if .Online}}ONLINE{{else if .Checking}}CHECKING{{else}}OFFLINE{{end}}</span><span>{{if .Map}}{{.Map}}{{else}}—{{end}}</span><b>{{if .Online}}{{.Players}} / {{.MaxPlayers}}{{else}}—{{end}}</b>{{if .JoinHref}}<a href="{{externalHref .JoinHref}}">加入游戏 ›</a>{{else}}<i>—</i>{{end}}</div>{{end}}
+    {{range .Instances}}<div class="instance-row {{if .Online}}online{{else}}offline{{end}} {{if .Stale}}stale-instance{{end}}"><span class="status-dot"></span><strong>{{.DisplayName}}{{if or .GameMode .Difficulty .LatencyMS}}<small>{{if .GameMode}}模式 {{.GameMode}}{{end}}{{if .Difficulty}}{{if .GameMode}} · {{end}}难度 {{.Difficulty}}{{end}}{{if .LatencyMS}}{{if or .GameMode .Difficulty}} · {{end}}{{.LatencyMS}} ms{{end}}</small>{{end}}</strong><span>{{if .Stale}}STALE{{else if .Online}}ONLINE{{else if .Checking}}CHECKING{{else}}OFFLINE{{end}}</span><span>{{if .Map}}{{.Map}}{{else}}—{{end}}</span><b>{{if .Online}}{{.Players}} / {{.MaxPlayers}}{{else}}—{{end}}</b>{{if .ActionID}}<a href="#{{.ActionID}}">加入游戏 ›</a>{{else}}<i>—</i>{{end}}</div>{{end}}
   </div>
 </div>
 {{end}}

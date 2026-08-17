@@ -5,7 +5,6 @@ import (
 	"errors"
 	"fmt"
 	"net"
-	"net/url"
 	"sort"
 	"strconv"
 	"strings"
@@ -30,6 +29,7 @@ type ingameDashboard interface {
 	GetSiteDocument(context.Context, string, bool) (store.SiteDocument, error)
 	ListServerDocuments(context.Context, string) ([]store.ServerDocument, error)
 	GetServerDocument(context.Context, string, string) (store.ServerDocument, error)
+	ListServerQuickLinks(context.Context, string) ([]store.IngameQuickLink, error)
 	PlayerProfileVisibility(context.Context, string) (store.PlayerProfileVisibility, error)
 	ListAnnouncements(context.Context, store.AnnouncementFilter) (store.AnnouncementPage, error)
 	GetAnnouncement(context.Context, string) (store.Announcement, error)
@@ -91,8 +91,11 @@ type IngameServerInstance struct {
 	Players       int
 	MaxPlayers    int
 	Bots          int
+	GameMode      string
+	Difficulty    string
+	LatencyMS     int64
 	LastSuccessAt time.Time
-	JoinHref      string
+	ActionID      string
 }
 
 type IngameDocumentLink struct {
@@ -100,11 +103,25 @@ type IngameDocumentLink struct {
 	Label string
 }
 
+type IngameQuickLinkView struct {
+	Label    string
+	ActionID string
+}
+
+type IngameActionView struct {
+	ID     string
+	Title  string
+	Prompt string
+	Value  string
+}
+
 type IngameBaseView struct {
 	ServerKey         string
 	Config            ResolvedIngameConfig
 	Documents         []IngameDocumentLink
-	WebsiteHref       string
+	QuickLinks        []IngameQuickLinkView
+	WebsiteActionID   string
+	Actions           []IngameActionView
 	Instances         []IngameServerInstance
 	OnlineInstances   int
 	TotalInstances    int
@@ -124,6 +141,7 @@ type IngameAnnouncementSummary struct {
 
 type IngameOnlinePlayer struct {
 	Name            string
+	InstanceName    string
 	SteamID         string
 	DurationSeconds int64
 }
@@ -196,14 +214,15 @@ type IngameAnnouncementView struct {
 	Announcement store.Announcement
 }
 
-type IngameConnectView struct {
-	ConnectHref string
-}
-
 type ingamePortalContext struct {
 	base     IngameBaseView
 	settings store.IngameSettings
-	players  []store.ServerPlayer
+	players  []ingameSourcedPlayer
+}
+
+type ingameSourcedPlayer struct {
+	player       store.ServerPlayer
+	instanceName string
 }
 
 func (s *IngameService) Home(ctx context.Context, serverKey string) (IngameHomeView, error) {
@@ -408,28 +427,6 @@ func (s *IngameService) Announcement(ctx context.Context, serverKey, id string) 
 	return value.(IngameAnnouncementView), nil
 }
 
-func (s *IngameService) Connect(ctx context.Context, serverKey, serverID string) (IngameConnectView, error) {
-	serverID = strings.TrimSpace(serverID)
-	if serverID == "" || len(serverID) > 128 {
-		return IngameConnectView{}, ErrIngameContentUnavailable
-	}
-	portal, err := s.portalContext(ctx, serverKey, false)
-	if err != nil {
-		return IngameConnectView{}, err
-	}
-	for _, instance := range portal.base.Instances {
-		if instance.ServerID != serverID {
-			continue
-		}
-		connectHref := BuildIngameConnectHref(instance.Address)
-		if connectHref == "" {
-			return IngameConnectView{}, ErrIngameContentUnavailable
-		}
-		return IngameConnectView{ConnectHref: connectHref}, nil
-	}
-	return IngameConnectView{}, ErrIngameContentUnavailable
-}
-
 func (s *IngameService) portalContext(ctx context.Context, requestedKey string, allowSelection bool) (ingamePortalContext, error) {
 	settings, err := s.dashboard.IngameSettings(ctx)
 	if err != nil {
@@ -523,41 +520,64 @@ func (s *IngameService) portalContext(ctx context.Context, requestedKey string, 
 		}
 		return ingamePortalContext{}, ErrIngameUnknownServer
 	}
+	quickLinks, err := s.dashboard.ListServerQuickLinks(ctx, selected.key)
+	if err != nil {
+		return ingamePortalContext{}, err
+	}
 	refreshSeconds := int64(30)
-	site := store.SiteSettings{}
 	if loadedSite, siteErr := s.dashboard.SiteSettings(ctx); siteErr == nil {
-		site = loadedSite
-		refresh := site.A2SRefreshSeconds
+		refresh := loadedSite.A2SRefreshSeconds
 		if refresh <= 0 {
 			refresh = 30
 		}
 		refreshSeconds = refresh
 	}
-	base := IngameBaseView{
-		ServerKey: selected.key, Config: selected.config,
-		WebsiteHref:    BuildExternalBrowserHref(selected.config.Appearance.WebsiteURL),
-		TotalInstances: len(selected.members),
+	base := IngameBaseView{ServerKey: selected.key, Config: selected.config, TotalInstances: len(selected.members)}
+	addAction := func(title, prompt, value string) string {
+		id := fmt.Sprintf("action-%02d", len(base.Actions)+1)
+		base.Actions = append(base.Actions, IngameActionView{ID: id, Title: title, Prompt: prompt, Value: value})
+		return id
 	}
-	players := make([]store.ServerPlayer, 0)
+	websiteURL := strings.TrimSpace(selected.config.Appearance.WebsiteURL)
+	if websiteURL != "" && ValidateIngameURL(websiteURL) == nil {
+		base.WebsiteActionID = addAction("完整网站", "请使用普通浏览器访问：", websiteURL)
+	}
+	for _, link := range quickLinks {
+		if !link.Enabled || ValidateServerQuickLinks([]store.IngameQuickLink{link}) != nil {
+			continue
+		}
+		base.QuickLinks = append(base.QuickLinks, IngameQuickLinkView{
+			Label: link.Label, ActionID: addAction(link.Label, "请使用普通浏览器访问：", link.URL),
+		})
+	}
+	players := make([]ingameSourcedPlayer, 0)
 	for _, member := range selected.members {
 		status := member.status
 		if status.Online && !status.LastSuccessAt.IsZero() && s.now().Sub(status.LastSuccessAt) > time.Duration(refreshSeconds*2)*time.Second {
 			status.Stale = true
 		}
+		instanceName := strings.TrimSpace(member.server.DisplayName)
+		if instanceName == "" {
+			instanceName = strings.TrimSpace(status.Name)
+		}
 		instance := IngameServerInstance{
-			ServerID: member.server.ID, DisplayName: member.server.DisplayName,
+			ServerID: member.server.ID, DisplayName: instanceName,
 			Address: member.server.Address, SortOrder: member.server.SortOrder, Online: status.Online, Stale: status.Stale,
 			Checking: status.Checking, Map: status.Map, MaxPlayers: status.MaxPlayers,
-			Players: status.Players, Bots: status.Bots, LastSuccessAt: status.LastSuccessAt,
+			Players: status.Players, Bots: status.Bots, GameMode: serverRuleValue(status.Rules, "mp_gamemode"),
+			Difficulty: serverRuleValue(status.Rules, "z_difficulty"), LatencyMS: status.LatencyMS,
+			LastSuccessAt: status.LastSuccessAt,
 		}
 		if status.Online {
 			base.OnlineInstances++
 			base.OnlinePlayerCount += len(status.PlayerList)
 			base.BotCount += status.Bots
-			if BuildIngameConnectHref(member.server.Address) != "" {
-				instance.JoinHref = BuildIngameJoinHref(site.PublicOrigin, selected.key, member.server.ID)
+			if address := BuildIngameConnectAddress(member.server.Address); address != "" {
+				instance.ActionID = addAction("加入游戏", "请在游戏控制台输入：", "connect "+address)
 			}
-			players = append(players, status.PlayerList...)
+			for _, player := range status.PlayerList {
+				players = append(players, ingameSourcedPlayer{player: player, instanceName: instanceName})
+			}
 		}
 		base.Instances = append(base.Instances, instance)
 	}
@@ -608,13 +628,16 @@ func (s *IngameService) ErrorBackground(ctx context.Context) string {
 	return background
 }
 
-func onlinePlayers(players []store.ServerPlayer) []IngameOnlinePlayer {
+func onlinePlayers(players []ingameSourcedPlayer) []IngameOnlinePlayer {
 	result := make([]IngameOnlinePlayer, 0, len(players))
-	for _, player := range players {
-		if strings.TrimSpace(player.Name) == "" {
+	for _, sourced := range players {
+		if strings.TrimSpace(sourced.player.Name) == "" {
 			continue
 		}
-		result = append(result, IngameOnlinePlayer{Name: player.Name, SteamID: player.SteamID, DurationSeconds: player.DurationSeconds})
+		result = append(result, IngameOnlinePlayer{
+			Name: sourced.player.Name, InstanceName: sourced.instanceName,
+			SteamID: sourced.player.SteamID, DurationSeconds: sourced.player.DurationSeconds,
+		})
 	}
 	sort.Slice(result, func(i, j int) bool {
 		if result[i].DurationSeconds == result[j].DurationSeconds {
@@ -689,7 +712,7 @@ func validIngameDocumentKey(value string) bool {
 	return value == store.IngameDocumentIntroduction || value == store.IngameDocumentCommands || value == store.IngameDocumentResources
 }
 
-func BuildIngameConnectHref(address string) string {
+func BuildIngameConnectAddress(address string) string {
 	host, port, err := net.SplitHostPort(strings.TrimSpace(address))
 	if err != nil || !validConnectHost(host) {
 		return ""
@@ -698,25 +721,21 @@ func BuildIngameConnectHref(address string) string {
 	if err != nil || portNumber < 1 || portNumber > 65535 {
 		return ""
 	}
-	return "steam://connect/" + net.JoinHostPort(host, strconv.Itoa(portNumber))
+	return net.JoinHostPort(host, strconv.Itoa(portNumber))
 }
 
-func BuildIngameJoinHref(publicOrigin, serverKey, serverID string) string {
-	publicOrigin = strings.TrimSpace(publicOrigin)
-	serverID = strings.TrimSpace(serverID)
-	if ValidateIngameURL(publicOrigin) != nil || ValidateIngameServerKey(serverKey) != nil || serverID == "" || len(serverID) > 128 {
-		return ""
+func serverRuleValue(rules []store.ServerRule, name string) string {
+	for _, rule := range rules {
+		if !strings.EqualFold(strings.TrimSpace(rule.Name), name) {
+			continue
+		}
+		value := []rune(strings.TrimSpace(rule.Value))
+		if len(value) > 32 {
+			value = value[:32]
+		}
+		return string(value)
 	}
-	parsed, err := url.Parse(publicOrigin)
-	if err != nil || parsed.RawQuery != "" || parsed.Fragment != "" || parsed.Path != "" && parsed.Path != "/" {
-		return ""
-	}
-	parsed.Path = "/ingame/connect"
-	query := parsed.Query()
-	query.Set("server", serverKey)
-	query.Set("instance", serverID)
-	parsed.RawQuery = query.Encode()
-	return BuildExternalBrowserHref(parsed.String())
+	return ""
 }
 
 func validConnectHost(host string) bool {

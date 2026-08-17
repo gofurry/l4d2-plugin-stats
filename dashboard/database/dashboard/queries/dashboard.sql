@@ -242,6 +242,19 @@ ON CONFLICT(server_key, key) DO UPDATE SET
 -- name: DeleteServerDocuments :exec
 DELETE FROM server_documents WHERE server_key = ?1;
 
+-- name: ListIngameQuickLinks :many
+SELECT server_key, label, url, sort_order, enabled
+FROM ingame_quick_links
+WHERE server_key = ?1
+ORDER BY sort_order, id;
+
+-- name: DeleteIngameQuickLinks :exec
+DELETE FROM ingame_quick_links WHERE server_key = ?1;
+
+-- name: InsertIngameQuickLink :exec
+INSERT INTO ingame_quick_links (server_key, label, url, sort_order, enabled)
+VALUES (?1, ?2, ?3, ?4, ?5);
+
 -- name: ListA2SStatusSnapshots :many
 SELECT status_json
 FROM a2s_status_snapshots

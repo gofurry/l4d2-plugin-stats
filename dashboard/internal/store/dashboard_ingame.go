@@ -5,7 +5,10 @@ import (
 	"database/sql"
 	"errors"
 	"fmt"
+	"net/url"
+	"strings"
 	"time"
+	"unicode/utf8"
 
 	dashsql "github.com/gofurry/l4d2-plugin-stats/dashboard/internal/store/sqlcgen/dashboard"
 )
@@ -160,6 +163,77 @@ func (s *dashboardStore) UpdateServerDocument(ctx context.Context, document Serv
 func (s *dashboardStore) DeleteServerDocuments(ctx context.Context, serverKey string) error {
 	if err := s.q.DeleteServerDocuments(ctx, serverKey); err != nil {
 		return fmt.Errorf("delete server documents: %w", err)
+	}
+	return nil
+}
+
+func (s *dashboardStore) ListServerQuickLinks(ctx context.Context, serverKey string) ([]IngameQuickLink, error) {
+	rows, err := s.q.ListIngameQuickLinks(ctx, serverKey)
+	if err != nil {
+		return nil, fmt.Errorf("list server-group quick links: %w", err)
+	}
+	links := make([]IngameQuickLink, 0, len(rows))
+	for _, row := range rows {
+		links = append(links, IngameQuickLink{
+			ServerKey: row.ServerKey, Label: row.Label, URL: row.Url,
+			SortOrder: row.SortOrder, Enabled: row.Enabled == 1,
+		})
+	}
+	return links, nil
+}
+
+func (s *dashboardStore) ReplaceServerQuickLinks(ctx context.Context, serverKey string, links []IngameQuickLink) ([]IngameQuickLink, error) {
+	if err := validateQuickLinkRows(serverKey, links); err != nil {
+		return nil, err
+	}
+	tx, err := s.db.BeginTx(ctx, nil)
+	if err != nil {
+		return nil, fmt.Errorf("begin server-group quick-link update: %w", err)
+	}
+	defer tx.Rollback()
+	queries := s.q.WithTx(tx)
+	if err := queries.DeleteIngameQuickLinks(ctx, serverKey); err != nil {
+		return nil, fmt.Errorf("delete server-group quick links: %w", err)
+	}
+	for _, link := range links {
+		if err := queries.InsertIngameQuickLink(ctx, dashsql.InsertIngameQuickLinkParams{
+			ServerKey: serverKey, Label: link.Label, Url: link.URL,
+			SortOrder: link.SortOrder, Enabled: boolInt(link.Enabled),
+		}); err != nil {
+			return nil, fmt.Errorf("insert server-group quick link: %w", err)
+		}
+	}
+	if err := tx.Commit(); err != nil {
+		return nil, fmt.Errorf("commit server-group quick links: %w", err)
+	}
+	return s.ListServerQuickLinks(ctx, serverKey)
+}
+
+func validateQuickLinkRows(serverKey string, links []IngameQuickLink) error {
+	if len(links) > 8 {
+		return errors.New("at most 8 server-group quick links are allowed")
+	}
+	orders := make(map[int64]struct{}, len(links))
+	for _, link := range links {
+		if link.ServerKey != "" && link.ServerKey != serverKey {
+			return errors.New("quick-link server key does not match its group")
+		}
+		label := strings.TrimSpace(link.Label)
+		if count := utf8.RuneCountInString(label); count < 1 || count > 32 {
+			return errors.New("quick-link label must contain 1 to 32 characters")
+		}
+		value := strings.TrimSpace(link.URL)
+		parsed, err := url.Parse(value)
+		if err != nil || len(value) > 2048 || parsed.Host == "" || parsed.User != nil || parsed.Scheme != "http" && parsed.Scheme != "https" {
+			return errors.New("quick-link URL must be an absolute credential-free HTTP or HTTPS URL up to 2048 bytes")
+		}
+		if link.SortOrder < 0 || link.SortOrder > 7 {
+			return errors.New("quick-link sort order must be between 0 and 7")
+		}
+		if _, exists := orders[link.SortOrder]; exists {
+			return errors.New("quick-link sort orders must be unique")
+		}
+		orders[link.SortOrder] = struct{}{}
 	}
 	return nil
 }

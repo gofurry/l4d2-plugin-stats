@@ -353,6 +353,15 @@ func (q *Queries) DeleteGameServers(ctx context.Context) error {
 	return err
 }
 
+const deleteIngameQuickLinks = `-- name: DeleteIngameQuickLinks :exec
+DELETE FROM ingame_quick_links WHERE server_key = ?1
+`
+
+func (q *Queries) DeleteIngameQuickLinks(ctx context.Context, serverKey string) error {
+	_, err := q.db.ExecContext(ctx, deleteIngameQuickLinks, serverKey)
+	return err
+}
+
 const deleteIngameServerSettings = `-- name: DeleteIngameServerSettings :exec
 DELETE FROM ingame_server_settings WHERE server_key = ?1
 `
@@ -782,6 +791,30 @@ func (q *Queries) InsertAggregateRow(ctx context.Context, arg InsertAggregateRow
 	return err
 }
 
+const insertIngameQuickLink = `-- name: InsertIngameQuickLink :exec
+INSERT INTO ingame_quick_links (server_key, label, url, sort_order, enabled)
+VALUES (?1, ?2, ?3, ?4, ?5)
+`
+
+type InsertIngameQuickLinkParams struct {
+	ServerKey string `json:"server_key"`
+	Label     string `json:"label"`
+	Url       string `json:"url"`
+	SortOrder int64  `json:"sort_order"`
+	Enabled   int64  `json:"enabled"`
+}
+
+func (q *Queries) InsertIngameQuickLink(ctx context.Context, arg InsertIngameQuickLinkParams) error {
+	_, err := q.db.ExecContext(ctx, insertIngameQuickLink,
+		arg.ServerKey,
+		arg.Label,
+		arg.Url,
+		arg.SortOrder,
+		arg.Enabled,
+	)
+	return err
+}
+
 const listA2SStatusSnapshots = `-- name: ListA2SStatusSnapshots :many
 SELECT status_json
 FROM a2s_status_snapshots
@@ -955,6 +988,50 @@ func (q *Queries) ListGameServers(ctx context.Context) ([]ListGameServersRow, er
 			&i.Address,
 			&i.Enabled,
 			&i.SortOrder,
+		); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Close(); err != nil {
+		return nil, err
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
+const listIngameQuickLinks = `-- name: ListIngameQuickLinks :many
+SELECT server_key, label, url, sort_order, enabled
+FROM ingame_quick_links
+WHERE server_key = ?1
+ORDER BY sort_order, id
+`
+
+type ListIngameQuickLinksRow struct {
+	ServerKey string `json:"server_key"`
+	Label     string `json:"label"`
+	Url       string `json:"url"`
+	SortOrder int64  `json:"sort_order"`
+	Enabled   int64  `json:"enabled"`
+}
+
+func (q *Queries) ListIngameQuickLinks(ctx context.Context, serverKey string) ([]ListIngameQuickLinksRow, error) {
+	rows, err := q.db.QueryContext(ctx, listIngameQuickLinks, serverKey)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	items := []ListIngameQuickLinksRow{}
+	for rows.Next() {
+		var i ListIngameQuickLinksRow
+		if err := rows.Scan(
+			&i.ServerKey,
+			&i.Label,
+			&i.Url,
+			&i.SortOrder,
+			&i.Enabled,
 		); err != nil {
 			return nil, err
 		}

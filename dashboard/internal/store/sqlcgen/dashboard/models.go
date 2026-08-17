@@ -151,6 +151,15 @@ type IncidentRetentionRun struct {
 	IncidentRows    int64  `json:"incident_rows"`
 }
 
+type IngameQuickLink struct {
+	ID        int64  `json:"id"`
+	ServerKey string `json:"server_key"`
+	Label     string `json:"label"`
+	Url       string `json:"url"`
+	SortOrder int64  `json:"sort_order"`
+	Enabled   int64  `json:"enabled"`
+}
+
 type IngameServerSetting struct {
 	ServerKey        string `json:"server_key"`
 	TitleMode        string `json:"title_mode"`

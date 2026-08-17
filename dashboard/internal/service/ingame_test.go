@@ -2,8 +2,8 @@ package service
 
 import (
 	"context"
-	"errors"
 	"fmt"
+	"strings"
 	"testing"
 	"time"
 
@@ -16,9 +16,11 @@ type fakeIngameDashboard struct {
 	visibility      store.PlayerProfileVisibility
 	overrides       []store.IngameServerSettings
 	documents       []store.ServerDocument
+	quickLinks      []store.IngameQuickLink
 	lastDocumentKey string
 	settingsCalls   int
 	overrideCalls   int
+	quickLinkCalls  int
 	visibilityCalls int
 }
 
@@ -53,6 +55,16 @@ func (f *fakeIngameDashboard) GetServerDocument(_ context.Context, serverKey, do
 		}
 	}
 	return store.ServerDocument{ServerKey: serverKey, Key: documentKey, Mode: "inherit"}, nil
+}
+func (f *fakeIngameDashboard) ListServerQuickLinks(_ context.Context, serverKey string) ([]store.IngameQuickLink, error) {
+	f.quickLinkCalls++
+	result := make([]store.IngameQuickLink, 0, len(f.quickLinks))
+	for _, link := range f.quickLinks {
+		if link.ServerKey == serverKey {
+			result = append(result, link)
+		}
+	}
+	return result, nil
 }
 func (f *fakeIngameDashboard) PlayerProfileVisibility(context.Context, string) (store.PlayerProfileVisibility, error) {
 	f.visibilityCalls++
@@ -165,8 +177,8 @@ func TestIngameHomeUsesBoundedCachedView(t *testing.T) {
 	if len(rankings.ids) != 32 || rankings.metrics != dashboard.settings.HighlightMetrics {
 		t.Fatalf("bounded highlight ids=%d metrics=%v", len(rankings.ids), rankings.metrics)
 	}
-	if dashboard.settingsCalls != 1 || dashboard.overrideCalls != 1 || statuses.calls != 1 || rankings.highlightCalls != 1 {
-		t.Fatalf("cache miss counts settings=%d overrides=%d status=%d highlights=%d", dashboard.settingsCalls, dashboard.overrideCalls, statuses.calls, rankings.highlightCalls)
+	if dashboard.settingsCalls != 1 || dashboard.overrideCalls != 1 || dashboard.quickLinkCalls != 1 || statuses.calls != 1 || rankings.highlightCalls != 1 {
+		t.Fatalf("cache miss counts settings=%d overrides=%d quick_links=%d status=%d highlights=%d", dashboard.settingsCalls, dashboard.overrideCalls, dashboard.quickLinkCalls, statuses.calls, rankings.highlightCalls)
 	}
 }
 
@@ -222,6 +234,10 @@ func TestIngameHomeAggregatesInstancesInOneServerGroup(t *testing.T) {
 	now := time.Now()
 	dashboard := &fakeIngameDashboard{
 		settings: defaultIngameTestSettings(),
+		quickLinks: []store.IngameQuickLink{
+			{ServerKey: "shared", Label: "地图合集", URL: "https://example.com/maps", SortOrder: 0, Enabled: true},
+			{ServerKey: "shared", Label: "隐藏链接", URL: "https://example.com/hidden", SortOrder: 1, Enabled: false},
+		},
 		servers: []store.GameServer{
 			{ID: "one", DisplayName: "Group #1", Address: "127.0.0.1:27015", Enabled: true, SortOrder: 1},
 			{ID: "two", DisplayName: "Group #2", Address: "127.0.0.1:27016", Enabled: true, SortOrder: 2},
@@ -231,7 +247,7 @@ func TestIngameHomeAggregatesInstancesInOneServerGroup(t *testing.T) {
 		overrides: []store.IngameServerSettings{{ServerKey: "shared", TitleMode: "override", Title: "Shared Group", DescriptionMode: "inherit", BannerMode: "inherit", BackgroundMode: "inherit", WebsiteMode: "inherit", HighlightMode: "inherit"}},
 	}
 	statuses := &fakeIngameStatuses{statuses: []store.ServerStatus{
-		{ServerID: "one", ServerKey: "shared", Online: true, Players: 3, Bots: 1, LastSuccessAt: now, PlayerList: []store.ServerPlayer{{Name: "Alice", SteamID: "76561198000000001"}}},
+		{ServerID: "one", ServerKey: "shared", Online: true, Players: 3, Bots: 1, LatencyMS: 24, LastSuccessAt: now, Rules: []store.ServerRule{{Name: "mp_gamemode", Value: "coop"}, {Name: "z_difficulty", Value: "Hard"}}, PlayerList: []store.ServerPlayer{{Name: "Alice", SteamID: "76561198000000001"}}},
 		{ServerID: "two", ServerKey: "shared", Online: true, Players: 1, LastSuccessAt: now, PlayerList: []store.ServerPlayer{{Name: "Bob", SteamID: "76561198000000002"}}},
 		{ServerID: "three", ServerKey: "shared", Online: false, LastSuccessAt: now.Add(-time.Hour)},
 		{ServerID: "other", ServerKey: "other", Online: true, Players: 8, LastSuccessAt: now},
@@ -245,8 +261,18 @@ func TestIngameHomeAggregatesInstancesInOneServerGroup(t *testing.T) {
 	if view.Config.Appearance.Title != "Shared Group" || view.OnlineInstances != 2 || view.TotalInstances != 3 || view.OnlinePlayerCount != 2 || view.BotCount != 1 || len(view.Players) != 2 || len(view.Instances) != 3 {
 		t.Fatalf("group view=%+v", view)
 	}
-	if view.Instances[0].JoinHref != "steam://openurl_external/https://stats.example.com/ingame/connect?instance=one&server=shared" || view.Instances[2].JoinHref != "" {
-		t.Fatalf("join links=%+v", view.Instances)
+	if view.Instances[0].ActionID == "" || view.Instances[2].ActionID != "" || view.Instances[0].GameMode != "coop" || view.Instances[0].Difficulty != "Hard" || view.Instances[0].LatencyMS != 24 {
+		t.Fatalf("instance actions/details=%+v", view.Instances)
+	}
+	if view.Players[0].InstanceName != "Group #1" || len(view.QuickLinks) != 1 || view.QuickLinks[0].Label != "地图合集" {
+		t.Fatalf("player sources/quick links=%+v/%+v", view.Players, view.QuickLinks)
+	}
+	actionText := ""
+	for _, action := range view.Actions {
+		actionText += action.Value + "\n"
+	}
+	if !strings.Contains(actionText, "https://example.com/maps") || !strings.Contains(actionText, "connect 127.0.0.1:27015") || strings.Contains(actionText, "steam://") {
+		t.Fatalf("action cards=%+v", view.Actions)
 	}
 	if dashboard.settingsCalls != 1 || dashboard.overrideCalls != 1 || statuses.calls != 1 {
 		t.Fatalf("group build calls settings=%d overrides=%d statuses=%d", dashboard.settingsCalls, dashboard.overrideCalls, statuses.calls)
@@ -285,52 +311,17 @@ func TestIngameOfflineSnapshotStillResolvesGroup(t *testing.T) {
 	}
 }
 
-func TestBuildIngameConnectHrefValidatesAddress(t *testing.T) {
+func TestBuildIngameConnectAddressValidatesAddress(t *testing.T) {
 	for input, expected := range map[string]string{
-		"example.com:27015":   "steam://connect/example.com:27015",
-		"[2001:db8::1]:27015": "steam://connect/[2001:db8::1]:27015",
+		"example.com:27015":   "example.com:27015",
+		"[2001:db8::1]:27015": "[2001:db8::1]:27015",
 		"bad host:27015":      "",
 		"example.com:70000":   "",
 		"evil.com:27015/path": "",
 	} {
-		if actual := BuildIngameConnectHref(input); actual != expected {
-			t.Errorf("BuildIngameConnectHref(%q)=%q, want %q", input, actual, expected)
+		if actual := BuildIngameConnectAddress(input); actual != expected {
+			t.Errorf("BuildIngameConnectAddress(%q)=%q, want %q", input, actual, expected)
 		}
-	}
-}
-
-func TestBuildIngameJoinHrefUsesTrustedInstanceIdentity(t *testing.T) {
-	if actual := BuildIngameJoinHref("https://stats.example.com", "shared", "server one"); actual != "steam://openurl_external/https://stats.example.com/ingame/connect?instance=server+one&server=shared" {
-		t.Fatalf("join href=%q", actual)
-	}
-	for _, input := range []struct{ origin, serverKey, serverID string }{
-		{"", "shared", "one"},
-		{"https://stats.example.com/path", "shared", "one"},
-		{"https://stats.example.com", "change-me", "one"},
-		{"https://stats.example.com", "shared", ""},
-	} {
-		if actual := BuildIngameJoinHref(input.origin, input.serverKey, input.serverID); actual != "" {
-			t.Errorf("unsafe join input produced %q", actual)
-		}
-	}
-}
-
-func TestIngameConnectResolvesConfiguredInstanceAddress(t *testing.T) {
-	dashboard := &fakeIngameDashboard{settings: defaultIngameTestSettings(), servers: []store.GameServer{
-		{ID: "one", DisplayName: "Shared #1", Address: "127.0.0.1:27015", Enabled: true},
-		{ID: "other", DisplayName: "Other", Address: "127.0.0.1:27016", Enabled: true},
-	}}
-	statuses := &fakeIngameStatuses{statuses: []store.ServerStatus{
-		{ServerID: "one", ServerKey: "shared", Online: true},
-		{ServerID: "other", ServerKey: "other", Online: true},
-	}}
-	service := NewIngameService(dashboard, statuses, &fakeIngamePlayers{}, &fakeIngameRankings{}, &fakeIngameAchievements{})
-	view, err := service.Connect(context.Background(), "shared", "one")
-	if err != nil || view.ConnectHref != "steam://connect/127.0.0.1:27015" {
-		t.Fatalf("connect view=%+v err=%v", view, err)
-	}
-	if _, err := service.Connect(context.Background(), "shared", "other"); !errors.Is(err, ErrIngameContentUnavailable) {
-		t.Fatalf("cross-group instance err=%v", err)
 	}
 }
 

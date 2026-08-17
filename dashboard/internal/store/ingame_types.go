@@ -53,6 +53,14 @@ type ServerDocument struct {
 	UpdatedAt       int64  `json:"updated_at"`
 }
 
+type IngameQuickLink struct {
+	ServerKey string `json:"server_key"`
+	Label     string `json:"label"`
+	URL       string `json:"url"`
+	SortOrder int64  `json:"sort_order"`
+	Enabled   bool   `json:"enabled"`
+}
+
 type DashboardIngameStore interface {
 	IngameSettings(context.Context) (IngameSettings, error)
 	UpdateIngameSettings(context.Context, IngameSettings) (IngameSettings, error)
@@ -64,4 +72,6 @@ type DashboardIngameStore interface {
 	GetServerDocument(context.Context, string, string) (ServerDocument, error)
 	UpdateServerDocument(context.Context, ServerDocument) (ServerDocument, error)
 	DeleteServerDocuments(context.Context, string) error
+	ListServerQuickLinks(context.Context, string) ([]IngameQuickLink, error)
+	ReplaceServerQuickLinks(context.Context, string, []IngameQuickLink) ([]IngameQuickLink, error)
 }

@@ -47,13 +47,6 @@ func registerIngameRoutes(app *fiber.App, ingame *service.IngameService, rendere
 		}
 		return renderIngame(c, renderer, "home.html", view, fiber.StatusOK)
 	})
-	app.Get("/ingame/connect", func(c fiber.Ctx) error {
-		view, err := ingame.Connect(c.Context(), strings.TrimSpace(c.Query("server")), strings.TrimSpace(c.Query("instance")))
-		if err != nil {
-			return renderIngameError(c, renderer, ingame, err, c.Query("server"))
-		}
-		return renderIngame(c, renderer, "connect.html", view, fiber.StatusOK)
-	})
 	app.Get("/ingame/player/:steamid", func(c fiber.Ctx) error {
 		view, err := ingame.Player(c.Context(), strings.TrimSpace(c.Query("server")), c.Params("steamid"))
 		if err != nil {

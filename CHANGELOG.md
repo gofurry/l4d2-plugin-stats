@@ -4,6 +4,15 @@ All notable changes to this project are documented in this file.
 
 ## Unreleased
 
+### Added
+
+- Add server-group quick links backed by Dashboard schema 19, with bounded administrator editing and legacy-safe in-game Action Info Cards.
+- Show cached game mode, difficulty, latency, player instance, and first/last-play dates in the in-game portal when those values are available.
+
+### Changed
+
+- Replace unreliable MOTD external-site and direct-connect navigation with reusable zero-JavaScript `:target` instruction cards that display validated URLs and console commands as text.
+
 ## 1.3.4 - 2026-08-17
 
 ### Added

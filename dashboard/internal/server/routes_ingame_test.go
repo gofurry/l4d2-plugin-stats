@@ -54,6 +54,10 @@ func (ingameMIMEStore) GetServerDocument(context.Context, string, string) (store
 	return store.ServerDocument{Mode: "inherit"}, nil
 }
 
+func (ingameMIMEStore) ListServerQuickLinks(context.Context, string) ([]store.IngameQuickLink, error) {
+	return []store.IngameQuickLink{}, nil
+}
+
 func (ingameMIMEStore) PlayerProfileVisibility(context.Context, string) (store.PlayerProfileVisibility, error) {
 	return store.PlayerProfileVisibility{}, nil
 }
@@ -98,8 +102,7 @@ func TestIngameRoutesSetExplicitContentTypes(t *testing.T) {
 		body         string
 		notBody      string
 	}{
-		{name: "home HTML", path: "/ingame?server=valid-server-key", status: http.StatusOK, contentType: fiber.MIMETextHTMLCharsetUTF8, cacheControl: "no-cache", body: "<!doctype html>"},
-		{name: "connect HTML ignores untrusted address", path: "/ingame/connect?server=valid-server-key&instance=server-id&address=evil.example:27015", status: http.StatusOK, contentType: fiber.MIMETextHTMLCharsetUTF8, cacheControl: "no-cache", body: "steam://connect/127.0.0.1:27015", notBody: "evil.example"},
+		{name: "home HTML", path: "/ingame?server=valid-server-key", status: http.StatusOK, contentType: fiber.MIMETextHTMLCharsetUTF8, cacheControl: "no-cache", body: "connect 127.0.0.1:27015", notBody: "steam://"},
 		{name: "error HTML", path: "/ingame?server=invalid", status: http.StatusNotFound, contentType: fiber.MIMETextHTMLCharsetUTF8, cacheControl: "no-cache", body: "无法识别服务器"},
 		{name: "CSS", path: "/ingame/assets/" + ingameassets.AssetFingerprint() + "/ingame.css", status: http.StatusOK, contentType: fiber.MIMETextCSSCharsetUTF8, cacheControl: "public, max-age=31536000, immutable"},
 		{name: "PNG", path: "/ingame/assets/" + ingameassets.AssetFingerprint() + "/achievements.png", status: http.StatusOK, contentType: "image/png", cacheControl: "public, max-age=31536000, immutable"},

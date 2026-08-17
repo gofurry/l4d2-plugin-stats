@@ -39,6 +39,11 @@
 .overrideGrid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 0 16px; }
 .documentSection { display: grid; gap: 12px; }
 .documentSection h5 { margin: 0; }
+.quickLinkSection { display: grid; gap: 12px; padding-top: 4px; }
+.quickLinkHeading { display: flex; align-items: flex-start; justify-content: space-between; gap: 16px; }
+.quickLinkHeading h5 { margin: 0 0 4px; }
+.quickLinkRow { display: grid; grid-template-columns: minmax(150px, .7fr) minmax(260px, 1.5fr) auto auto; gap: 10px; align-items: center; }
+.quickLinkActions { display: flex; gap: 6px; }
 .documentEditor { display: grid; gap: 12px; padding: 16px; border: 1px solid rgba(255,255,255,.1); border-radius: 10px; background: rgba(0,0,0,.12); }
 .documentToolbar { display: flex; align-items: center; justify-content: space-between; gap: 12px; }
 .documentToolbar :global(.ant-select) { width: 150px; }
@@ -50,6 +55,7 @@
   .switchGrid, .threeColumns, .cacheGrid { grid-template-columns: 1fr; }
   .overrideGrid { grid-template-columns: 1fr; }
   .serverOverrideHeading { display: grid; }
+  .quickLinkHeading, .quickLinkRow { display: grid; grid-template-columns: 1fr; }
 }
 
 :global(html[data-theme='dark']) {
