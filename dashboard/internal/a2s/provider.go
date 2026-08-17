@@ -178,6 +178,22 @@ func (p *Provider) Statuses(ctx context.Context) ([]store.ServerStatus, error) {
 	return statuses, nil
 }
 
+// CachedStatuses returns the in-memory/persisted snapshot without scheduling
+// or executing an A2S query. It is the only status path used by the MOTD portal.
+func (p *Provider) CachedStatuses(ctx context.Context) ([]store.ServerStatus, error) {
+	p.hydrate(ctx)
+	p.mu.RLock()
+	defer p.mu.RUnlock()
+	statuses := make([]store.ServerStatus, 0, len(p.entries))
+	for _, entry := range p.entries {
+		status := entry.status
+		status.PlayerList = append([]store.ServerPlayer(nil), status.PlayerList...)
+		status.Rules = append([]store.ServerRule(nil), status.Rules...)
+		statuses = append(statuses, status)
+	}
+	return statuses, nil
+}
+
 func (p *Provider) refreshEnabled(ctx context.Context, immediate bool) queryPolicy {
 	p.hydrate(ctx)
 	settings, err := p.dashboard.SiteSettings(ctx)

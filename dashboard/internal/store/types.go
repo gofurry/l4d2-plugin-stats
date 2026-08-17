@@ -677,6 +677,7 @@ type RankingQuery struct {
 	SubjectSteamID   string
 	Limit            int
 	Offset           int
+	SkipPlayerNames  bool
 }
 
 type AggregateStatus struct {

@@ -63,6 +63,15 @@ type PlayerBadges struct {
 	Items                      []AchievementBadge `json:"items"`
 }
 
+type CompactAchievementOverview struct {
+	Unlocked          int64                    `json:"unlocked"`
+	Total             int64                    `json:"total"`
+	CompletionPercent float64                  `json:"completion_percent"`
+	RecentUnlock      *store.AchievementUnlock `json:"recent_unlock,omitempty"`
+	RecentTitle       string                   `json:"recent_title,omitempty"`
+	Badges            []AchievementBadge       `json:"badges"`
+}
+
 type AchievementEngineStatus struct {
 	store.AchievementEngineState
 	CatalogItems     int64 `json:"catalog_items"`
@@ -394,6 +403,45 @@ func (s *AchievementService) Badges(ctx context.Context, steamID string) (Player
 	}
 	badges, err := s.resolveBadges(ctx, steamID, unlocks)
 	return PlayerBadges{AchievementContractVersion: store.AchievementContractVersion, Items: badges}, err
+}
+
+func (s *AchievementService) Compact(ctx context.Context, steamID string) (CompactAchievementOverview, error) {
+	if _, err := s.EnsurePlayer(ctx, steamID); err != nil {
+		return CompactAchievementOverview{}, err
+	}
+	unlocks, err := s.dashboard.ListAchievementUnlocks(ctx, steamID)
+	if err != nil {
+		return CompactAchievementOverview{}, err
+	}
+	badges, err := s.resolveBadges(ctx, steamID, unlocks)
+	if err != nil {
+		return CompactAchievementOverview{}, err
+	}
+	result := CompactAchievementOverview{Badges: badges}
+	unlocked := make(map[string]store.AchievementUnlock, len(unlocks))
+	for _, item := range unlocks {
+		unlocked[item.AchievementKey] = item
+	}
+	for _, definition := range achievementCatalog {
+		if !definition.CountsTowardCompletion {
+			continue
+		}
+		result.Total++
+		if _, ok := unlocked[definition.AchievementKey]; ok {
+			result.Unlocked++
+		}
+	}
+	if result.Total > 0 {
+		result.CompletionPercent = float64(result.Unlocked) * 100 / float64(result.Total)
+	}
+	if len(unlocks) > 0 {
+		recent := unlocks[0]
+		result.RecentUnlock = &recent
+		if definition, ok := achievementByKey(recent.AchievementKey); ok {
+			result.RecentTitle = definition.Title
+		}
+	}
+	return result, nil
 }
 
 func (s *AchievementService) SetBadges(ctx context.Context, steamID string, slots []store.BadgeShowcaseSlot) (PlayerBadges, error) {
