@@ -4,8 +4,7 @@ html,body{width:100%;margin:0;padding:0;overflow-x:hidden;background-color:#1212
 a{color:#f2a33a;text-decoration:none}
 a:hover{color:#ffb45c;text-decoration:none}
 .page{position:relative;z-index:1;width:auto;margin-left:12px;margin-right:12px;padding-top:10px;padding-bottom:22px}
-.panel,.nav,.compact-server-header{margin-top:8px;border:1px solid rgba(255,255,255,.12);-webkit-border-radius:6px;border-radius:6px;background:rgba(18,18,18,.86);-webkit-box-shadow:0 2px 8px rgba(0,0,0,.4);box-shadow:0 2px 8px rgba(0,0,0,.4)}
-.panel{padding:14px}
+.panel{margin-top:8px;padding:14px;border:1px solid rgba(255,255,255,.12);-webkit-border-radius:6px;border-radius:6px;background:rgba(18,18,18,.86);-webkit-box-shadow:0 2px 8px rgba(0,0,0,.4);box-shadow:0 2px 8px rgba(0,0,0,.4)}
 .panel h1,.panel h2,.panel h3{margin:0;color:#fff}
 .panel h1{font-size:22px}
 .panel h2{margin-bottom:10px;padding-bottom:7px;border-bottom:1px solid rgba(255,255,255,.12);font-size:18px}
@@ -13,19 +12,21 @@ a:hover{color:#ffb45c;text-decoration:none}
 .panel h3{margin-top:15px;font-size:16px;color:#f2a33a}
 .home-banner{overflow:hidden;margin-top:0;-webkit-border-radius:6px;border-radius:6px;background:#181818;-webkit-box-shadow:0 2px 8px rgba(0,0,0,.4);box-shadow:0 2px 8px rgba(0,0,0,.4)}
 .home-banner img{display:block;width:100%;height:auto}
-.home-intro{text-align:center}
+.server-navigation-card{padding:0}
+.home-intro{padding:11px 14px;text-align:center}
 .home-intro p{margin:4px 0 0;color:#b0b0b0}
+.panel-divider{height:1px;margin:0 12px;background:rgba(255,255,255,.12)}
 .status-dot:before{display:block;width:7px;height:7px;-webkit-border-radius:7px;border-radius:7px;background:#a9564b;content:""}
 .online .status-dot:before{background:#7f9b68}
 .stale,.date{margin:4px 0 0;color:#d5aa63;font-size:12px}
-.compact-server-header{display:table;width:100%;min-height:54px;padding:9px 12px;background:rgba(12,12,12,.9)}
+.compact-server-header{display:table;width:100%;min-height:50px;padding:8px 12px}
 .compact-title,.compact-status{display:table-cell;vertical-align:middle}
 .compact-title{width:55%;color:#eee;font-size:16px;font-weight:bold}
 .compact-title:hover{color:#f2a33a}
 .compact-status{width:45%;text-align:right;color:#b0b0b0;font-size:12px}
 .compact-status i{color:#7f9b68;font-style:normal}
 .compact-status.offline-summary i{color:#a9564b}
-.nav{min-height:40px;padding:3px 4px;font-size:0}
+.nav{min-height:39px;padding:3px 4px;font-size:0}
 .nav:after,.footer:after{display:block;clear:both;content:""}
 .nav a{display:inline-block;margin:1px 2px;padding:7px 10px;-webkit-border-radius:4px;border-radius:4px;color:#ddd;font-size:13px}
 .nav a:hover{background:rgba(255,255,255,.07);color:#fff}
@@ -72,6 +73,10 @@ a:hover{color:#ffb45c;text-decoration:none}
 .identity-cell p{margin:5px 0 0;color:#b0b0b0}
 .badge-cell{text-align:right;white-space:nowrap}
 .badge{display:inline-block;width:64px;height:64px;margin-left:6px;background-repeat:no-repeat;vertical-align:top}
+.player-panel{padding:0}
+.player-section{padding:14px}
+.player-section+.player-section{border-top:1px solid rgba(255,255,255,.12)}
+.player-section h2:last-child{margin-bottom:0}
 .stats{font-size:0}
 .stats>div{display:inline-block;width:33.333%;padding:8px 10px 10px;vertical-align:top;font-size:14px}
 .stats span,.stats strong{display:block}
@@ -94,6 +99,7 @@ a:hover{color:#ffb45c;text-decoration:none}
 .ranking .rank-number.second{color:#d7d7d7}
 .ranking .rank-number.third{color:#b47d55}
 .ranking .row>span{text-align:right}
+.ranking-panel>h2{text-align:center}
 .pagination{text-align:center;margin-top:12px}
 .pagination span,.pagination a{display:inline-block;padding:6px 12px}
 .content{font-size:14px;line-height:1.6}

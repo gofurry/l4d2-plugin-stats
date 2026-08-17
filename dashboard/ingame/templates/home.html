@@ -10,8 +10,7 @@
 </div></div></body></html>
 {{else}}
 {{template "homeBanner" .}}
-{{template "homeIntro" .}}
-{{template "nav" .}}
+{{template "homeNavigation" .}}
 {{if .Announcement}}<div class="panel announcement"><h2>最新公告 <span>{{date .Announcement.UpdatedAt}}</span></h2><a href="/ingame/announcement/{{.Announcement.ID}}?server={{.ServerKey}}"><strong>{{.Announcement.Title}}</strong><p>{{.Announcement.Summary}}</p></a></div>{{end}}
 {{if .Config.Modules.ShowPlayers}}
 <div class="panel players" id="players">
@@ -26,7 +25,7 @@
 <div class="panel instance-status">
   <h2>服务器状态 <span>{{.OnlineInstances}} / {{.TotalInstances}} 在线</span></h2>
   <div class="instance-table">
-    {{range .Instances}}<div class="instance-row {{if .Online}}online{{else}}offline{{end}} {{if .Stale}}stale-instance{{end}}"><span class="status-dot"></span><strong>{{.DisplayName}}</strong><span>{{if .Stale}}STALE{{else if .Online}}ONLINE{{else if .Checking}}CHECKING{{else}}OFFLINE{{end}}</span><span>{{if .Map}}{{.Map}}{{else}}—{{end}}</span><b>{{if .Online}}{{.Players}} / {{.MaxPlayers}}{{else}}—{{end}}</b>{{if .JoinHref}}<a href="{{connectHref .JoinHref}}">加入游戏 ›</a>{{else}}<i>—</i>{{end}}</div>{{end}}
+    {{range .Instances}}<div class="instance-row {{if .Online}}online{{else}}offline{{end}} {{if .Stale}}stale-instance{{end}}"><span class="status-dot"></span><strong>{{.DisplayName}}</strong><span>{{if .Stale}}STALE{{else if .Online}}ONLINE{{else if .Checking}}CHECKING{{else}}OFFLINE{{end}}</span><span>{{if .Map}}{{.Map}}{{else}}—{{end}}</span><b>{{if .Online}}{{.Players}} / {{.MaxPlayers}}{{else}}—{{end}}</b>{{if .JoinHref}}<a href="{{externalHref .JoinHref}}">加入游戏 ›</a>{{else}}<i>—</i>{{end}}</div>{{end}}
   </div>
 </div>
 {{end}}

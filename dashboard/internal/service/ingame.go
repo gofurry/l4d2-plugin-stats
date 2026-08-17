@@ -5,6 +5,7 @@ import (
 	"errors"
 	"fmt"
 	"net"
+	"net/url"
 	"sort"
 	"strconv"
 	"strings"
@@ -193,6 +194,10 @@ type IngameInfoView struct {
 type IngameAnnouncementView struct {
 	IngameBaseView
 	Announcement store.Announcement
+}
+
+type IngameConnectView struct {
+	ConnectHref string
 }
 
 type ingamePortalContext struct {
@@ -403,6 +408,28 @@ func (s *IngameService) Announcement(ctx context.Context, serverKey, id string) 
 	return value.(IngameAnnouncementView), nil
 }
 
+func (s *IngameService) Connect(ctx context.Context, serverKey, serverID string) (IngameConnectView, error) {
+	serverID = strings.TrimSpace(serverID)
+	if serverID == "" || len(serverID) > 128 {
+		return IngameConnectView{}, ErrIngameContentUnavailable
+	}
+	portal, err := s.portalContext(ctx, serverKey, false)
+	if err != nil {
+		return IngameConnectView{}, err
+	}
+	for _, instance := range portal.base.Instances {
+		if instance.ServerID != serverID {
+			continue
+		}
+		connectHref := BuildIngameConnectHref(instance.Address)
+		if connectHref == "" {
+			return IngameConnectView{}, ErrIngameContentUnavailable
+		}
+		return IngameConnectView{ConnectHref: connectHref}, nil
+	}
+	return IngameConnectView{}, ErrIngameContentUnavailable
+}
+
 func (s *IngameService) portalContext(ctx context.Context, requestedKey string, allowSelection bool) (ingamePortalContext, error) {
 	settings, err := s.dashboard.IngameSettings(ctx)
 	if err != nil {
@@ -497,7 +524,9 @@ func (s *IngameService) portalContext(ctx context.Context, requestedKey string, 
 		return ingamePortalContext{}, ErrIngameUnknownServer
 	}
 	refreshSeconds := int64(30)
-	if site, siteErr := s.dashboard.SiteSettings(ctx); siteErr == nil {
+	site := store.SiteSettings{}
+	if loadedSite, siteErr := s.dashboard.SiteSettings(ctx); siteErr == nil {
+		site = loadedSite
 		refresh := site.A2SRefreshSeconds
 		if refresh <= 0 {
 			refresh = 30
@@ -525,7 +554,9 @@ func (s *IngameService) portalContext(ctx context.Context, requestedKey string, 
 			base.OnlineInstances++
 			base.OnlinePlayerCount += len(status.PlayerList)
 			base.BotCount += status.Bots
-			instance.JoinHref = BuildIngameConnectHref(member.server.Address)
+			if BuildIngameConnectHref(member.server.Address) != "" {
+				instance.JoinHref = BuildIngameJoinHref(site.PublicOrigin, selected.key, member.server.ID)
+			}
 			players = append(players, status.PlayerList...)
 		}
 		base.Instances = append(base.Instances, instance)
@@ -668,6 +699,24 @@ func BuildIngameConnectHref(address string) string {
 		return ""
 	}
 	return "steam://connect/" + net.JoinHostPort(host, strconv.Itoa(portNumber))
+}
+
+func BuildIngameJoinHref(publicOrigin, serverKey, serverID string) string {
+	publicOrigin = strings.TrimSpace(publicOrigin)
+	serverID = strings.TrimSpace(serverID)
+	if ValidateIngameURL(publicOrigin) != nil || ValidateIngameServerKey(serverKey) != nil || serverID == "" || len(serverID) > 128 {
+		return ""
+	}
+	parsed, err := url.Parse(publicOrigin)
+	if err != nil || parsed.RawQuery != "" || parsed.Fragment != "" || parsed.Path != "" && parsed.Path != "/" {
+		return ""
+	}
+	parsed.Path = "/ingame/connect"
+	query := parsed.Query()
+	query.Set("server", serverKey)
+	query.Set("instance", serverID)
+	parsed.RawQuery = query.Encode()
+	return BuildExternalBrowserHref(parsed.String())
 }
 
 func validConnectHost(host string) bool {

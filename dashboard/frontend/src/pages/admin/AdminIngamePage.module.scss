@@ -21,8 +21,6 @@
 .switchGrid, .threeColumns { grid-template-columns: repeat(3, minmax(0, 1fr)); }
 .cacheGrid { grid-template-columns: repeat(4, minmax(0, 1fr)); }
 .saveButton { margin-top: 4px; }
-.groupHeading { margin-bottom: 18px; }
-.groupHeading h3 { margin: 0 0 4px; }
 .groupSelect { width: min(720px, 100%); margin-bottom: 20px; }
 .instanceList { display: flex; flex-wrap: wrap; gap: 8px 16px; padding: 12px 14px; border-radius: 8px; background: rgba(0,0,0,.1); }
 .instanceList span { display: inline-flex; align-items: center; gap: 7px; color: #7e685c; }
@@ -30,6 +28,7 @@
 .instanceOffline { background: #a9564b; }
 .serverSelect { width: min(560px, 100%); margin-bottom: 16px; }
 .deploymentModal :global(.ant-alert) { margin-bottom: 16px; }
+.overrideModal :global(.ant-alert) { margin-bottom: 16px; }
 .deploymentActions { display: flex; align-items: center; flex-wrap: wrap; gap: 10px; }
 .code { max-height: 320px; overflow: auto; padding: 16px; border: 1px solid rgba(255,255,255,.12); border-radius: 10px; background: rgba(0,0,0,.35); color: rgba(255,255,255,.86); white-space: pre-wrap; }
 .serverOverride { display: grid; gap: 18px; padding-top: 24px; border-top: 1px solid rgba(255,255,255,.1); }

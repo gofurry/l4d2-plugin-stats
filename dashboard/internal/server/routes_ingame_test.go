@@ -35,7 +35,7 @@ func (ingameMIMEStore) ListIngameServerSettings(context.Context) ([]store.Ingame
 }
 
 func (ingameMIMEStore) ListServers(context.Context) ([]store.GameServer, error) {
-	return []store.GameServer{{ID: "server-id", DisplayName: "MIME Test", Enabled: true}}, nil
+	return []store.GameServer{{ID: "server-id", DisplayName: "MIME Test", Address: "127.0.0.1:27015", Enabled: true}}, nil
 }
 
 func (ingameMIMEStore) ListSiteDocuments(context.Context, bool) ([]store.SiteDocument, error) {
@@ -67,7 +67,7 @@ func (ingameMIMEStore) GetAnnouncement(context.Context, string) (store.Announcem
 }
 
 func (ingameMIMEStore) SiteSettings(context.Context) (store.SiteSettings, error) {
-	return store.SiteSettings{A2SRefreshSeconds: 30}, nil
+	return store.SiteSettings{A2SRefreshSeconds: 30, PublicOrigin: "https://stats.example.com"}, nil
 }
 
 type ingameMIMEStatuses struct{}
@@ -96,8 +96,10 @@ func TestIngameRoutesSetExplicitContentTypes(t *testing.T) {
 		contentType  string
 		cacheControl string
 		body         string
+		notBody      string
 	}{
 		{name: "home HTML", path: "/ingame?server=valid-server-key", status: http.StatusOK, contentType: fiber.MIMETextHTMLCharsetUTF8, cacheControl: "no-cache", body: "<!doctype html>"},
+		{name: "connect HTML ignores untrusted address", path: "/ingame/connect?server=valid-server-key&instance=server-id&address=evil.example:27015", status: http.StatusOK, contentType: fiber.MIMETextHTMLCharsetUTF8, cacheControl: "no-cache", body: "steam://connect/127.0.0.1:27015", notBody: "evil.example"},
 		{name: "error HTML", path: "/ingame?server=invalid", status: http.StatusNotFound, contentType: fiber.MIMETextHTMLCharsetUTF8, cacheControl: "no-cache", body: "无法识别服务器"},
 		{name: "CSS", path: "/ingame/assets/" + ingameassets.AssetFingerprint() + "/ingame.css", status: http.StatusOK, contentType: fiber.MIMETextCSSCharsetUTF8, cacheControl: "public, max-age=31536000, immutable"},
 		{name: "PNG", path: "/ingame/assets/" + ingameassets.AssetFingerprint() + "/achievements.png", status: http.StatusOK, contentType: "image/png", cacheControl: "public, max-age=31536000, immutable"},
@@ -122,11 +124,15 @@ func TestIngameRoutesSetExplicitContentTypes(t *testing.T) {
 			if cacheControl := response.Header.Get(fiber.HeaderCacheControl); cacheControl != test.cacheControl {
 				t.Fatalf("GET %s Cache-Control=%q, want %q", test.path, cacheControl, test.cacheControl)
 			}
-			if test.body != "" {
+			if test.body != "" || test.notBody != "" {
 				buffer := make([]byte, 8192)
 				count, _ := response.Body.Read(buffer)
-				if !strings.Contains(string(buffer[:count]), test.body) {
+				body := string(buffer[:count])
+				if test.body != "" && !strings.Contains(body, test.body) {
 					t.Fatalf("GET %s body does not contain %q", test.path, test.body)
+				}
+				if test.notBody != "" && strings.Contains(body, test.notBody) {
+					t.Fatalf("GET %s body unexpectedly contains %q", test.path, test.notBody)
 				}
 			}
 		})

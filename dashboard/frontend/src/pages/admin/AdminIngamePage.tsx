@@ -1,4 +1,4 @@
-import { CodeOutlined, CopyOutlined } from '@ant-design/icons'
+import { CodeOutlined, CopyOutlined, SettingOutlined } from '@ant-design/icons'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { Alert, Button, Card, Form, Input, Modal, Select, Switch, Typography, message } from 'antd'
 import { useEffect, useState } from 'react'
@@ -25,6 +25,7 @@ export function AdminIngamePage() {
   const query = useQuery({ queryKey: ['admin-ingame'], queryFn: api.ingameSettings })
   const groups = useQuery({ queryKey: ['admin-ingame-groups'], queryFn: api.ingameGroups })
   const [deploymentOpen, setDeploymentOpen] = useState(false)
+  const [groupOverrideOpen, setGroupOverrideOpen] = useState(false)
   const [selectedGroup, setSelectedGroup] = useState<string>()
   const [editingGroup, setEditingGroup] = useState<string>()
   const [form] = Form.useForm<IngameSettings>()
@@ -52,9 +53,10 @@ export function AdminIngamePage() {
   }
 
   return <div className={styles.page}>
-    <FloatingToolbar ariaLabel={label('游戏内页面工具', 'In-game portal tools')} items={[{
-      key: 'motd', label: label('MOTD 部署帮助', 'MOTD deployment help'), icon: <CodeOutlined />, onClick: () => setDeploymentOpen(true),
-    }]} />
+    <FloatingToolbar ariaLabel={label('游戏内页面工具', 'In-game portal tools')} items={[
+      { key: 'groups', label: label('服务器组覆盖', 'Server-group overrides'), icon: <SettingOutlined />, onClick: () => setGroupOverrideOpen(true) },
+      { key: 'motd', label: label('MOTD 部署帮助', 'MOTD deployment help'), icon: <CodeOutlined />, onClick: () => setDeploymentOpen(true) },
+    ]} />
     <Form form={form} layout="vertical" initialValues={defaultIngameSettings} onFinish={value => save.mutate(value)}>
       <Card className={styles.settingsCard}>
         <div className={styles.header}><div><Typography.Title level={2}>{label('游戏内页面', 'In-game portal')}</Typography.Title><Typography.Text type="secondary">{label('配置原生 L4D2 MOTD 浏览器使用的轻量页面。', 'Configure the lightweight portal used by the native L4D2 MOTD browser.')}</Typography.Text></div></div>
@@ -99,13 +101,13 @@ export function AdminIngamePage() {
       </Card>
     </Form>
 
-    <Card className={styles.settingsCard}>
-      <div className={styles.groupHeading}><div><Typography.Title level={3}>{label('服务器组覆盖', 'Server-group overrides')}</Typography.Title><Typography.Text type="secondary">{label('同一 server_key 下的多个 IP:PORT 共用一套外观与文档。', 'Instances sharing one server_key use one appearance and document configuration.')}</Typography.Text></div></div>
+    <Modal className={styles.overrideModal} width={1080} open={groupOverrideOpen} title={label('服务器组覆盖', 'Server-group overrides')} footer={null} onCancel={() => setGroupOverrideOpen(false)} destroyOnHidden>
+      <Typography.Paragraph type="secondary">{label('同一 server_key 下的多个 IP:PORT 共用一套外观与文档。', 'Instances sharing one server_key use one appearance and document configuration.')}</Typography.Paragraph>
       {groups.isError && <Alert type="error" showIcon title={groups.error.message} />}
       {!groups.isLoading && groups.data?.length === 0 && <Alert type="info" showIcon title={label('尚未从 A2S 快照发现可配置的服务器组。', 'No configurable server group has been discovered from A2S snapshots.')} />}
       {(groups.data?.length ?? 0) > 0 && <Select className={styles.groupSelect} value={editingGroup} onChange={setEditingGroup} placeholder={label('选择服务器组', 'Select a server group')} options={groups.data?.map(group => ({ value: group.server_key, label: `${group.title} · ${group.server_key} · ${group.instances.length} ${label('个实例', 'instances')}` }))} />}
       {editGroup && <IngameGroupSettingsEditor group={editGroup} />}
-    </Card>
+    </Modal>
 
     <Modal className={styles.deploymentModal} width={720} open={deploymentOpen} title={label('MOTD 部署帮助', 'MOTD deployment help')} footer={null} onCancel={() => setDeploymentOpen(false)} destroyOnHidden>
       <Typography.Paragraph>{label('选择服务器组后生成可复制的 motd.txt。组内所有实例使用同一 server_key URL；Dashboard 和 Collector 不会写入游戏服务器文件。', 'Select a server group to generate motd.txt. Every instance in the group uses the same server_key URL; Dashboard and Collector never write game-server files.')}</Typography.Paragraph>

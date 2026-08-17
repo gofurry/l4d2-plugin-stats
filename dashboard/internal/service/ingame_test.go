@@ -2,6 +2,7 @@ package service
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"testing"
 	"time"
@@ -64,7 +65,7 @@ func (f *fakeIngameDashboard) GetAnnouncement(context.Context, string) (store.An
 	return store.Announcement{}, nil
 }
 func (f *fakeIngameDashboard) SiteSettings(context.Context) (store.SiteSettings, error) {
-	return store.SiteSettings{A2SRefreshSeconds: 30}, nil
+	return store.SiteSettings{A2SRefreshSeconds: 30, PublicOrigin: "https://stats.example.com"}, nil
 }
 
 type fakeIngameStatuses struct {
@@ -244,7 +245,7 @@ func TestIngameHomeAggregatesInstancesInOneServerGroup(t *testing.T) {
 	if view.Config.Appearance.Title != "Shared Group" || view.OnlineInstances != 2 || view.TotalInstances != 3 || view.OnlinePlayerCount != 2 || view.BotCount != 1 || len(view.Players) != 2 || len(view.Instances) != 3 {
 		t.Fatalf("group view=%+v", view)
 	}
-	if view.Instances[0].JoinHref != "steam://connect/127.0.0.1:27015" || view.Instances[2].JoinHref != "" {
+	if view.Instances[0].JoinHref != "steam://openurl_external/https://stats.example.com/ingame/connect?instance=one&server=shared" || view.Instances[2].JoinHref != "" {
 		t.Fatalf("join links=%+v", view.Instances)
 	}
 	if dashboard.settingsCalls != 1 || dashboard.overrideCalls != 1 || statuses.calls != 1 {
@@ -295,6 +296,41 @@ func TestBuildIngameConnectHrefValidatesAddress(t *testing.T) {
 		if actual := BuildIngameConnectHref(input); actual != expected {
 			t.Errorf("BuildIngameConnectHref(%q)=%q, want %q", input, actual, expected)
 		}
+	}
+}
+
+func TestBuildIngameJoinHrefUsesTrustedInstanceIdentity(t *testing.T) {
+	if actual := BuildIngameJoinHref("https://stats.example.com", "shared", "server one"); actual != "steam://openurl_external/https://stats.example.com/ingame/connect?instance=server+one&server=shared" {
+		t.Fatalf("join href=%q", actual)
+	}
+	for _, input := range []struct{ origin, serverKey, serverID string }{
+		{"", "shared", "one"},
+		{"https://stats.example.com/path", "shared", "one"},
+		{"https://stats.example.com", "change-me", "one"},
+		{"https://stats.example.com", "shared", ""},
+	} {
+		if actual := BuildIngameJoinHref(input.origin, input.serverKey, input.serverID); actual != "" {
+			t.Errorf("unsafe join input produced %q", actual)
+		}
+	}
+}
+
+func TestIngameConnectResolvesConfiguredInstanceAddress(t *testing.T) {
+	dashboard := &fakeIngameDashboard{settings: defaultIngameTestSettings(), servers: []store.GameServer{
+		{ID: "one", DisplayName: "Shared #1", Address: "127.0.0.1:27015", Enabled: true},
+		{ID: "other", DisplayName: "Other", Address: "127.0.0.1:27016", Enabled: true},
+	}}
+	statuses := &fakeIngameStatuses{statuses: []store.ServerStatus{
+		{ServerID: "one", ServerKey: "shared", Online: true},
+		{ServerID: "other", ServerKey: "other", Online: true},
+	}}
+	service := NewIngameService(dashboard, statuses, &fakeIngamePlayers{}, &fakeIngameRankings{}, &fakeIngameAchievements{})
+	view, err := service.Connect(context.Background(), "shared", "one")
+	if err != nil || view.ConnectHref != "steam://connect/127.0.0.1:27015" {
+		t.Fatalf("connect view=%+v err=%v", view, err)
+	}
+	if _, err := service.Connect(context.Background(), "shared", "other"); !errors.Is(err, ErrIngameContentUnavailable) {
+		t.Fatalf("cross-group instance err=%v", err)
 	}
 }
 

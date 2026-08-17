@@ -88,6 +88,10 @@ func TestIngameTemplatesContainNoClientApplication(t *testing.T) {
 			}
 		})
 	}
+	connect := renderTemplate(t, renderer, "connect.html", service.IngameConnectView{ConnectHref: "steam://connect/127.0.0.1:27015"})
+	if strings.Contains(strings.ToLower(connect), "<script") || !strings.Contains(connect, `http-equiv="refresh"`) || !strings.Contains(connect, "steam://connect/127.0.0.1:27015") {
+		t.Fatalf("connect redirect is not a zero-JS Steam redirect: %s", connect)
+	}
 }
 
 func TestMarkdownRendererSanitizesLinksAndRawHTML(t *testing.T) {
@@ -133,11 +137,11 @@ func TestVisualV2ShellsNavigationAndBackground(t *testing.T) {
 			Modules:    service.ResolvedIngameModules{ShowPlayers: true, ShowServerIntro: true, ShowServerStatus: true},
 		},
 		OnlineInstances: 1, TotalInstances: 1, OnlinePlayerCount: 2,
-		Instances: []service.IngameServerInstance{{DisplayName: "Main #1", Address: "127.0.0.1:27015", Online: true, Map: "c1m1_hotel", Players: 2, MaxPlayers: 8, JoinHref: "steam://connect/127.0.0.1:27015"}},
+		Instances: []service.IngameServerInstance{{DisplayName: "Main #1", Address: "127.0.0.1:27015", Online: true, Map: "c1m1_hotel", Players: 2, MaxPlayers: 8, JoinHref: "steam://openurl_external/https://stats.example.com/ingame/connect?instance=server-id&server=main-key"}},
 		Documents: []service.IngameDocumentLink{{Key: "commands", Label: "常用命令"}},
 	}
 	home := renderTemplate(t, renderer, "home.html", service.IngameHomeView{IngameBaseView: base})
-	for _, expected := range []string{`class="home-banner"`, `class="panel home-intro"`, `href="#players"`, `class="page-background"`, `background-image:url(&#34;https://example.com/background.jpg?ver=2&#34;)`, `href="steam://connect/127.0.0.1:27015"`, "/ingame/assets/" + AssetFingerprint() + "/ingame.css"} {
+	for _, expected := range []string{`class="home-banner"`, `class="home-intro"`, `class="panel server-navigation-card home-navigation-card"`, `href="#players"`, `class="page-background"`, `background-image:url(&#34;https://example.com/background.jpg?ver=2&#34;)`, `href="steam://openurl_external/https://stats.example.com/ingame/connect?instance=server-id&amp;server=main-key"`, "/ingame/assets/" + AssetFingerprint() + "/ingame.css"} {
 		if !strings.Contains(home, expected) {
 			t.Fatalf("home missing %q: %s", expected, home)
 		}
@@ -152,20 +156,20 @@ func TestVisualV2ShellsNavigationAndBackground(t *testing.T) {
 	noBanner := base
 	noBanner.Config.Appearance.BannerURL = ""
 	home = renderTemplate(t, renderer, "home.html", service.IngameHomeView{IngameBaseView: noBanner})
-	if strings.Contains(home, `class="home-banner"`) || !strings.Contains(home, `class="panel home-intro"`) {
+	if strings.Contains(home, `class="home-banner"`) || !strings.Contains(home, `class="home-intro"`) {
 		t.Fatalf("no-banner home left an empty banner region: %s", home)
 	}
 
 	hiddenIntro := base
 	hiddenIntro.Config.Modules.ShowServerIntro = false
 	home = renderTemplate(t, renderer, "home.html", service.IngameHomeView{IngameBaseView: hiddenIntro})
-	if !strings.Contains(home, `class="home-banner"`) || strings.Contains(home, `class="panel home-intro"`) || !strings.Contains(home, `class="nav"`) {
+	if !strings.Contains(home, `class="home-banner"`) || strings.Contains(home, `class="home-intro"`) || !strings.Contains(home, `class="nav"`) || strings.Contains(home, `class="panel-divider"`) {
 		t.Fatalf("intro switch affected unrelated Home content: %s", home)
 	}
 
 	playerBase := withActivePage(base, "player")
 	player := renderTemplate(t, renderer, "player.html", service.IngamePlayerView{IngameBaseView: playerBase, PlayerName: "Player", Achievements: &service.CompactAchievementOverview{Badges: []service.AchievementBadge{{ArtworkKey: "career.veteran", Title: "Veteran"}}}})
-	if !strings.Contains(player, `class="compact-server-header"`) || strings.Contains(player, `class="home-hero`) || !strings.Contains(player, "/ingame/assets/"+AssetFingerprint()+"/achievements.png") {
+	if !strings.Contains(player, `class="panel server-navigation-card subpage-navigation-card"`) || !strings.Contains(player, `class="compact-server-header"`) || !strings.Contains(player, `class="panel player-panel"`) || strings.Contains(player, `class="home-hero`) || !strings.Contains(player, "/ingame/assets/"+AssetFingerprint()+"/achievements.png") {
 		t.Fatalf("player shell or badge asset is invalid: %s", player)
 	}
 	statusHidden := playerBase
