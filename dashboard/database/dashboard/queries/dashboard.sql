@@ -134,6 +134,96 @@ UPDATE game_servers SET sort_order = ?2, updated_at = ?3 WHERE id = ?1;
 -- name: DeleteGameServer :execrows
 DELETE FROM game_servers WHERE id = ?1;
 
+-- name: GetIngameSettings :one
+SELECT enabled, title, description, banner_url, website_url,
+       show_announcements, show_players, show_highlights,
+       highlight_metric_1, highlight_metric_2, highlight_metric_3,
+       home_cache_seconds, player_cache_seconds, ranking_cache_seconds,
+       content_cache_seconds, updated_at
+FROM ingame_settings
+WHERE id = 1;
+
+-- name: UpsertIngameSettings :exec
+INSERT INTO ingame_settings (
+  id, enabled, title, description, banner_url, website_url,
+  show_announcements, show_players, show_highlights,
+  highlight_metric_1, highlight_metric_2, highlight_metric_3,
+  home_cache_seconds, player_cache_seconds, ranking_cache_seconds,
+  content_cache_seconds, updated_at
+) VALUES (1, ?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9, ?10, ?11, ?12, ?13, ?14, ?15, ?16)
+ON CONFLICT(id) DO UPDATE SET
+  enabled = excluded.enabled,
+  title = excluded.title,
+  description = excluded.description,
+  banner_url = excluded.banner_url,
+  website_url = excluded.website_url,
+  show_announcements = excluded.show_announcements,
+  show_players = excluded.show_players,
+  show_highlights = excluded.show_highlights,
+  highlight_metric_1 = excluded.highlight_metric_1,
+  highlight_metric_2 = excluded.highlight_metric_2,
+  highlight_metric_3 = excluded.highlight_metric_3,
+  home_cache_seconds = excluded.home_cache_seconds,
+  player_cache_seconds = excluded.player_cache_seconds,
+  ranking_cache_seconds = excluded.ranking_cache_seconds,
+  content_cache_seconds = excluded.content_cache_seconds,
+  updated_at = excluded.updated_at;
+
+-- name: GetIngameServerSettings :one
+SELECT server_id, title_mode, title, description_mode, description,
+       banner_mode, banner_url, website_mode, website_url,
+       highlight_mode, highlight_metric_1, highlight_metric_2,
+       highlight_metric_3, updated_at
+FROM ingame_server_settings
+WHERE server_id = ?1;
+
+-- name: UpsertIngameServerSettings :exec
+INSERT INTO ingame_server_settings (
+  server_id, title_mode, title, description_mode, description,
+  banner_mode, banner_url, website_mode, website_url,
+  highlight_mode, highlight_metric_1, highlight_metric_2,
+  highlight_metric_3, updated_at
+) VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9, ?10, ?11, ?12, ?13, ?14)
+ON CONFLICT(server_id) DO UPDATE SET
+  title_mode = excluded.title_mode,
+  title = excluded.title,
+  description_mode = excluded.description_mode,
+  description = excluded.description,
+  banner_mode = excluded.banner_mode,
+  banner_url = excluded.banner_url,
+  website_mode = excluded.website_mode,
+  website_url = excluded.website_url,
+  highlight_mode = excluded.highlight_mode,
+  highlight_metric_1 = excluded.highlight_metric_1,
+  highlight_metric_2 = excluded.highlight_metric_2,
+  highlight_metric_3 = excluded.highlight_metric_3,
+  updated_at = excluded.updated_at;
+
+-- name: DeleteIngameServerSettings :exec
+DELETE FROM ingame_server_settings WHERE server_id = ?1;
+
+-- name: ListServerDocuments :many
+SELECT server_id, key, mode, content_markdown, updated_at
+FROM server_documents
+WHERE server_id = ?1
+ORDER BY CASE key WHEN 'introduction' THEN 1 WHEN 'commands' THEN 2 ELSE 3 END;
+
+-- name: GetServerDocument :one
+SELECT server_id, key, mode, content_markdown, updated_at
+FROM server_documents
+WHERE server_id = ?1 AND key = ?2;
+
+-- name: UpsertServerDocument :exec
+INSERT INTO server_documents (server_id, key, mode, content_markdown, updated_at)
+VALUES (?1, ?2, ?3, ?4, ?5)
+ON CONFLICT(server_id, key) DO UPDATE SET
+  mode = excluded.mode,
+  content_markdown = excluded.content_markdown,
+  updated_at = excluded.updated_at;
+
+-- name: DeleteServerDocuments :exec
+DELETE FROM server_documents WHERE server_id = ?1;
+
 -- name: ListA2SStatusSnapshots :many
 SELECT status_json
 FROM a2s_status_snapshots

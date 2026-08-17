@@ -151,6 +151,43 @@ type IncidentRetentionRun struct {
 	IncidentRows    int64  `json:"incident_rows"`
 }
 
+type IngameServerSetting struct {
+	ServerID         string `json:"server_id"`
+	TitleMode        string `json:"title_mode"`
+	Title            string `json:"title"`
+	DescriptionMode  string `json:"description_mode"`
+	Description      string `json:"description"`
+	BannerMode       string `json:"banner_mode"`
+	BannerUrl        string `json:"banner_url"`
+	WebsiteMode      string `json:"website_mode"`
+	WebsiteUrl       string `json:"website_url"`
+	HighlightMode    string `json:"highlight_mode"`
+	HighlightMetric1 string `json:"highlight_metric_1"`
+	HighlightMetric2 string `json:"highlight_metric_2"`
+	HighlightMetric3 string `json:"highlight_metric_3"`
+	UpdatedAt        int64  `json:"updated_at"`
+}
+
+type IngameSetting struct {
+	ID                  int64  `json:"id"`
+	Enabled             int64  `json:"enabled"`
+	Title               string `json:"title"`
+	Description         string `json:"description"`
+	BannerUrl           string `json:"banner_url"`
+	WebsiteUrl          string `json:"website_url"`
+	ShowAnnouncements   int64  `json:"show_announcements"`
+	ShowPlayers         int64  `json:"show_players"`
+	ShowHighlights      int64  `json:"show_highlights"`
+	HighlightMetric1    string `json:"highlight_metric_1"`
+	HighlightMetric2    string `json:"highlight_metric_2"`
+	HighlightMetric3    string `json:"highlight_metric_3"`
+	HomeCacheSeconds    int64  `json:"home_cache_seconds"`
+	PlayerCacheSeconds  int64  `json:"player_cache_seconds"`
+	RankingCacheSeconds int64  `json:"ranking_cache_seconds"`
+	ContentCacheSeconds int64  `json:"content_cache_seconds"`
+	UpdatedAt           int64  `json:"updated_at"`
+}
+
 type PlayerBadgeShowcase struct {
 	SteamID        string `json:"steam_id"`
 	Slot           int64  `json:"slot"`
@@ -182,6 +219,14 @@ type RetentionRun struct {
 	VersusRoundResultRows int64  `json:"versus_round_result_rows"`
 	VersusRunResultRows   int64  `json:"versus_run_result_rows"`
 	AggregateVersion      int64  `json:"aggregate_version"`
+}
+
+type ServerDocument struct {
+	ServerID        string `json:"server_id"`
+	Key             string `json:"key"`
+	Mode            string `json:"mode"`
+	ContentMarkdown string `json:"content_markdown"`
+	UpdatedAt       int64  `json:"updated_at"`
 }
 
 type SiteDocument struct {
