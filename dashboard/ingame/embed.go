@@ -41,6 +41,13 @@ func NewRenderer() (*Renderer, error) {
 		},
 		"markdown":   renderMarkdown,
 		"badgeStyle": badgeStyle,
+		"externalHref": func(value string) template.URL {
+			const prefix = "steam://openurl_external/"
+			if !strings.HasPrefix(value, prefix) || service.ValidateIngameURL(strings.TrimPrefix(value, prefix)) != nil {
+				return ""
+			}
+			return template.URL(value)
+		},
 		"assetVersion": func() string {
 			return AssetVersion
 		},

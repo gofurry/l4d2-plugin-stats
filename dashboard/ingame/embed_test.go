@@ -36,7 +36,8 @@ func TestIngameTemplatesContainNoClientApplication(t *testing.T) {
 	}
 	base := service.IngameBaseView{
 		ServerKey: "main", Config: service.ResolvedIngameConfig{Appearance: service.ResolvedIngameAppearance{Title: "Main"}},
-		Status: store.ServerStatus{Online: true, Map: "c1m1_hotel", Players: 2, MaxPlayers: 8},
+		WebsiteHref: "steam://openurl_external/https://example.com/full",
+		Status:      store.ServerStatus{Online: true, Map: "c1m1_hotel", Players: 2, MaxPlayers: 8},
 	}
 	views := []struct {
 		name string
@@ -55,6 +56,9 @@ func TestIngameTemplatesContainNoClientApplication(t *testing.T) {
 				t.Fatal(err)
 			}
 			html := output.String()
+			if strings.Contains(html, "#ZgotmplZ") || !strings.Contains(html, `href="steam://openurl_external/https://example.com/full"`) {
+				t.Fatalf("external browser URL was not rendered safely: %s", html)
+			}
 			if len(html) >= 40*1024 {
 				t.Fatalf("HTML size=%d, budget < 40 KiB", len(html))
 			}
