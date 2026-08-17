@@ -103,6 +103,19 @@ type blockingClient struct {
 	calls   int
 }
 
+type instanceClient struct {
+	mu      sync.Mutex
+	players map[string][]Player
+	rules   []Rule
+}
+
+func (f *instanceClient) Query(_ context.Context, address string, _ time.Duration) (Info, []Player, []Rule, time.Duration, error) {
+	f.mu.Lock()
+	defer f.mu.Unlock()
+	players := append([]Player(nil), f.players[address]...)
+	return Info{Name: address, Map: "c1m1_hotel", Players: len(players), MaxPlayers: 8}, players, append([]Rule(nil), f.rules...), time.Millisecond, nil
+}
+
 func (f *blockingClient) Query(ctx context.Context, _ string, _ time.Duration) (Info, []Player, []Rule, time.Duration, error) {
 	f.mu.Lock()
 	f.calls++
@@ -153,12 +166,17 @@ func (f *fakeClient) Query(context.Context, string, time.Duration) (Info, []Play
 }
 
 type fakePresence struct {
+	mu        sync.Mutex
 	players   []store.ActivePlayer
 	err       error
 	serverKey string
+	calls     int
 }
 
 func (f *fakePresence) ActivePlayers(_ context.Context, serverKey string, _ int64) ([]store.ActivePlayer, error) {
+	f.mu.Lock()
+	defer f.mu.Unlock()
+	f.calls++
 	f.serverKey = serverKey
 	return f.players, f.err
 }
@@ -404,5 +422,140 @@ func TestProviderFallsBackToAnonymousA2SPlayersWhenPresenceFails(t *testing.T) {
 	status, err := NewProvider(dashboard, client, presence).RefreshStatus(context.Background(), "main")
 	if err != nil || len(status.PlayerList) != 1 || status.PlayerList[0].SteamID != "" {
 		t.Fatalf("fallback status = %#v, %v", status, err)
+	}
+}
+
+func TestProviderDoesNotUseStatsPlayersWhenA2SPlayerListIsUnavailable(t *testing.T) {
+	dashboard := &fakeDashboard{servers: []store.GameServer{{ID: "main", DisplayName: "Main", Address: "127.0.0.1:27015", Enabled: true}}}
+	client := &fakeClient{players: []Player{}, rules: []Rule{{Name: "sm_lps_server_key", Value: "community.one"}}}
+	presence := &fakePresence{players: []store.ActivePlayer{{SteamID: "76561198000000001", Name: "Alice"}}}
+	status, err := NewProvider(dashboard, client, presence).RefreshStatus(context.Background(), "main")
+	if err != nil {
+		t.Fatal(err)
+	}
+	presence.mu.Lock()
+	calls := presence.calls
+	presence.mu.Unlock()
+	if len(status.PlayerList) != 0 || calls != 0 {
+		t.Fatalf("A2S-empty players=%#v presence calls=%d", status.PlayerList, calls)
+	}
+}
+
+func TestProviderDoesNotSynthesizeGroupPlayersIntoAnInstance(t *testing.T) {
+	dashboard := &fakeDashboard{servers: []store.GameServer{{ID: "main", DisplayName: "Main", Address: "127.0.0.1:27015", Enabled: true}}}
+	client := &fakeClient{
+		players: []Player{{Name: "Alice", Score: 7, DurationSeconds: 30}},
+		rules:   []Rule{{Name: "sm_lps_server_key", Value: "community.one"}},
+	}
+	presence := &fakePresence{players: []store.ActivePlayer{
+		{SteamID: "76561198000000001", Name: "Alice"},
+		{SteamID: "76561198000000002", Name: "Bob"},
+	}}
+	status, err := NewProvider(dashboard, client, presence).RefreshStatus(context.Background(), "main")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(status.PlayerList) != 1 || status.PlayerList[0].Name != "Alice" || status.PlayerList[0].SteamID == "" {
+		t.Fatalf("instance players = %#v", status.PlayerList)
+	}
+}
+
+func TestProviderLeavesAmbiguousNamesAnonymous(t *testing.T) {
+	dashboard := &fakeDashboard{servers: []store.GameServer{{ID: "main", DisplayName: "Main", Address: "127.0.0.1:27015", Enabled: true}}}
+	client := &fakeClient{
+		players: []Player{{Name: "Same"}, {Name: "Same"}},
+		rules:   []Rule{{Name: "sm_lps_server_key", Value: "community.one"}},
+	}
+	presence := &fakePresence{players: []store.ActivePlayer{{SteamID: "76561198000000001", Name: "Same"}}}
+	status, err := NewProvider(dashboard, client, presence).RefreshStatus(context.Background(), "main")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(status.PlayerList) != 2 || status.PlayerList[0].SteamID != "" || status.PlayerList[1].SteamID != "" {
+		t.Fatalf("ambiguous players = %#v", status.PlayerList)
+	}
+}
+
+func TestProviderLeavesAmbiguousStatsPresenceAnonymous(t *testing.T) {
+	dashboard := &fakeDashboard{servers: []store.GameServer{{ID: "main", DisplayName: "Main", Address: "127.0.0.1:27015", Enabled: true}}}
+	client := &fakeClient{players: []Player{{Name: "Same"}}, rules: []Rule{{Name: "sm_lps_server_key", Value: "community.one"}}}
+	presence := &fakePresence{players: []store.ActivePlayer{
+		{SteamID: "76561198000000001", Name: "Same"}, {SteamID: "76561198000000002", Name: "Same"},
+	}}
+	status, err := NewProvider(dashboard, client, presence).RefreshStatus(context.Background(), "main")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(status.PlayerList) != 1 || status.PlayerList[0].SteamID != "" {
+		t.Fatalf("ambiguous Stats players = %#v", status.PlayerList)
+	}
+}
+
+func TestProviderKeepsA2SPlayerOwnershipAcrossSharedKeyInstances(t *testing.T) {
+	dashboard := &fakeDashboard{servers: []store.GameServer{
+		{ID: "one", DisplayName: "One", Address: "127.0.0.1:27015", Enabled: true},
+		{ID: "two", DisplayName: "Two", Address: "127.0.0.1:27016", Enabled: true},
+	}}
+	client := &instanceClient{
+		players: map[string][]Player{
+			"127.0.0.1:27015": {{Name: "Alice", Score: 1}},
+			"127.0.0.1:27016": {{Name: "Bob", Score: 2}},
+		},
+		rules: []Rule{{Name: "sm_lps_server_key", Value: "shared"}},
+	}
+	presence := &fakePresence{players: []store.ActivePlayer{
+		{SteamID: "76561198000000001", Name: "Alice"}, {SteamID: "76561198000000002", Name: "Bob"},
+	}}
+	provider := NewProvider(dashboard, client, presence)
+	provider.refreshEnabled(context.Background(), true)
+	one, available, err := provider.LastStatus(context.Background(), "one")
+	if err != nil || !available {
+		t.Fatalf("one status available=%v err=%v", available, err)
+	}
+	two, available, err := provider.LastStatus(context.Background(), "two")
+	if err != nil || !available {
+		t.Fatalf("two status available=%v err=%v", available, err)
+	}
+	if len(one.PlayerList) != 1 || one.PlayerList[0].Name != "Alice" || one.PlayerList[0].SteamID != "76561198000000001" {
+		t.Fatalf("instance one players=%#v", one.PlayerList)
+	}
+	if len(two.PlayerList) != 1 || two.PlayerList[0].Name != "Bob" || two.PlayerList[0].SteamID != "76561198000000002" {
+		t.Fatalf("instance two players=%#v", two.PlayerList)
+	}
+}
+
+func TestProviderDeduplicatesPresenceQueriesForSharedServerKey(t *testing.T) {
+	dashboard := &fakeDashboard{servers: []store.GameServer{
+		{ID: "one", DisplayName: "One", Address: "127.0.0.1:27015", Enabled: true},
+		{ID: "two", DisplayName: "Two", Address: "127.0.0.1:27016", Enabled: true},
+	}}
+	client := &fakeClient{players: []Player{{Name: "Alice"}}, rules: []Rule{{Name: "sm_lps_server_key", Value: "community.one"}}}
+	presence := &fakePresence{players: []store.ActivePlayer{{SteamID: "76561198000000001", Name: "Alice"}}}
+	provider := NewProvider(dashboard, client, presence)
+	provider.refreshEnabled(context.Background(), true)
+	presence.mu.Lock()
+	calls := presence.calls
+	presence.mu.Unlock()
+	if calls != 1 {
+		t.Fatalf("presence queries = %d, want 1", calls)
+	}
+}
+
+func TestProviderPreservesOnlyGroupIdentityAfterStaleOutage(t *testing.T) {
+	dashboard := &fakeDashboard{servers: []store.GameServer{{ID: "main", DisplayName: "Main", Address: "127.0.0.1:27015", Enabled: true}}}
+	client := &fakeClient{players: []Player{{Name: "Alice"}}, rules: []Rule{{Name: "sm_lps_server_key", Value: "community.one"}}}
+	provider := NewProvider(dashboard, client)
+	provider.staleTTL = time.Nanosecond
+	if _, err := provider.RefreshStatus(context.Background(), "main"); err != nil {
+		t.Fatal(err)
+	}
+	time.Sleep(time.Millisecond)
+	client.setFail(true)
+	status, err := provider.RefreshStatus(context.Background(), "main")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if status.ServerKey != "community.one" || status.Map != "" || status.Players != 0 || len(status.PlayerList) != 0 || status.Online {
+		t.Fatalf("offline status = %#v", status)
 	}
 }

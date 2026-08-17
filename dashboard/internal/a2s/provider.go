@@ -92,24 +92,33 @@ func (SteamClient) Query(ctx context.Context, address string, timeout time.Durat
 }
 
 type Provider struct {
-	dashboard store.DashboardStore
-	snapshots store.ServerStatusSnapshotStore
-	presence  store.StatsPresenceStore
-	client    Client
-	timeout   time.Duration
-	ttl       time.Duration // test override; production uses Dashboard settings
-	staleTTL  time.Duration
-	semaphore chan struct{}
-	mu        sync.RWMutex
-	entries   map[string]cacheEntry
-	group     singleflight.Group
-	hydrateMu sync.Mutex
-	hydrated  bool
+	dashboard       store.DashboardStore
+	snapshots       store.ServerStatusSnapshotStore
+	presence        store.StatsPresenceStore
+	client          Client
+	timeout         time.Duration
+	ttl             time.Duration // test override; production uses Dashboard settings
+	staleTTL        time.Duration
+	semaphore       chan struct{}
+	mu              sync.RWMutex
+	entries         map[string]cacheEntry
+	group           singleflight.Group
+	presenceMu      sync.Mutex
+	presenceEntries map[string]presenceCacheEntry
+	presenceGroup   singleflight.Group
+	hydrateMu       sync.Mutex
+	hydrated        bool
 }
 
 type cacheEntry struct {
 	status  store.ServerStatus
 	expires time.Time
+}
+
+type presenceCacheEntry struct {
+	players []store.ActivePlayer
+	expires time.Time
+	err     error
 }
 
 type queryPolicy struct {
@@ -123,6 +132,7 @@ func NewProvider(dashboard store.DashboardStore, client Client, presence ...stor
 		dashboard: dashboard, client: client, timeout: 2 * time.Second,
 		staleTTL:  5 * time.Minute,
 		semaphore: make(chan struct{}, 4), entries: make(map[string]cacheEntry),
+		presenceEntries: make(map[string]presenceCacheEntry),
 	}
 	if len(presence) > 0 {
 		provider.presence = presence[0]
@@ -377,6 +387,11 @@ func (p *Provider) refresh(ctx context.Context, server store.GameServer, policy 
 			status.Stale = true
 			status.Checking = false
 			status.CheckedAt = now
+		} else if exists {
+			// Group identity is durable across outages, while map/player details
+			// expire with the existing stale-data policy.
+			status.ServerKey = previous.status.ServerKey
+			status.LastSuccessAt = previous.status.LastSuccessAt
 		}
 		p.mu.Lock()
 		p.entries[key] = cacheEntry{status: status, expires: now.Add(cacheTTL)}
@@ -438,39 +453,91 @@ func (p *Provider) persist(status store.ServerStatus) {
 }
 
 func (p *Provider) linkPlayers(serverKey string, a2sPlayers []Player, now time.Time) []store.ServerPlayer {
-	fallback := make([]store.ServerPlayer, 0, len(a2sPlayers))
+	linked := make([]store.ServerPlayer, 0, len(a2sPlayers))
 	for _, player := range a2sPlayers {
-		fallback = append(fallback, store.ServerPlayer{Name: player.Name, Score: player.Score, DurationSeconds: player.DurationSeconds})
+		linked = append(linked, store.ServerPlayer{Name: player.Name, Score: player.Score, DurationSeconds: player.DurationSeconds})
 	}
-	if serverKey == "" || p.presence == nil {
-		return fallback
+	if len(linked) == 0 || serverKey == "" || p.presence == nil {
+		return linked
 	}
-	ctx, cancel := context.WithTimeout(context.Background(), 2*time.Second)
-	active, err := p.presence.ActivePlayers(ctx, serverKey, now.Add(-10*time.Minute).Unix())
-	cancel()
+	active, err := p.activePlayers(serverKey, now)
 	if err != nil || len(active) == 0 {
-		return fallback
+		return linked
 	}
 
-	byName := make(map[string][]Player, len(a2sPlayers))
+	a2sNameCount := make(map[string]int, len(a2sPlayers))
 	for _, player := range a2sPlayers {
 		name := strings.TrimSpace(player.Name)
-		byName[name] = append(byName[name], player)
+		a2sNameCount[name]++
 	}
-	linked := make([]store.ServerPlayer, 0, len(active))
+	activeByName := make(map[string][]store.ActivePlayer, len(active))
 	for _, player := range active {
-		duration := player.ConnectedSeconds
-		if player.LastSavedAt > 0 && now.Unix() > player.LastSavedAt {
-			duration += now.Unix() - player.LastSavedAt
+		name := strings.TrimSpace(player.Name)
+		activeByName[name] = append(activeByName[name], player)
+	}
+	for index := range linked {
+		name := strings.TrimSpace(linked[index].Name)
+		matches := activeByName[name]
+		if name != "" && a2sNameCount[name] == 1 && len(matches) == 1 {
+			linked[index].SteamID = matches[0].SteamID
 		}
-		entry := store.ServerPlayer{Name: player.Name, SteamID: player.SteamID, DurationSeconds: duration}
-		if matches := byName[strings.TrimSpace(player.Name)]; len(matches) == 1 {
-			entry.Score = matches[0].Score
-			entry.DurationSeconds = matches[0].DurationSeconds
-		}
-		linked = append(linked, entry)
 	}
 	return linked
+}
+
+func (p *Provider) activePlayers(serverKey string, now time.Time) ([]store.ActivePlayer, error) {
+	p.presenceMu.Lock()
+	entry, cached := p.presenceEntries[serverKey]
+	if cached && now.Before(entry.expires) {
+		players := append([]store.ActivePlayer(nil), entry.players...)
+		p.presenceMu.Unlock()
+		return players, entry.err
+	}
+	p.presenceMu.Unlock()
+
+	value, err, _ := p.presenceGroup.Do(serverKey, func() (any, error) {
+		p.presenceMu.Lock()
+		entry, cached := p.presenceEntries[serverKey]
+		if cached && now.Before(entry.expires) {
+			players := append([]store.ActivePlayer(nil), entry.players...)
+			p.presenceMu.Unlock()
+			return players, entry.err
+		}
+		p.presenceMu.Unlock()
+
+		ctx, cancel := context.WithTimeout(context.Background(), 2*time.Second)
+		players, queryErr := p.presence.ActivePlayers(ctx, serverKey, now.Add(-10*time.Minute).Unix())
+		cancel()
+		if queryErr != nil {
+			p.cacheActivePlayers(serverKey, nil, queryErr, now)
+			return nil, queryErr
+		}
+		players = append([]store.ActivePlayer(nil), players...)
+		p.cacheActivePlayers(serverKey, players, nil, now)
+		return players, nil
+	})
+	if err != nil {
+		return nil, err
+	}
+	return append([]store.ActivePlayer(nil), value.([]store.ActivePlayer)...), nil
+}
+
+func (p *Provider) cacheActivePlayers(serverKey string, players []store.ActivePlayer, queryErr error, now time.Time) {
+	p.presenceMu.Lock()
+	defer p.presenceMu.Unlock()
+	if _, exists := p.presenceEntries[serverKey]; !exists && len(p.presenceEntries) >= 64 {
+		var oldestKey string
+		var oldest time.Time
+		for key, candidate := range p.presenceEntries {
+			if oldestKey == "" || candidate.expires.Before(oldest) {
+				oldestKey, oldest = key, candidate.expires
+			}
+		}
+		delete(p.presenceEntries, oldestKey)
+	}
+	p.presenceEntries[serverKey] = presenceCacheEntry{
+		players: append([]store.ActivePlayer(nil), players...), expires: now.Add(2 * time.Second), err: queryErr,
+	}
 }
 
 func serverKeyFromRules(rules []Rule) string {
