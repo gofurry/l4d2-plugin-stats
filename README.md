@@ -19,6 +19,7 @@
 - 支持 SQLite、MySQL 和 PostgreSQL，三种数据库使用一致的结构与统计契约；
 - 通过绝对快照、异步保存、有界队列、重试和日志抑制降低数据库故障对游戏线程的影响；
 - 提供内嵌 React 的 Go 单二进制 Dashboard，无需单独部署前端；
+- 提供专为 L4D2 原生 MOTD WebView 设计的服务端渲染游戏内页面，零 JavaScript 展示当前服务器、在线玩家、公开个人摘要、排行榜、公告和本服文档；
 - 支持 Steam OpenID、手动 SteamID64 查询、全服排行榜、多服务器 A2S 状态和单管理员后台；
 - 提供地图/战役、规则环境、标准化时间线、Boss 生存时间和玩家效率分析；
 - 提供日、月度和终身聚合、数据库增长监控及管理员确认后的分批清理；
@@ -165,6 +166,30 @@ sudo ./l4d2-stats install --config ./config.yaml
 ```
 
 生产部署、HTTPS、权限和首次设置说明见[中文部署手册](INSTALL.zh-CN.md)，备份与回滚说明见[升级与回滚](UPGRADE.zh-CN.md)。
+
+### 3. 启用游戏内 MOTD 页面
+
+先确认采集器已设置唯一的 `sm_lps_server_key`，并让 Dashboard 在“服务器管理”中至少成功读取一次该服务器的 A2S 规则。然后进入后台“游戏内页面”：
+
+1. 启用游戏内页面，设置默认外观、首页模块、三个生涯亮点指标和缓存预设；
+2. 在“服务器管理”展开服务器，可按服覆盖标题、描述、Banner、完整网站链接、亮点指标和三份 Markdown 文档；
+3. 在“MOTD 部署帮助”选择服务器，复制生成的 `motd.txt` 内容到游戏服务器。
+
+生成内容使用原生 HTML 跳转，目标形如：
+
+```html
+<html>
+<head>
+<meta http-equiv="refresh"
+content="0;url=https://stats.example.com/ingame?server=community-coop-01">
+</head>
+<body>
+Loading...
+</body>
+</html>
+```
+
+`server` 参数来自已持久化的 A2S `sm_lps_server_key` 规则；玩家打开页面时不会触发即时 A2S 查询。游戏内页面使用独立的 10–1800 秒安全缓存预设，和“站点设置 → 服务”中的 A2S 刷新周期不是同一个配置。Banner 与完整网站链接只接受不含账号密码的绝对 HTTP/HTTPS 地址，Dashboard 不下载、代理或探测这些外部资源；“完整网站”按钮通过 Steam 外部浏览器入口打开普通浏览器。游戏内个人资料始终按匿名访客的公开可见性渲染，不会因 Steam 或管理员 Cookie 获得额外权限。
 
 ## 管理命令
 

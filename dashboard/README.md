@@ -8,6 +8,7 @@
 - React 19、TypeScript、Vite、Ant Design 6、Tailwind 4、SCSS Modules；
 - Stats DB 只读支持 SQLite、MySQL 和 PostgreSQL；
 - 首页历史指标、同优先级多服务器 A2S 状态列表和可选自定义页脚；
+- 面向 L4D2 原生 MOTD WebView 的服务端渲染游戏内页面，无 JavaScript/API fan-out，提供当前服务器、在线玩家、公开个人摘要、排行榜、公告和本服文档；
 - Steam OpenID 或手动 SteamID64 个人查询，支持时间、服务器、PvE 模式和游标分页；
 - ECharts 个人趋势、PvE/装备/Versus 全量明细和独立的全服排行榜；
 - 地图/战役、规则环境、标准化 Incident 时间线、Boss 生命周期和个人效率分析；
@@ -24,6 +25,7 @@
 ```text
 dashboard/
 ├─ cmd/l4d2-stats/              CLI 入口
+├─ ingame/                      原生 MOTD SSR 模板、旧 WebKit CSS 与 PNG Atlas
 ├─ internal/                    认证、服务、存储、A2S、HTTP、systemd
 ├─ database/dashboard/          Dashboard SQLite 初始结构与查询
 ├─ database/stats/              三种 Stats DB 方言的只读查询
@@ -68,6 +70,7 @@ SQLite Stats DB 的常规连接会以只读模式打开。MySQL/PostgreSQL 若�
 
 - 在“站点设置”管理全局界面语言、在线背景图片、默认关闭的页脚链接和 Steam 登录；
 - 在“服务器管理”只填写展示名称和 `host:port` 地址；系统自动生成 UUID，并在列表中完成启停、上下排序、编辑和删除；
+- 在“游戏内页面”设置全站默认外观、模块、三个亮点指标和固定缓存档位；展开“服务器管理”中的单台服务器可配置继承、覆盖或隐藏规则和本服文档；
 - 在“安全设置”修改管理员用户名和密码。修改密码会让旧 JWT 立即失效。
 - 通过“运行监控”在新标签页查看当前 Dashboard 和宿主机的短期实时状态。
 - 通过“数据增长监控”查看数据库/日志占用、聚合水位与分析状态，分别配置聚合覆盖数据和 Incident 保留期并手动清理。
@@ -78,9 +81,17 @@ SQLite Stats DB 的常规连接会以只读模式打开。MySQL/PostgreSQL 若�
 
 Steam 登录玩家可在个人中心“设置”中按一级 Tab 控制访客可见内容，默认只公开概览、分析和玩家关系；本人始终可以查看全部栏目。可见性由服务端接口强制执行，不是仅在浏览器中隐藏导航。
 
-Dashboard DB 使用内嵌 Goose migration 自动升级，当前 schema 为 15；Stats schema 为 6，`stats_version` 仍为 1，Aggregate Contract 与 Achievement Contract 均为 v1。升级前仍应停止服务并同时备份 Dashboard DB、Stats DB 与配置文件；不要通过删除 Stats DB 的方式处理版本变化。
+Dashboard DB 使用内嵌 Goose migration 自动升级，当前 schema 为 17；Stats schema 为 6，`stats_version` 仍为 1，Aggregate Contract 与 Achievement Contract 均为 v1。升级前仍应停止服务并同时备份 Dashboard DB、Stats DB 与配置文件；不要通过删除 Stats DB 的方式处理版本变化。
 
 Dashboard 服务器 UUID 只标识网页中的实时服务器目录，不需要管理员填写。采集器的 `sm_lps_server_key` 仍是 Stats DB 中的数据来源标识，两者边界独立。L4D2 的加入链接和 A2S 状态查询统一使用同一个服务器地址。
+
+## 游戏内页面
+
+后台“MOTD 部署帮助”会从服务器已经持久化的 A2S 规则中读取 `sm_lps_server_key`，生成跳转到 `/ingame?server=<server_key>` 的 `motd.txt`。Dashboard/Collector 不会写入游戏服务器文件，`host.txt` 仍只能放普通文本。页面请求只使用已有 A2S 快照，不会同步查服。
+
+游戏内 Home、Player、Rankings、公告/文档分别使用批准的缓存档位：Home 10/30/60/120 秒，Player 30/60/120/300 秒，Rankings 60/120/300/600 秒，内容 60/300/600/1800 秒。这里的 View Cache 与“站点设置 → 服务”的 A2S 刷新周期相互独立；缓存命中不会重新查 Stats DB 或 A2S，设置、公告、文档、服务器和个人可见性更新会主动失效相应缓存。
+
+Banner 和完整网站目的地只接受不含账号密码的绝对 HTTP/HTTPS URL。服务端不会下载、代理、探测或生成外部图片缩略图；Markdown 仅渲染安全的轻量子集，不允许脚本、iframe、音视频、样式、复杂表格和外部图片。所有 `/ingame` 玩家数据都按匿名公开可见性查询，即使请求携带 Steam 或管理员会话也不会提升权限。“完整网站”使用 Steam 外部浏览器入口，不在 MOTD WebView 内加载现代 React 站点。
 
 ## 本地开发
 
@@ -121,7 +132,7 @@ l4d2-stats diagnostics export
 
 ## API 边界
 
-- 公开：健康检查、站点、首页、服务器状态列表、Steam OpenID、玩家摘要/活动/PvE/Versus/Session/章节、排行榜和战局分析；
+- 公开：健康检查、站点、首页、服务器状态列表、Steam OpenID、玩家摘要/活动/PvE/Versus/Session/章节、排行榜、战局分析，以及服务端渲染的 `/ingame` 页面；
 - 首次设置：仅没有管理员时可用，并要求进程内一次性令牌；
-- 管理：JWT Cookie + Fiber CSRF，覆盖站点、服务器和管理员账号；监控页面及其 JSON 快照同样要求管理员 JWT；
+- 管理：JWT Cookie + Fiber CSRF，覆盖站点、服务器、游戏内页面默认值/单服覆盖/文档和管理员账号；监控页面及其 JSON 快照同样要求管理员 JWT；
 - 所有 `/api/v1/*` 错误保持 JSON，不会回退到 React HTML。
