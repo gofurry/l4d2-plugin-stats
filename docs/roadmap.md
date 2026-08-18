@@ -2,9 +2,9 @@
 
 ## Current Position
 
-当前版本为 `v1.3.4`。SourceMod 采集器使用 Stats schema 6 / `stats_version = 1`，支持 SQLite、MySQL 和 PostgreSQL；Dashboard 使用 schema 21，Aggregate Contract 与 Achievement Contract 均为 v1。Achievement Catalog 现包含 105 个底层项目和 38 个 artwork key。详细版本变化统一记录在 [`CHANGELOG.md`](../CHANGELOG.md)。
+当前版本为 `v1.3.5`。SourceMod 采集器使用 Stats schema 7 / `stats_version = 1`，支持 SQLite、MySQL 和 PostgreSQL；Dashboard 使用 schema 22，独立 Chat Audit 使用 schema 1，Aggregate Contract 与 Achievement Contract 均为 v1。Achievement Catalog 现包含 105 个底层项目和 38 个 artwork key。详细版本变化统一记录在 [`CHANGELOG.md`](../CHANGELOG.md)。
 
-系统已经具备身份与生命周期、PvE/装备、Versus 双阵营/职业和比赛结果采集，以及 Assist、真人定向互动关系、Round Context、低频 Incident、自动成就与徽章、地图/Boss/玩家分析、公开首页、个人中心、排行榜、Steam OpenID、单管理员后台、多服务器 A2S、原生 MOTD 游戏内轻量页面、日/月/终身聚合、安全保留、深度数据检查、备份恢复和脱敏诊断导出。
+系统已经具备身份与生命周期、PvE/装备、Versus 双阵营/职业和比赛结果采集，以及 Assist、高价值幸存者技巧、真人定向互动关系、Round Context、低频 Incident、自动成就与徽章、地图/Boss/玩家分析、公开首页、个人中心、排行榜、Steam OpenID、单管理员后台、聊天/连接审计、可选私有 GeoIP、多服务器 A2S、原生 MOTD 游戏内轻量页面、日/月/终身聚合、安全保留、深度数据检查、备份恢复和脱敏诊断导出。
 
 ## Compatibility Principles
 
@@ -23,6 +23,7 @@
 - 验证长时间运行时的断线恢复、Dashboard DB 锁等待、并发聚合读取和原始数据分批清理。
 - 完成桌面与移动端真实数据视觉回归、空数据和局部故障状态检查。
 - 持续审计公开 API、日志、备份和诊断包的隐私边界。
+- 在 L4D2 build 10097 按验证矩阵确认 Hunter/Charger 事件顺序与网络属性，再将 Skeet/Level 标记为真实游戏已验证。
 
 ## Medium-term Priorities
 

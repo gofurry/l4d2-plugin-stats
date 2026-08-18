@@ -4,6 +4,32 @@ All notable changes to this project are documented in this file.
 
 ## Unreleased
 
+## 1.3.5 - 2026-08-18
+
+### Added
+
+- Add nullable PvE and Versus-survivor telemetry for engine-awarded teammate protections, ledge grabs, damaging Tank-rock impacts received, Hunter Skeets, and Charger Levels.
+- Add self-contained, bounded Hunter-pounce and Charger-charge episode detectors that reuse engine state and the existing official-melee classifier without Left4DHooks or third-party skill-detection code.
+- Add default-on real-human `say`/`say_team` audit capture with a bounded collector queue, idempotent Stats transport outbox, 72-hour transport retention, and a separate Dashboard-owned `chat-audit.db` with 30-day default retention.
+- Add an administrator-only Audit Center for connection records, bounded chat search, keyset pagination, CSV/JSONL streaming exports, retention preview/confirmation, and completeness monitoring.
+- Add optional Dashboard-side Baidu IP geolocation with private/reserved filtering, HMAC-only cache keys, bounded background enrichment, masked credentials, short failure caching, and administrator-only connection display.
+- Add public raw rankings for teammate protections, Hunter Skeets, and Charger Levels while keeping ledge grabs, Tank-rock hits received, and every new metric out of the in-game portal and Aggregate Contract v1.
+
+### Changed
+
+- Upgrade Collector and Dashboard to `1.3.5`, Stats schema to 7, Dashboard schema to 22, and introduce Chat Audit schema 1; gameplay `stats_version=1` and all frozen v1 contracts remain unchanged.
+- Extend deep doctor and data-growth monitoring with nullable telemetry, chat capture/outbox completeness, Chat Audit database health, ingestion lag/gaps/drops, and GeoIP runtime/cache status.
+- Sanitize the transient chat outbox from SQLite Stats backup copies and exclude `chat-audit.db`, chat bodies, raw IP lists, and GeoIP credentials from normal backups and diagnostics.
+
+### Security
+
+- Keep every chat, raw IP, and GeoIP route behind administrator authentication and CSRF protection; search/export filters use POST bodies, provider errors are sanitized, and CSV cells are protected from formula injection.
+- Store no duplicate raw IP in Dashboard DB: normalized public addresses are keyed only by an installation-local HMAC-SHA256 secret, while the Baidu AK is masked on read and omitted from logs and diagnostics.
+
+### Validation note
+
+- SourcePawn 1.12 compilation and static detector contracts pass, but Hunter Skeet and Charger Level engine-event ordering still require the documented real-game validation matrix on L4D2 build 10097 before their semantics are declared production-verified.
+
 ## 1.3.4 - 2026-08-18
 
 ### Added

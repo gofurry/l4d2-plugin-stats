@@ -19,6 +19,7 @@
 - 全局界面语言、背景图片、页脚链接、Steam 登录、服务器目录和账号安全后台；
 - 仅管理员可访问的轻量运行监控，展示 Dashboard 进程、Go Runtime、宿主机资源和 HTTP 请求状态；
 - systemd 安装、诊断、日志轮转和单二进制生产运行。
+- 独立 `chat-audit.db`、默认 30 天保留、聊天/连接审计中心、流式 CSV/JSONL 导出，以及可选的后台百度 GeoIP 城市级近似位置。
 
 ## 目录
 
@@ -47,6 +48,9 @@ server:
 dashboard_database:
   path: "./dashboard.db"
 
+chat_audit:
+  database_path: "./chat-audit.db"
+
 stats_database:
   driver: "sqlite"
   dsn: "./l4d2_player_stats.sq3"
@@ -74,6 +78,7 @@ SQLite Stats DB 的常规连接会以只读模式打开。MySQL/PostgreSQL 若�
 - 在“安全设置”修改管理员用户名和密码。修改密码会让旧 JWT 立即失效。
 - 通过“运行监控”在新标签页查看当前 Dashboard 和宿主机的短期实时状态。
 - 通过“数据增长监控”查看数据库/日志占用、聚合水位与分析状态，分别配置聚合覆盖数据和 Incident 保留期并手动清理。
+- 通过“审计”查看最近 24 小时连接与聊天记录、Chat Audit 完整性/保留策略，并可选配置百度 GeoIP；这些接口只对管理员开放。
 
 启用 Steam 登录后，需要填写玩家实际访问 Dashboard 时使用的完整地址，例如 `https://stats.example.com` 或 `http://203.0.113.10:18848`，供 Steam 验证后返回本站；不支持子路径。若服务器无法直连 Steam，可选填代理地址，例如 `http://127.0.0.1:7890`、`http://10.0.0.8:7890` 或 `socks5://proxy.example.com:1080`；省略协议时按 HTTP 处理，且只有 Steam OpenID 请求使用该代理。没有域名或不启用 Steam 登录都不影响手动 SteamID64 查询。
 
@@ -81,7 +86,7 @@ SQLite Stats DB 的常规连接会以只读模式打开。MySQL/PostgreSQL 若�
 
 Steam 登录玩家可在个人中心“设置”中按一级 Tab 控制访客可见内容，默认只公开概览、分析和玩家关系；本人始终可以查看全部栏目。可见性由服务端接口强制执行，不是仅在浏览器中隐藏导航。
 
-Dashboard DB 使用内嵌 Goose migration 自动升级，当前 schema 为 18；Stats schema 为 6，`stats_version` 仍为 1，Aggregate Contract 与 Achievement Contract 均为 v1。升级前仍应停止服务并同时备份 Dashboard DB、Stats DB 与配置文件；不要通过删除 Stats DB 的方式处理版本变化。
+Dashboard DB 使用内嵌 Goose migration 自动升级，当前 schema 为 22；Stats schema 为 7，Chat Audit schema 为 1，`stats_version` 仍为 1，Aggregate Contract 与 Achievement Contract 均为 v1。升级前仍应停止服务并备份 Dashboard DB、Stats DB 与配置文件；常规备份有意排除 `chat-audit.db`，如需保留聊天审计应按隐私政策单独保护该文件。不要通过删除 Stats DB 的方式处理版本变化。
 
 Dashboard 服务器 UUID 只标识一个 IP:PORT 实例，不需要管理员填写。采集器的 `sm_lps_server_key` 标识逻辑服务器组：多个实例可有意共用同一 key，并共享游戏内入口、覆盖设置、文档及排行榜范围；不同逻辑组在共享 Stats DB 中必须使用不同 key。L4D2 的加入链接和 A2S 状态查询仍逐实例使用各自地址。
 
@@ -134,5 +139,5 @@ l4d2-stats diagnostics export
 
 - 公开：健康检查、站点、首页、服务器状态列表、Steam OpenID、玩家摘要/活动/PvE/Versus/Session/章节、排行榜、战局分析，以及服务端渲染的 `/ingame` 页面；
 - 首次设置：仅没有管理员时可用，并要求进程内一次性令牌；
-- 管理：JWT Cookie + Fiber CSRF，覆盖站点、服务器、游戏内页面默认值/服务器组覆盖/文档和管理员账号；监控页面及其 JSON 快照同样要求管理员 JWT；
+- 管理：JWT Cookie + Fiber CSRF，覆盖站点、服务器、游戏内页面、审计、GeoIP 设置和管理员账号；聊天关键字/IP 筛选及导出只通过 POST 请求，不进入 URL；监控页面及其 JSON 快照同样要求管理员 JWT；
 - 所有 `/api/v1/*` 错误保持 JSON，不会回退到 React HTML。

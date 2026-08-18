@@ -10,6 +10,8 @@
 - Round Context 是永久事实；Incident 是可保留的低频分析明细。不完整或历史无 Incident 的 Round 不按零事件处理。
 - Player Relationship 是永久的真人定向互动事实，不使用 Incident 保留策略；Assist 属于永久 Core Stats。
 - Achievement 解锁一经自动确认便永久保留；自动判定和历史 Backfill 只读取 retention-safe 事实，不提供手动领取、刷新或重建。
+- Chat Audit 是独立数据域：Stats DB 只保存默认 72 小时的传输 outbox，最终正文进入 Dashboard 管理的 `chat-audit.db`，默认保留 30 天且只允许管理员查询。
+- GeoIP 只在 Dashboard 管理域工作。原始 IP 仍只来自 Stats Session；Dashboard DB 仅保存 HMAC-SHA256 键和近似城市结果，不复制原始 IP。
 
 ## 增量聚合
 
@@ -32,6 +34,8 @@
 
 不会清理玩家身份、Run、Round、Player Segment、Player Relationship、PvE/Versus 核心总计或正在进行的 Session。IP 随被清理的旧 Session 一并消失，程序不会单独导出或展示它。
 
+Stats schema 7 的五个幸存者指标属于永久核心快照，但保持可空：历史 `NULL` 表示当时没有采集，不能解释为 0。它们不进入 Aggregate Contract v1。保护队友、Skeet、Level 排行榜直接读取永久原始核心行；挂边和被石块命中不提供公开排行榜。
+
 v1.3 为 Incident 引入独立保留策略，默认 180 天。它不依赖 Aggregate 覆盖，只能删除
 已结束 Round 且早于截止时间的 Incident；候选空间出现未知 Incident Contract 版本时
 必须拒绝清理。删除仍按每批 500 行短事务执行，并使用独立确认与审计。Round Context、
@@ -46,4 +50,19 @@ v1.3 为 Incident 引入独立保留策略，默认 180 天。它不依赖 Aggre
 - SQLite 删除行后文件大小不保证立即回落，页面展示的是实际数据库文件占用；
 - 应用日志由 Lumberjack 按大小、份数和天数轮转，内存缓存均有容量与 TTL 上限。
 
-“数据增长监控”页展示 Stats DB、Dashboard DB/WAL、轮转日志、聚合状态、候选清理数量和历史清理次数，用于决定是否缩短保留期或安排数据库维护窗口。
+## Chat Audit 生命周期
+
+- `sm_lps_chat_audit_enabled` 默认开启，并独立于 gameplay 模式白名单；Survival、Scavenge、Mutation 等不受支持玩法仍可审计真人聊天，但不会创建 gameplay Session/Stats。
+- Collector 先给每条符合条件的消息分配 boot 内单调序列，再尝试进入 1024 条有界队列；队列满会留下可诊断序列缺口，不阻断游戏。
+- 批量异步写入 Stats `lps_chat_outbox`，Collector 以每批最多 256 行删除超过 72 小时的传输记录；Dashboard 只读 Stats 并以 boot 游标幂等摄取。
+- `chat-audit.db` 默认保留 30 天，可选择 7/14/30/60/90/180/365 天或永久；缩短窗口会先预览影响并要求管理员确认，删除按 500 行分批。
+- 常规备份排除 `chat-audit.db`，SQLite Stats 备份副本会删除 outbox 后再归档；诊断包不含聊天正文或原始聊天数据库。MySQL/PostgreSQL 原生备份应排除 `lps_chat_outbox`，或把它视为必须单独到期的敏感传输数据。
+
+## GeoIP 生命周期与隐私
+
+- GeoIP 默认关闭，只支持管理员配置的百度普通 IP 定位 AK；Collector 不发 HTTP 请求。
+- 仅公网 IP 会在缓存未命中时进入 256 条有界队列，后台最多约 2 次/秒；私有、回环、链路本地、文档保留地址不会发给 provider。
+- 成功结果默认缓存 30 天；网络或 provider 错误只缓存 1 小时。结果是近似城市级位置，不代表精确玩家位置，海外/IPv6 能力由 provider 与账户决定。
+- 原始 IP、位置与 provider 状态只出现在管理员连接审计中，不进入公开 API、个人页、排行榜或 `/ingame`；AK 只以掩码形式返回管理前端，也不进入日志、备份诊断或错误文本。
+
+“数据增长监控”页展示 Stats DB、Dashboard DB/WAL、Chat Audit DB/WAL、轮转日志、聚合状态、聊天数量/窗口/摄取滞后/缺口/丢弃计数、GeoIP 缓存/队列/状态、候选清理数量和历史清理次数，用于决定是否缩短保留期或安排数据库维护窗口。
