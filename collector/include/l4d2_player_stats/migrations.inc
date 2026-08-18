@@ -43,6 +43,12 @@ bool LPS_GetMigrationMetadata(int version, char[] fileName, int fileNameLength, 
 			strcopy(name, nameLength, "fall_deaths");
 			return true;
 		}
+		case 7:
+		{
+			strcopy(fileName, fileNameLength, "0007_high_value_telemetry_chat.sql");
+			strcopy(name, nameLength, "high_value_telemetry_chat");
+			return true;
+		}
 	}
 	return false;
 }

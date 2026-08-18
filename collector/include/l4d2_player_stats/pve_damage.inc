@@ -122,6 +122,8 @@ public void LPS_OnTakeDamageAlivePost(
 		return;
 	}
 
+	LPS_RecordTankRockHitReceived(victim, attacker, inflictor, actualDamage);
+
 	if (g_LPSModeFamily == LPSModeFamily_PvE)
 	{
 		LPS_RecordPvEDamage(victim, attacker, inflictor, actualDamage);

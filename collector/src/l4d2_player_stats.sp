@@ -25,8 +25,10 @@
 #include <l4d2_player_stats/pve_extended>
 #include <l4d2_player_stats/versus_survivor_detail>
 #include <l4d2_player_stats/pve_interactions>
+#include <l4d2_player_stats/survivor_techniques>
 #include <l4d2_player_stats/survivor_incidents>
 #include <l4d2_player_stats/analysis_persistence>
+#include <l4d2_player_stats/chat_audit>
 #include <l4d2_player_stats/migrations>
 #include <l4d2_player_stats/database>
 #include <l4d2_player_stats/commands>
@@ -69,9 +71,11 @@ public void OnPluginStart()
 	LPS_InitializeVersusStats();
 	LPS_InitializeVersusAbilities();
 	LPS_InitializeEquipmentStats();
+	LPS_InitializeSurvivorTechniques();
 	LPS_InitializeExtendedPvEStats();
 	LPS_InitializePvEInteractions();
 	LPS_InitializeSurvivorIncidents();
+	LPS_InitializeChatAudit();
 	LPS_RegisterAdminCommands();
 	AutoExecConfig(true, "l4d2_player_stats");
 
@@ -88,9 +92,11 @@ public void OnPluginEnd()
 	LPS_ShutdownLifecycles();
 	LPS_ShutdownVersusResults();
 	LPS_ShutdownSurvivorIncidents();
+	LPS_ShutdownChatAudit();
 	LPS_ShutdownPvEInteractions();
 	LPS_ShutdownExtendedPvEStats();
 	LPS_ShutdownEquipmentStats();
+	LPS_ShutdownSurvivorTechniques();
 	LPS_ShutdownVersusAbilities();
 	LPS_ShutdownVersusStats();
 	LPS_ShutdownPvEStats();

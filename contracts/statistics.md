@@ -345,7 +345,7 @@ Boomer 使用 `player_now_it.by_boomer` 记录实际被胆汁命中的真人/Bot
 - Jockey 骑乘距离；
 - Charger 冲锋距离；
 - 控制链；
-- Skeet、Level 和 Deadstop 等技术动作。
+- Deadstop 等尚未单独定义的技术动作。
 
 ## 8. 对抗比赛结果
 
@@ -420,3 +420,20 @@ Stats schema 5 通过加法迁移新增永久的真人定向互动关系表，�
 新快照写入明确的 0 或正整数。Gameplay `stats_version` 与 Aggregate Contract 均继续为
 v1。精确语义见 [`player-relationship-v1.md`](player-relationship-v1.md) 和
 [`assist-v1.md`](assist-v1.md)。
+
+Stats schema 6 为 PvE 与 Versus Survivor 增加可空的 `fall_deaths`；历史 `NULL` 表示
+未采集，新快照必须满足 `0 <= fall_deaths <= deaths`。
+
+Stats schema 7 为 PvE 与 Versus Survivor 增加五个可空绝对快照字段。旧 Segment 保持
+`NULL`，新 Segment 写入 0 或正整数：
+
+- `teammate_protections`：真人幸存者在有效 Segment 内收到引擎 `award_earned` 的 Protect Teammate award 67；不自建几何/伤害判断，也不扩展 Relationship v1。
+- `ledge_grabs`：实际从非挂边进入挂边状态的次数；重复事件幂等，Segment 开始时已经挂边只恢复状态/时长而不计数。
+- `tank_rock_hits_received`：可靠归因到 `tank_rock`、造成正有效生命伤害的命中；同一石块对同一幸存者最多一次。
+- `hunter_skeets`：真人幸存者最终击杀仍处于有效空中扑击且尚未控制幸存者的 Hunter；允许 Hunter 先前受伤，不转移最终击杀归属。
+- `charger_levels`：真人幸存者用现有固定官方近战分类最终击杀仍在有效冲锋且未成功带/撞人的 Charger；枪械、投掷物、链锯、自定义近战和冲锋结束后的击杀不计。
+
+Skeet/Level 使用有界 episode、事件失效、实体/用户复用防护和最终时刻引擎属性共同判定，
+不依赖 Left4DHooks 或第三方检测器。真实事件顺序仍必须按
+[`../docs/v1.3.5-technique-validation.md`](../docs/v1.3.5-technique-validation.md) 在 build 10097 验证。
+五个字段均不进入 Aggregate、Incident、Relationship 或 Achievement Contract v1。

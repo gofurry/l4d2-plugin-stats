@@ -222,6 +222,7 @@ void LPS_OnClientSegmentStartedForStats(int client)
 	LPS_OnClientEquipmentSegmentStarted(client);
 	LPS_OnClientExtendedSegmentStarted(client);
 	LPS_OnClientPvEInteractionSegmentStarted(client);
+	LPS_OnClientSurvivorTechniqueSegmentStarted(client);
 }
 
 void LPS_OnClientSegmentEndingForStats(int client)
@@ -231,6 +232,7 @@ void LPS_OnClientSegmentEndingForStats(int client)
 	LPS_ClearBossContributionsForClient(client);
 	if (g_LPSClientPvEStatsActive[client])
 	{
+		LPS_OnClientSurvivorTechniqueSegmentEnding(client);
 		LPS_OnClientPvEInteractionSegmentEnding(client);
 		LPS_OnClientExtendedSegmentEnding(client);
 		LPS_OnClientEquipmentSegmentEnding(client);
@@ -241,6 +243,7 @@ void LPS_OnClientSegmentEndingForStats(int client)
 	}
 
 	LPS_OnClientVersusSegmentEnding(client);
+	LPS_OnClientSurvivorTechniqueSegmentEnding(client);
 }
 
 void LPS_AddPvEStat(int client, LPSPvEStat stat, int amount)
@@ -333,6 +336,11 @@ void LPS_AddPvEStat(int client, LPSPvEStat stat, int amount)
 		case LPSPvEStat_JockeyAssists: g_LPSClientPvEStats[client].jockeyAssists += amount;
 		case LPSPvEStat_ChargerAssists: g_LPSClientPvEStats[client].chargerAssists += amount;
 		case LPSPvEStat_FallDeaths: g_LPSClientPvEStats[client].fallDeaths += amount;
+		case LPSPvEStat_TeammateProtections: g_LPSClientPvEStats[client].teammateProtections += amount;
+		case LPSPvEStat_LedgeGrabs: g_LPSClientPvEStats[client].ledgeGrabs += amount;
+		case LPSPvEStat_TankRockHitsReceived: g_LPSClientPvEStats[client].tankRockHitsReceived += amount;
+		case LPSPvEStat_HunterSkeets: g_LPSClientPvEStats[client].hunterSkeets += amount;
+		case LPSPvEStat_ChargerLevels: g_LPSClientPvEStats[client].chargerLevels += amount;
 	}
 
 	g_LPSClientPvEStats[client].revision++;
@@ -418,5 +426,10 @@ void LPS_FillClientPvEStatsSnapshot(int client, LPSPvEStatsSnapshot snapshot, bo
 	snapshot.jockeyAssists = g_LPSClientPvEStats[client].jockeyAssists;
 	snapshot.chargerAssists = g_LPSClientPvEStats[client].chargerAssists;
 	snapshot.fallDeaths = g_LPSClientPvEStats[client].fallDeaths;
+	snapshot.teammateProtections = g_LPSClientPvEStats[client].teammateProtections;
+	snapshot.ledgeGrabs = g_LPSClientPvEStats[client].ledgeGrabs;
+	snapshot.tankRockHitsReceived = g_LPSClientPvEStats[client].tankRockHitsReceived;
+	snapshot.hunterSkeets = g_LPSClientPvEStats[client].hunterSkeets;
+	snapshot.chargerLevels = g_LPSClientPvEStats[client].chargerLevels;
 	snapshot.revision = g_LPSClientPvEStats[client].revision + (closed ? 1 : 0);
 }

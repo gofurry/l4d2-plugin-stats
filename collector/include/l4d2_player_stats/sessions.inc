@@ -95,6 +95,7 @@ void LPS_InitializeSessions()
 public void OnClientConnected(int client)
 {
 	LPS_OnRelationshipClientSlotReset(client);
+	LPS_ResetSurvivorTechniqueClient(client);
 	LPS_ClearAssistContributor(client);
 	LPS_ResetAssistTarget(client);
 	LPS_ClearBossContributionsForClient(client);

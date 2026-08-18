@@ -358,5 +358,41 @@ foreach ($driver in $drivers) {
         }
     }
 
-    Write-Host "Validated $driver migrations ($($statements.Count + $secondStatements.Count + $thirdStatements.Count + $fourthStatements.Count + $fifthStatements.Count + $sixthStatements.Count) statements)."
+    $seventhMigration = Join-Path $migrationRoot "$driver\0007_high_value_telemetry_chat.sql"
+    if (-not (Test-Path -LiteralPath $seventhMigration -PathType Leaf)) {
+        throw "Missing $driver migration: $seventhMigration"
+    }
+    $seventhSQL = Get-Content -LiteralPath $seventhMigration -Raw
+    $seventhStatements = [regex]::Split(
+        $seventhSQL,
+        '(?m)^\s*-- statement-breakpoint\s*$'
+    ) | ForEach-Object { $_.Trim() } | Where-Object { $_ -ne "" }
+    $expectedSeventhStatements = if ($driver -eq "mysql") { 12 } else { 15 }
+    if ($seventhStatements.Count -ne $expectedSeventhStatements) {
+        throw "$driver migration 0007 must contain exactly $expectedSeventhStatements statements."
+    }
+    foreach ($statement in $seventhStatements) {
+        if (-not $statement.EndsWith(';')) {
+            throw "$driver migration 0007 contains a statement without a terminating semicolon."
+        }
+    }
+    foreach ($column in @("teammate_protections", "ledge_grabs", "tank_rock_hits_received", "hunter_skeets", "charger_levels")) {
+        foreach ($table in @("lps_pve_segment_stats", "lps_versus_survivor_stats")) {
+            if ($seventhSQL -notmatch "(?i)ALTER TABLE\s+$table\s+ADD COLUMN\s+$column\s+BIGINT\s+NULL") {
+                throw "$driver migration 0007 must add nullable $column to $table."
+            }
+        }
+    }
+    foreach ($table in @("lps_chat_outbox", "lps_chat_capture_state")) {
+        if ($seventhSQL -notmatch "(?i)CREATE TABLE\s+$table\b") {
+            throw "$driver migration 0007 is missing $table."
+        }
+    }
+    foreach ($index in @("lps_idx_chat_outbox_occurred", "lps_idx_chat_outbox_server", "lps_idx_chat_outbox_steam")) {
+        if ($seventhSQL -notmatch "(?i)\b$index\b") {
+            throw "$driver migration 0007 is missing index $index."
+        }
+    }
+
+    Write-Host "Validated $driver migrations ($($statements.Count + $secondStatements.Count + $thirdStatements.Count + $fourthStatements.Count + $fifthStatements.Count + $sixthStatements.Count + $seventhStatements.Count) statements)."
 }

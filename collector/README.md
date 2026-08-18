@@ -14,6 +14,22 @@ victims, and Spitter acid damage split by human/Bot survivor targets. All event
 paths update bounded memory only; snapshots share the asynchronous flush
 transaction and never enter the PvE statistics tables.
 
+Stats schema 7 adds five nullable absolute survivor fields to both PvE and
+Versus survivor snapshots: engine-awarded teammate protections, ledge-entry
+transitions, damaging Tank-rock impacts received, Hunter Skeets, and Charger
+Levels. Historical `NULL` means the Segment predates collection; v1.3.5
+snapshots always write zero or a positive value. The Skeet/Level detectors are
+bounded repository-owned episode state machines, reuse engine state and the
+existing official-melee classifier, and require real build-10097 validation as
+documented in `docs/v1.3.5-technique-validation.md`.
+
+Chat Audit is a separate default-on data domain controlled by
+`sm_lps_chat_audit_enabled 1`. Real-human `say` and `say_team` are admitted to a
+bounded 1024-row memory queue independently of the gameplay mode whitelist,
+then persisted in batches of at most 64 to the transient Stats outbox. The
+outbox is pruned after 72 hours and never turns unsupported modes into gameplay
+Sessions or Stats. Chat bodies are never written to SourceMod logs.
+
 Versus round and Run results are stored separately from player Segments. The
 collector reads L4D2 GameRules map and campaign scores, preserves raw winner
 events for diagnostics, and only derives a winner for a normally completed Run.

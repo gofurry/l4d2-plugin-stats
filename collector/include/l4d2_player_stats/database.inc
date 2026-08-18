@@ -36,6 +36,7 @@ void LPS_ApplyConfiguration()
 
 	strcopy(g_LPSServerKey, sizeof(g_LPSServerKey), configuredServerKey);
 	LPS_GenerateBootId();
+	LPS_OnChatBootStarted();
 	LPS_OnCollectorConfigured();
 	LPS_StartEligibleSessions();
 	LPS_StartConnection(true);
@@ -70,6 +71,7 @@ void LPS_StartConnection(bool resetBackoff)
 
 	LPS_CancelRetryTimer();
 	LPS_OnAnalysisConnectionLost();
+	LPS_OnChatDatabaseDisconnected();
 	LPS_CloseDatabaseHandle();
 	g_LPSConnectionGeneration++;
 	g_LPSDatabaseState = LPSDatabaseState_Connecting;
@@ -488,6 +490,7 @@ public void LPS_OnServerBootRegistered(
 	LPS_ScheduleNextFlush();
 	LPS_OnLifecycleDatabaseReady();
 	LPS_OnSessionDatabaseReady();
+	LPS_OnChatDatabaseReady();
 
 	if (g_LPSHeartbeatQueued)
 	{
