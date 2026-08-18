@@ -1,5 +1,5 @@
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
-import { cleanup, fireEvent, render, screen } from '@testing-library/react'
+import { cleanup, fireEvent, render, screen, waitFor } from '@testing-library/react'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import i18n from '../../i18n'
 import { IngameGroupSettingsEditor } from './IngameGroupSettingsEditor'
@@ -11,7 +11,7 @@ const group = {
 
 const response = {
   settings: {
-    server_key: 'main', title_mode: 'inherit', title: '', description_mode: 'inherit', description: '', short_description: '',
+    server_key: 'main', title_mode: 'inherit', title: '', description_mode: 'inherit', description: '',
     banner_mode: 'inherit', banner_url: '', background_mode: 'inherit', background_url: '', website_mode: 'inherit', website_url: '',
     highlight_mode: 'inherit', highlight_metrics: ['active_play_seconds', 'special_kills', 'rescues'], updated_at: 0,
   },
@@ -30,9 +30,15 @@ const response = {
 }
 
 describe('IngameGroupSettingsEditor', () => {
+  let fetchMock: ReturnType<typeof vi.fn>
+
   beforeEach(async () => {
     await i18n.changeLanguage('zh-CN')
-    vi.stubGlobal('fetch', vi.fn(() => Promise.resolve(new Response(JSON.stringify({ data: response, request_id: 'test' }), { status: 200, headers: { 'Content-Type': 'application/json' } }))))
+    fetchMock = vi.fn((_input: RequestInfo | URL, init?: RequestInit) => {
+      const data = init?.method === 'PUT' ? [{ ...response.quick_links[0], label: '地图合集' }] : response
+      return Promise.resolve(new Response(JSON.stringify({ data, request_id: 'test' }), { status: 200, headers: { 'Content-Type': 'application/json' } }))
+    })
+    vi.stubGlobal('fetch', fetchMock)
   })
 
   afterEach(() => {
@@ -43,6 +49,7 @@ describe('IngameGroupSettingsEditor', () => {
   it('keeps the quick-link label input mounted and focused while typing', async () => {
     const client = new QueryClient({ defaultOptions: { queries: { retry: false, gcTime: 0 } } })
     render(<QueryClientProvider client={client}><IngameGroupSettingsEditor group={group} /></QueryClientProvider>)
+    fireEvent.click(await screen.findByText('快速链接'))
     const input = await screen.findByRole('textbox', { name: '链接 1 名称' })
     input.focus()
     fireEvent.change(input, { target: { value: '地' } })
@@ -51,5 +58,7 @@ describe('IngameGroupSettingsEditor', () => {
     fireEvent.change(input, { target: { value: '地图合集' } })
     expect(input).toHaveValue('地图合集')
     expect(input).toHaveFocus()
+    expect(screen.queryByRole('button', { name: '保存快速链接' })).not.toBeInTheDocument()
+    await waitFor(() => expect(fetchMock.mock.calls.some(([, init]) => init?.method === 'PUT')).toBe(true), { timeout: 2500 })
   })
 })

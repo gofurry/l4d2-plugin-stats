@@ -8,12 +8,13 @@ All notable changes to this project are documented in this file.
 
 - Add server-group quick links backed by Dashboard schema 19, with bounded administrator editing and legacy-safe in-game Action Info Cards.
 - Show cached game mode, difficulty, latency, player instance, and first/last-play dates in the in-game portal when those values are available.
-- Add Dashboard schema 20 for per-group short descriptions and global administrator-defined map display names without changing Stats schema 6.
+- Add Dashboard schema 20 for global administrator-defined map display names and schema 21 to remove the discarded server-group short-description field, without changing Stats schema 6.
 - Add the complete official campaign map-name catalog, cached current-player location, and a bounded per-group 24-hour activity summary to the in-game portal.
 
 ### Changed
 
 - Replace unreliable MOTD external-site and direct-connect navigation with reusable zero-JavaScript `:target` instruction cards that display validated URLs and console commands as text.
+- Use friendly map names on both the regular Dashboard home and the in-game portal, remove session-count presentation from in-game rankings/player summaries, and streamline server-group administration with collapsed sections and automatic list saving.
 
 ## 1.3.4 - 2026-08-17
 

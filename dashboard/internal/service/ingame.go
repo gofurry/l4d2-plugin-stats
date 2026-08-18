@@ -76,10 +76,9 @@ func NewIngameService(dashboard ingameDashboard, statuses ingameStatusSource, pl
 }
 
 type IngameServerOption struct {
-	ServerKey        string
-	Title            string
-	ShortDescription string
-	Instances        []IngameServerOptionInstance
+	ServerKey string
+	Title     string
+	Instances []IngameServerOptionInstance
 }
 
 type IngameServerOptionInstance struct {
@@ -501,11 +500,10 @@ func (s *IngameService) portalContext(ctx context.Context, requestedKey string, 
 		status store.ServerStatus
 	}
 	type groupValue struct {
-		key              string
-		title            string
-		shortDescription string
-		config           ResolvedIngameConfig
-		members          []groupMember
+		key     string
+		title   string
+		config  ResolvedIngameConfig
+		members []groupMember
 	}
 	groups := make([]*groupValue, 0, len(servers))
 	groupByKey := make(map[string]*groupValue, len(servers))
@@ -533,12 +531,11 @@ func (s *IngameService) portalContext(ctx context.Context, requestedKey string, 
 		}
 		group.config = ResolveIngameConfig(settings, settingsByKey[group.key], fallbackTitle)
 		group.title = group.config.Appearance.Title
-		group.shortDescription = group.config.Appearance.ShortDescription
 		instances := make([]IngameServerOptionInstance, 0, len(group.members))
 		for _, member := range group.members {
 			instances = append(instances, IngameServerOptionInstance{DisplayName: member.server.DisplayName, Address: member.server.Address})
 		}
-		options = append(options, IngameServerOption{ServerKey: group.key, Title: group.title, ShortDescription: group.shortDescription, Instances: instances})
+		options = append(options, IngameServerOption{ServerKey: group.key, Title: group.title, Instances: instances})
 	}
 	requestedKey = strings.TrimSpace(requestedKey)
 	var selected *groupValue

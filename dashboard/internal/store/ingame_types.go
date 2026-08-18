@@ -34,7 +34,6 @@ type IngameServerSettings struct {
 	Title            string    `json:"title"`
 	DescriptionMode  string    `json:"description_mode"`
 	Description      string    `json:"description"`
-	ShortDescription string    `json:"short_description"`
 	BannerMode       string    `json:"banner_mode"`
 	BannerURL        string    `json:"banner_url"`
 	BackgroundMode   string    `json:"background_mode"`

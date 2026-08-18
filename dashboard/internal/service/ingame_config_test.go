@@ -26,6 +26,12 @@ func TestValidateIngameURL(t *testing.T) {
 	}
 }
 
+func TestIngameMetricCatalogExcludesSessions(t *testing.T) {
+	if _, ok := IngameMetric("sessions"); ok {
+		t.Fatal("in-game session-count ranking is still available")
+	}
+}
+
 func TestResolveIngameConfig(t *testing.T) {
 	global := store.IngameSettings{
 		Title: "Global", Description: "Global description", BannerURL: "https://example.com/global.jpg", BackgroundURL: "https://example.com/global-bg.jpg",
@@ -33,16 +39,20 @@ func TestResolveIngameConfig(t *testing.T) {
 		HighlightMetrics: [3]string{"active_play_seconds", "special_kills", "rescues"},
 	}
 	server := store.IngameServerSettings{
-		TitleMode: "override", Title: "Server", ShortDescription: "官图 · 8人 · 上海", DescriptionMode: "hidden", BannerMode: "override",
+		TitleMode: "override", Title: "Server", DescriptionMode: "hidden", BannerMode: "override",
 		BannerURL: "https://example.com/server.jpg", BackgroundMode: "override", BackgroundURL: "https://example.com/server-bg.jpg", WebsiteMode: "hidden", HighlightMode: "override",
-		HighlightMetrics: [3]string{"common_kills", "boss_kills", "sessions"},
+		HighlightMetrics: [3]string{"common_kills", "boss_kills", "rescues"},
 	}
 	resolved := ResolveIngameConfig(global, server, "Fallback")
-	if resolved.Appearance.Title != "Server" || resolved.Appearance.ShortDescription != server.ShortDescription || resolved.Appearance.Description != "" || resolved.Appearance.WebsiteURL != "" || resolved.Appearance.BannerURL != server.BannerURL || resolved.Appearance.BackgroundURL != server.BackgroundURL {
+	if resolved.Appearance.Title != "Server" || resolved.Appearance.Description != "" || resolved.Appearance.WebsiteURL != "" || resolved.Appearance.BannerURL != server.BannerURL || resolved.Appearance.BackgroundURL != server.BackgroundURL {
 		t.Fatalf("resolved appearance=%+v", resolved.Appearance)
 	}
 	if resolved.Metrics != server.HighlightMetrics || !resolved.Modules.ShowPlayers || !resolved.Modules.ShowServerIntro || !resolved.Modules.ShowServerStatus {
 		t.Fatalf("resolved config=%+v", resolved)
+	}
+	server.HighlightMetrics = [3]string{"common_kills", "boss_kills", "sessions"}
+	if metrics := ResolveIngameConfig(global, server, "Fallback").Metrics; metrics != [3]string{"active_play_seconds", "special_kills", "rescues"} {
+		t.Fatalf("legacy metrics=%+v", metrics)
 	}
 	global.Title = ""
 	server.TitleMode = "inherit"

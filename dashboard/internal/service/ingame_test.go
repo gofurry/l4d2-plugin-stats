@@ -290,14 +290,14 @@ func TestIngameHomeSelectsAmongResolvedServers(t *testing.T) {
 	settings.BackgroundURL = "https://example.com/background.jpg"
 	dashboard := &fakeIngameDashboard{settings: settings, servers: []store.GameServer{
 		{ID: "one", DisplayName: "One", Enabled: true}, {ID: "two", DisplayName: "Two", Enabled: true},
-	}, overrides: []store.IngameServerSettings{{ServerKey: "one", TitleMode: "inherit", DescriptionMode: "inherit", ShortDescription: "官图 · 8人 · 上海", BannerMode: "inherit", BackgroundMode: "inherit", WebsiteMode: "inherit", HighlightMode: "inherit"}}}
+	}, overrides: []store.IngameServerSettings{{ServerKey: "one", TitleMode: "inherit", DescriptionMode: "inherit", BannerMode: "inherit", BackgroundMode: "inherit", WebsiteMode: "inherit", HighlightMode: "inherit"}}}
 	statuses := &fakeIngameStatuses{statuses: []store.ServerStatus{{ServerID: "one", ServerKey: "one"}, {ServerID: "two", ServerKey: "two"}}}
 	service := NewIngameService(dashboard, statuses, &fakeIngamePlayers{}, &fakeIngameRankings{}, &fakeIngameAchievements{})
 	view, err := service.Home(context.Background(), "")
 	if err != nil || !view.SelectionOnly || len(view.ServerOptions) != 2 || view.ActivePage != "home" || view.Config.Appearance.BackgroundURL != settings.BackgroundURL {
 		t.Fatalf("selection view=%+v err=%v", view, err)
 	}
-	if view.ServerOptions[0].ShortDescription != "官图 · 8人 · 上海" || len(view.ServerOptions[0].Instances) != 1 || view.ServerOptions[0].Instances[0].DisplayName != "One" {
+	if len(view.ServerOptions[0].Instances) != 1 || view.ServerOptions[0].Instances[0].DisplayName != "One" {
 		t.Fatalf("selection option=%+v", view.ServerOptions[0])
 	}
 }
@@ -316,7 +316,7 @@ func TestIngameHomeAggregatesInstancesInOneServerGroup(t *testing.T) {
 			{ID: "three", DisplayName: "Group #3", Address: "127.0.0.1:27017", Enabled: true, SortOrder: 3},
 			{ID: "other", DisplayName: "Other", Address: "127.0.0.1:27018", Enabled: true, SortOrder: 4},
 		},
-		overrides: []store.IngameServerSettings{{ServerKey: "shared", TitleMode: "override", Title: "Shared Group", ShortDescription: "官图 · 8人 · 上海", DescriptionMode: "inherit", BannerMode: "inherit", BackgroundMode: "inherit", WebsiteMode: "inherit", HighlightMode: "inherit"}},
+		overrides: []store.IngameServerSettings{{ServerKey: "shared", TitleMode: "override", Title: "Shared Group", DescriptionMode: "inherit", BannerMode: "inherit", BackgroundMode: "inherit", WebsiteMode: "inherit", HighlightMode: "inherit"}},
 		mapNames:  []store.IngameMapName{{MapName: "c1m1_hotel", DisplayName: "自定义第一章"}},
 	}
 	statuses := &fakeIngameStatuses{statuses: []store.ServerStatus{
@@ -331,7 +331,7 @@ func TestIngameHomeAggregatesInstancesInOneServerGroup(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if view.Config.Appearance.Title != "Shared Group" || view.Config.Appearance.ShortDescription != "官图 · 8人 · 上海" || view.OnlineInstances != 2 || view.TotalInstances != 3 || view.OnlinePlayerCount != 2 || view.BotCount != 1 || len(view.Players) != 2 || len(view.Instances) != 3 {
+	if view.Config.Appearance.Title != "Shared Group" || view.OnlineInstances != 2 || view.TotalInstances != 3 || view.OnlinePlayerCount != 2 || view.BotCount != 1 || len(view.Players) != 2 || len(view.Instances) != 3 {
 		t.Fatalf("group view=%+v", view)
 	}
 	if view.Instances[0].ActionID == "" || view.Instances[2].ActionID != "" || view.Instances[0].Map != "自定义第一章" || view.Instances[0].GameMode != "coop" || view.Instances[0].Difficulty != "Hard" || view.Instances[0].LatencyMS != 24 {

@@ -539,7 +539,6 @@ func (q *Queries) GetGameServer(ctx context.Context, id string) (GetGameServerRo
 
 const getIngameServerSettings = `-- name: GetIngameServerSettings :one
 SELECT server_key, title_mode, title, description_mode, description,
-       short_description,
        banner_mode, banner_url, background_mode, background_url,
        website_mode, website_url,
        highlight_mode, highlight_metric_1, highlight_metric_2,
@@ -548,36 +547,15 @@ FROM ingame_server_settings
 WHERE server_key = ?1
 `
 
-type GetIngameServerSettingsRow struct {
-	ServerKey        string `json:"server_key"`
-	TitleMode        string `json:"title_mode"`
-	Title            string `json:"title"`
-	DescriptionMode  string `json:"description_mode"`
-	Description      string `json:"description"`
-	ShortDescription string `json:"short_description"`
-	BannerMode       string `json:"banner_mode"`
-	BannerUrl        string `json:"banner_url"`
-	BackgroundMode   string `json:"background_mode"`
-	BackgroundUrl    string `json:"background_url"`
-	WebsiteMode      string `json:"website_mode"`
-	WebsiteUrl       string `json:"website_url"`
-	HighlightMode    string `json:"highlight_mode"`
-	HighlightMetric1 string `json:"highlight_metric_1"`
-	HighlightMetric2 string `json:"highlight_metric_2"`
-	HighlightMetric3 string `json:"highlight_metric_3"`
-	UpdatedAt        int64  `json:"updated_at"`
-}
-
-func (q *Queries) GetIngameServerSettings(ctx context.Context, serverKey string) (GetIngameServerSettingsRow, error) {
+func (q *Queries) GetIngameServerSettings(ctx context.Context, serverKey string) (IngameServerSetting, error) {
 	row := q.db.QueryRowContext(ctx, getIngameServerSettings, serverKey)
-	var i GetIngameServerSettingsRow
+	var i IngameServerSetting
 	err := row.Scan(
 		&i.ServerKey,
 		&i.TitleMode,
 		&i.Title,
 		&i.DescriptionMode,
 		&i.Description,
-		&i.ShortDescription,
 		&i.BannerMode,
 		&i.BannerUrl,
 		&i.BackgroundMode,
@@ -1124,7 +1102,6 @@ func (q *Queries) ListIngameQuickLinks(ctx context.Context, serverKey string) ([
 
 const listIngameServerSettings = `-- name: ListIngameServerSettings :many
 SELECT server_key, title_mode, title, description_mode, description,
-       short_description,
        banner_mode, banner_url, background_mode, background_url,
        website_mode, website_url,
        highlight_mode, highlight_metric_1, highlight_metric_2,
@@ -1133,42 +1110,21 @@ FROM ingame_server_settings
 ORDER BY server_key
 `
 
-type ListIngameServerSettingsRow struct {
-	ServerKey        string `json:"server_key"`
-	TitleMode        string `json:"title_mode"`
-	Title            string `json:"title"`
-	DescriptionMode  string `json:"description_mode"`
-	Description      string `json:"description"`
-	ShortDescription string `json:"short_description"`
-	BannerMode       string `json:"banner_mode"`
-	BannerUrl        string `json:"banner_url"`
-	BackgroundMode   string `json:"background_mode"`
-	BackgroundUrl    string `json:"background_url"`
-	WebsiteMode      string `json:"website_mode"`
-	WebsiteUrl       string `json:"website_url"`
-	HighlightMode    string `json:"highlight_mode"`
-	HighlightMetric1 string `json:"highlight_metric_1"`
-	HighlightMetric2 string `json:"highlight_metric_2"`
-	HighlightMetric3 string `json:"highlight_metric_3"`
-	UpdatedAt        int64  `json:"updated_at"`
-}
-
-func (q *Queries) ListIngameServerSettings(ctx context.Context) ([]ListIngameServerSettingsRow, error) {
+func (q *Queries) ListIngameServerSettings(ctx context.Context) ([]IngameServerSetting, error) {
 	rows, err := q.db.QueryContext(ctx, listIngameServerSettings)
 	if err != nil {
 		return nil, err
 	}
 	defer rows.Close()
-	items := []ListIngameServerSettingsRow{}
+	items := []IngameServerSetting{}
 	for rows.Next() {
-		var i ListIngameServerSettingsRow
+		var i IngameServerSetting
 		if err := rows.Scan(
 			&i.ServerKey,
 			&i.TitleMode,
 			&i.Title,
 			&i.DescriptionMode,
 			&i.Description,
-			&i.ShortDescription,
 			&i.BannerMode,
 			&i.BannerUrl,
 			&i.BackgroundMode,
@@ -1567,18 +1523,17 @@ func (q *Queries) UpsertA2SStatusSnapshot(ctx context.Context, arg UpsertA2SStat
 
 const upsertIngameServerSettings = `-- name: UpsertIngameServerSettings :exec
 INSERT INTO ingame_server_settings (
-  server_key, title_mode, title, description_mode, description, short_description,
+  server_key, title_mode, title, description_mode, description,
   banner_mode, banner_url, background_mode, background_url,
   website_mode, website_url,
   highlight_mode, highlight_metric_1, highlight_metric_2,
   highlight_metric_3, updated_at
-) VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9, ?10, ?11, ?12, ?13, ?14, ?15, ?16, ?17)
+) VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9, ?10, ?11, ?12, ?13, ?14, ?15, ?16)
 ON CONFLICT(server_key) DO UPDATE SET
   title_mode = excluded.title_mode,
   title = excluded.title,
   description_mode = excluded.description_mode,
   description = excluded.description,
-  short_description = excluded.short_description,
   banner_mode = excluded.banner_mode,
   banner_url = excluded.banner_url,
   background_mode = excluded.background_mode,
@@ -1598,7 +1553,6 @@ type UpsertIngameServerSettingsParams struct {
 	Title            string `json:"title"`
 	DescriptionMode  string `json:"description_mode"`
 	Description      string `json:"description"`
-	ShortDescription string `json:"short_description"`
 	BannerMode       string `json:"banner_mode"`
 	BannerUrl        string `json:"banner_url"`
 	BackgroundMode   string `json:"background_mode"`
@@ -1619,7 +1573,6 @@ func (q *Queries) UpsertIngameServerSettings(ctx context.Context, arg UpsertInga
 		arg.Title,
 		arg.DescriptionMode,
 		arg.Description,
-		arg.ShortDescription,
 		arg.BannerMode,
 		arg.BannerUrl,
 		arg.BackgroundMode,

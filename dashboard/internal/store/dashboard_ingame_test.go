@@ -45,7 +45,6 @@ func TestDashboardIngameSettingsAndServerDocuments(t *testing.T) {
 	}
 	serverSettings.TitleMode = "override"
 	serverSettings.Title = "Main Portal"
-	serverSettings.ShortDescription = "官图 · 8人 · 上海"
 	serverSettings.DescriptionMode = "hidden"
 	serverSettings.BannerMode = "inherit"
 	serverSettings.BackgroundMode = "override"
@@ -53,7 +52,7 @@ func TestDashboardIngameSettingsAndServerDocuments(t *testing.T) {
 	serverSettings.WebsiteMode = "hidden"
 	serverSettings.HighlightMode = "inherit"
 	serverSettings, err = ingame.UpdateIngameServerSettings(ctx, serverSettings)
-	if err != nil || serverSettings.Title != "Main Portal" || serverSettings.ShortDescription != "官图 · 8人 · 上海" || serverSettings.BackgroundMode != "override" || serverSettings.BackgroundURL == "" || serverSettings.UpdatedAt == 0 {
+	if err != nil || serverSettings.Title != "Main Portal" || serverSettings.BackgroundMode != "override" || serverSettings.BackgroundURL == "" || serverSettings.UpdatedAt == 0 {
 		t.Fatalf("saved server settings=%+v err=%v", serverSettings, err)
 	}
 	for _, mode := range []string{"hidden", "inherit", "override"} {
@@ -109,7 +108,7 @@ func TestDashboardIngameSettingsAndServerDocuments(t *testing.T) {
 	}
 }
 
-func TestIngameMigrationNineteenToTwenty(t *testing.T) {
+func TestIngameMigrationNineteenToTwentyOne(t *testing.T) {
 	ctx := context.Background()
 	db, err := sql.Open("sqlite", filepath.Join(t.TempDir(), "dashboard-19.db"))
 	if err != nil {
@@ -131,16 +130,31 @@ func TestIngameMigrationNineteenToTwenty(t *testing.T) {
 	}
 	var shortDescription string
 	if err := db.QueryRowContext(ctx, `SELECT short_description FROM ingame_server_settings WHERE server_key='shared.key'`).Scan(&shortDescription); err != nil || shortDescription != "" {
-		t.Fatalf("short_description=%q err=%v", shortDescription, err)
+		t.Fatalf("schema 20 short_description=%q err=%v", shortDescription, err)
 	}
 	if _, err := db.ExecContext(ctx, `UPDATE ingame_server_settings SET short_description=? WHERE server_key='shared.key'`, strings.Repeat("字", 81)); err == nil {
-		t.Fatal("schema accepted an overlong short description")
+		t.Fatal("schema 20 accepted an overlong short description")
 	}
 	if _, err := db.ExecContext(ctx, `INSERT INTO ingame_map_names(map_name,display_name,updated_at) VALUES('c1m1_hotel','自定义大厅',1)`); err != nil {
 		t.Fatal(err)
 	}
 	if _, err := db.ExecContext(ctx, `INSERT INTO ingame_map_names(map_name,display_name,updated_at) VALUES('','invalid',1)`); err == nil {
 		t.Fatal("schema accepted an empty map_name")
+	}
+	if err := goose.UpToContext(ctx, db, "migrations", 21); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := db.ExecContext(ctx, `SELECT short_description FROM ingame_server_settings`); err == nil {
+		t.Fatal("short_description survived schema 21 migration")
+	}
+	if _, err := db.ExecContext(ctx, `SELECT 1 FROM ingame_map_names`); err != nil {
+		t.Fatalf("schema 21 removed map names: %v", err)
+	}
+	if err := goose.DownToContext(ctx, db, "migrations", 20); err != nil {
+		t.Fatal(err)
+	}
+	if err := db.QueryRowContext(ctx, `SELECT short_description FROM ingame_server_settings WHERE server_key='shared.key'`).Scan(&shortDescription); err != nil || shortDescription != "" {
+		t.Fatalf("schema 21 Down short_description=%q err=%v", shortDescription, err)
 	}
 	if err := goose.DownToContext(ctx, db, "migrations", 19); err != nil {
 		t.Fatal(err)
@@ -149,7 +163,7 @@ func TestIngameMigrationNineteenToTwenty(t *testing.T) {
 		t.Fatal("map-name table survived Down migration")
 	}
 	if _, err := db.ExecContext(ctx, `SELECT short_description FROM ingame_server_settings`); err == nil {
-		t.Fatal("short_description survived Down migration")
+		t.Fatal("short_description survived schema 20 Down migration")
 	}
 }
 

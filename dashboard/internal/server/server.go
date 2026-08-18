@@ -124,6 +124,16 @@ func New(cfg *config.Config, deps Dependencies) *fiber.App {
 		if err != nil {
 			return sendError(c, fiber.StatusServiceUnavailable, "server_status_unavailable", "server status is temporarily unavailable")
 		}
+		if mapNames, ok := deps.Dashboard.(interface {
+			ListIngameMapNames(context.Context) ([]store.IngameMapName, error)
+		}); ok {
+			if values, mapErr := mapNames.ListIngameMapNames(c.Context()); mapErr == nil {
+				resolver := service.NewMapNameResolver(values)
+				for index := range statuses {
+					statuses[index].Map = resolver.DisplayName(statuses[index].Map)
+				}
+			}
+		}
 		return sendData(c, fiber.StatusOK, statuses)
 	})
 	registerPlayerProfileRoutes(api, deps.Players, profiles, deps.Dashboard, deps.Auth, deps.Ingame)

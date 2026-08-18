@@ -9,7 +9,6 @@ export const cachePresets = {
 
 export const fallbackIngameMetrics = [
   { key: 'active_play_seconds', cn: '实际游戏时间', en: 'Active play time' },
-  { key: 'sessions', cn: '会话次数', en: 'Sessions' },
   { key: 'common_kills', cn: '普通感染者击杀', en: 'Common infected kills' },
   { key: 'special_kills', cn: '特殊感染者击杀', en: 'Special infected kills' },
   { key: 'boss_kills', cn: 'Boss 击杀', en: 'Boss kills' },
@@ -43,7 +42,8 @@ export const defaultIngameSettings: IngameSettings = {
 
 export function completeIngameSettings(settings?: Partial<IngameSettings>): IngameSettings {
   const highlights = settings?.highlight_metrics
-  const validHighlights = highlights?.length === 3 && highlights.every(Boolean)
+  const metricKeys = new Set(fallbackIngameMetrics.map(metric => metric.key as string))
+  const validHighlights = highlights?.length === 3 && highlights.every(value => metricKeys.has(value)) && new Set(highlights).size === 3
   return {
     ...defaultIngameSettings,
     ...settings,

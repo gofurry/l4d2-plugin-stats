@@ -63,7 +63,7 @@ func (s *dashboardStore) IngameServerSettings(ctx context.Context, serverKey str
 	}
 	return IngameServerSettings{
 		ServerKey: row.ServerKey, TitleMode: row.TitleMode, Title: row.Title,
-		DescriptionMode: row.DescriptionMode, Description: row.Description, ShortDescription: row.ShortDescription,
+		DescriptionMode: row.DescriptionMode, Description: row.Description,
 		BannerMode: row.BannerMode, BannerURL: row.BannerUrl,
 		BackgroundMode: row.BackgroundMode, BackgroundURL: row.BackgroundUrl,
 		WebsiteMode: row.WebsiteMode, WebsiteURL: row.WebsiteUrl,
@@ -82,7 +82,7 @@ func (s *dashboardStore) ListIngameServerSettings(ctx context.Context) ([]Ingame
 	for _, row := range rows {
 		result = append(result, IngameServerSettings{
 			ServerKey: row.ServerKey, TitleMode: row.TitleMode, Title: row.Title,
-			DescriptionMode: row.DescriptionMode, Description: row.Description, ShortDescription: row.ShortDescription,
+			DescriptionMode: row.DescriptionMode, Description: row.Description,
 			BannerMode: row.BannerMode, BannerURL: row.BannerUrl,
 			BackgroundMode: row.BackgroundMode, BackgroundURL: row.BackgroundUrl,
 			WebsiteMode: row.WebsiteMode, WebsiteURL: row.WebsiteUrl,
@@ -98,7 +98,7 @@ func (s *dashboardStore) UpdateIngameServerSettings(ctx context.Context, setting
 	settings.UpdatedAt = time.Now().Unix()
 	err := s.q.UpsertIngameServerSettings(ctx, dashsql.UpsertIngameServerSettingsParams{
 		ServerKey: settings.ServerKey, TitleMode: settings.TitleMode, Title: settings.Title,
-		DescriptionMode: settings.DescriptionMode, Description: settings.Description, ShortDescription: settings.ShortDescription,
+		DescriptionMode: settings.DescriptionMode, Description: settings.Description,
 		BannerMode: settings.BannerMode, BannerUrl: settings.BannerURL,
 		BackgroundMode: settings.BackgroundMode, BackgroundUrl: settings.BackgroundURL,
 		WebsiteMode: settings.WebsiteMode, WebsiteUrl: settings.WebsiteURL,

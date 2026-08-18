@@ -37,24 +37,27 @@
 .serverOverrideHeading h4 { margin: 0 0 4px; }
 .serverOverrideHeading > span { color: #9a8578; font-family: monospace; }
 .serverOverride form { display: grid; gap: 12px; }
-.overrideGrid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 0 16px; }
+.overrideGrid { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 0 16px; }
+.groupSections { background: transparent; }
+.groupSections :global(.ant-collapse-item) { border-color: rgba(255,255,255,.1); }
+.groupSections :global(.ant-collapse-header) { padding-inline: 0 !important; }
+.groupSections :global(.ant-collapse-content-box) { padding-inline: 0 !important; }
 .documentSection { display: grid; gap: 12px; }
 .documentSection h5 { margin: 0; }
 .quickLinkSection { display: grid; gap: 12px; padding-top: 4px; }
 .quickLinkHeading { display: flex; align-items: flex-start; justify-content: space-between; gap: 16px; }
-.quickLinkHeading h5 { margin: 0 0 4px; }
+.quickLinkHeading > div { display: grid; gap: 3px; }
 .quickLinkRow { display: grid; grid-template-columns: minmax(150px, .7fr) minmax(260px, 1.5fr) auto auto; gap: 10px; align-items: center; }
 .quickLinkActions { display: flex; gap: 6px; }
 .documentEditor { display: grid; gap: 12px; padding: 16px; border: 1px solid rgba(255,255,255,.1); border-radius: 10px; background: rgba(0,0,0,.12); }
 .documentToolbar { display: flex; align-items: center; justify-content: space-between; gap: 12px; }
+.documentToolbar > div { display: flex; align-items: center; gap: 8px; }
 .documentToolbar :global(.ant-select) { width: 150px; }
-.documentEditor > button { justify-self: start; }
 .mapNameEditor { display: grid; gap: 12px; }
 .mapNameToolbar { display: flex; align-items: center; justify-content: space-between; gap: 12px; }
 .mapNameRow { display: grid; grid-template-columns: minmax(180px, .8fr) minmax(240px, 1.2fr) auto; gap: 10px; align-items: center; }
-.mapNameEditor > button { justify-self: start; }
 
-@media (max-width: 900px) { .cacheGrid { grid-template-columns: repeat(2, minmax(0, 1fr)); } }
+@media (max-width: 900px) { .cacheGrid, .overrideGrid { grid-template-columns: repeat(2, minmax(0, 1fr)); } }
 @media (max-width: 620px) {
   .settingsCard :global(.ant-card-body) { padding: 24px 18px 28px; }
   .switchGrid, .threeColumns, .cacheGrid { grid-template-columns: 1fr; }

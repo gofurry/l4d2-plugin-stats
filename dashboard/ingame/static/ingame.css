@@ -15,7 +15,6 @@ a:hover{color:#ffb45c;text-decoration:none}
 .server-navigation-card{padding:0}
 .home-intro{padding:11px 14px;text-align:center}
 .home-intro p{margin:4px 0 0;color:#b0b0b0}
-.home-intro .short-description{color:#ddd;font-size:12px;font-weight:bold}
 .panel-divider{height:1px;margin:0 12px;background:rgba(255,255,255,.12)}
 .status-dot:before{display:block;width:7px;height:7px;-webkit-border-radius:7px;border-radius:7px;background:#a9564b;content:""}
 .online .status-dot:before{background:#7f9b68}
@@ -138,8 +137,7 @@ a:hover{color:#ffb45c;text-decoration:none}
 .selection>p{color:#b0b0b0}
 .server-choice{display:block;padding:12px 4px;border-bottom:1px solid rgba(255,255,255,.1);color:#eee}
 .server-choice:hover{padding-left:8px;background:rgba(255,255,255,.04)}
-.server-choice strong,.server-choice em,.server-choice small{display:block;margin-right:64px}
-.server-choice em{overflow:hidden;margin-top:2px;color:#ddd;font-size:12px;font-style:normal;white-space:nowrap;text-overflow:ellipsis}
+.server-choice strong,.server-choice small{display:block;margin-right:64px}
 .server-choice small{overflow:hidden;color:#909090;font-size:11px;white-space:nowrap;text-overflow:ellipsis}
 .server-choice span{float:right;color:#f2a33a}
 .error{width:80%;max-width:540px;margin:80px auto 0;padding:28px;text-align:center;background:rgba(12,12,12,.9)}

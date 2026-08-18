@@ -21,7 +21,6 @@ type IngameMetricDefinition struct {
 
 var ingameMetricCatalog = []IngameMetricDefinition{
 	{Key: "active_play_seconds", Label: "实际游戏时间", Mode: "activity", RankingMetric: "active_time", Format: "duration"},
-	{Key: "sessions", Label: "会话次数", Mode: "activity", RankingMetric: "sessions", Format: "integer"},
 	{Key: "common_kills", Label: "普通感染者击杀", Mode: "pve", RankingMetric: "common_kills", Format: "integer"},
 	{Key: "special_kills", Label: "特殊感染者击杀", Mode: "pve", RankingMetric: "special_kills", Format: "integer"},
 	{Key: "boss_kills", Label: "Boss 击杀", Mode: "pve", RankingMetric: "boss_kills", Format: "integer"},
@@ -165,9 +164,6 @@ func ValidateIngameServerSettings(settings store.IngameServerSettings) error {
 	if len(settings.Title) > 128 || len(settings.Description) > 1000 {
 		return errors.New("server title or description is too long")
 	}
-	if utf8.RuneCountInString(strings.TrimSpace(settings.ShortDescription)) > 80 {
-		return errors.New("short_description must not exceed 80 characters")
-	}
 	if settings.BannerMode == "override" {
 		if strings.TrimSpace(settings.BannerURL) == "" {
 			return errors.New("banner_url is required in override mode")
@@ -254,12 +250,11 @@ func validateIngameMetrics(metrics [3]string) error {
 }
 
 type ResolvedIngameAppearance struct {
-	Title            string
-	ShortDescription string
-	Description      string
-	BannerURL        string
-	BackgroundURL    string
-	WebsiteURL       string
+	Title         string
+	Description   string
+	BannerURL     string
+	BackgroundURL string
+	WebsiteURL    string
 }
 
 type ResolvedIngameModules struct {
@@ -297,13 +292,15 @@ func ResolveIngameConfig(global store.IngameSettings, server store.IngameServerS
 	if resolved.Appearance.Title == "" {
 		resolved.Appearance.Title = fallbackTitle
 	}
-	resolved.Appearance.ShortDescription = strings.TrimSpace(server.ShortDescription)
 	resolved.Appearance.Description = resolveMode(server.DescriptionMode, global.Description, server.Description)
 	resolved.Appearance.BannerURL = resolveMode(server.BannerMode, global.BannerURL, server.BannerURL)
 	resolved.Appearance.BackgroundURL = resolveMode(server.BackgroundMode, global.BackgroundURL, server.BackgroundURL)
 	resolved.Appearance.WebsiteURL = resolveMode(server.WebsiteMode, global.WebsiteURL, server.WebsiteURL)
 	if server.HighlightMode == "override" {
 		resolved.Metrics = server.HighlightMetrics
+	}
+	if validateIngameMetrics(resolved.Metrics) != nil {
+		resolved.Metrics = [3]string{"active_play_seconds", "special_kills", "rescues"}
 	}
 	return resolved
 }

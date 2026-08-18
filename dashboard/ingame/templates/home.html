@@ -5,7 +5,7 @@
   <h1>选择服务器</h1>
   <p>请选择要查看的服务器组。</p>
   <div class="server-choices">
-    {{range .ServerOptions}}<a class="server-choice" href="/ingame?server={{.ServerKey}}"><strong>{{.Title}}</strong>{{if .ShortDescription}}<em>{{.ShortDescription}}</em>{{end}}<small>{{range $index, $instance := .Instances}}{{if $index}} · {{end}}{{if $instance.DisplayName}}{{$instance.DisplayName}} / {{end}}{{$instance.Address}}{{end}}</small><span>进入 ›</span></a>{{end}}
+    {{range .ServerOptions}}<a class="server-choice" href="/ingame?server={{.ServerKey}}"><strong>{{.Title}}</strong><small>{{range $index, $instance := .Instances}}{{if $index}} · {{end}}{{if $instance.DisplayName}}{{$instance.DisplayName}} / {{end}}{{$instance.Address}}{{end}}</small><span>进入 ›</span></a>{{end}}
   </div>
 </div></div></body></html>
 {{else}}

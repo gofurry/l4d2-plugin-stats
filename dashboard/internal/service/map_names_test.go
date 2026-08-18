@@ -12,12 +12,14 @@ func TestMapNameResolverPrecedence(t *testing.T) {
 		{MapName: "CUSTOM_MAP", DisplayName: "三方图第一章"},
 	})
 	for raw, expected := range map[string]string{
-		"c1m1_hotel":      "自定义大厅",
-		"C5M1_WATERFRONT": "教区 1/5",
-		"c8m1_apartments": "毫不留情 1/5",
-		"c8m5_rooftops":   "毫不留情 5/5",
-		"custom_map":      "三方图第一章",
-		"unknown_map":     "unknown_map",
+		"c1m1_hotel":               "自定义大厅",
+		"C5M1_WATERFRONT":          "教区 1/5",
+		"maps/c5m1_waterfront.bsp": "教区 1/5",
+		"c6m1_riverbank":           "短暂时刻 1/3",
+		"c8m1_apartments":          "毫不留情 1/5",
+		"c8m5_rooftops":            "毫不留情 5/5",
+		"custom_map":               "三方图第一章",
+		"unknown_map":              "unknown_map",
 	} {
 		if actual := resolver.DisplayName(raw); actual != expected {
 			t.Errorf("DisplayName(%q)=%q, want %q", raw, actual, expected)

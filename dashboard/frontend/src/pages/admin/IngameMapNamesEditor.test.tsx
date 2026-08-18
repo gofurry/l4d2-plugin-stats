@@ -1,11 +1,19 @@
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
-import { cleanup, fireEvent, render, screen } from '@testing-library/react'
+import { cleanup, fireEvent, render, screen, waitFor } from '@testing-library/react'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { IngameMapNamesEditor } from './IngameMapNamesEditor'
 
 describe('IngameMapNamesEditor', () => {
+  let fetchMock: ReturnType<typeof vi.fn>
+
   beforeEach(() => {
-    vi.stubGlobal('fetch', vi.fn(() => Promise.resolve(new Response(JSON.stringify({ data: [{ map_name: 'custom_map', display_name: '三方图第一章', updated_at: 1 }], request_id: 'test' }), { status: 200, headers: { 'Content-Type': 'application/json' } }))))
+    fetchMock = vi.fn((_input: RequestInfo | URL, init?: RequestInit) => {
+      const values = init?.method === 'PUT'
+        ? [{ map_name: 'custom_campaign_m1', display_name: '三方图第一章', updated_at: 2 }]
+        : [{ map_name: 'custom_map', display_name: '三方图第一章', updated_at: 1 }]
+      return Promise.resolve(new Response(JSON.stringify({ data: values, request_id: 'test' }), { status: 200, headers: { 'Content-Type': 'application/json' } }))
+    })
+    vi.stubGlobal('fetch', fetchMock)
   })
 
   afterEach(() => {
@@ -22,5 +30,7 @@ describe('IngameMapNamesEditor', () => {
     expect(screen.getByRole('textbox', { name: '地图代码 1' })).toBe(mapInput)
     expect(mapInput).toHaveValue('custom_campaign_m1')
     expect(mapInput).toHaveFocus()
+    expect(screen.queryByRole('button', { name: '保存地图名称' })).not.toBeInTheDocument()
+    await waitFor(() => expect(fetchMock.mock.calls.some(([, init]) => init?.method === 'PUT')).toBe(true), { timeout: 2500 })
   })
 })

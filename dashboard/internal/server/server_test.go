@@ -28,6 +28,9 @@ func (testDashboardStore) MigrationVersion(context.Context) (int64, error) { ret
 func (testDashboardStore) Site(context.Context) (store.Site, error) {
 	return store.Site{Language: "zh-CN", Links: []store.FooterLink{}}, nil
 }
+func (testDashboardStore) ListIngameMapNames(context.Context) ([]store.IngameMapName, error) {
+	return []store.IngameMapName{{MapName: "custom_map", DisplayName: "自定义地图"}}, nil
+}
 
 func TestAdminJWTAndFiberCSRFProtectWrites(t *testing.T) {
 	ctx := context.Background()
@@ -231,7 +234,7 @@ func (testStatsStore) Close() error { return nil }
 type testStatusProvider struct{}
 
 func (testStatusProvider) Statuses(context.Context) ([]store.ServerStatus, error) {
-	return []store.ServerStatus{{ServerID: "main", DisplayName: "Main", Address: "127.0.0.1:27015", Online: true}}, nil
+	return []store.ServerStatus{{ServerID: "main", DisplayName: "Main", Address: "127.0.0.1:27015", Online: true, Map: "c5m1_waterfront"}}, nil
 }
 func (testStatusProvider) LastStatus(context.Context, string) (store.ServerStatus, bool, error) {
 	return store.ServerStatus{ServerID: "main", DisplayName: "Main", Address: "127.0.0.1:27015", Online: true}, true, nil
@@ -262,6 +265,14 @@ func TestAPIRoutesStayJSONAndSPAOnlyFallsBackForClientRoutes(t *testing.T) {
 		if response.StatusCode != 200 || !strings.Contains(response.Header.Get("Content-Type"), "application/json") || !strings.Contains(string(body), "request_id") {
 			t.Fatalf("GET %s = %d %s %s", path, response.StatusCode, response.Header.Get("Content-Type"), body)
 		}
+	}
+	statusResponse, err := app.Test(httptest.NewRequest("GET", "/api/v1/servers/status", nil))
+	if err != nil {
+		t.Fatal(err)
+	}
+	statusBody, _ := io.ReadAll(statusResponse.Body)
+	if !strings.Contains(string(statusBody), `"map":"教区 1/5"`) {
+		t.Fatalf("server status did not resolve the friendly map name: %s", statusBody)
 	}
 
 	response, err := app.Test(httptest.NewRequest("GET", "/api/v1/not-real", nil))

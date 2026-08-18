@@ -384,7 +384,6 @@ func normalizeIngameServerSettings(settings *store.IngameServerSettings) {
 	settings.Title = strings.TrimSpace(settings.Title)
 	settings.DescriptionMode = strings.TrimSpace(settings.DescriptionMode)
 	settings.Description = strings.TrimSpace(settings.Description)
-	settings.ShortDescription = strings.TrimSpace(settings.ShortDescription)
 	settings.BannerMode = strings.TrimSpace(settings.BannerMode)
 	settings.BannerURL = strings.TrimSpace(settings.BannerURL)
 	settings.BackgroundMode = strings.TrimSpace(settings.BackgroundMode)

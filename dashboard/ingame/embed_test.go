@@ -130,7 +130,7 @@ func TestVisualV2ShellsNavigationAndBackground(t *testing.T) {
 	base := service.IngameBaseView{
 		ServerKey: "main-key", ActivePage: "home",
 		Config: service.ResolvedIngameConfig{
-			Appearance: service.ResolvedIngameAppearance{Title: "Main", ShortDescription: "官图 · 8人 · 上海", Description: "Description", BannerURL: "https://example.com/banner.jpg", BackgroundURL: "https://example.com/background.jpg?ver=2"},
+			Appearance: service.ResolvedIngameAppearance{Title: "Main", Description: "Description", BannerURL: "https://example.com/banner.jpg", BackgroundURL: "https://example.com/background.jpg?ver=2"},
 			Modules:    service.ResolvedIngameModules{ShowPlayers: true, ShowServerIntro: true, ShowServerStatus: true},
 		},
 		OnlineInstances: 1, TotalInstances: 1, OnlinePlayerCount: 2,
@@ -145,7 +145,7 @@ func TestVisualV2ShellsNavigationAndBackground(t *testing.T) {
 		},
 	}
 	home := renderTemplate(t, renderer, "home.html", service.IngameHomeView{IngameBaseView: base, Players: []service.IngameOnlinePlayer{{Name: "福狼", InstanceName: "Main #1", DurationSeconds: 1080}}, Recent24h: &store.ServerRecent24h{ActivePlayers: 4, CommonKills: 100, SpecialKills: 20, CompletedRuns: 2}})
-	for _, expected := range []string{`class="home-banner"`, `class="home-intro"`, `class="short-description">官图 · 8人 · 上海`, `class="panel server-navigation-card home-navigation-card"`, `href="#players"`, `class="page-background"`, `background-image:url(&#34;https://example.com/background.jpg?ver=2&#34;)`, `href="#action-03"`, `connect 127.0.0.1:27015`, `模式 coop`, `难度 Hard`, `class="instance-latency">24 ms`, `死亡中心 1/4`, `近 24 小时`, `普通感染者击杀`, `Main #1`, `地图合集`, "/ingame/assets/" + AssetFingerprint() + "/ingame.css"} {
+	for _, expected := range []string{`class="home-banner"`, `class="home-intro"`, `class="panel server-navigation-card home-navigation-card"`, `href="#players"`, `class="page-background"`, `background-image:url(&#34;https://example.com/background.jpg?ver=2&#34;)`, `href="#action-03"`, `connect 127.0.0.1:27015`, `模式 coop`, `难度 Hard`, `class="instance-latency">24 ms`, `死亡中心 1/4`, `近 24 小时`, `普通感染者击杀`, `Main #1`, `地图合集`, "/ingame/assets/" + AssetFingerprint() + "/ingame.css"} {
 		if !strings.Contains(home, expected) {
 			t.Fatalf("home missing %q: %s", expected, home)
 		}
@@ -185,16 +185,19 @@ func TestVisualV2ShellsNavigationAndBackground(t *testing.T) {
 	if !strings.Contains(player, "当前在线 · Main #1 · 死亡中心 1/4 · 已连接 18m") {
 		t.Fatalf("player current-play status is missing: %s", player)
 	}
+	if strings.Contains(player, "次会话") {
+		t.Fatalf("player retained the session-count summary: %s", player)
+	}
 	selection := renderTemplate(t, renderer, "home.html", service.IngameHomeView{IngameBaseView: service.IngameBaseView{
 		SelectionOnly: true,
 		Config:        base.Config,
 		ServerOptions: []service.IngameServerOption{{
-			ServerKey: "main", Title: "Main", ShortDescription: "官图 · 8人 · 上海",
+			ServerKey: "main", Title: "Main",
 			Instances: []service.IngameServerOptionInstance{{DisplayName: "官图 #1", Address: "127.0.0.1:27015"}},
 		}},
 	}})
-	if !strings.Contains(selection, "官图 · 8人 · 上海") || !strings.Contains(selection, "官图 #1 / 127.0.0.1:27015") {
-		t.Fatalf("selection short description or address is missing: %s", selection)
+	if !strings.Contains(selection, "官图 #1 / 127.0.0.1:27015") {
+		t.Fatalf("selection instance address is missing: %s", selection)
 	}
 	statusHidden := playerBase
 	statusHidden.Config.Modules.ShowServerStatus = false

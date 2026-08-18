@@ -37,7 +37,6 @@ export interface IngameServerSettings {
   title: string
   description_mode: IngameMode
   description: string
-  short_description: string
   banner_mode: IngameMode
   banner_url: string
   background_mode: IngameMode

@@ -16,7 +16,7 @@ type MapNameResolver struct {
 func NewMapNameResolver(custom []store.IngameMapName) MapNameResolver {
 	values := make(map[string]string, len(custom))
 	for _, value := range custom {
-		key := strings.ToLower(strings.TrimSpace(value.MapName))
+		key := normalizedMapName(value.MapName)
 		label := strings.TrimSpace(value.DisplayName)
 		if key != "" && label != "" {
 			values[key] = label
@@ -27,7 +27,7 @@ func NewMapNameResolver(custom []store.IngameMapName) MapNameResolver {
 
 func (r MapNameResolver) DisplayName(mapName string) string {
 	raw := strings.TrimSpace(mapName)
-	key := strings.ToLower(raw)
+	key := normalizedMapName(raw)
 	if value := r.custom[key]; value != "" {
 		return value
 	}
@@ -37,13 +37,22 @@ func (r MapNameResolver) DisplayName(mapName string) string {
 	return raw
 }
 
+func normalizedMapName(value string) string {
+	key := strings.ToLower(strings.TrimSpace(value))
+	key = strings.ReplaceAll(key, "\\", "/")
+	if index := strings.LastIndexByte(key, '/'); index >= 0 {
+		key = key[index+1:]
+	}
+	return strings.TrimSuffix(key, ".bsp")
+}
+
 var officialIngameMapNames = map[string]string{
 	"c1m1_hotel": "死亡中心 1/4", "c1m2_streets": "死亡中心 2/4", "c1m3_mall": "死亡中心 3/4", "c1m4_atrium": "死亡中心 4/4",
 	"c2m1_highway": "黑色狂欢节 1/5", "c2m2_fairgrounds": "黑色狂欢节 2/5", "c2m3_coaster": "黑色狂欢节 3/5", "c2m4_barns": "黑色狂欢节 4/5", "c2m5_concert": "黑色狂欢节 5/5",
 	"c3m1_plankcountry": "沼泽激战 1/4", "c3m2_swamp": "沼泽激战 2/4", "c3m3_shantytown": "沼泽激战 3/4", "c3m4_plantation": "沼泽激战 4/4",
 	"c4m1_milltown_a": "暴风骤雨 1/5", "c4m2_sugarmill_a": "暴风骤雨 2/5", "c4m3_sugarmill_b": "暴风骤雨 3/5", "c4m4_milltown_b": "暴风骤雨 4/5", "c4m5_milltown_escape": "暴风骤雨 5/5",
 	"c5m1_waterfront": "教区 1/5", "c5m2_park": "教区 2/5", "c5m3_cemetery": "教区 3/5", "c5m4_quarter": "教区 4/5", "c5m5_bridge": "教区 5/5",
-	"c6m1_riverbank": "消逝 1/3", "c6m2_bedlam": "消逝 2/3", "c6m3_port": "消逝 3/3",
+	"c6m1_riverbank": "短暂时刻 1/3", "c6m2_bedlam": "短暂时刻 2/3", "c6m3_port": "短暂时刻 3/3",
 	"c7m1_docks": "牺牲 1/3", "c7m2_barge": "牺牲 2/3", "c7m3_port": "牺牲 3/3",
 	"c8m1_apartments": "毫不留情 1/5", "c8m2_subway": "毫不留情 2/5", "c8m3_sewers": "毫不留情 3/5", "c8m4_interior": "毫不留情 4/5", "c8m5_rooftops": "毫不留情 5/5",
 	"c9m1_alleys": "坠机险途 1/2", "c9m2_lots": "坠机险途 2/2",

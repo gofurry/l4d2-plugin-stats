@@ -183,7 +183,6 @@ type IngameServerSetting struct {
 	HighlightMetric2 string `json:"highlight_metric_2"`
 	HighlightMetric3 string `json:"highlight_metric_3"`
 	UpdatedAt        int64  `json:"updated_at"`
-	ShortDescription string `json:"short_description"`
 }
 
 type IngameSetting struct {
