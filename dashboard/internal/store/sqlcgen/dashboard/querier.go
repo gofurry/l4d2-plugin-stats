@@ -29,6 +29,7 @@ type Querier interface {
 	DeleteFooterLinks(ctx context.Context) error
 	DeleteGameServer(ctx context.Context, id string) (int64, error)
 	DeleteGameServers(ctx context.Context) error
+	DeleteIngameMapNames(ctx context.Context) error
 	DeleteIngameQuickLinks(ctx context.Context, serverKey string) error
 	DeleteIngameServerSettings(ctx context.Context, serverKey string) error
 	DeleteServerDocuments(ctx context.Context, serverKey string) error
@@ -37,7 +38,7 @@ type Querier interface {
 	GetAnnouncement(ctx context.Context, id string) (Announcement, error)
 	GetDataMaintenanceSettings(ctx context.Context) (GetDataMaintenanceSettingsRow, error)
 	GetGameServer(ctx context.Context, id string) (GetGameServerRow, error)
-	GetIngameServerSettings(ctx context.Context, serverKey string) (IngameServerSetting, error)
+	GetIngameServerSettings(ctx context.Context, serverKey string) (GetIngameServerSettingsRow, error)
 	GetIngameSettings(ctx context.Context) (GetIngameSettingsRow, error)
 	GetMetadata(ctx context.Context, key string) (string, error)
 	GetPublicSiteDocument(ctx context.Context, key string) (SiteDocument, error)
@@ -46,14 +47,16 @@ type Querier interface {
 	GetSiteDocument(ctx context.Context, key string) (SiteDocument, error)
 	GetSiteSettings(ctx context.Context) (GetSiteSettingsRow, error)
 	InsertAggregateRow(ctx context.Context, arg InsertAggregateRowParams) error
+	InsertIngameMapName(ctx context.Context, arg InsertIngameMapNameParams) error
 	InsertIngameQuickLink(ctx context.Context, arg InsertIngameQuickLinkParams) error
 	ListA2SStatusSnapshots(ctx context.Context) ([]string, error)
 	ListAnnouncementYears(ctx context.Context) ([]int64, error)
 	ListAnnouncements(ctx context.Context, arg ListAnnouncementsParams) ([]Announcement, error)
 	ListFooterLinks(ctx context.Context) ([]ListFooterLinksRow, error)
 	ListGameServers(ctx context.Context) ([]ListGameServersRow, error)
+	ListIngameMapNames(ctx context.Context) ([]IngameMapName, error)
 	ListIngameQuickLinks(ctx context.Context, serverKey string) ([]ListIngameQuickLinksRow, error)
-	ListIngameServerSettings(ctx context.Context) ([]IngameServerSetting, error)
+	ListIngameServerSettings(ctx context.Context) ([]ListIngameServerSettingsRow, error)
 	ListPublicFooterLinks(ctx context.Context) ([]ListPublicFooterLinksRow, error)
 	ListPublicSiteDocuments(ctx context.Context) ([]string, error)
 	ListServerDocuments(ctx context.Context, serverKey string) ([]ServerDocument, error)

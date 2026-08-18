@@ -2,6 +2,7 @@ package service
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"strings"
 	"testing"
@@ -17,10 +18,12 @@ type fakeIngameDashboard struct {
 	overrides       []store.IngameServerSettings
 	documents       []store.ServerDocument
 	quickLinks      []store.IngameQuickLink
+	mapNames        []store.IngameMapName
 	lastDocumentKey string
 	settingsCalls   int
 	overrideCalls   int
 	quickLinkCalls  int
+	mapNameCalls    int
 	visibilityCalls int
 }
 
@@ -65,6 +68,10 @@ func (f *fakeIngameDashboard) ListServerQuickLinks(_ context.Context, serverKey 
 		}
 	}
 	return result, nil
+}
+func (f *fakeIngameDashboard) ListIngameMapNames(context.Context) ([]store.IngameMapName, error) {
+	f.mapNameCalls++
+	return append([]store.IngameMapName(nil), f.mapNames...), nil
 }
 func (f *fakeIngameDashboard) PlayerProfileVisibility(context.Context, string) (store.PlayerProfileVisibility, error) {
 	f.visibilityCalls++
@@ -120,9 +127,19 @@ func (f *fakeIngameAchievements) Compact(context.Context, string) (CompactAchiev
 
 type fakeIngameRankings struct {
 	highlightCalls int
+	recentCalls    int
 	ids            []string
 	metrics        [3]string
 	lastQuery      store.RankingQuery
+	recentErr      error
+	recentServer   string
+	recentCutoff   time.Time
+}
+
+func (f *fakeIngameRankings) IngameRecent24h(_ context.Context, serverKey string, cutoff time.Time) (store.ServerRecent24h, error) {
+	f.recentCalls++
+	f.recentServer, f.recentCutoff = serverKey, cutoff
+	return store.ServerRecent24h{ActivePlayers: 4, CommonKills: 100, SpecialKills: 20, CompletedRuns: 2}, f.recentErr
 }
 
 func (f *fakeIngameRankings) List(_ context.Context, query store.RankingQuery) (store.RankingPage, error) {
@@ -177,8 +194,24 @@ func TestIngameHomeUsesBoundedCachedView(t *testing.T) {
 	if len(rankings.ids) != 32 || rankings.metrics != dashboard.settings.HighlightMetrics {
 		t.Fatalf("bounded highlight ids=%d metrics=%v", len(rankings.ids), rankings.metrics)
 	}
-	if dashboard.settingsCalls != 1 || dashboard.overrideCalls != 1 || dashboard.quickLinkCalls != 1 || statuses.calls != 1 || rankings.highlightCalls != 1 {
-		t.Fatalf("cache miss counts settings=%d overrides=%d quick_links=%d status=%d highlights=%d", dashboard.settingsCalls, dashboard.overrideCalls, dashboard.quickLinkCalls, statuses.calls, rankings.highlightCalls)
+	if dashboard.settingsCalls != 1 || dashboard.overrideCalls != 1 || dashboard.quickLinkCalls != 1 || dashboard.mapNameCalls != 1 || statuses.calls != 1 || rankings.highlightCalls != 1 || rankings.recentCalls != 1 {
+		t.Fatalf("cache miss counts settings=%d overrides=%d quick_links=%d maps=%d status=%d highlights=%d recent=%d", dashboard.settingsCalls, dashboard.overrideCalls, dashboard.quickLinkCalls, dashboard.mapNameCalls, statuses.calls, rankings.highlightCalls, rankings.recentCalls)
+	}
+	if first.Recent24h == nil || first.Recent24h.ActivePlayers != 4 || rankings.recentServer != "main" || rankings.recentCutoff.Unix() != now.Add(-24*time.Hour).Unix() {
+		t.Fatalf("recent view=%+v server=%q cutoff=%v", first.Recent24h, rankings.recentServer, rankings.recentCutoff)
+	}
+}
+
+func TestIngameHomeOmitsRecent24hWhenStatsFail(t *testing.T) {
+	now := time.Now()
+	dashboard := &fakeIngameDashboard{settings: defaultIngameTestSettings(), servers: []store.GameServer{{ID: "server", DisplayName: "Main", Enabled: true}}}
+	statuses := &fakeIngameStatuses{statuses: []store.ServerStatus{{ServerID: "server", ServerKey: "main", LastSuccessAt: now}}}
+	rankings := &fakeIngameRankings{recentErr: errors.New("stats unavailable")}
+	service := NewIngameService(dashboard, statuses, &fakeIngamePlayers{}, rankings, &fakeIngameAchievements{})
+	service.now = func() time.Time { return now }
+	view, err := service.Home(context.Background(), "main")
+	if err != nil || view.Recent24h != nil || rankings.recentCalls != 1 {
+		t.Fatalf("home=%+v recent calls=%d err=%v", view, rankings.recentCalls, err)
 	}
 }
 
@@ -187,7 +220,7 @@ func TestIngamePlayerChecksAnonymousVisibilityBeforeQueries(t *testing.T) {
 		settings: defaultIngameTestSettings(), servers: []store.GameServer{{ID: "server", DisplayName: "Main", Enabled: true}},
 		visibility: store.PlayerProfileVisibility{VisibleSections: []store.PlayerProfileSection{store.PlayerProfileAchievements}},
 	}
-	statuses := &fakeIngameStatuses{statuses: []store.ServerStatus{{ServerID: "server", ServerKey: "main", Online: true, LastSuccessAt: time.Now()}}}
+	statuses := &fakeIngameStatuses{statuses: []store.ServerStatus{{ServerID: "server", ServerKey: "main", Online: true, LastSuccessAt: time.Now(), PlayerList: []store.ServerPlayer{{Name: "Player", SteamID: "76561198000000001", DurationSeconds: 60}}}}}
 	players := &fakeIngamePlayers{}
 	achievements := &fakeIngameAchievements{}
 	service := NewIngameService(dashboard, statuses, players, &fakeIngameRankings{}, achievements)
@@ -195,7 +228,7 @@ func TestIngamePlayerChecksAnonymousVisibilityBeforeQueries(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if view.Achievements == nil || players.summaryCalls != 0 || players.pveCalls != 0 || players.relationshipCalls != 0 || players.versusCalls != 0 {
+	if view.Achievements == nil || view.CurrentPlay != nil || players.summaryCalls != 0 || players.pveCalls != 0 || players.relationshipCalls != 0 || players.versusCalls != 0 {
 		t.Fatalf("visibility leaked queries view=%+v players=%+v", view, players)
 	}
 	if achievements.calls != 1 {
@@ -216,17 +249,56 @@ func TestIngamePlayerChecksAnonymousVisibilityBeforeQueries(t *testing.T) {
 	}
 }
 
+func TestIngamePlayerShowsExactFreshCurrentPlayOnlyForPublicOverview(t *testing.T) {
+	now := time.Now()
+	steamID := "76561198000000001"
+	dashboard := &fakeIngameDashboard{
+		settings: defaultIngameTestSettings(), servers: []store.GameServer{{ID: "server", DisplayName: "官图 #1", Enabled: true}},
+		visibility: store.PlayerProfileVisibility{VisibleSections: []store.PlayerProfileSection{store.PlayerProfileOverview}},
+	}
+	statuses := &fakeIngameStatuses{statuses: []store.ServerStatus{{
+		ServerID: "server", ServerKey: "main", Online: true, Map: "c5m1_waterfront", LastSuccessAt: now,
+		PlayerList: []store.ServerPlayer{{Name: "Player", SteamID: steamID, DurationSeconds: 1080}},
+	}}}
+	service := NewIngameService(dashboard, statuses, &fakeIngamePlayers{}, &fakeIngameRankings{}, &fakeIngameAchievements{})
+	service.now = func() time.Time { return now }
+	view, err := service.Player(context.Background(), "main", steamID)
+	if err != nil || view.CurrentPlay == nil || view.CurrentPlay.InstanceName != "官图 #1" || view.CurrentPlay.MapName != "教区 1/5" || view.CurrentPlay.DurationSeconds != 1080 {
+		t.Fatalf("current play=%+v err=%v", view.CurrentPlay, err)
+	}
+
+	statuses.statuses[0].LastSuccessAt = now.Add(-2 * time.Minute)
+	staleService := NewIngameService(dashboard, statuses, &fakeIngamePlayers{}, &fakeIngameRankings{}, &fakeIngameAchievements{})
+	staleService.now = func() time.Time { return now }
+	stale, err := staleService.Player(context.Background(), "main", steamID)
+	if err != nil || stale.CurrentPlay != nil {
+		t.Fatalf("stale current play=%+v err=%v", stale.CurrentPlay, err)
+	}
+
+	statuses.statuses[0].LastSuccessAt = now
+	statuses.statuses[0].PlayerList[0].SteamID = "76561198000000002"
+	otherService := NewIngameService(dashboard, statuses, &fakeIngamePlayers{}, &fakeIngameRankings{}, &fakeIngameAchievements{})
+	otherService.now = func() time.Time { return now }
+	other, err := otherService.Player(context.Background(), "main", steamID)
+	if err != nil || other.CurrentPlay != nil {
+		t.Fatalf("non-matching current play=%+v err=%v", other.CurrentPlay, err)
+	}
+}
+
 func TestIngameHomeSelectsAmongResolvedServers(t *testing.T) {
 	settings := defaultIngameTestSettings()
 	settings.BackgroundURL = "https://example.com/background.jpg"
 	dashboard := &fakeIngameDashboard{settings: settings, servers: []store.GameServer{
 		{ID: "one", DisplayName: "One", Enabled: true}, {ID: "two", DisplayName: "Two", Enabled: true},
-	}}
+	}, overrides: []store.IngameServerSettings{{ServerKey: "one", TitleMode: "inherit", DescriptionMode: "inherit", ShortDescription: "官图 · 8人 · 上海", BannerMode: "inherit", BackgroundMode: "inherit", WebsiteMode: "inherit", HighlightMode: "inherit"}}}
 	statuses := &fakeIngameStatuses{statuses: []store.ServerStatus{{ServerID: "one", ServerKey: "one"}, {ServerID: "two", ServerKey: "two"}}}
 	service := NewIngameService(dashboard, statuses, &fakeIngamePlayers{}, &fakeIngameRankings{}, &fakeIngameAchievements{})
 	view, err := service.Home(context.Background(), "")
 	if err != nil || !view.SelectionOnly || len(view.ServerOptions) != 2 || view.ActivePage != "home" || view.Config.Appearance.BackgroundURL != settings.BackgroundURL {
 		t.Fatalf("selection view=%+v err=%v", view, err)
+	}
+	if view.ServerOptions[0].ShortDescription != "官图 · 8人 · 上海" || len(view.ServerOptions[0].Instances) != 1 || view.ServerOptions[0].Instances[0].DisplayName != "One" {
+		t.Fatalf("selection option=%+v", view.ServerOptions[0])
 	}
 }
 
@@ -244,10 +316,11 @@ func TestIngameHomeAggregatesInstancesInOneServerGroup(t *testing.T) {
 			{ID: "three", DisplayName: "Group #3", Address: "127.0.0.1:27017", Enabled: true, SortOrder: 3},
 			{ID: "other", DisplayName: "Other", Address: "127.0.0.1:27018", Enabled: true, SortOrder: 4},
 		},
-		overrides: []store.IngameServerSettings{{ServerKey: "shared", TitleMode: "override", Title: "Shared Group", DescriptionMode: "inherit", BannerMode: "inherit", BackgroundMode: "inherit", WebsiteMode: "inherit", HighlightMode: "inherit"}},
+		overrides: []store.IngameServerSettings{{ServerKey: "shared", TitleMode: "override", Title: "Shared Group", ShortDescription: "官图 · 8人 · 上海", DescriptionMode: "inherit", BannerMode: "inherit", BackgroundMode: "inherit", WebsiteMode: "inherit", HighlightMode: "inherit"}},
+		mapNames:  []store.IngameMapName{{MapName: "c1m1_hotel", DisplayName: "自定义第一章"}},
 	}
 	statuses := &fakeIngameStatuses{statuses: []store.ServerStatus{
-		{ServerID: "one", ServerKey: "shared", Online: true, Players: 3, Bots: 1, LatencyMS: 24, LastSuccessAt: now, Rules: []store.ServerRule{{Name: "mp_gamemode", Value: "coop"}, {Name: "z_difficulty", Value: "Hard"}}, PlayerList: []store.ServerPlayer{{Name: "Alice", SteamID: "76561198000000001"}}},
+		{ServerID: "one", ServerKey: "shared", Online: true, Map: "c1m1_hotel", Players: 3, Bots: 1, LatencyMS: 24, LastSuccessAt: now, Rules: []store.ServerRule{{Name: "mp_gamemode", Value: "coop"}, {Name: "z_difficulty", Value: "Hard"}}, PlayerList: []store.ServerPlayer{{Name: "Alice", SteamID: "76561198000000001"}}},
 		{ServerID: "two", ServerKey: "shared", Online: true, Players: 1, LastSuccessAt: now, PlayerList: []store.ServerPlayer{{Name: "Bob", SteamID: "76561198000000002"}}},
 		{ServerID: "three", ServerKey: "shared", Online: false, LastSuccessAt: now.Add(-time.Hour)},
 		{ServerID: "other", ServerKey: "other", Online: true, Players: 8, LastSuccessAt: now},
@@ -258,10 +331,10 @@ func TestIngameHomeAggregatesInstancesInOneServerGroup(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if view.Config.Appearance.Title != "Shared Group" || view.OnlineInstances != 2 || view.TotalInstances != 3 || view.OnlinePlayerCount != 2 || view.BotCount != 1 || len(view.Players) != 2 || len(view.Instances) != 3 {
+	if view.Config.Appearance.Title != "Shared Group" || view.Config.Appearance.ShortDescription != "官图 · 8人 · 上海" || view.OnlineInstances != 2 || view.TotalInstances != 3 || view.OnlinePlayerCount != 2 || view.BotCount != 1 || len(view.Players) != 2 || len(view.Instances) != 3 {
 		t.Fatalf("group view=%+v", view)
 	}
-	if view.Instances[0].ActionID == "" || view.Instances[2].ActionID != "" || view.Instances[0].GameMode != "coop" || view.Instances[0].Difficulty != "Hard" || view.Instances[0].LatencyMS != 24 {
+	if view.Instances[0].ActionID == "" || view.Instances[2].ActionID != "" || view.Instances[0].Map != "自定义第一章" || view.Instances[0].GameMode != "coop" || view.Instances[0].Difficulty != "Hard" || view.Instances[0].LatencyMS != 24 {
 		t.Fatalf("instance actions/details=%+v", view.Instances)
 	}
 	if view.Players[0].InstanceName != "Group #1" || len(view.QuickLinks) != 1 || view.QuickLinks[0].Label != "地图合集" {

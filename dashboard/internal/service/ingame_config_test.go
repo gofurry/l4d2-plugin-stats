@@ -33,12 +33,12 @@ func TestResolveIngameConfig(t *testing.T) {
 		HighlightMetrics: [3]string{"active_play_seconds", "special_kills", "rescues"},
 	}
 	server := store.IngameServerSettings{
-		TitleMode: "override", Title: "Server", DescriptionMode: "hidden", BannerMode: "override",
+		TitleMode: "override", Title: "Server", ShortDescription: "官图 · 8人 · 上海", DescriptionMode: "hidden", BannerMode: "override",
 		BannerURL: "https://example.com/server.jpg", BackgroundMode: "override", BackgroundURL: "https://example.com/server-bg.jpg", WebsiteMode: "hidden", HighlightMode: "override",
 		HighlightMetrics: [3]string{"common_kills", "boss_kills", "sessions"},
 	}
 	resolved := ResolveIngameConfig(global, server, "Fallback")
-	if resolved.Appearance.Title != "Server" || resolved.Appearance.Description != "" || resolved.Appearance.WebsiteURL != "" || resolved.Appearance.BannerURL != server.BannerURL || resolved.Appearance.BackgroundURL != server.BackgroundURL {
+	if resolved.Appearance.Title != "Server" || resolved.Appearance.ShortDescription != server.ShortDescription || resolved.Appearance.Description != "" || resolved.Appearance.WebsiteURL != "" || resolved.Appearance.BannerURL != server.BannerURL || resolved.Appearance.BackgroundURL != server.BackgroundURL {
 		t.Fatalf("resolved appearance=%+v", resolved.Appearance)
 	}
 	if resolved.Metrics != server.HighlightMetrics || !resolved.Modules.ShowPlayers || !resolved.Modules.ShowServerIntro || !resolved.Modules.ShowServerStatus {
@@ -56,6 +56,24 @@ func TestResolveIngameConfig(t *testing.T) {
 	server.BackgroundMode = "hidden"
 	if background := ResolveIngameConfig(global, server, "Fallback").Appearance.BackgroundURL; background != "" {
 		t.Fatalf("hidden background=%q", background)
+	}
+}
+
+func TestValidateIngameMapNames(t *testing.T) {
+	valid := []store.IngameMapName{{MapName: "c1m1_hotel", DisplayName: "自定义大厅"}, {MapName: "custom_map", DisplayName: "三方图第一章"}}
+	if err := ValidateIngameMapNames(valid); err != nil {
+		t.Fatal(err)
+	}
+	for index, values := range [][]store.IngameMapName{
+		{{MapName: "", DisplayName: "Empty"}},
+		{{MapName: "map", DisplayName: ""}},
+		{{MapName: "Map", DisplayName: "One"}, {MapName: "map", DisplayName: "Two"}},
+		{{MapName: strings.Repeat("m", 129), DisplayName: "Long"}},
+		{{MapName: "map", DisplayName: strings.Repeat("名", 81)}},
+	} {
+		if err := ValidateIngameMapNames(values); err == nil {
+			t.Errorf("invalid map-name case %d accepted: %+v", index, values)
+		}
 	}
 }
 

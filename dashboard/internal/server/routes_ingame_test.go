@@ -58,6 +58,10 @@ func (ingameMIMEStore) ListServerQuickLinks(context.Context, string) ([]store.In
 	return []store.IngameQuickLink{}, nil
 }
 
+func (ingameMIMEStore) ListIngameMapNames(context.Context) ([]store.IngameMapName, error) {
+	return []store.IngameMapName{}, nil
+}
+
 func (ingameMIMEStore) PlayerProfileVisibility(context.Context, string) (store.PlayerProfileVisibility, error) {
 	return store.PlayerProfileVisibility{}, nil
 }

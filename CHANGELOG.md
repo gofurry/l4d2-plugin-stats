@@ -8,6 +8,8 @@ All notable changes to this project are documented in this file.
 
 - Add server-group quick links backed by Dashboard schema 19, with bounded administrator editing and legacy-safe in-game Action Info Cards.
 - Show cached game mode, difficulty, latency, player instance, and first/last-play dates in the in-game portal when those values are available.
+- Add Dashboard schema 20 for per-group short descriptions and global administrator-defined map display names without changing Stats schema 6.
+- Add the complete official campaign map-name catalog, cached current-player location, and a bounded per-group 24-hour activity summary to the in-game portal.
 
 ### Changed
 

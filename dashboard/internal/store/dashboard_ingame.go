@@ -63,7 +63,7 @@ func (s *dashboardStore) IngameServerSettings(ctx context.Context, serverKey str
 	}
 	return IngameServerSettings{
 		ServerKey: row.ServerKey, TitleMode: row.TitleMode, Title: row.Title,
-		DescriptionMode: row.DescriptionMode, Description: row.Description,
+		DescriptionMode: row.DescriptionMode, Description: row.Description, ShortDescription: row.ShortDescription,
 		BannerMode: row.BannerMode, BannerURL: row.BannerUrl,
 		BackgroundMode: row.BackgroundMode, BackgroundURL: row.BackgroundUrl,
 		WebsiteMode: row.WebsiteMode, WebsiteURL: row.WebsiteUrl,
@@ -82,7 +82,7 @@ func (s *dashboardStore) ListIngameServerSettings(ctx context.Context) ([]Ingame
 	for _, row := range rows {
 		result = append(result, IngameServerSettings{
 			ServerKey: row.ServerKey, TitleMode: row.TitleMode, Title: row.Title,
-			DescriptionMode: row.DescriptionMode, Description: row.Description,
+			DescriptionMode: row.DescriptionMode, Description: row.Description, ShortDescription: row.ShortDescription,
 			BannerMode: row.BannerMode, BannerURL: row.BannerUrl,
 			BackgroundMode: row.BackgroundMode, BackgroundURL: row.BackgroundUrl,
 			WebsiteMode: row.WebsiteMode, WebsiteURL: row.WebsiteUrl,
@@ -98,7 +98,7 @@ func (s *dashboardStore) UpdateIngameServerSettings(ctx context.Context, setting
 	settings.UpdatedAt = time.Now().Unix()
 	err := s.q.UpsertIngameServerSettings(ctx, dashsql.UpsertIngameServerSettingsParams{
 		ServerKey: settings.ServerKey, TitleMode: settings.TitleMode, Title: settings.Title,
-		DescriptionMode: settings.DescriptionMode, Description: settings.Description,
+		DescriptionMode: settings.DescriptionMode, Description: settings.Description, ShortDescription: settings.ShortDescription,
 		BannerMode: settings.BannerMode, BannerUrl: settings.BannerURL,
 		BackgroundMode: settings.BackgroundMode, BackgroundUrl: settings.BackgroundURL,
 		WebsiteMode: settings.WebsiteMode, WebsiteUrl: settings.WebsiteURL,
@@ -207,6 +207,67 @@ func (s *dashboardStore) ReplaceServerQuickLinks(ctx context.Context, serverKey 
 		return nil, fmt.Errorf("commit server-group quick links: %w", err)
 	}
 	return s.ListServerQuickLinks(ctx, serverKey)
+}
+
+func (s *dashboardStore) ListIngameMapNames(ctx context.Context) ([]IngameMapName, error) {
+	rows, err := s.q.ListIngameMapNames(ctx)
+	if err != nil {
+		return nil, fmt.Errorf("list in-game map names: %w", err)
+	}
+	result := make([]IngameMapName, 0, len(rows))
+	for _, row := range rows {
+		result = append(result, IngameMapName{MapName: row.MapName, DisplayName: row.DisplayName, UpdatedAt: row.UpdatedAt})
+	}
+	return result, nil
+}
+
+func (s *dashboardStore) ReplaceIngameMapNames(ctx context.Context, values []IngameMapName) ([]IngameMapName, error) {
+	if err := validateIngameMapNames(values); err != nil {
+		return nil, err
+	}
+	tx, err := s.db.BeginTx(ctx, nil)
+	if err != nil {
+		return nil, fmt.Errorf("begin in-game map-name update: %w", err)
+	}
+	defer tx.Rollback()
+	queries := s.q.WithTx(tx)
+	if err := queries.DeleteIngameMapNames(ctx); err != nil {
+		return nil, fmt.Errorf("delete in-game map names: %w", err)
+	}
+	now := time.Now().Unix()
+	for _, value := range values {
+		if err := queries.InsertIngameMapName(ctx, dashsql.InsertIngameMapNameParams{
+			MapName: strings.ToLower(strings.TrimSpace(value.MapName)), DisplayName: strings.TrimSpace(value.DisplayName), UpdatedAt: now,
+		}); err != nil {
+			return nil, fmt.Errorf("insert in-game map name: %w", err)
+		}
+	}
+	if err := tx.Commit(); err != nil {
+		return nil, fmt.Errorf("commit in-game map-name update: %w", err)
+	}
+	return s.ListIngameMapNames(ctx)
+}
+
+func validateIngameMapNames(values []IngameMapName) error {
+	if len(values) > 512 {
+		return errors.New("at most 512 custom map names are allowed")
+	}
+	seen := make(map[string]struct{}, len(values))
+	for _, value := range values {
+		mapName := strings.ToLower(strings.TrimSpace(value.MapName))
+		displayName := strings.TrimSpace(value.DisplayName)
+		if count := utf8.RuneCountInString(mapName); count < 1 || count > 128 {
+			return errors.New("map_name must contain 1 to 128 characters")
+		}
+		if count := utf8.RuneCountInString(displayName); count < 1 || count > 80 {
+			return errors.New("display_name must contain 1 to 80 characters")
+		}
+		if _, exists := seen[mapName]; exists {
+			return fmt.Errorf("duplicate map_name %q", mapName)
+		}
+		seen[mapName] = struct{}{}
+	}
+	return nil
 }
 
 func validateQuickLinkRows(serverKey string, links []IngameQuickLink) error {

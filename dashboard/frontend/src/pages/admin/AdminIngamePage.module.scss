@@ -29,6 +29,7 @@
 .serverSelect { width: min(560px, 100%); margin-bottom: 16px; }
 .deploymentModal :global(.ant-alert) { margin-bottom: 16px; }
 .overrideModal :global(.ant-alert) { margin-bottom: 16px; }
+.mapNamesModal :global(.ant-alert) { margin-bottom: 16px; }
 .deploymentActions { display: flex; align-items: center; flex-wrap: wrap; gap: 10px; }
 .code { max-height: 320px; overflow: auto; padding: 16px; border: 1px solid rgba(255,255,255,.12); border-radius: 10px; background: rgba(0,0,0,.35); color: rgba(255,255,255,.86); white-space: pre-wrap; }
 .serverOverride { display: grid; gap: 18px; padding-top: 24px; border-top: 1px solid rgba(255,255,255,.1); }
@@ -48,6 +49,10 @@
 .documentToolbar { display: flex; align-items: center; justify-content: space-between; gap: 12px; }
 .documentToolbar :global(.ant-select) { width: 150px; }
 .documentEditor > button { justify-self: start; }
+.mapNameEditor { display: grid; gap: 12px; }
+.mapNameToolbar { display: flex; align-items: center; justify-content: space-between; gap: 12px; }
+.mapNameRow { display: grid; grid-template-columns: minmax(180px, .8fr) minmax(240px, 1.2fr) auto; gap: 10px; align-items: center; }
+.mapNameEditor > button { justify-self: start; }
 
 @media (max-width: 900px) { .cacheGrid { grid-template-columns: repeat(2, minmax(0, 1fr)); } }
 @media (max-width: 620px) {
@@ -56,6 +61,7 @@
   .overrideGrid { grid-template-columns: 1fr; }
   .serverOverrideHeading { display: grid; }
   .quickLinkHeading, .quickLinkRow { display: grid; grid-template-columns: 1fr; }
+  .mapNameRow { grid-template-columns: 1fr; }
 }
 
 :global(html[data-theme='dark']) {

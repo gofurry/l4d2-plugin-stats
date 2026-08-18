@@ -11,7 +11,7 @@ const group = {
 
 const response = {
   settings: {
-    server_key: 'main', title_mode: 'inherit', title: '', description_mode: 'inherit', description: '',
+    server_key: 'main', title_mode: 'inherit', title: '', description_mode: 'inherit', description: '', short_description: '',
     banner_mode: 'inherit', banner_url: '', background_mode: 'inherit', background_url: '', website_mode: 'inherit', website_url: '',
     highlight_mode: 'inherit', highlight_metrics: ['active_play_seconds', 'special_kills', 'rescues'], updated_at: 0,
   },

@@ -37,6 +37,7 @@ export interface IngameServerSettings {
   title: string
   description_mode: IngameMode
   description: string
+  short_description: string
   banner_mode: IngameMode
   banner_url: string
   background_mode: IngameMode
@@ -45,6 +46,12 @@ export interface IngameServerSettings {
   website_url: string
   highlight_mode: Exclude<IngameMode, 'hidden'>
   highlight_metrics: [string, string, string]
+  updated_at: number
+}
+
+export interface IngameMapName {
+  map_name: string
+  display_name: string
   updated_at: number
 }
 
@@ -99,6 +106,8 @@ export interface IngameGroupConfig {
 export const ingameAPI = {
   ingameSettings: () => request<IngameAdminConfig>('/api/v1/admin/ingame'),
   saveIngameSettings: (settings: IngameSettings) => adminWrite<IngameAdminConfig>('/api/v1/admin/ingame', 'PUT', settings),
+  ingameMapNames: () => request<IngameMapName[]>('/api/v1/admin/ingame/map-names'),
+  saveIngameMapNames: (mapNames: IngameMapName[]) => adminWrite<IngameMapName[]>('/api/v1/admin/ingame/map-names', 'PUT', { map_names: mapNames }),
   ingameGroups: () => request<IngameGroup[]>('/api/v1/admin/ingame/groups'),
   ingameGroup: (serverKey: string) => request<IngameGroupConfig>(`/api/v1/admin/ingame/groups/${encodeURIComponent(serverKey)}`),
   saveIngameGroup: (serverKey: string, settings: IngameServerSettings) => adminWrite<IngameServerSettings>(`/api/v1/admin/ingame/groups/${encodeURIComponent(serverKey)}`, 'PUT', settings),

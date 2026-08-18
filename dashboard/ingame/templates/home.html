@@ -5,7 +5,7 @@
   <h1>选择服务器</h1>
   <p>请选择要查看的服务器组。</p>
   <div class="server-choices">
-    {{range .ServerOptions}}<a class="server-choice" href="/ingame?server={{.ServerKey}}"><strong>{{.Title}}</strong><small>{{range $index, $address := .Instances}}{{if $index}} · {{end}}{{$address}}{{end}}</small><span>进入 ›</span></a>{{end}}
+    {{range .ServerOptions}}<a class="server-choice" href="/ingame?server={{.ServerKey}}"><strong>{{.Title}}</strong>{{if .ShortDescription}}<em>{{.ShortDescription}}</em>{{end}}<small>{{range $index, $instance := .Instances}}{{if $index}} · {{end}}{{if $instance.DisplayName}}{{$instance.DisplayName}} / {{end}}{{$instance.Address}}{{end}}</small><span>进入 ›</span></a>{{end}}
   </div>
 </div></div></body></html>
 {{else}}
@@ -20,6 +20,7 @@
   {{else}}<p class="empty">服务器组当前没有在线实例。</p>{{end}}
 </div>
 {{end}}
+{{if .Recent24h}}<div class="panel recent-24h"><h2>近 24 小时</h2><div class="stats recent-stats"><div><span>活跃玩家</span><strong>{{number .Recent24h.ActivePlayers}}</strong></div><div><span>普通感染者击杀</span><strong>{{number .Recent24h.CommonKills}}</strong></div><div><span>特殊感染者击杀</span><strong>{{number .Recent24h.SpecialKills}}</strong></div><div><span>战役通关</span><strong>{{number .Recent24h.CompletedRuns}}</strong></div></div></div>{{end}}
 {{if .Config.Modules.ShowHighlights}}{{if gt .OnlineInstances 0}}{{if .Highlights}}<div class="panel highlights"><h2>本局玩家 · 生涯亮点</h2><div class="highlight-cards">{{range .Highlights}}<div class="highlight-card"><span>{{.Metric.Label}}</span><strong>{{.Name}}</strong><b>{{metricValue .Metric .Value}}</b></div>{{end}}</div></div>{{else if .StatsFailed}}<div class="panel compact-message"><p class="empty">生涯亮点暂时不可用。</p></div>{{end}}{{end}}{{end}}
 {{if .Config.Modules.ShowServerStatus}}
 <div class="panel instance-status">

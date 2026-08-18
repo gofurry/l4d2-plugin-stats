@@ -41,6 +41,10 @@ func TestDatabaseContract(t *testing.T) {
 		PVE:    PVEOverview{CommonKills: 100, SpecialKills: 12, TankKills: 2, WitchKills: 1, Rescues: 9},
 		Versus: VersusOverview{CompletedMatches: 1, CompletedHalves: 1, HumanControlledKills: 9, HumanSurvivorControls: 11},
 	}, err)
+	recent, err := stats.(StatsIngameStore).ServerRecent24h(ctx, "one", time.Unix(contractBaseTime-1, 0))
+	contractEqual(t, "ServerRecent24h", recent, ServerRecent24h{ActivePlayers: 2, CommonKills: 100, SpecialKills: 12, CompletedRuns: 1}, err)
+	recentAfterRun, err := stats.(StatsIngameStore).ServerRecent24h(ctx, "one", time.Unix(contractBaseTime+450, 0))
+	contractEqual(t, "ServerRecent24h cutoff", recentAfterRun, ServerRecent24h{ActivePlayers: 1, CommonKills: 100, SpecialKills: 12}, err)
 
 	summary, err := stats.PlayerSummary(ctx, "1")
 	contractEqual(t, "PlayerSummary", summary, &PlayerSummary{

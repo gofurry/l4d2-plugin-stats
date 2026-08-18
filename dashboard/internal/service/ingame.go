@@ -30,6 +30,7 @@ type ingameDashboard interface {
 	ListServerDocuments(context.Context, string) ([]store.ServerDocument, error)
 	GetServerDocument(context.Context, string, string) (store.ServerDocument, error)
 	ListServerQuickLinks(context.Context, string) ([]store.IngameQuickLink, error)
+	ListIngameMapNames(context.Context) ([]store.IngameMapName, error)
 	PlayerProfileVisibility(context.Context, string) (store.PlayerProfileVisibility, error)
 	ListAnnouncements(context.Context, store.AnnouncementFilter) (store.AnnouncementPage, error)
 	GetAnnouncement(context.Context, string) (store.Announcement, error)
@@ -54,6 +55,7 @@ type ingameAchievementSource interface {
 type ingameRankingSource interface {
 	List(context.Context, store.RankingQuery) (store.RankingPage, error)
 	IngameHighlights(context.Context, string, []string, [3]string) ([]IngameHighlight, error)
+	IngameRecent24h(context.Context, string, time.Time) (store.ServerRecent24h, error)
 }
 
 type IngameService struct {
@@ -74,9 +76,15 @@ func NewIngameService(dashboard ingameDashboard, statuses ingameStatusSource, pl
 }
 
 type IngameServerOption struct {
-	ServerKey string
-	Title     string
-	Instances []string
+	ServerKey        string
+	Title            string
+	ShortDescription string
+	Instances        []IngameServerOptionInstance
+}
+
+type IngameServerOptionInstance struct {
+	DisplayName string
+	Address     string
 }
 
 type IngameServerInstance struct {
@@ -157,6 +165,7 @@ type IngameHomeView struct {
 	Announcement *IngameAnnouncementSummary
 	Players      []IngameOnlinePlayer
 	Highlights   []IngameHighlightView
+	Recent24h    *store.ServerRecent24h
 	StatsFailed  bool
 }
 
@@ -186,11 +195,18 @@ type IngamePlayerView struct {
 	PlayerName    string
 	ShowOverview  bool
 	Summary       *store.PlayerSummary
+	CurrentPlay   *IngameCurrentPlay
 	PVE           *IngamePVEView
 	Achievements  *CompactAchievementOverview
 	Companions    []store.PlayerRelationship
 	Versus        *IngameVersusView
 	NothingPublic bool
+}
+
+type IngameCurrentPlay struct {
+	InstanceName    string
+	MapName         string
+	DurationSeconds int64
 }
 
 type IngameRankingView struct {
@@ -223,6 +239,8 @@ type ingamePortalContext struct {
 type ingameSourcedPlayer struct {
 	player       store.ServerPlayer
 	instanceName string
+	mapName      string
+	stale        bool
 }
 
 func (s *IngameService) Home(ctx context.Context, serverKey string) (IngameHomeView, error) {
@@ -245,6 +263,14 @@ func (s *IngameService) Home(ctx context.Context, serverKey string) (IngameHomeV
 		}
 		if portal.base.OnlineInstances > 0 && portal.base.Config.Modules.ShowPlayers {
 			view.Players = onlinePlayers(portal.players)
+		}
+		if s.rankings != nil {
+			recentCtx, cancel := context.WithTimeout(buildCtx, time.Second)
+			recent, recentErr := s.rankings.IngameRecent24h(recentCtx, portal.base.ServerKey, s.now().Add(-24*time.Hour))
+			cancel()
+			if recentErr == nil {
+				view.Recent24h = &recent
+			}
 		}
 		if portal.base.OnlineInstances > 0 && portal.base.Config.Modules.ShowHighlights {
 			ids, names := highlightPlayers(view.Players)
@@ -296,6 +322,7 @@ func (s *IngameService) Player(ctx context.Context, serverKey, steamID string) (
 				return ingameBuildResult{}, ErrIngamePlayerNotFound
 			}
 			view.Summary, view.PlayerName = summary, summary.LastName
+			view.CurrentPlay = currentIngamePlay(portal.players, steamID)
 			pve, pveErr := s.players.PVE(buildCtx, steamID, 0)
 			if pveErr != nil {
 				return ingameBuildResult{}, pveErr
@@ -447,6 +474,11 @@ func (s *IngameService) portalContext(ctx context.Context, requestedKey string, 
 	if err != nil {
 		return ingamePortalContext{}, err
 	}
+	customMapNames, err := s.dashboard.ListIngameMapNames(ctx)
+	if err != nil {
+		return ingamePortalContext{}, err
+	}
+	mapNames := NewMapNameResolver(customMapNames)
 	settingsByKey := make(map[string]store.IngameServerSettings, len(serverSettings))
 	for _, value := range serverSettings {
 		settingsByKey[value.ServerKey] = value
@@ -469,10 +501,11 @@ func (s *IngameService) portalContext(ctx context.Context, requestedKey string, 
 		status store.ServerStatus
 	}
 	type groupValue struct {
-		key     string
-		title   string
-		config  ResolvedIngameConfig
-		members []groupMember
+		key              string
+		title            string
+		shortDescription string
+		config           ResolvedIngameConfig
+		members          []groupMember
 	}
 	groups := make([]*groupValue, 0, len(servers))
 	groupByKey := make(map[string]*groupValue, len(servers))
@@ -500,11 +533,12 @@ func (s *IngameService) portalContext(ctx context.Context, requestedKey string, 
 		}
 		group.config = ResolveIngameConfig(settings, settingsByKey[group.key], fallbackTitle)
 		group.title = group.config.Appearance.Title
-		addresses := make([]string, 0, len(group.members))
+		group.shortDescription = group.config.Appearance.ShortDescription
+		instances := make([]IngameServerOptionInstance, 0, len(group.members))
 		for _, member := range group.members {
-			addresses = append(addresses, member.server.Address)
+			instances = append(instances, IngameServerOptionInstance{DisplayName: member.server.DisplayName, Address: member.server.Address})
 		}
-		options = append(options, IngameServerOption{ServerKey: group.key, Title: group.title, Instances: addresses})
+		options = append(options, IngameServerOption{ServerKey: group.key, Title: group.title, ShortDescription: group.shortDescription, Instances: instances})
 	}
 	requestedKey = strings.TrimSpace(requestedKey)
 	var selected *groupValue
@@ -563,7 +597,7 @@ func (s *IngameService) portalContext(ctx context.Context, requestedKey string, 
 		instance := IngameServerInstance{
 			ServerID: member.server.ID, DisplayName: instanceName,
 			Address: member.server.Address, SortOrder: member.server.SortOrder, Online: status.Online, Stale: status.Stale,
-			Checking: status.Checking, Map: status.Map, MaxPlayers: status.MaxPlayers,
+			Checking: status.Checking, Map: mapNames.DisplayName(status.Map), MaxPlayers: status.MaxPlayers,
 			Players: status.Players, Bots: status.Bots, GameMode: serverRuleValue(status.Rules, "mp_gamemode"),
 			Difficulty: serverRuleValue(status.Rules, "z_difficulty"), LatencyMS: status.LatencyMS,
 			LastSuccessAt: status.LastSuccessAt,
@@ -576,13 +610,23 @@ func (s *IngameService) portalContext(ctx context.Context, requestedKey string, 
 				instance.ActionID = addAction("加入游戏", "请在游戏控制台输入：", "connect "+address)
 			}
 			for _, player := range status.PlayerList {
-				players = append(players, ingameSourcedPlayer{player: player, instanceName: instanceName})
+				players = append(players, ingameSourcedPlayer{player: player, instanceName: instanceName, mapName: instance.Map, stale: status.Stale})
 			}
 		}
 		base.Instances = append(base.Instances, instance)
 	}
 	base.Documents = s.documentLinks(ctx, selected.key)
 	return ingamePortalContext{settings: settings, base: base, players: players}, nil
+}
+
+func currentIngamePlay(players []ingameSourcedPlayer, steamID string) *IngameCurrentPlay {
+	for _, sourced := range players {
+		if sourced.stale || sourced.player.SteamID != steamID {
+			continue
+		}
+		return &IngameCurrentPlay{InstanceName: sourced.instanceName, MapName: sourced.mapName, DurationSeconds: sourced.player.DurationSeconds}
+	}
+	return nil
 }
 
 func (s *IngameService) documentLinks(ctx context.Context, serverKey string) []IngameDocumentLink {

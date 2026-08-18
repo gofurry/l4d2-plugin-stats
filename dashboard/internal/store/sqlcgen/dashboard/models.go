@@ -151,6 +151,12 @@ type IncidentRetentionRun struct {
 	IncidentRows    int64  `json:"incident_rows"`
 }
 
+type IngameMapName struct {
+	MapName     string `json:"map_name"`
+	DisplayName string `json:"display_name"`
+	UpdatedAt   int64  `json:"updated_at"`
+}
+
 type IngameQuickLink struct {
 	ID        int64  `json:"id"`
 	ServerKey string `json:"server_key"`
@@ -177,6 +183,7 @@ type IngameServerSetting struct {
 	HighlightMetric2 string `json:"highlight_metric_2"`
 	HighlightMetric3 string `json:"highlight_metric_3"`
 	UpdatedAt        int64  `json:"updated_at"`
+	ShortDescription string `json:"short_description"`
 }
 
 type IngameSetting struct {

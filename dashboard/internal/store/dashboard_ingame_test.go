@@ -4,6 +4,7 @@ import (
 	"context"
 	"database/sql"
 	"path/filepath"
+	"strings"
 	"testing"
 
 	dashboarddb "github.com/gofurry/l4d2-plugin-stats/dashboard/database/dashboard"
@@ -44,6 +45,7 @@ func TestDashboardIngameSettingsAndServerDocuments(t *testing.T) {
 	}
 	serverSettings.TitleMode = "override"
 	serverSettings.Title = "Main Portal"
+	serverSettings.ShortDescription = "官图 · 8人 · 上海"
 	serverSettings.DescriptionMode = "hidden"
 	serverSettings.BannerMode = "inherit"
 	serverSettings.BackgroundMode = "override"
@@ -51,7 +53,7 @@ func TestDashboardIngameSettingsAndServerDocuments(t *testing.T) {
 	serverSettings.WebsiteMode = "hidden"
 	serverSettings.HighlightMode = "inherit"
 	serverSettings, err = ingame.UpdateIngameServerSettings(ctx, serverSettings)
-	if err != nil || serverSettings.Title != "Main Portal" || serverSettings.BackgroundMode != "override" || serverSettings.BackgroundURL == "" || serverSettings.UpdatedAt == 0 {
+	if err != nil || serverSettings.Title != "Main Portal" || serverSettings.ShortDescription != "官图 · 8人 · 上海" || serverSettings.BackgroundMode != "override" || serverSettings.BackgroundURL == "" || serverSettings.UpdatedAt == 0 {
 		t.Fatalf("saved server settings=%+v err=%v", serverSettings, err)
 	}
 	for _, mode := range []string{"hidden", "inherit", "override"} {
@@ -83,6 +85,13 @@ func TestDashboardIngameSettingsAndServerDocuments(t *testing.T) {
 	if _, err := ingame.ReplaceServerQuickLinks(ctx, serverKey, []IngameQuickLink{{Label: "Steam", URL: "steam://connect/127.0.0.1", SortOrder: 0, Enabled: true}}); err == nil {
 		t.Fatal("store accepted unsafe quick-link URL")
 	}
+	mapNames, err := ingame.ReplaceIngameMapNames(ctx, []IngameMapName{{MapName: " C1M1_HOTEL ", DisplayName: " 自定义大厅 "}, {MapName: "custom_map", DisplayName: "三方图第一章"}})
+	if err != nil || len(mapNames) != 2 || mapNames[0].MapName != "c1m1_hotel" || mapNames[0].DisplayName != "自定义大厅" || mapNames[0].UpdatedAt == 0 {
+		t.Fatalf("map names=%+v err=%v", mapNames, err)
+	}
+	if _, err := ingame.ReplaceIngameMapNames(ctx, []IngameMapName{{MapName: "Map", DisplayName: "One"}, {MapName: "map", DisplayName: "Two"}}); err == nil {
+		t.Fatal("store accepted duplicate case-insensitive map_name")
+	}
 
 	if err := dashboard.DeleteServer(ctx, server.ID); err != nil {
 		t.Fatal(err)
@@ -97,6 +106,50 @@ func TestDashboardIngameSettingsAndServerDocuments(t *testing.T) {
 	}
 	if err := store.db.QueryRowContext(ctx, `SELECT COUNT(*) FROM ingame_quick_links`).Scan(&count); err != nil || count != 2 {
 		t.Fatalf("server quick links after instance deletion=%d err=%v", count, err)
+	}
+}
+
+func TestIngameMigrationNineteenToTwenty(t *testing.T) {
+	ctx := context.Background()
+	db, err := sql.Open("sqlite", filepath.Join(t.TempDir(), "dashboard-19.db"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer db.Close()
+	goose.SetBaseFS(dashboarddb.Migrations)
+	if err := goose.SetDialect("sqlite3"); err != nil {
+		t.Fatal(err)
+	}
+	if err := goose.UpToContext(ctx, db, "migrations", 19); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := db.ExecContext(ctx, `INSERT INTO ingame_server_settings(server_key,updated_at) VALUES('shared.key',1)`); err != nil {
+		t.Fatal(err)
+	}
+	if err := goose.UpToContext(ctx, db, "migrations", 20); err != nil {
+		t.Fatal(err)
+	}
+	var shortDescription string
+	if err := db.QueryRowContext(ctx, `SELECT short_description FROM ingame_server_settings WHERE server_key='shared.key'`).Scan(&shortDescription); err != nil || shortDescription != "" {
+		t.Fatalf("short_description=%q err=%v", shortDescription, err)
+	}
+	if _, err := db.ExecContext(ctx, `UPDATE ingame_server_settings SET short_description=? WHERE server_key='shared.key'`, strings.Repeat("字", 81)); err == nil {
+		t.Fatal("schema accepted an overlong short description")
+	}
+	if _, err := db.ExecContext(ctx, `INSERT INTO ingame_map_names(map_name,display_name,updated_at) VALUES('c1m1_hotel','自定义大厅',1)`); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := db.ExecContext(ctx, `INSERT INTO ingame_map_names(map_name,display_name,updated_at) VALUES('','invalid',1)`); err == nil {
+		t.Fatal("schema accepted an empty map_name")
+	}
+	if err := goose.DownToContext(ctx, db, "migrations", 19); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := db.ExecContext(ctx, `SELECT 1 FROM ingame_map_names`); err == nil {
+		t.Fatal("map-name table survived Down migration")
+	}
+	if _, err := db.ExecContext(ctx, `SELECT short_description FROM ingame_server_settings`); err == nil {
+		t.Fatal("short_description survived Down migration")
 	}
 }
 

@@ -215,6 +215,14 @@ func (s *RankingService) SearchPlayers(ctx context.Context, query string) ([]sto
 	return s.stats.SearchPlayers(ctx, strings.TrimSpace(query), 20)
 }
 
+func (s *RankingService) IngameRecent24h(ctx context.Context, serverKey string, cutoff time.Time) (store.ServerRecent24h, error) {
+	recent, ok := s.stats.(store.StatsIngameStore)
+	if !ok {
+		return store.ServerRecent24h{}, fmt.Errorf("in-game recent statistics are unavailable")
+	}
+	return recent.ServerRecent24h(ctx, serverKey, cutoff)
+}
+
 type IngameHighlight struct {
 	Metric  IngameMetricDefinition
 	SteamID string

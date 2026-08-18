@@ -1,4 +1,4 @@
-import { CodeOutlined, CopyOutlined, SettingOutlined } from '@ant-design/icons'
+import { CodeOutlined, CopyOutlined, EnvironmentOutlined, SettingOutlined } from '@ant-design/icons'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { Alert, Button, Card, Form, Input, Modal, Select, Switch, Typography, message } from 'antd'
 import { useEffect, useState } from 'react'
@@ -7,6 +7,7 @@ import { api, type IngameSettings } from '../../api'
 import { FloatingToolbar } from '../../components/FloatingToolbar'
 import { cachePresets, completeIngameSettings, defaultIngameSettings, fallbackIngameMetrics } from './AdminIngameDefaults'
 import { IngameGroupSettingsEditor } from './IngameGroupSettingsEditor'
+import { IngameMapNamesEditor } from './IngameMapNamesEditor'
 import styles from './AdminIngamePage.module.scss'
 
 function validHTTPURL(value?: string) {
@@ -26,6 +27,7 @@ export function AdminIngamePage() {
   const groups = useQuery({ queryKey: ['admin-ingame-groups'], queryFn: api.ingameGroups })
   const [deploymentOpen, setDeploymentOpen] = useState(false)
   const [groupOverrideOpen, setGroupOverrideOpen] = useState(false)
+  const [mapNamesOpen, setMapNamesOpen] = useState(false)
   const [selectedGroup, setSelectedGroup] = useState<string>()
   const [editingGroup, setEditingGroup] = useState<string>()
   const [form] = Form.useForm<IngameSettings>()
@@ -55,6 +57,7 @@ export function AdminIngamePage() {
   return <div className={styles.page}>
     <FloatingToolbar ariaLabel={label('游戏内页面工具', 'In-game portal tools')} items={[
       { key: 'groups', label: label('服务器组覆盖', 'Server-group overrides'), icon: <SettingOutlined />, onClick: () => setGroupOverrideOpen(true) },
+      { key: 'maps', label: label('地图名称', 'Map names'), icon: <EnvironmentOutlined />, onClick: () => setMapNamesOpen(true) },
       { key: 'motd', label: label('MOTD 部署帮助', 'MOTD deployment help'), icon: <CodeOutlined />, onClick: () => setDeploymentOpen(true) },
     ]} />
     <Form form={form} layout="vertical" initialValues={defaultIngameSettings} onFinish={value => save.mutate(value)}>
@@ -107,6 +110,10 @@ export function AdminIngamePage() {
       {!groups.isLoading && groups.data?.length === 0 && <Alert type="info" showIcon title={label('尚未从 A2S 快照发现可配置的服务器组。', 'No configurable server group has been discovered from A2S snapshots.')} />}
       {(groups.data?.length ?? 0) > 0 && <Select className={styles.groupSelect} value={editingGroup} onChange={setEditingGroup} placeholder={label('选择服务器组', 'Select a server group')} options={groups.data?.map(group => ({ value: group.server_key, label: `${group.title} · ${group.server_key} · ${group.instances.length} ${label('个实例', 'instances')}` }))} />}
       {editGroup && <IngameGroupSettingsEditor group={editGroup} />}
+    </Modal>
+
+    <Modal className={styles.mapNamesModal} width={820} open={mapNamesOpen} title={label('自定义地图名称', 'Custom map names')} footer={null} onCancel={() => setMapNamesOpen(false)} destroyOnHidden>
+      <IngameMapNamesEditor zh={zh} />
     </Modal>
 
     <Modal className={styles.deploymentModal} width={720} open={deploymentOpen} title={label('MOTD 部署帮助', 'MOTD deployment help')} footer={null} onCancel={() => setDeploymentOpen(false)} destroyOnHidden>

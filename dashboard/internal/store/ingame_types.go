@@ -34,6 +34,7 @@ type IngameServerSettings struct {
 	Title            string    `json:"title"`
 	DescriptionMode  string    `json:"description_mode"`
 	Description      string    `json:"description"`
+	ShortDescription string    `json:"short_description"`
 	BannerMode       string    `json:"banner_mode"`
 	BannerURL        string    `json:"banner_url"`
 	BackgroundMode   string    `json:"background_mode"`
@@ -43,6 +44,12 @@ type IngameServerSettings struct {
 	HighlightMode    string    `json:"highlight_mode"`
 	HighlightMetrics [3]string `json:"highlight_metrics"`
 	UpdatedAt        int64     `json:"updated_at"`
+}
+
+type IngameMapName struct {
+	MapName     string `json:"map_name"`
+	DisplayName string `json:"display_name"`
+	UpdatedAt   int64  `json:"updated_at"`
 }
 
 type ServerDocument struct {
@@ -74,4 +81,6 @@ type DashboardIngameStore interface {
 	DeleteServerDocuments(context.Context, string) error
 	ListServerQuickLinks(context.Context, string) ([]IngameQuickLink, error)
 	ReplaceServerQuickLinks(context.Context, string, []IngameQuickLink) ([]IngameQuickLink, error)
+	ListIngameMapNames(context.Context) ([]IngameMapName, error)
+	ReplaceIngameMapNames(context.Context, []IngameMapName) ([]IngameMapName, error)
 }

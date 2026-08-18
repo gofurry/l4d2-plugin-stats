@@ -198,6 +198,33 @@ func (s *statsStore) Overview(ctx context.Context, activeSince time.Time) (Overv
 	return result, nil
 }
 
+func (s *statsStore) ServerRecent24h(ctx context.Context, serverKey string, cutoff time.Time) (ServerRecent24h, error) {
+	queryCtx, cancel := context.WithTimeout(ctx, s.timeout)
+	defer cancel()
+	var activePlayers, commonKills, specialKills, completedRuns int64
+	switch s.driver {
+	case "sqlite":
+		row, err := s.sqlite.GetServerRecent24h(queryCtx, statssqlite.GetServerRecent24hParams{FilterServerKey: serverKey, CutoffAt: cutoff.Unix()})
+		if err != nil {
+			return ServerRecent24h{}, fmt.Errorf("query server recent 24h: %w", err)
+		}
+		activePlayers, commonKills, specialKills, completedRuns = row.ActivePlayers, row.CommonKills, row.SpecialKills, row.CompletedRuns
+	case "mysql":
+		row, err := s.mysql.GetServerRecent24h(queryCtx, statsmysql.GetServerRecent24hParams{FilterServerKey: serverKey, CutoffAt: cutoff.Unix()})
+		if err != nil {
+			return ServerRecent24h{}, fmt.Errorf("query server recent 24h: %w", err)
+		}
+		activePlayers, commonKills, specialKills, completedRuns = row.ActivePlayers, row.CommonKills, row.SpecialKills, row.CompletedRuns
+	default:
+		row, err := s.pg.GetServerRecent24h(queryCtx, statspg.GetServerRecent24hParams{FilterServerKey: serverKey, CutoffAt: cutoff.Unix()})
+		if err != nil {
+			return ServerRecent24h{}, fmt.Errorf("query server recent 24h: %w", err)
+		}
+		activePlayers, commonKills, specialKills, completedRuns = row.ActivePlayers, row.CommonKills, row.SpecialKills, row.CompletedRuns
+	}
+	return ServerRecent24h{ActivePlayers: activePlayers, CommonKills: commonKills, SpecialKills: specialKills, CompletedRuns: completedRuns}, nil
+}
+
 func (s *statsStore) PlayerSummary(ctx context.Context, steamID string) (*PlayerSummary, error) {
 	queryCtx, cancel := context.WithTimeout(ctx, s.timeout)
 	defer cancel()

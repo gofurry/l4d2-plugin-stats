@@ -165,6 +165,9 @@ func ValidateIngameServerSettings(settings store.IngameServerSettings) error {
 	if len(settings.Title) > 128 || len(settings.Description) > 1000 {
 		return errors.New("server title or description is too long")
 	}
+	if utf8.RuneCountInString(strings.TrimSpace(settings.ShortDescription)) > 80 {
+		return errors.New("short_description must not exceed 80 characters")
+	}
 	if settings.BannerMode == "override" {
 		if strings.TrimSpace(settings.BannerURL) == "" {
 			return errors.New("banner_url is required in override mode")
@@ -191,6 +194,28 @@ func ValidateIngameServerSettings(settings store.IngameServerSettings) error {
 	}
 	if settings.HighlightMode == "override" {
 		return validateIngameMetrics(settings.HighlightMetrics)
+	}
+	return nil
+}
+
+func ValidateIngameMapNames(values []store.IngameMapName) error {
+	if len(values) > 512 {
+		return errors.New("at most 512 custom map names are allowed")
+	}
+	seen := make(map[string]struct{}, len(values))
+	for _, value := range values {
+		mapName := strings.ToLower(strings.TrimSpace(value.MapName))
+		displayName := strings.TrimSpace(value.DisplayName)
+		if count := utf8.RuneCountInString(mapName); count < 1 || count > 128 {
+			return errors.New("map_name must contain 1 to 128 characters")
+		}
+		if count := utf8.RuneCountInString(displayName); count < 1 || count > 80 {
+			return errors.New("display_name must contain 1 to 80 characters")
+		}
+		if _, exists := seen[mapName]; exists {
+			return fmt.Errorf("duplicate map_name %q", mapName)
+		}
+		seen[mapName] = struct{}{}
 	}
 	return nil
 }
@@ -229,11 +254,12 @@ func validateIngameMetrics(metrics [3]string) error {
 }
 
 type ResolvedIngameAppearance struct {
-	Title         string
-	Description   string
-	BannerURL     string
-	BackgroundURL string
-	WebsiteURL    string
+	Title            string
+	ShortDescription string
+	Description      string
+	BannerURL        string
+	BackgroundURL    string
+	WebsiteURL       string
 }
 
 type ResolvedIngameModules struct {
@@ -271,6 +297,7 @@ func ResolveIngameConfig(global store.IngameSettings, server store.IngameServerS
 	if resolved.Appearance.Title == "" {
 		resolved.Appearance.Title = fallbackTitle
 	}
+	resolved.Appearance.ShortDescription = strings.TrimSpace(server.ShortDescription)
 	resolved.Appearance.Description = resolveMode(server.DescriptionMode, global.Description, server.Description)
 	resolved.Appearance.BannerURL = resolveMode(server.BannerMode, global.BannerURL, server.BannerURL)
 	resolved.Appearance.BackgroundURL = resolveMode(server.BackgroundMode, global.BackgroundURL, server.BackgroundURL)

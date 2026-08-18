@@ -91,6 +91,64 @@ func (q *Queries) GetSchemaVersion(ctx context.Context) (int64, error) {
 	return version, err
 }
 
+const getServerRecent24h = `-- name: GetServerRecent24h :one
+SELECT
+  (SELECT CAST(COUNT(DISTINCT steam_id) AS INTEGER)
+     FROM lps_sessions
+    WHERE lps_sessions.server_key = ?1
+      AND lps_sessions.last_saved_at >= ?2
+      AND lps_sessions.active_play_seconds > 0) AS active_players,
+  (SELECT CAST(COALESCE(SUM(p.common_kills), 0) AS INTEGER)
+     FROM lps_pve_segment_stats p
+     JOIN lps_player_segments s ON s.segment_id = p.segment_id
+     JOIN lps_runs r ON r.run_id = s.run_id
+    WHERE s.server_key = ?1
+      AND p.last_saved_at >= ?2
+      AND p.stats_version = 1
+      AND r.mode_family = 'pve'
+      AND r.game_mode IN ('coop', 'realism')) AS common_kills,
+  (SELECT CAST(COALESCE(SUM(p.special_kills), 0) AS INTEGER)
+     FROM lps_pve_segment_stats p
+     JOIN lps_player_segments s ON s.segment_id = p.segment_id
+     JOIN lps_runs r ON r.run_id = s.run_id
+    WHERE s.server_key = ?1
+      AND p.last_saved_at >= ?2
+      AND p.stats_version = 1
+      AND r.mode_family = 'pve'
+      AND r.game_mode IN ('coop', 'realism')) AS special_kills,
+  (SELECT CAST(COUNT(*) AS INTEGER)
+     FROM lps_runs
+    WHERE lps_runs.server_key = ?1
+      AND lps_runs.mode_family = 'pve'
+      AND lps_runs.game_mode IN ('coop', 'realism')
+      AND lps_runs.status = 'completed'
+      AND COALESCE(lps_runs.ended_at, lps_runs.last_saved_at) >= ?2) AS completed_runs
+`
+
+type GetServerRecent24hParams struct {
+	FilterServerKey string
+	CutoffAt        int64
+}
+
+type GetServerRecent24hRow struct {
+	ActivePlayers int64
+	CommonKills   int64
+	SpecialKills  int64
+	CompletedRuns int64
+}
+
+func (q *Queries) GetServerRecent24h(ctx context.Context, arg GetServerRecent24hParams) (GetServerRecent24hRow, error) {
+	row := q.db.QueryRowContext(ctx, getServerRecent24h, arg.FilterServerKey, arg.CutoffAt)
+	var i GetServerRecent24hRow
+	err := row.Scan(
+		&i.ActivePlayers,
+		&i.CommonKills,
+		&i.SpecialKills,
+		&i.CompletedRuns,
+	)
+	return i, err
+}
+
 const getVersusOverview = `-- name: GetVersusOverview :one
 SELECT
   (SELECT COUNT(*)

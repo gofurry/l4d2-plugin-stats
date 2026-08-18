@@ -75,6 +75,43 @@ func (r *adminRoutes) putIngameSettings(c fiber.Ctx) error {
 	return sendData(c, 200, r.ingameResponse(c, updated))
 }
 
+func (r *adminRoutes) listIngameMapNames(c fiber.Ctx) error {
+	if r.ingameStore == nil {
+		return sendError(c, 503, "ingame_map_names_unavailable", "custom map names are unavailable")
+	}
+	values, err := r.ingameStore.ListIngameMapNames(c.Context())
+	if err != nil {
+		return sendError(c, 503, "ingame_map_names_unavailable", "custom map names are unavailable")
+	}
+	return sendData(c, 200, values)
+}
+
+func (r *adminRoutes) putIngameMapNames(c fiber.Ctx) error {
+	if r.ingameStore == nil {
+		return sendError(c, 503, "ingame_map_names_unavailable", "custom map names are unavailable")
+	}
+	var body struct {
+		MapNames []store.IngameMapName `json:"map_names"`
+	}
+	if err := c.Bind().Body(&body); err != nil {
+		return sendError(c, 400, "invalid_body", "request body is invalid")
+	}
+	for index := range body.MapNames {
+		body.MapNames[index].MapName = strings.ToLower(strings.TrimSpace(body.MapNames[index].MapName))
+		body.MapNames[index].DisplayName = strings.TrimSpace(body.MapNames[index].DisplayName)
+	}
+	if err := service.ValidateIngameMapNames(body.MapNames); err != nil {
+		return sendError(c, 400, "invalid_ingame_map_names", err.Error())
+	}
+	values, err := r.ingameStore.ReplaceIngameMapNames(c.Context(), body.MapNames)
+	if err != nil {
+		return sendError(c, 500, "ingame_map_names_update_failed", "custom map names could not be saved")
+	}
+	r.invalidateIngameAll()
+	r.logger.Info("in-game custom map names updated", zap.Int("count", len(values)), zap.String("request_id", c.RequestID()))
+	return sendData(c, 200, values)
+}
+
 func (r *adminRoutes) listIngameGroups(c fiber.Ctx) error {
 	groups, err := r.ingameGroups(c)
 	if err != nil {
@@ -347,6 +384,7 @@ func normalizeIngameServerSettings(settings *store.IngameServerSettings) {
 	settings.Title = strings.TrimSpace(settings.Title)
 	settings.DescriptionMode = strings.TrimSpace(settings.DescriptionMode)
 	settings.Description = strings.TrimSpace(settings.Description)
+	settings.ShortDescription = strings.TrimSpace(settings.ShortDescription)
 	settings.BannerMode = strings.TrimSpace(settings.BannerMode)
 	settings.BannerURL = strings.TrimSpace(settings.BannerURL)
 	settings.BackgroundMode = strings.TrimSpace(settings.BackgroundMode)

@@ -15,6 +15,7 @@ type Querier interface {
 	GetPlayerSummary(ctx context.Context, steamID string) (GetPlayerSummaryRow, error)
 	GetPlayerVersus(ctx context.Context, arg GetPlayerVersusParams) (GetPlayerVersusRow, error)
 	GetSchemaVersion(ctx context.Context) (int64, error)
+	GetServerRecent24h(ctx context.Context, arg GetServerRecent24hParams) (GetServerRecent24hRow, error)
 	GetVersusOverview(ctx context.Context) (GetVersusOverviewRow, error)
 	ListActivePlayersByServer(ctx context.Context, arg ListActivePlayersByServerParams) ([]ListActivePlayersByServerRow, error)
 	ListPlayerChapters(ctx context.Context, arg ListPlayerChaptersParams) ([]ListPlayerChaptersRow, error)

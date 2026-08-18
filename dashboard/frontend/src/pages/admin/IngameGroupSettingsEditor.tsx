@@ -49,6 +49,7 @@ export function IngameGroupSettingsEditor({ group }: { group: IngameGroup }) {
     <div className={styles.serverOverrideHeading}><div><Typography.Title level={4}>{query.data.title}</Typography.Title><Typography.Text type="secondary">Server key: {group.server_key}</Typography.Text></div></div>
     <div className={styles.instanceList}>{query.data.instances.map(instance => <span key={instance.server_id}><i className={instance.online ? styles.instanceOnline : styles.instanceOffline} />{instance.name} · {instance.address}</span>)}</div>
     <Form form={form} layout="vertical" onFinish={value => save.mutate({ ...query.data.settings, ...value })}>
+      <Form.Item name="short_description" label={label('简短描述', 'Short description')} extra={label('仅用于服务器组选择页和游戏内首页，例如：官图 · 8人 · 上海。', 'Used on the server-group selection page and portal home, e.g. Official · 8 players · Shanghai.')} rules={[{ max: 80 }]}><Input maxLength={80} showCount /></Form.Item>
       <div className={styles.overrideGrid}>
         <div><Form.Item name="title_mode" label={label('标题', 'Title')}><Select options={modes(inheritOverride)} /></Form.Item>{titleMode === 'override' && <Form.Item name="title" rules={[{ required: true }, { max: 128 }]}><Input maxLength={128} /></Form.Item>}</div>
         <div><Form.Item name="description_mode" label={label('描述', 'Description')}><Select options={modes(inheritOverrideHidden)} /></Form.Item>{descriptionMode === 'override' && <Form.Item name="description" rules={[{ max: 1000 }]}><Input.TextArea rows={3} maxLength={1000} /></Form.Item>}</div>

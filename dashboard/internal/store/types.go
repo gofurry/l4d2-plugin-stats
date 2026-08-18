@@ -9,7 +9,7 @@ import (
 var ErrServerNotFound = errors.New("game server not found")
 
 const (
-	DashboardSchemaVersion int64 = 19
+	DashboardSchemaVersion int64 = 20
 	StatsSchemaVersion     int64 = 6
 )
 
@@ -857,6 +857,13 @@ type Overview struct {
 	Generated time.Time      `json:"generated_at"`
 }
 
+type ServerRecent24h struct {
+	ActivePlayers int64 `json:"active_players"`
+	CommonKills   int64 `json:"common_kills"`
+	SpecialKills  int64 `json:"special_kills"`
+	CompletedRuns int64 `json:"completed_runs"`
+}
+
 type ServerStatus struct {
 	ServerID      string         `json:"server_id"`
 	ServerKey     string         `json:"server_key,omitempty"`
@@ -978,6 +985,10 @@ type StatsStore interface {
 	PlayerSessions(context.Context, string, int64, string, int32) ([]PlayerSession, error)
 	PlayerChapters(context.Context, string, int64, string, int32) ([]PlayerChapter, error)
 	Close() error
+}
+
+type StatsIngameStore interface {
+	ServerRecent24h(context.Context, string, time.Time) (ServerRecent24h, error)
 }
 
 type StatsDoctorStore interface {

@@ -176,6 +176,7 @@ ON CONFLICT(id) DO UPDATE SET
 
 -- name: GetIngameServerSettings :one
 SELECT server_key, title_mode, title, description_mode, description,
+       short_description,
        banner_mode, banner_url, background_mode, background_url,
        website_mode, website_url,
        highlight_mode, highlight_metric_1, highlight_metric_2,
@@ -185,6 +186,7 @@ WHERE server_key = ?1;
 
 -- name: ListIngameServerSettings :many
 SELECT server_key, title_mode, title, description_mode, description,
+       short_description,
        banner_mode, banner_url, background_mode, background_url,
        website_mode, website_url,
        highlight_mode, highlight_metric_1, highlight_metric_2,
@@ -194,17 +196,18 @@ ORDER BY server_key;
 
 -- name: UpsertIngameServerSettings :exec
 INSERT INTO ingame_server_settings (
-  server_key, title_mode, title, description_mode, description,
+  server_key, title_mode, title, description_mode, description, short_description,
   banner_mode, banner_url, background_mode, background_url,
   website_mode, website_url,
   highlight_mode, highlight_metric_1, highlight_metric_2,
   highlight_metric_3, updated_at
-) VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9, ?10, ?11, ?12, ?13, ?14, ?15, ?16)
+) VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9, ?10, ?11, ?12, ?13, ?14, ?15, ?16, ?17)
 ON CONFLICT(server_key) DO UPDATE SET
   title_mode = excluded.title_mode,
   title = excluded.title,
   description_mode = excluded.description_mode,
   description = excluded.description,
+  short_description = excluded.short_description,
   banner_mode = excluded.banner_mode,
   banner_url = excluded.banner_url,
   background_mode = excluded.background_mode,
@@ -254,6 +257,18 @@ DELETE FROM ingame_quick_links WHERE server_key = ?1;
 -- name: InsertIngameQuickLink :exec
 INSERT INTO ingame_quick_links (server_key, label, url, sort_order, enabled)
 VALUES (?1, ?2, ?3, ?4, ?5);
+
+-- name: ListIngameMapNames :many
+SELECT map_name, display_name, updated_at
+FROM ingame_map_names
+ORDER BY map_name;
+
+-- name: DeleteIngameMapNames :exec
+DELETE FROM ingame_map_names;
+
+-- name: InsertIngameMapName :exec
+INSERT INTO ingame_map_names (map_name, display_name, updated_at)
+VALUES (?1, ?2, ?3);
 
 -- name: ListA2SStatusSnapshots :many
 SELECT status_json

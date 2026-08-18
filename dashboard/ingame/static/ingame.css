@@ -15,6 +15,7 @@ a:hover{color:#ffb45c;text-decoration:none}
 .server-navigation-card{padding:0}
 .home-intro{padding:11px 14px;text-align:center}
 .home-intro p{margin:4px 0 0;color:#b0b0b0}
+.home-intro .short-description{color:#ddd;font-size:12px;font-weight:bold}
 .panel-divider{height:1px;margin:0 12px;background:rgba(255,255,255,.12)}
 .status-dot:before{display:block;width:7px;height:7px;-webkit-border-radius:7px;border-radius:7px;background:#a9564b;content:""}
 .online .status-dot:before{background:#7f9b68}
@@ -79,6 +80,7 @@ a:hover{color:#ffb45c;text-decoration:none}
 .identity-cell h1{font-size:24px}
 .identity-cell p{margin:5px 0 0;color:#b0b0b0}
 .identity-cell .player-dates{color:#909090;font-size:12px}
+.identity-cell .current-play{color:#9fbd83;font-size:12px}
 .badge-cell{text-align:right;white-space:nowrap}
 .badge{display:inline-block;width:64px;height:64px;margin-left:6px;background-repeat:no-repeat;vertical-align:top}
 .player-panel{padding:0}
@@ -91,6 +93,7 @@ a:hover{color:#ffb45c;text-decoration:none}
 .stats span{color:#b0b0b0;font-size:12px}
 .stats strong{margin-top:2px;color:#fff;font-size:20px}
 .versus-stats>div{width:25%}
+.recent-stats>div{width:25%}
 .achievement-summary i{display:block;height:7px;overflow:hidden;-webkit-border-radius:4px;border-radius:4px;background:#343434;font-style:normal}
 .achievement-summary i>b{display:block;height:7px;-webkit-border-radius:4px;border-radius:4px;background:#d77938}
 .achievement-summary p{margin:8px 0 0;color:#b0b0b0}
@@ -135,7 +138,8 @@ a:hover{color:#ffb45c;text-decoration:none}
 .selection>p{color:#b0b0b0}
 .server-choice{display:block;padding:12px 4px;border-bottom:1px solid rgba(255,255,255,.1);color:#eee}
 .server-choice:hover{padding-left:8px;background:rgba(255,255,255,.04)}
-.server-choice strong,.server-choice small{display:block;margin-right:64px}
+.server-choice strong,.server-choice em,.server-choice small{display:block;margin-right:64px}
+.server-choice em{overflow:hidden;margin-top:2px;color:#ddd;font-size:12px;font-style:normal;white-space:nowrap;text-overflow:ellipsis}
 .server-choice small{overflow:hidden;color:#909090;font-size:11px;white-space:nowrap;text-overflow:ellipsis}
 .server-choice span{float:right;color:#f2a33a}
 .error{width:80%;max-width:540px;margin:80px auto 0;padding:28px;text-align:center;background:rgba(12,12,12,.9)}
@@ -146,5 +150,5 @@ a:hover{color:#ffb45c;text-decoration:none}
 ::-webkit-scrollbar-thumb{border:1px solid #282828;-webkit-border-radius:4px;border-radius:4px;background:#535353}
 ::-webkit-scrollbar-thumb:hover{background:#94623a}
 ::-webkit-scrollbar-corner{background:#121212}
-@media(max-width:720px){.page{margin-left:8px;margin-right:8px}.compact-server-header{display:block}.compact-title,.compact-status{display:block;width:100%}.compact-status{margin-top:5px}.nav a.action-link{float:none}.highlight-card{width:49%;margin-bottom:1%}.stats>div,.versus-stats>div{width:50%}.badge-cell{white-space:normal}.selection,.error{width:auto;margin-left:8px;margin-right:8px}.action-card{right:8%;left:8%;width:auto;margin-left:0}}
+@media(max-width:720px){.page{margin-left:8px;margin-right:8px}.compact-server-header{display:block}.compact-title,.compact-status{display:block;width:100%}.compact-status{margin-top:5px}.nav a.action-link{float:none}.highlight-card{width:49%;margin-bottom:1%}.stats>div,.versus-stats>div,.recent-stats>div{width:50%}.badge-cell{white-space:normal}.selection,.error{width:auto;margin-left:8px;margin-right:8px}.action-card{right:8%;left:8%;width:auto;margin-left:0}}
 @media(max-width:500px){.highlight-card{width:100%;margin-right:0}.player-header,.identity-cell,.badge-cell{display:block;width:100%}.badge-cell{margin-top:8px;text-align:left}.badge{margin-left:0;margin-right:6px}.companions span{font-size:12px}.instance-row>span:nth-of-type(2),.instance-row>b{display:none}}

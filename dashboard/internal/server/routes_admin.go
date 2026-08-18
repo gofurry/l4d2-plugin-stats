@@ -59,6 +59,8 @@ func registerAdminRoutes(api fiber.Router, dashboard store.DashboardStore, statu
 	admin.Put("/site", r.putSite)
 	admin.Get("/ingame", r.getIngameSettings)
 	admin.Put("/ingame", r.putIngameSettings)
+	admin.Get("/ingame/map-names", r.listIngameMapNames)
+	admin.Put("/ingame/map-names", r.putIngameMapNames)
 	admin.Get("/ingame/groups", r.listIngameGroups)
 	admin.Get("/ingame/groups/:server_key", r.getIngameGroup)
 	admin.Put("/ingame/groups/:server_key", r.putIngameGroup)
