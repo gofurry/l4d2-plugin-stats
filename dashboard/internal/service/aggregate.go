@@ -230,8 +230,8 @@ type IngameHighlight struct {
 }
 
 func (s *RankingService) IngameHighlights(ctx context.Context, serverKey string, steamIDs []string, metrics [3]string) ([]IngameHighlight, error) {
-	if len(steamIDs) < 2 || len(steamIDs) > 32 {
-		return nil, fmt.Errorf("in-game highlights require 2 to 32 players")
+	if len(steamIDs) < 1 || len(steamIDs) > 32 {
+		return nil, fmt.Errorf("in-game highlights require 1 to 32 players")
 	}
 	result := make([]IngameHighlight, 0, len(metrics))
 	for _, metricKey := range metrics {

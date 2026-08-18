@@ -19,6 +19,7 @@ All notable changes to this project are documented in this file.
 ### Fixed
 
 - Make the MOTD deployment helper copy button work on plain-HTTP admin origins by falling back to the legacy user-gesture clipboard command when the modern Clipboard API is unavailable or rejected.
+- Allow the in-game Home career highlights to render when exactly one identified human player is online instead of requiring at least two players.
 
 ## 1.3.4 - 2026-08-17
 

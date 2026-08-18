@@ -202,6 +202,26 @@ func TestIngameHomeUsesBoundedCachedView(t *testing.T) {
 	}
 }
 
+func TestIngameHomeShowsHighlightsForSinglePlayer(t *testing.T) {
+	now := time.Now()
+	steamID := "76561198000000001"
+	dashboard := &fakeIngameDashboard{settings: defaultIngameTestSettings(), servers: []store.GameServer{{ID: "server", DisplayName: "Main", Enabled: true}}}
+	statuses := &fakeIngameStatuses{statuses: []store.ServerStatus{{
+		ServerID: "server", ServerKey: "main", Online: true, LastSuccessAt: now,
+		PlayerList: []store.ServerPlayer{{Name: "Solo", SteamID: steamID, DurationSeconds: 60}},
+	}}}
+	rankings := &fakeIngameRankings{}
+	service := NewIngameService(dashboard, statuses, &fakeIngamePlayers{}, rankings, &fakeIngameAchievements{})
+	service.now = func() time.Time { return now }
+	view, err := service.Home(context.Background(), "main")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if rankings.highlightCalls != 1 || len(rankings.ids) != 1 || rankings.ids[0] != steamID || len(view.Highlights) != 3 || view.Highlights[0].Name != "Solo" {
+		t.Fatalf("single-player highlights=%+v calls=%d ids=%v", view.Highlights, rankings.highlightCalls, rankings.ids)
+	}
+}
+
 func TestIngameHomeOmitsRecent24hWhenStatsFail(t *testing.T) {
 	now := time.Now()
 	dashboard := &fakeIngameDashboard{settings: defaultIngameTestSettings(), servers: []store.GameServer{{ID: "server", DisplayName: "Main", Enabled: true}}}
@@ -438,6 +458,32 @@ func TestIngameErrorBackgroundRejectsUnsafeStoredValue(t *testing.T) {
 type summaryCountingStats struct {
 	store.StatsStore
 	calls int
+}
+
+type highlightAggregateStore struct {
+	store.DashboardAggregateStore
+	rows []store.AggregateRow
+}
+
+func (s highlightAggregateStore) ListAggregateRows(context.Context, store.AggregateFilter) ([]store.AggregateRow, error) {
+	return s.rows, nil
+}
+
+func TestRankingIngameHighlightsAllowSinglePlayer(t *testing.T) {
+	steamID := "76561198000000001"
+	dashboard := highlightAggregateStore{rows: []store.AggregateRow{{
+		Version: store.AggregateContractVersion, Kind: "activity", ServerKey: "main", SteamID: steamID,
+		Metrics: map[string]int64{"active_play_seconds": 3600},
+	}}}
+	service := NewRankingService(dashboard, nil)
+	metrics := [3]string{"active_play_seconds", "active_play_seconds", "active_play_seconds"}
+	highlights, err := service.IngameHighlights(context.Background(), "main", []string{steamID}, metrics)
+	if err != nil || len(highlights) != 3 || highlights[0].SteamID != steamID {
+		t.Fatalf("single-player highlights=%+v err=%v", highlights, err)
+	}
+	if _, err := service.IngameHighlights(context.Background(), "main", nil, metrics); err == nil {
+		t.Fatal("empty in-game highlight player list was accepted")
+	}
 }
 
 func (s *summaryCountingStats) PlayerSummary(context.Context, string) (*store.PlayerSummary, error) {

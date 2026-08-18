@@ -273,7 +273,7 @@ func (s *IngameService) Home(ctx context.Context, serverKey string) (IngameHomeV
 		}
 		if portal.base.OnlineInstances > 0 && portal.base.Config.Modules.ShowHighlights {
 			ids, names := highlightPlayers(view.Players)
-			if len(ids) >= 2 && s.rankings != nil {
+			if len(ids) >= 1 && s.rankings != nil {
 				highlightCtx, cancel := context.WithTimeout(buildCtx, 750*time.Millisecond)
 				highlights, highlightErr := s.rankings.IngameHighlights(highlightCtx, portal.base.ServerKey, ids, portal.base.Config.Metrics)
 				cancel()
