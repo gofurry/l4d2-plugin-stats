@@ -4,24 +4,7 @@ All notable changes to this project are documented in this file.
 
 ## Unreleased
 
-### Added
-
-- Add server-group quick links backed by Dashboard schema 19, with bounded administrator editing and legacy-safe in-game Action Info Cards.
-- Show cached game mode, difficulty, latency, player instance, and first/last-play dates in the in-game portal when those values are available.
-- Add Dashboard schema 20 for global administrator-defined map display names and schema 21 to remove the discarded server-group short-description field, without changing Stats schema 6.
-- Add the complete official campaign map-name catalog, cached current-player location, and a bounded per-group 24-hour activity summary to the in-game portal.
-
-### Changed
-
-- Replace unreliable MOTD external-site and direct-connect navigation with reusable zero-JavaScript `:target` instruction cards that display validated URLs and console commands as text.
-- Use friendly map names on both the regular Dashboard home and the in-game portal, remove session-count presentation from in-game rankings/player summaries, and streamline server-group administration with standalone borderless collapsible editors, SVG controls, and automatic list saving.
-
-### Fixed
-
-- Make the MOTD deployment helper copy button work on plain-HTTP admin origins by falling back to the legacy user-gesture clipboard command when the modern Clipboard API is unavailable or rejected.
-- Allow the in-game Home career highlights to render when exactly one identified human player is online instead of requiring at least two players.
-
-## 1.3.4 - 2026-08-17
+## 1.3.4 - 2026-08-18
 
 ### Added
 
@@ -32,6 +15,10 @@ All notable changes to this project are documented in this file.
 - Add MOTD deployment guidance and generated `motd.txt` HTML redirection to `/ingame?server=<server_key>`.
 - Add a global portal Background URL plus per-server-group inherit, override, and hidden modes without server-side fetching or proxying.
 - Add independent server-introduction and per-instance status module switches, validated per-instance Steam join links, and group-wide status/player summaries.
+- Add server-group quick links backed by Dashboard schema 19, with bounded administrator editing and legacy-safe in-game Action Info Cards.
+- Show cached game mode, difficulty, latency, player instance, and first/last-play dates in the in-game portal when those values are available.
+- Add Dashboard schema 20 for global administrator-defined map display names and schema 21 to remove the discarded server-group short-description field, without changing Stats schema 6.
+- Add the complete official campaign map-name catalog, cached current-player location, and a bounded per-group 24-hour activity summary to the in-game portal.
 
 ### Changed
 
@@ -41,6 +28,8 @@ All notable changes to this project are documented in this file.
 - Cache bounded in-game view models with approved TTL presets, request coalescing, stale-value fallback, and targeted invalidation after settings, content, server, and profile-visibility changes.
 - Redesign the legacy-safe portal with a normal-flow proportional Home Banner, centered introduction panel, fixed cover background layer, compact group summary header, per-instance status table, denser Player and Ranking views, translucent panels, and old-WebKit scrollbar styling.
 - Fingerprint embedded CSS and Achievement atlas URLs from their content while retaining immutable asset caching and no-cache HTML responses.
+- Replace unreliable MOTD external-site and direct-connect navigation with reusable zero-JavaScript `:target` instruction cards that display validated URLs and console commands as text.
+- Use friendly map names on both the regular Dashboard home and the in-game portal, remove session-count presentation from in-game rankings/player summaries, and streamline server-group administration with standalone borderless collapsible editors, SVG controls, and automatic list saving.
 
 ### Security
 
@@ -53,6 +42,8 @@ All notable changes to this project are documented in this file.
 - Complete Background columns automatically for pre-release Dashboard schema 17 databases before migrating group-scoped settings and documents to schema 18.
 - Keep the last known valid `server_key` through instance outages, avoid copying group-wide Stats presence into each instance, and only attach SteamID64 when A2S and Stats display-name matching is unique.
 - Keep the In-Game administrator form populated with approved highlight metrics and cache defaults while settings load or when an older partial response omits those values.
+- Make the MOTD deployment helper copy button work on plain-HTTP admin origins by falling back to the legacy user-gesture clipboard command when the modern Clipboard API is unavailable or rejected.
+- Allow the in-game Home career highlights to render when exactly one identified human player is online instead of requiring at least two players.
 
 ## 1.3.3 - 2026-08-15
 
