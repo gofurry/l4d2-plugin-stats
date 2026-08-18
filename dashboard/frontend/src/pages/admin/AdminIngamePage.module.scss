@@ -38,10 +38,10 @@
 .serverOverrideHeading > span { color: #9a8578; font-family: monospace; }
 .serverOverride form { display: grid; gap: 12px; }
 .overrideGrid { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 0 16px; }
-.groupSections { background: transparent; }
-.groupSections :global(.ant-collapse-item) { border-color: rgba(255,255,255,.1); }
-.groupSections :global(.ant-collapse-header) { padding-inline: 0 !important; }
-.groupSections :global(.ant-collapse-content-box) { padding-inline: 0 !important; }
+.collapsibleSection { display: grid; }
+.collapsibleSectionHeader { display: flex; min-height: 40px; align-items: center; justify-content: space-between; gap: 12px; }
+.collapsibleSectionHeader h5 { margin: 0; }
+.collapsibleSectionBody { padding-top: 10px; }
 .documentSection { display: grid; gap: 12px; }
 .documentSection h5 { margin: 0; }
 .quickLinkSection { display: grid; gap: 12px; padding-top: 4px; }

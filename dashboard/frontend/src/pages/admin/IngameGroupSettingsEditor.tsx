@@ -1,6 +1,7 @@
+import { DownOutlined, UpOutlined } from '@ant-design/icons'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
-import { Alert, Button, Collapse, Form, Input, Select, Spin, Switch, Typography, message } from 'antd'
-import { useEffect, useRef, useState } from 'react'
+import { Alert, Button, Form, Input, Select, Spin, Switch, Typography, message } from 'antd'
+import { useEffect, useRef, useState, type ReactNode } from 'react'
 import { useTranslation } from 'react-i18next'
 import { api, type IngameGroup, type IngameQuickLink, type IngameServerDocument, type IngameServerSettings } from '../../api'
 import styles from './AdminIngamePage.module.scss'
@@ -68,10 +69,23 @@ export function IngameGroupSettingsEditor({ group }: { group: IngameGroup }) {
       {highlightMode === 'override' && <div className={styles.threeColumns}>{[0, 1, 2].map(index => <Form.Item key={index} name={['highlight_metrics', index]} label={`${label('指标', 'Metric')} ${index + 1}`} rules={[{ required: true }]}><Select options={metrics} /></Form.Item>)}</div>}
       <Button type="primary" htmlType="submit" loading={save.isPending}>{label('保存服务器组设置', 'Save server-group settings')}</Button>
     </Form>
-    <Collapse className={styles.groupSections} items={[
-      { key: 'quick-links', label: label('快速链接', 'Quick links'), children: <GroupQuickLinksEditor serverKey={group.server_key} initialLinks={query.data.quick_links} zh={zh} queryKey={queryKey} /> },
-      { key: 'documents', label: label('服务器组文档', 'Server-group documents'), children: <div className={styles.documentSection}>{query.data.documents.map(document => <GroupDocumentEditor key={`${document.key}-${document.updated_at}`} serverKey={group.server_key} document={document} zh={zh} queryKey={queryKey} />)}</div> },
-    ]} />
+    <CollapsibleEditorSection title={label('快速链接', 'Quick links')} expandLabel={label('展开快速链接', 'Expand quick links')} collapseLabel={label('收起快速链接', 'Collapse quick links')}>
+      <GroupQuickLinksEditor serverKey={group.server_key} initialLinks={query.data.quick_links} zh={zh} queryKey={queryKey} />
+    </CollapsibleEditorSection>
+    <CollapsibleEditorSection title={label('服务器组文档', 'Server-group documents')} expandLabel={label('展开服务器组文档', 'Expand server-group documents')} collapseLabel={label('收起服务器组文档', 'Collapse server-group documents')}>
+      <div className={styles.documentSection}>{query.data.documents.map(document => <GroupDocumentEditor key={`${document.key}-${document.updated_at}`} serverKey={group.server_key} document={document} zh={zh} queryKey={queryKey} />)}</div>
+    </CollapsibleEditorSection>
+  </section>
+}
+
+function CollapsibleEditorSection({ title, expandLabel, collapseLabel, children }: { title: string; expandLabel: string; collapseLabel: string; children: ReactNode }) {
+  const [open, setOpen] = useState(false)
+  return <section className={styles.collapsibleSection}>
+    <div className={styles.collapsibleSectionHeader}>
+      <Typography.Title level={5}>{title}</Typography.Title>
+      <Button type="text" icon={open ? <UpOutlined /> : <DownOutlined />} aria-label={open ? collapseLabel : expandLabel} aria-expanded={open} onClick={() => setOpen(value => !value)} />
+    </div>
+    {open && <div className={styles.collapsibleSectionBody}>{children}</div>}
   </section>
 }
 

@@ -49,7 +49,12 @@ describe('IngameGroupSettingsEditor', () => {
   it('keeps the quick-link label input mounted and focused while typing', async () => {
     const client = new QueryClient({ defaultOptions: { queries: { retry: false, gcTime: 0 } } })
     render(<QueryClientProvider client={client}><IngameGroupSettingsEditor group={group} /></QueryClientProvider>)
-    fireEvent.click(await screen.findByText('快速链接'))
+    const quickLinksToggle = await screen.findByRole('button', { name: '展开快速链接' })
+    const documentsToggle = screen.getByRole('button', { name: '展开服务器组文档' })
+    expect(quickLinksToggle.querySelector('svg')).not.toBeNull()
+    expect(documentsToggle.querySelector('svg')).not.toBeNull()
+    expect(screen.queryByText('本组简介')).not.toBeInTheDocument()
+    fireEvent.click(quickLinksToggle)
     const input = await screen.findByRole('textbox', { name: '链接 1 名称' })
     input.focus()
     fireEvent.change(input, { target: { value: '地' } })

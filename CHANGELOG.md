@@ -14,7 +14,11 @@ All notable changes to this project are documented in this file.
 ### Changed
 
 - Replace unreliable MOTD external-site and direct-connect navigation with reusable zero-JavaScript `:target` instruction cards that display validated URLs and console commands as text.
-- Use friendly map names on both the regular Dashboard home and the in-game portal, remove session-count presentation from in-game rankings/player summaries, and streamline server-group administration with collapsed sections and automatic list saving.
+- Use friendly map names on both the regular Dashboard home and the in-game portal, remove session-count presentation from in-game rankings/player summaries, and streamline server-group administration with standalone borderless collapsible editors, SVG controls, and automatic list saving.
+
+### Fixed
+
+- Make the MOTD deployment helper copy button work on plain-HTTP admin origins by falling back to the legacy user-gesture clipboard command when the modern Clipboard API is unavailable or rejected.
 
 ## 1.3.4 - 2026-08-17
 

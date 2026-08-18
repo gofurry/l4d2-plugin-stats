@@ -6,6 +6,7 @@ import { useTranslation } from 'react-i18next'
 import { api, type IngameSettings } from '../../api'
 import { FloatingToolbar } from '../../components/FloatingToolbar'
 import { cachePresets, completeIngameSettings, defaultIngameSettings, fallbackIngameMetrics } from './AdminIngameDefaults'
+import { copyTextToClipboard } from './clipboard'
 import { IngameGroupSettingsEditor } from './IngameGroupSettingsEditor'
 import { IngameMapNamesEditor } from './IngameMapNamesEditor'
 import styles from './AdminIngamePage.module.scss'
@@ -50,8 +51,12 @@ export function AdminIngamePage() {
   const portalURL = publicOrigin && serverKey ? `${publicOrigin.replace(/\/$/, '')}/ingame?server=${encodeURIComponent(serverKey)}` : ''
   const motd = portalURL ? `<html>\n<head>\n<meta http-equiv="refresh"\ncontent="0;url=${portalURL}">\n</head>\n<body>\nLoading...\n</body>\n</html>` : ''
   const copyMotd = async () => {
-    await navigator.clipboard.writeText(motd)
-    void message.success(label('已复制 motd.txt 内容', 'motd.txt content copied'))
+    try {
+      await copyTextToClipboard(motd)
+      void message.success(label('已复制 motd.txt 内容', 'motd.txt content copied'))
+    } catch {
+      void message.error(label('复制失败，请手动复制上方 motd.txt 内容', 'Copy failed. Copy the motd.txt content above manually.'))
+    }
   }
 
   return <div className={styles.page}>
