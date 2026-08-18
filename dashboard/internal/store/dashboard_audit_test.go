@@ -48,4 +48,11 @@ func TestGeoIPSettingsMaskAndStableSecret(t *testing.T) {
 	if err != nil || runtime.CacheSecret != secret {
 		t.Fatalf("cache secret was not stable after reopen: %+v err=%v", runtime, err)
 	}
+	if err := dashboard.UpdateGeoIPSettings(ctx, false, "", true); err != nil {
+		t.Fatal(err)
+	}
+	runtime, err = dashboard.GeoIPRuntimeConfig(ctx)
+	if err != nil || runtime.APIKey != "" || runtime.Enabled {
+		t.Fatalf("explicit key clear did not disable GeoIP: %+v err=%v", runtime, err)
+	}
 }

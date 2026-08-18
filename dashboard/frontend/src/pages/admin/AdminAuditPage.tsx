@@ -52,11 +52,13 @@ function ConnectionsAudit() {
       {geo.isLoading ? <Spin size="small"/> : <div className={`${styles.dataStatusRows} ${styles.threePairRows}`}>
         <span>Provider</span><strong>Baidu</strong><span>AK</span><strong>{geo.data?.api_key_configured ? geo.data.api_key_masked : '未配置'}</strong><span>缓存</span><strong>{geo.data?.cache_count ?? 0}</strong>
         <span>IPv4</span><strong>{geo.data?.ipv4_status ?? 'unknown'}</strong><span>IPv6</span><strong>{geo.data?.ipv6_status ?? 'unknown'}</strong><span>待处理</span><strong>{geo.data?.pending_count ?? 0}</strong>
+		<span>上次成功</span><strong>{time(geo.data?.last_success_at)}</strong><span>最近错误</span><strong>{time(geo.data?.last_error_at)}</strong><span>错误状态</span><strong>{geo.data?.last_error_code || '-'}</strong>
       </div>}
       <Space wrap>
         <Switch checked={effectiveGeoEnabled} onChange={setGeoEnabled} checkedChildren="启用" unCheckedChildren="禁用" />
         <Input.Password value={newKey} onChange={event => setNewKey(event.target.value)} placeholder="新 Baidu AK（留空保留原值）" style={{ width: 280 }} />
         <Button type="primary" loading={saveGeo.isPending} onClick={() => saveGeo.mutate({ enabled: effectiveGeoEnabled, api_key: newKey })}>保存</Button>
+		<Button danger disabled={!geo.data?.api_key_configured || saveGeo.isPending} onClick={() => Modal.confirm({ title: '确认清除 Baidu AK？', content: 'GeoIP 将同时停用；现有 HMAC 缓存不会暴露或删除原始 IP。', okButtonProps: { danger: true }, onOk: async () => { await saveGeo.mutateAsync({ enabled: false, clear_api_key: true }); setGeoEnabled(false); setNewKey('') } })}>清除 AK</Button>
         <Input value={testIP} onChange={event => setTestIP(event.target.value)} placeholder="公开测试 IP" style={{ width: 180 }} />
         <Button loading={testGeo.isPending} onClick={() => testGeo.mutate(testIP.trim())}>测试配置</Button>
       </Space>
