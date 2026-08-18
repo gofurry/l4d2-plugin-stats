@@ -31,11 +31,13 @@ type adminRoutes struct {
 	data                       *service.DataMaintenanceService
 	achievements               *service.AchievementService
 	ingame                     *service.IngameService
+	chatAudit                  *service.ChatAuditService
+	geoIP                      *service.GeoIPService
 }
 
-func registerAdminRoutes(api fiber.Router, dashboard store.DashboardStore, status store.ServerStatusProvider, authService *auth.Service, data *service.DataMaintenanceService, achievements *service.AchievementService, ingame *service.IngameService, logger *zap.Logger, runtimeMonitor *runtimeMonitor) {
+func registerAdminRoutes(api fiber.Router, dashboard store.DashboardStore, status store.ServerStatusProvider, authService *auth.Service, data *service.DataMaintenanceService, achievements *service.AchievementService, ingame *service.IngameService, chatAudit *service.ChatAuditService, geoIP *service.GeoIPService, logger *zap.Logger, runtimeMonitor *runtimeMonitor) {
 	ingameStore, _ := dashboard.(store.DashboardIngameStore)
-	r := &adminRoutes{dashboard: dashboard, ingameStore: ingameStore, status: status, auth: authService, data: data, achievements: achievements, ingame: ingame, logger: logger, monitor: runtimeMonitor, loginLimiter: auth.NewLimiter(5, 15*time.Minute, 1024), setupLimiter: auth.NewLimiter(10, 15*time.Minute, 256)}
+	r := &adminRoutes{dashboard: dashboard, ingameStore: ingameStore, status: status, auth: authService, data: data, achievements: achievements, ingame: ingame, chatAudit: chatAudit, geoIP: geoIP, logger: logger, monitor: runtimeMonitor, loginLimiter: auth.NewLimiter(5, 15*time.Minute, 1024), setupLimiter: auth.NewLimiter(10, 15*time.Minute, 256)}
 	api.Get("/setup/status", r.setupStatus)
 	api.Post("/setup/admin", r.setupAdmin)
 	api.Post("/admin/auth/login", r.login)
@@ -94,6 +96,20 @@ func registerAdminRoutes(api fiber.Router, dashboard store.DashboardStore, statu
 	}
 	if achievements != nil {
 		admin.Get("/data/achievement-engine", r.achievementEngineState)
+	}
+	if chatAudit != nil {
+		admin.Get("/audit/chat/settings", r.chatAuditSettings)
+		admin.Put("/audit/chat/settings", r.updateChatAuditSettings)
+		admin.Post("/audit/chat/settings/confirm", r.confirmChatAuditSettings)
+		admin.Get("/audit/chat/status", r.chatAuditStatus)
+		admin.Post("/audit/chat/search", r.searchChatAudit)
+		admin.Post("/audit/chat/export", r.exportChatAudit)
+	}
+	if geoIP != nil {
+		admin.Get("/audit/geoip/settings", r.geoIPSettings)
+		admin.Put("/audit/geoip/settings", r.updateGeoIPSettings)
+		admin.Post("/audit/geoip/test", r.testGeoIP)
+		admin.Post("/audit/connections/search", r.searchConnections)
 	}
 }
 

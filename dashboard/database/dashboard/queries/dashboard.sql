@@ -411,3 +411,54 @@ INSERT INTO incident_retention_runs (
 
 -- name: CountIncidentRetentionRuns :one
 SELECT COUNT(*) FROM incident_retention_runs;
+
+-- name: GetChatAuditSettings :one
+SELECT enabled, retention_days, last_cleanup_at, updated_at
+FROM chat_audit_settings WHERE singleton_id = 1;
+
+-- name: UpdateChatAuditSettings :exec
+UPDATE chat_audit_settings SET enabled = ?1, retention_days = ?2, updated_at = ?3
+WHERE singleton_id = 1;
+
+-- name: MarkChatAuditCleanup :exec
+UPDATE chat_audit_settings SET last_cleanup_at = ?1 WHERE singleton_id = 1;
+
+-- name: CreateChatExportAudit :exec
+INSERT INTO chat_export_audit (export_id, exported_at, admin_identity, output_format, filter_summary, row_count, completed)
+VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7);
+
+-- name: GetGeoIPSettings :one
+SELECT enabled, provider, api_key, cache_secret, last_success_at, last_error_at,
+       last_error_code, ipv4_status, ipv6_status, updated_at
+FROM geoip_settings WHERE singleton_id = 1;
+
+-- name: UpdateGeoIPSettings :exec
+UPDATE geoip_settings SET enabled = ?1, provider = ?2, api_key = ?3,
+  cache_secret = ?4, updated_at = ?5 WHERE singleton_id = 1;
+
+-- name: UpdateGeoIPRuntimeStatus :exec
+UPDATE geoip_settings SET last_success_at = ?1, last_error_at = ?2,
+  last_error_code = ?3, ipv4_status = ?4, ipv6_status = ?5
+WHERE singleton_id = 1;
+
+-- name: GetGeoIPCache :one
+SELECT ip_hash, provider, country, country_code, province, city, district,
+       adcode, longitude, latitude, coordinate_system, precision, status,
+       error_code, resolved_at, expires_at
+FROM geoip_cache WHERE ip_hash = ?1 AND provider = ?2;
+
+-- name: UpsertGeoIPCache :exec
+INSERT INTO geoip_cache (ip_hash, provider, country, country_code, province,
+  city, district, adcode, longitude, latitude, coordinate_system, precision,
+  status, error_code, resolved_at, expires_at)
+VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9, ?10, ?11, ?12, ?13, ?14, ?15, ?16)
+ON CONFLICT(ip_hash, provider) DO UPDATE SET country=excluded.country,
+  country_code=excluded.country_code, province=excluded.province,
+  city=excluded.city, district=excluded.district, adcode=excluded.adcode,
+  longitude=excluded.longitude, latitude=excluded.latitude,
+  coordinate_system=excluded.coordinate_system, precision=excluded.precision,
+  status=excluded.status, error_code=excluded.error_code,
+  resolved_at=excluded.resolved_at, expires_at=excluded.expires_at;
+
+-- name: CountGeoIPCache :one
+SELECT COUNT(*) FROM geoip_cache;

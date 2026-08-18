@@ -28,6 +28,16 @@ type DataGrowthStatus struct {
 	RetentionPlan store.RetentionPlan           `json:"retention_plan"`
 	Analysis      store.AnalysisStatus          `json:"analysis"`
 	IncidentPlan  store.IncidentRetentionPlan   `json:"incident_retention_plan"`
+	ChatAudit     *store.ChatAuditStatus        `json:"chat_audit,omitempty"`
+	GeoIP         *store.GeoIPSettings          `json:"geoip,omitempty"`
+}
+
+type chatAuditStatusSource interface {
+	Status(context.Context) (store.ChatAuditStatus, error)
+}
+
+type geoIPStatusSource interface {
+	Settings(context.Context) (store.GeoIPSettings, error)
 }
 
 type DataMaintenanceService struct {
@@ -37,6 +47,13 @@ type DataMaintenanceService struct {
 	statsCfg   config.StatsDatabaseConfig
 	logFile    string
 	logger     *zap.Logger
+	chatAudit  chatAuditStatusSource
+	geoIP      geoIPStatusSource
+}
+
+func (s *DataMaintenanceService) SetAuditSources(chatAudit chatAuditStatusSource, geoIP geoIPStatusSource) {
+	s.chatAudit = chatAudit
+	s.geoIP = geoIP
 }
 
 func NewDataMaintenanceService(dashboard store.DashboardAggregateStore, stats store.StatsAggregateStore, aggregates *AggregateService, statsCfg config.StatsDatabaseConfig, logFile string, logger *zap.Logger) *DataMaintenanceService {
@@ -86,7 +103,18 @@ func (s *DataMaintenanceService) Status(ctx context.Context) (DataGrowthStatus, 
 		return DataGrowthStatus{}, err
 	}
 	incidentPlan.PlanID = incidentRetentionPlanID(incidentPlan)
-	return DataGrowthStatus{Aggregate: aggregate, Settings: settings, StatsDatabase: statsUsage, DashboardDB: dashboardUsage, LogBytes: logDirectoryBytes(s.logFile), RetentionRuns: runs, RetentionPlan: plan, Analysis: analysis, IncidentPlan: incidentPlan}, nil
+	result := DataGrowthStatus{Aggregate: aggregate, Settings: settings, StatsDatabase: statsUsage, DashboardDB: dashboardUsage, LogBytes: logDirectoryBytes(s.logFile), RetentionRuns: runs, RetentionPlan: plan, Analysis: analysis, IncidentPlan: incidentPlan}
+	if s.chatAudit != nil {
+		if status, statusErr := s.chatAudit.Status(ctx); statusErr == nil {
+			result.ChatAudit = &status
+		}
+	}
+	if s.geoIP != nil {
+		if status, statusErr := s.geoIP.Settings(ctx); statusErr == nil {
+			result.GeoIP = &status
+		}
+	}
+	return result, nil
 }
 
 func (s *DataMaintenanceService) Settings(ctx context.Context) (store.DataMaintenanceSettings, error) {

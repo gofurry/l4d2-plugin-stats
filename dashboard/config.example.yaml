@@ -7,6 +7,11 @@ server:
 dashboard_database:
   path: "./dashboard.db"
 
+# Final administrator-only chat history. This SQLite database is separate from
+# dashboard.db and is excluded from normal backup and diagnostics archives.
+chat_audit:
+  database_path: "./chat-audit.db"
+
 # Supported drivers: sqlite, mysql, pgsql.
 # Normal queries and aggregation are read-only. The optional administrator
 # cleanup action also needs DELETE permission; SQLite cleanup needs write

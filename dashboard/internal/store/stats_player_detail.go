@@ -145,6 +145,22 @@ func (s *statsStore) enrichPlayerPVE(ctx context.Context, steamID string, filter
 	result.LedgeHangingSeconds = detail["ledge_hanging_seconds"]
 	result.BlackWhiteRestored = detail["black_white_teammates_restored"]
 	result.CarAlarmsTriggered = incidents["car_alarms_triggered"]
+	telemetry, telemetryCoverage, err := s.queryNullableMetricTotals(
+		queryCtx,
+		"lps_pve_segment_stats p "+where+" AND p.stats_version=1",
+		"p",
+		[]string{"teammate_protections", "ledge_grabs", "tank_rock_hits_received", "hunter_skeets", "charger_levels"},
+		args...,
+	)
+	if err != nil {
+		return PlayerPVE{}, err
+	}
+	result.TeammateProtections = telemetry["teammate_protections"]
+	result.LedgeGrabs = telemetry["ledge_grabs"]
+	result.TankRockHitsReceived = telemetry["tank_rock_hits_received"]
+	result.HunterSkeets = telemetry["hunter_skeets"]
+	result.ChargerLevels = telemetry["charger_levels"]
+	result.TelemetryCoverage = telemetryCoverage
 	assists, assistCoverage, err := s.queryNullableMetricTotals(
 		queryCtx,
 		"lps_pve_segment_stats p "+where+" AND p.stats_version=1",
@@ -231,6 +247,22 @@ func (s *statsStore) enrichPlayerVersus(ctx context.Context, steamID string, fil
 	result.SurvivorWitchSoloKills = survivor["witch_solo_kills"]
 	result.SurvivorObjectiveInteractions = survivorIncidents["objective_interactions"]
 	result.SurvivorCarAlarmsTriggered = survivorIncidents["car_alarms_triggered"]
+	telemetry, telemetryCoverage, err := s.queryNullableMetricTotals(
+		queryCtx,
+		"lps_versus_survivor_stats p "+survivorWhere+" AND p.stats_version=1",
+		"p",
+		[]string{"teammate_protections", "ledge_grabs", "tank_rock_hits_received", "hunter_skeets", "charger_levels"},
+		args...,
+	)
+	if err != nil {
+		return PlayerVersus{}, err
+	}
+	result.SurvivorTeammateProtections = telemetry["teammate_protections"]
+	result.SurvivorLedgeGrabs = telemetry["ledge_grabs"]
+	result.SurvivorTankRockHitsReceived = telemetry["tank_rock_hits_received"]
+	result.SurvivorHunterSkeets = telemetry["hunter_skeets"]
+	result.SurvivorChargerLevels = telemetry["charger_levels"]
+	result.TelemetryCoverage = telemetryCoverage
 	assistFields := []string{"human_special_assists", "bot_special_assists", "human_tank_assists", "bot_tank_assists", "witch_encounters", "witch_kill_participations", "black_white_teammates_restored"}
 	assists, assistCoverage, err := s.queryNullableMetricTotals(
 		queryCtx,

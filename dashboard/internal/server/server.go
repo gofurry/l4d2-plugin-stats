@@ -31,6 +31,8 @@ type Dependencies struct {
 	Rankings     *service.RankingService
 	Achievements *service.AchievementService
 	Data         *service.DataMaintenanceService
+	ChatAudit    *service.ChatAuditService
+	GeoIP        *service.GeoIPService
 	Auth         *auth.Service
 	Logger       *zap.Logger
 	Assets       fs.FS
@@ -144,7 +146,7 @@ func New(cfg *config.Config, deps Dependencies) *fiber.App {
 	registerAnnouncementRoutes(api, deps.Dashboard)
 	registerSiteDocumentRoutes(api, deps.Dashboard)
 	registerSteamRoutes(api, deps.Dashboard, deps.Auth, deps.Logger)
-	registerAdminRoutes(api, deps.Dashboard, deps.Status, deps.Auth, deps.Data, deps.Achievements, deps.Ingame, deps.Logger, runtimeMonitor)
+	registerAdminRoutes(api, deps.Dashboard, deps.Status, deps.Auth, deps.Data, deps.Achievements, deps.Ingame, deps.ChatAudit, deps.GeoIP, deps.Logger, runtimeMonitor)
 	api.All("/*", func(c fiber.Ctx) error {
 		return sendError(c, fiber.StatusNotFound, "not_found", "API route not found")
 	})

@@ -25,6 +25,7 @@ func TestCreateAndRestoreSQLiteBackup(t *testing.T) {
 	source := newArchiveFixture(t, "source")
 	insertMarker(t, source.DashboardDatabase.Path, "source-dashboard")
 	insertMarker(t, source.StatsDatabase.DSN, "source-stats")
+	insertChatOutbox(t, source.StatsDatabase.DSN, "private-chat-body")
 	wal, err := sql.Open("sqlite", "file:"+filepath.ToSlash(source.DashboardDatabase.Path)+"?_pragma=journal_mode(WAL)&_pragma=wal_autocheckpoint(0)")
 	if err != nil {
 		t.Fatal(err)
@@ -47,6 +48,7 @@ func TestCreateAndRestoreSQLiteBackup(t *testing.T) {
 		t.Fatalf("backup mode = %q", backup.StatsBackupMode)
 	}
 	assertZipModeAndManifest(t, backup.Path)
+	assertBackupChatSanitized(t, backup.Path, source.StatsDatabase.DSN)
 
 	current := newArchiveFixture(t, "current")
 	insertMarker(t, current.DashboardDatabase.Path, "current-dashboard")
@@ -172,6 +174,8 @@ func TestRestoreReplacementRollsBackOnInstallFailure(t *testing.T) {
 func TestDiagnosticsAreRedactedAndExcludeDatabases(t *testing.T) {
 	cfg := newArchiveFixture(t, "diagnostics")
 	secret := "diagnostic-password"
+	chatSecret := "private-chat-diagnostic-body"
+	geoSecret := "private-baidu-ak"
 	if err := os.WriteFile(cfg.Logging.File, []byte("Authorization: Bearer "+secret+"\nCookie: sid="+secret+"\n"), 0o600); err != nil {
 		t.Fatal(err)
 	}
@@ -181,6 +185,26 @@ func TestDiagnosticsAreRedactedAndExcludeDatabases(t *testing.T) {
 	}
 	configBytes = append(configBytes, []byte("# postgres://user:"+secret+"@localhost/stats\n")...)
 	if err := os.WriteFile(cfg.Path, configBytes, 0o600); err != nil {
+		t.Fatal(err)
+	}
+	chat, err := store.OpenChatAudit(context.Background(), cfg.ChatAudit.DatabasePath)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err := chat.Ingest(context.Background(), store.ChatCaptureState{BootID: "boot", ServerKey: "server"}, []store.ChatMessage{{MessageID: "boot:chat:1", BootID: "boot", ServerKey: "server", ChatSeq: 1, SourceUserID: 1, PlayerName: "player", OccurredAt: 1, MapName: "map", GameMode: "coop", Team: "survivor", Channel: "global", Content: chatSecret}}, 0, 0); err != nil {
+		t.Fatal(err)
+	}
+	if err := chat.Close(); err != nil {
+		t.Fatal(err)
+	}
+	dashboard, err := store.OpenDashboard(context.Background(), cfg.DashboardDatabase.Path)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err := dashboard.UpdateGeoIPSettings(context.Background(), true, geoSecret, false); err != nil {
+		t.Fatal(err)
+	}
+	if err := dashboard.Close(); err != nil {
 		t.Fatal(err)
 	}
 	svc := NewArchiveService(cfg, "1.2.0")
@@ -200,8 +224,10 @@ func TestDiagnosticsAreRedactedAndExcludeDatabases(t *testing.T) {
 			t.Fatalf("diagnostics contains database %q", file.Name)
 		}
 		contents := readZipEntry(t, file)
-		if strings.Contains(string(contents), secret) {
-			t.Fatalf("diagnostics member %q leaked secret", file.Name)
+		for _, private := range []string{secret, chatSecret, geoSecret} {
+			if strings.Contains(string(contents), private) {
+				t.Fatalf("diagnostics member %q leaked private value", file.Name)
+			}
 		}
 		if file.Name == "doctor/deep.json" {
 			foundDeep = true
@@ -210,6 +236,53 @@ func TestDiagnosticsAreRedactedAndExcludeDatabases(t *testing.T) {
 	if !foundDeep {
 		t.Fatal("deep doctor report missing")
 	}
+}
+
+func insertChatOutbox(t *testing.T, databasePath, content string) {
+	t.Helper()
+	db, err := sql.Open("sqlite", databasePath)
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer db.Close()
+	_, err = db.Exec(`INSERT INTO lps_chat_outbox
+(message_id,boot_id,server_key,chat_seq,source_user_id,player_name,occurred_at,map_name,game_mode,team,channel,alive,command_like,content)
+VALUES ('boot:chat:1','boot','server',1,7,'player',1,'map','coop','survivor','global',1,0,?)`, content)
+	if err != nil {
+		t.Fatal(err)
+	}
+}
+
+func assertBackupChatSanitized(t *testing.T, archivePath, liveStatsPath string) {
+	t.Helper()
+	reader, err := zip.OpenReader(archivePath)
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer reader.Close()
+	for _, member := range reader.File {
+		if member.Name != "stats/stats.db" {
+			continue
+		}
+		snapshot := filepath.Join(t.TempDir(), "stats.db")
+		if err := os.WriteFile(snapshot, readZipEntry(t, member), 0o600); err != nil {
+			t.Fatal(err)
+		}
+		for path, want := range map[string]int64{snapshot: 0, liveStatsPath: 1} {
+			db, err := sql.Open("sqlite", path)
+			if err != nil {
+				t.Fatal(err)
+			}
+			var count int64
+			err = db.QueryRow(`SELECT COUNT(*) FROM lps_chat_outbox`).Scan(&count)
+			db.Close()
+			if err != nil || count != want {
+				t.Fatalf("chat outbox count for %q = %d, err=%v; want %d", path, count, err, want)
+			}
+		}
+		return
+	}
+	t.Fatal("Stats snapshot missing from backup")
 }
 
 func TestRedactSensitiveCredentials(t *testing.T) {
@@ -279,7 +352,7 @@ func createStatsFixture(t *testing.T, path string) {
 			}
 		}
 	}
-	if _, err := db.Exec(`INSERT INTO lps_schema_migrations VALUES (1,'initial',1),(2,'car_alarms_triggered',2),(3,'versus_objective_interactions',3),(4,'analysis_foundation',4),(5,'relationships_and_assists',5),(6,'fall_deaths',6)`); err != nil {
+	if _, err := db.Exec(`INSERT INTO lps_schema_migrations VALUES (1,'initial',1),(2,'car_alarms_triggered',2),(3,'versus_objective_interactions',3),(4,'analysis_foundation',4),(5,'relationships_and_assists',5),(6,'fall_deaths',6),(7,'high_value_telemetry_chat',7)`); err != nil {
 		t.Fatal(err)
 	}
 }

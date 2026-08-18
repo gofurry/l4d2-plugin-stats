@@ -8,6 +8,41 @@ import (
 	"database/sql"
 )
 
+type LpsChatCaptureState struct {
+	BootID            string
+	ServerKey         string
+	CaptureVersion    int32
+	CaptureEnabled    int32
+	StartedAt         int64
+	EndedAt           sql.NullInt64
+	LastSavedAt       int64
+	ObservedCount     int64
+	PersistedCount    int64
+	DroppedCount      int64
+	LastChatSeq       int64
+	OldestRetainedSeq int64
+	Revision          int64
+}
+
+type LpsChatOutbox struct {
+	MessageID    string
+	BootID       string
+	ServerKey    string
+	ChatSeq      int64
+	SessionID    sql.NullString
+	SteamID      sql.NullString
+	SourceUserID int32
+	PlayerName   string
+	OccurredAt   int64
+	MapName      string
+	GameMode     string
+	Team         string
+	Channel      string
+	Alive        int32
+	CommandLike  int32
+	Content      string
+}
+
 type LpsIncident struct {
 	RoundID            string
 	IncidentSeq        int64
@@ -176,6 +211,11 @@ type LpsPveSegmentStat struct {
 	JockeyAssists               sql.NullInt64
 	ChargerAssists              sql.NullInt64
 	FallDeaths                  sql.NullInt64
+	TeammateProtections         sql.NullInt64
+	LedgeGrabs                  sql.NullInt64
+	TankRockHitsReceived        sql.NullInt64
+	HunterSkeets                sql.NullInt64
+	ChargerLevels               sql.NullInt64
 }
 
 type LpsRound struct {
@@ -406,4 +446,9 @@ type LpsVersusSurvivorStat struct {
 	WitchKillParticipations     sql.NullInt64
 	BlackWhiteTeammatesRestored sql.NullInt64
 	FallDeaths                  sql.NullInt64
+	TeammateProtections         sql.NullInt64
+	LedgeGrabs                  sql.NullInt64
+	TankRockHitsReceived        sql.NullInt64
+	HunterSkeets                sql.NullInt64
+	ChargerLevels               sql.NullInt64
 }
