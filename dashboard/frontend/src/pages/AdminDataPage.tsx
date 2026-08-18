@@ -77,6 +77,24 @@ export function AdminDataPage() {
       {data.aggregate.last_error && <Alert type="warning" showIcon message={data.aggregate.last_error} />}
     </section>
 
+    {(data.chat_audit || data.geoip) && <section className={styles.dataSection}>
+      <div className={styles.formSectionHeading}><strong>{zh ? '审计数据' : 'Audit data'}</strong><span>{zh ? '仅显示容量、保留与完整性状态，不包含聊天正文或原始 IP。' : 'Capacity, retention, and integrity only; no chat content or raw IPs.'}</span></div>
+      <div className={`${styles.dataStatusRows} ${styles.threePairRows}`}>
+        <span>chat-audit.db</span><strong>{data.chat_audit ? bytes(data.chat_audit.database.bytes + (data.chat_audit.database.wal_bytes ?? 0)) : '—'}</strong>
+        <span>{zh ? '聊天消息' : 'Chat messages'}</span><strong>{data.chat_audit?.message_count.toLocaleString() ?? '—'}</strong>
+        <span>{zh ? '摄取延迟' : 'Ingestion lag'}</span><strong>{data.chat_audit?.ingestion_lag ?? '—'}</strong>
+        <span>{zh ? '聊天缺口 / 丢弃' : 'Chat gaps / drops'}</span><strong>{data.chat_audit ? `${data.chat_audit.known_gap_count} / ${data.chat_audit.dropped_count}` : '—'}</strong>
+        <span>{zh ? '聊天保留' : 'Chat retention'}</span><strong>{data.chat_audit ? (data.chat_audit.retention_days === 0 ? (zh ? '永久' : 'Permanent') : `${data.chat_audit.retention_days} ${zh ? '天' : 'days'}`) : '—'}</strong>
+        <span>{zh ? '保留窗口' : 'Retained window'}</span><strong>{data.chat_audit?.oldest_message_at ? `${dateTime(data.chat_audit.oldest_message_at)} - ${dateTime(data.chat_audit.newest_message_at)}` : '—'}</strong>
+        <span>{zh ? '上次聊天清理' : 'Last chat cleanup'}</span><strong>{data.chat_audit?.last_cleanup_at ? dateTime(data.chat_audit.last_cleanup_at) : '—'}</strong>
+        <span>GeoIP cache</span><strong>{data.geoip?.cache_count.toLocaleString() ?? '—'}</strong>
+        <span>GeoIP</span><strong>{data.geoip ? `${data.geoip.ipv4_status} / ${data.geoip.ipv6_status}` : '—'}</strong>
+        <span>{zh ? 'GeoIP 待处理' : 'GeoIP pending'}</span><strong>{data.geoip?.pending_count ?? '—'}</strong>
+        <span>{zh ? 'GeoIP 上次成功' : 'GeoIP last success'}</span><strong>{data.geoip?.last_success_at ? dateTime(data.geoip.last_success_at) : '—'}</strong>
+        <span>{zh ? 'GeoIP 最近错误' : 'GeoIP last error'}</span><strong>{data.geoip?.last_error_code || '—'}</strong>
+      </div>
+    </section>}
+
     <section className={styles.dataSection}>
       <div className={styles.formSectionHeading}><strong>{zh ? '成就引擎' : 'Achievement engine'}</strong><span>{zh ? '自动判定与历史补判状态（只读）。' : 'Automated evaluation and historical backfill status (read only).'}</span></div>
       {achievement.isLoading && <Spin size="small" />}

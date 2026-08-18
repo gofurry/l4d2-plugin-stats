@@ -4,6 +4,7 @@ import {
   AreaChartOutlined,
   GithubOutlined,
   GlobalOutlined,
+  FileSearchOutlined,
   HomeOutlined,
   LogoutOutlined,
   NotificationOutlined,
@@ -46,6 +47,7 @@ export function FloatingNav({ mode = 'public', loggingOut = false, onLogout, mon
         { path: '/admin/announcements', label: t('navAnnouncementManagement'), icon: <NotificationOutlined /> },
         { path: '/admin/security', label: t('navSecurity'), icon: <SafetyOutlined /> },
         { path: '/admin/data', label: t('navDataMaintenance'), icon: <DatabaseOutlined /> },
+        { path: '/admin/audit', label: t('audit'), icon: <FileSearchOutlined /> },
         ...(monitorEnabled ? [{ path: '/api/v1/admin/monitor', label: t('runtimeMonitor'), icon: <DashboardOutlined />, external: true }] : []),
       ]
     : mode === 'auth'
