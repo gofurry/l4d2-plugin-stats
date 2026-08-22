@@ -31,6 +31,9 @@ func (s *ArchiveService) CreateBackup(ctx context.Context, outputDirectory strin
 	if err := sqliteOnlineBackup(ctx, s.cfg.DashboardDatabase.Path, dashboardSnapshot); err != nil {
 		return ArchiveResult{}, fmt.Errorf("backup Dashboard database: %w", err)
 	}
+	if err := sanitizeDashboardSnapshot(ctx, dashboardSnapshot); err != nil {
+		return ArchiveResult{}, fmt.Errorf("sanitize Dashboard GeoIP data: %w", err)
+	}
 	if err := os.Chmod(dashboardSnapshot, 0o600); err != nil && !os.IsPermission(err) {
 		return ArchiveResult{}, err
 	}
@@ -58,7 +61,7 @@ func (s *ArchiveService) CreateBackup(ctx context.Context, outputDirectory strin
 			return ArchiveResult{}, fmt.Errorf("backup Stats database: %w", err)
 		}
 		if err := sanitizeStatsSnapshot(ctx, statsSnapshot); err != nil {
-			return ArchiveResult{}, fmt.Errorf("sanitize Stats chat transport: %w", err)
+			return ArchiveResult{}, fmt.Errorf("sanitize Stats private data: %w", err)
 		}
 		if err := os.Chmod(statsSnapshot, 0o600); err != nil && !os.IsPermission(err) {
 			return ArchiveResult{}, err
@@ -112,6 +115,20 @@ func (s *ArchiveService) CreateBackup(ctx context.Context, outputDirectory strin
 }
 
 func sanitizeStatsSnapshot(ctx context.Context, path string) error {
+	return sanitizeSQLiteSnapshot(ctx, path,
+		"DELETE FROM lps_chat_outbox",
+		"UPDATE lps_sessions SET ip_address='' WHERE ip_address<>''",
+	)
+}
+
+func sanitizeDashboardSnapshot(ctx context.Context, path string) error {
+	return sanitizeSQLiteSnapshot(ctx, path,
+		"UPDATE geoip_settings SET api_key='', cache_secret='' WHERE singleton_id=1",
+		"DELETE FROM geoip_cache",
+	)
+}
+
+func sanitizeSQLiteSnapshot(ctx context.Context, path string, statements ...string) error {
 	db, err := sql.Open("sqlite", "file:"+filepath.ToSlash(path))
 	if err != nil {
 		return err
@@ -120,8 +137,10 @@ func sanitizeStatsSnapshot(ctx context.Context, path string) error {
 	if _, err := db.ExecContext(ctx, "PRAGMA secure_delete=ON"); err != nil {
 		return err
 	}
-	if _, err := db.ExecContext(ctx, "DELETE FROM lps_chat_outbox"); err != nil {
-		return err
+	for _, statement := range statements {
+		if _, err := db.ExecContext(ctx, statement); err != nil {
+			return err
+		}
 	}
 	if _, err := db.ExecContext(ctx, "VACUUM"); err != nil {
 		return err

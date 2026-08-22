@@ -45,11 +45,11 @@ func (r *adminRoutes) confirmChatAuditSettings(c fiber.Ctx) error {
 	if err := c.Bind().Body(&body); err != nil || body.PlanID == "" {
 		return sendError(c, 400, "invalid_body", "plan_id and settings are required")
 	}
-	deleted, err := r.chatAudit.ConfirmSettings(c.Context(), body.PlanID, body.Settings)
+	result, err := r.chatAudit.ConfirmSettings(c.Context(), body.PlanID, body.Settings)
 	if err != nil {
 		return sendError(c, 409, "chat_retention_confirmation_failed", err.Error())
 	}
-	return sendData(c, 200, fiber.Map{"deleted": deleted, "settings": body.Settings})
+	return sendData(c, 200, result)
 }
 
 func (r *adminRoutes) chatAuditStatus(c fiber.Ctx) error {

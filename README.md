@@ -227,11 +227,11 @@ l4d2-stats uninstall
 - Stats DB 是游戏采集事实来源，Dashboard DB 保存网页配置、管理员和可重建的聚合数据；
 - Chat Audit 最终历史保存在独立 `chat-audit.db`：采集默认开启，Stats outbox 只保留 72 小时传输缓冲，最终默认保留 30 天；
 - 采集器保存服务器观察到的玩家 IP，用于会话审计，但公开 API 和网页不会查询或展示该字段；
-- GeoIP 在未配置百度 AK 时不会请求 provider；配置后仅后台异步解析公网 IP，请求速率可在后台设置为 1-3 QPS（默认 2），管理测试与后台队列共用同一限速器；Dashboard 缓存只保存 HMAC 键和城市级近似结果，不复制原始 IP；
+- GeoIP 在未配置百度 AK 时不会请求 provider；配置后仅后台异步解析公网 IP，请求速率可在后台设置为 1-3 QPS（默认 2），管理测试与后台队列共用同一限速器；Dashboard 缓存只保存 HMAC 键和城市级近似结果，不复制原始 IP。位置筛选会有界扫描底层连接游标，缓存未命中时提示仍在解析并要求稍后刷新，不会同步请求百度；
 - 常规 Dashboard 查询只读 Stats DB；执行原始数据清理时才使用具备 `DELETE` 权限的维护连接；
 - 过期装备/职业明细、已关闭 Session 和比赛结果只有在聚合覆盖校验通过并由管理员确认后才会分批删除；Incident 使用独立的默认 180 天保留策略；
 - 数据库密码只应保存在服务器本地配置中，不应提交到仓库。
-- 常规备份不包含 `chat-audit.db`，SQLite Stats 备份副本会移除瞬时聊天 outbox；诊断包不包含聊天正文、原始 IP 列表或 GeoIP AK。
+- 常规备份不包含 `chat-audit.db`；SQLite Stats 备份副本会移除瞬时聊天 outbox 并清空 Session IP，Dashboard 备份副本会清空百度 AK、GeoIP cache secret 及其缓存，所有清理都不修改 live DB，恢复后自动生成新的 cache secret。MySQL/PostgreSQL Stats 原生备份可能包含 Session IP/outbox，管理员必须按自身隐私策略排除或单独到期；诊断包不包含聊天正文、原始 IP 列表或 GeoIP AK。
 
 详细规则见[数据生命周期](docs/dashboard-data-lifecycle.md)。
 

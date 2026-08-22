@@ -4,7 +4,7 @@ All notable changes to this project are documented in this file.
 
 ## Unreleased
 
-## 1.3.5 - 2026-08-18
+## 1.3.5 - 2026-08-22
 
 ### Added
 
@@ -32,6 +32,12 @@ All notable changes to this project are documented in this file.
 
 - Keep every chat, raw IP, and GeoIP route behind administrator authentication and CSRF protection; search/export filters use POST bodies, provider errors are sanitized, and CSV cells are protected from formula injection.
 - Store no duplicate raw IP in Dashboard DB: normalized public addresses are keyed only by an installation-local HMAC-SHA256 secret, while the Baidu AK is masked on read and omitted from logs and diagnostics.
+
+### Fixed
+
+- Sanitize ordinary SQLite backup snapshots without mutating live databases: remove the Stats chat outbox and Session IP values, clear the Dashboard Baidu AK/cache secret and dependent GeoIP cache, keep `chat-audit.db` excluded, and regenerate the installation-local cache secret after restore.
+- Scan bounded underlying connection-audit keyset pages for GeoIP Location filters instead of filtering only the first raw page; preserve raw-row cursors across the 2,000-row request budget and report cache misses as asynchronously resolving.
+- Persist a confirmed Chat Audit retention policy before deleting messages; a failed settings write now deletes nothing, while an interrupted 500-row cleanup reports `pending` and remains resumable by the hourly cleanup.
 
 ### Validation note
 

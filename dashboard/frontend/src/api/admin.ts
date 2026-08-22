@@ -14,6 +14,7 @@ export interface DataGrowthStatus { aggregate: AggregateStatus; settings: DataMa
 export interface AchievementEngineState { achievement_contract_version: number; catalog_items: number; evaluated_players: number; pending_backfill: number; global_source_watermark: number; dirty_cursor_watermark: number; dirty_cursor_steam_id: string; backfill_cursor: string; backfill_complete: boolean; last_run_at: number; last_success_at: number; last_error?: string; updated_at: number }
 export interface ChatAuditSettings { enabled: boolean; retention_days: number; last_cleanup_at: number; updated_at: number }
 export interface ChatRetentionPlan { plan_id: string; retention_days: number; cutoff: number; delete_count: number }
+export interface ChatRetentionConfirmation { deleted: number; settings: ChatAuditSettings; cleanup_status: 'complete' | 'pending' }
 export interface ChatAuditStatus { database: DatabaseUsage; message_count: number; oldest_message_at: number; newest_message_at: number; retention_days: number; last_cleanup_at: number; ingestion_lag: number; dropped_count: number; known_gap_count: number; last_ingest_at: number }
 export interface ChatSearchFilter { from?: number; to?: number; server_key?: string; steam_id?: string; nickname?: string; map_name?: string; game_mode?: string; team?: string; channel?: string; message_kind?: string; keyword?: string; boot_id?: string; cursor_at?: number; cursor_id?: string; limit?: number }
 export interface ChatMessage { message_id: string; server_key: string; boot_id: string; chat_seq: number; session_id?: string; steam_id?: string; source_user_id: number; player_name: string; occurred_at: number; map_name: string; game_mode: string; team: string; channel: string; alive: boolean; command_like: boolean; content: string }
@@ -22,7 +23,7 @@ export interface GeoIPEntry { provider: string; country: string; country_code: s
 export interface GeoIPSettings { provider: string; api_key_configured: boolean; api_key_masked?: string; qps_limit: number; last_success_at: number; last_error_at: number; last_error_code?: string; ipv4_status: string; ipv6_status: string; cache_count: number; pending_count: number; updated_at: number }
 export interface ConnectionAuditFilter { from?: number; to?: number; server_key?: string; steam_id?: string; nickname?: string; ip_address?: string; location?: string; cursor_at?: number; cursor_id?: string; limit?: number }
 export interface ConnectionAuditRow { session_id: string; server_key: string; steam_id: string; player_name: string; ip_address: string; started_at: number; ended_at?: number; connected_seconds: number; status: string; disconnect_reason: string; geoip?: GeoIPEntry }
-export interface ConnectionAuditPage { items: ConnectionAuditRow[]; next_cursor_at?: number; next_cursor_id?: string }
+export interface ConnectionAuditPage { items: ConnectionAuditRow[]; next_cursor_at?: number; next_cursor_id?: string; location_pending?: boolean }
 
 export const adminAPI = {
   setupStatus: () => request<{ required: boolean; expires_at?: string }>('/api/v1/setup/status'),
@@ -46,7 +47,7 @@ export const adminAPI = {
   achievementEngineState: () => request<AchievementEngineState>('/api/v1/admin/data/achievement-engine'),
   chatAuditSettings: () => request<ChatAuditSettings>('/api/v1/admin/audit/chat/settings'),
   saveChatAuditSettings: (settings: ChatAuditSettings) => adminWrite<ChatRetentionPlan | ChatAuditSettings>('/api/v1/admin/audit/chat/settings', 'PUT', settings),
-  confirmChatAuditSettings: (plan_id: string, settings: ChatAuditSettings) => adminWrite<{ deleted: number; settings: ChatAuditSettings }>('/api/v1/admin/audit/chat/settings/confirm', 'POST', { plan_id, settings }),
+  confirmChatAuditSettings: (plan_id: string, settings: ChatAuditSettings) => adminWrite<ChatRetentionConfirmation>('/api/v1/admin/audit/chat/settings/confirm', 'POST', { plan_id, settings }),
   chatAuditStatus: () => request<ChatAuditStatus>('/api/v1/admin/audit/chat/status'),
   searchChatAudit: (filter: ChatSearchFilter) => adminWrite<ChatSearchPage>('/api/v1/admin/audit/chat/search', 'POST', filter),
   exportChatAudit: (format: 'csv' | 'jsonl', filter: ChatSearchFilter) => adminDownload('/api/v1/admin/audit/chat/export', { format, filter }),

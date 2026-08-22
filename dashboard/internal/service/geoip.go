@@ -21,7 +21,11 @@ import (
 	"go.uber.org/zap"
 )
 
-const baiduGeoIPEndpoint = "https://api.map.baidu.com/location/ip"
+const (
+	baiduGeoIPEndpoint          = "https://api.map.baidu.com/location/ip"
+	connectionLocationBatchSize = 200
+	connectionLocationScanLimit = 2000
+)
 
 type GeoIPProvider interface {
 	Lookup(context.Context, netip.Addr, string) (store.GeoIPCacheEntry, error)
@@ -381,6 +385,9 @@ func (s *GeoIPService) Test(ctx context.Context, rawIP string) (store.GeoIPCache
 }
 
 func (s *GeoIPService) Connections(ctx context.Context, filter store.ConnectionAuditFilter) (store.ConnectionAuditPage, error) {
+	if strings.TrimSpace(filter.Location) != "" {
+		return s.connectionsByLocation(ctx, filter)
+	}
 	page, err := s.stats.ConnectionAudit(ctx, filter)
 	if err != nil {
 		return page, err
@@ -397,6 +404,61 @@ func (s *GeoIPService) Connections(ctx context.Context, filter store.ConnectionA
 	}
 	page.Items = filtered
 	return page, nil
+}
+
+func (s *GeoIPService) connectionsByLocation(ctx context.Context, filter store.ConnectionAuditFilter) (store.ConnectionAuditPage, error) {
+	if filter.Limit < 1 || filter.Limit > 200 {
+		filter.Limit = 100
+	}
+	location := strings.TrimSpace(filter.Location)
+	scan := filter
+	scan.Location = ""
+	scan.Limit = connectionLocationBatchSize
+	result := store.ConnectionAuditPage{Items: make([]store.ConnectionAuditRow, 0, filter.Limit)}
+	scanned := 0
+	for scanned < connectionLocationScanLimit {
+		page, err := s.stats.ConnectionAudit(ctx, scan)
+		if err != nil {
+			return result, err
+		}
+		if len(page.Items) == 0 {
+			result.NextCursorAt, result.NextCursorID = page.NextCursorAt, page.NextCursorID
+			return result, nil
+		}
+		for index := range page.Items {
+			row := page.Items[index]
+			entry, cacheErr := s.Cached(ctx, row.IPAddress)
+			if cacheErr == nil {
+				row.GeoIP = entry
+				if entry == nil {
+					result.LocationPending = true
+				}
+			}
+			scanned++
+			if entryMatchesLocation(entry, location) {
+				result.Items = append(result.Items, row)
+			}
+			moreInBatch := index+1 < len(page.Items)
+			moreRawRows := moreInBatch || page.NextCursorID != ""
+			if len(result.Items) == filter.Limit {
+				if moreRawRows {
+					result.NextCursorAt, result.NextCursorID = row.StartedAt, row.SessionID
+				}
+				return result, nil
+			}
+			if scanned == connectionLocationScanLimit {
+				if moreRawRows {
+					result.NextCursorAt, result.NextCursorID = row.StartedAt, row.SessionID
+				}
+				return result, nil
+			}
+		}
+		if page.NextCursorID == "" {
+			return result, nil
+		}
+		scan.CursorAt, scan.CursorID = page.NextCursorAt, page.NextCursorID
+	}
+	return result, nil
 }
 
 func entryMatchesLocation(entry *store.GeoIPCacheEntry, query string) bool {

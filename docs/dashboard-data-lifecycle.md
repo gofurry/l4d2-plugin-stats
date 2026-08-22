@@ -55,8 +55,8 @@ v1.3 为 Incident 引入独立保留策略，默认 180 天。它不依赖 Aggre
 - `sm_lps_chat_audit_enabled` 默认开启，并独立于 gameplay 模式白名单；Survival、Scavenge、Mutation 等不受支持玩法仍可审计真人聊天，但不会创建 gameplay Session/Stats。
 - Collector 先给每条符合条件的消息分配 boot 内单调序列，再尝试进入 1024 条有界队列；队列满会留下可诊断序列缺口，不阻断游戏。
 - 批量异步写入 Stats `lps_chat_outbox`，Collector 以每批最多 256 行删除超过 72 小时的传输记录；Dashboard 只读 Stats 并以 boot 游标幂等摄取。
-- `chat-audit.db` 默认保留 30 天，可选择 7/14/30/60/90/180/365 天或永久；缩短窗口会先预览影响并要求管理员确认，删除按 500 行分批。
-- 常规备份排除 `chat-audit.db`，SQLite Stats 备份副本会删除 outbox 后再归档；诊断包不含聊天正文或原始聊天数据库。MySQL/PostgreSQL 原生备份应排除 `lps_chat_outbox`，或把它视为必须单独到期的敏感传输数据。
+- `chat-audit.db` 默认保留 30 天，可选择 7/14/30/60/90/180/365 天或永久；缩短窗口会先预览影响并要求管理员确认。确认后先持久化新策略，再按 500 行分批删除；中途失败保留新策略并报告清理待继续，后续每小时清理可幂等完成剩余数据，采集关闭也不阻止保留策略生效。
+- 常规备份排除 `chat-audit.db`。SQLite Stats 备份副本会删除 outbox 并清空 Session IP，Dashboard 副本会清空百度 AK、GeoIP cache secret 和依赖旧 secret 的缓存；所有清理只发生在在线快照，live DB 不变，恢复启动时重新生成 secret。诊断包不含聊天正文或原始聊天数据库。MySQL/PostgreSQL 原生备份可能包含 `lps_sessions.ip_address` 与 `lps_chat_outbox`，管理员必须按隐私策略排除、加密或单独到期。
 
 ## GeoIP 生命周期与隐私
 
@@ -64,6 +64,7 @@ v1.3 为 Incident 引入独立保留策略，默认 180 天。它不依赖 Aggre
 - 仅公网 IP 会在缓存未命中时进入 256 条有界队列；管理员可设置 1-3 QPS（默认 2），后台解析与测试请求共用同一无突发限速器。私有、回环、链路本地、文档保留地址不会发给 provider。
 - 成功结果默认缓存 30 天；网络或 provider 错误只缓存 1 小时。结果是近似城市级位置，不代表精确玩家位置，海外/IPv6 能力由 provider 与账户决定。
 - 过期缓存由后台按固定周期、固定批次数量清理；相同 IP 在有效缓存期内直接复用，队列按 HMAC 键去重，不会并发重复消耗额度。
+- 连接审计没有位置条件时只读取一个原始 keyset page；有位置条件时按每批最多 200 条、单次最多 2,000 条连续扫描，返回游标始终指向最后实际扫描的原始连接行。预算耗尽但仍有原始数据时继续返回下一页游标；缓存未命中只排入现有异步队列，不同步调用 provider，并提示管理员部分位置仍在解析、稍后刷新。
 - 原始 IP、位置与 provider 状态只出现在管理员连接审计中，不进入公开 API、个人页、排行榜或 `/ingame`；AK 只以掩码形式返回管理前端，也不进入日志、备份诊断或错误文本。
 
 “数据增长监控”页展示 Stats DB、Dashboard DB/WAL、Chat Audit DB/WAL、轮转日志、聚合状态、聊天数量/窗口/摄取滞后/缺口/丢弃计数、GeoIP 缓存/队列/状态、候选清理数量和历史清理次数，用于决定是否缩短保留期或安排数据库维护窗口。

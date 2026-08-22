@@ -2,7 +2,9 @@ package service
 
 import (
 	"context"
+	"database/sql"
 	"errors"
+	"fmt"
 	"net/http"
 	"net/http/httptest"
 	"net/netip"
@@ -194,5 +196,236 @@ func TestBaiduGeoIPProviderTimeoutAndAddressPrivacy(t *testing.T) {
 	}
 	if geoIPHash("one", netip.MustParseAddr("8.8.8.8")) == geoIPHash("two", netip.MustParseAddr("8.8.8.8")) {
 		t.Fatal("HMAC cache keys do not depend on the stable secret")
+	}
+}
+
+type connectionAuditStatsFixture struct {
+	rows  []store.ConnectionAuditRow
+	calls []store.ConnectionAuditFilter
+}
+
+func (f *connectionAuditStatsFixture) ListChatCaptureStates(context.Context) ([]store.ChatCaptureState, error) {
+	return nil, nil
+}
+
+func (f *connectionAuditStatsFixture) ListChatOutbox(context.Context, string, int64, int) ([]store.ChatMessage, error) {
+	return nil, nil
+}
+
+func (f *connectionAuditStatsFixture) OldestChatOutboxSeq(context.Context, string) (int64, error) {
+	return 0, nil
+}
+
+func (f *connectionAuditStatsFixture) ConnectionAudit(_ context.Context, filter store.ConnectionAuditFilter) (store.ConnectionAuditPage, error) {
+	f.calls = append(f.calls, filter)
+	start := 0
+	if filter.CursorID != "" {
+		for index := range f.rows {
+			if f.rows[index].SessionID == filter.CursorID && f.rows[index].StartedAt == filter.CursorAt {
+				start = index + 1
+				break
+			}
+		}
+	}
+	limit := filter.Limit
+	if limit < 1 || limit > 200 {
+		limit = 100
+	}
+	end := start + limit
+	if end > len(f.rows) {
+		end = len(f.rows)
+	}
+	page := store.ConnectionAuditPage{Items: append([]store.ConnectionAuditRow(nil), f.rows[start:end]...)}
+	if end < len(f.rows) && end > start {
+		last := f.rows[end-1]
+		page.NextCursorAt, page.NextCursorID = last.StartedAt, last.SessionID
+	}
+	return page, nil
+}
+
+type geoIPDashboardFixture struct {
+	config store.GeoIPRuntimeConfig
+	cache  map[string]store.GeoIPCacheEntry
+}
+
+func newGeoIPDashboardFixture() *geoIPDashboardFixture {
+	return &geoIPDashboardFixture{
+		config: store.GeoIPRuntimeConfig{Provider: "baidu", APIKey: "test-key", QPSLimit: 2, CacheSecret: "cache-secret"},
+		cache:  make(map[string]store.GeoIPCacheEntry),
+	}
+}
+
+func (f *geoIPDashboardFixture) addLocation(rawIP, location string) {
+	addr := netip.MustParseAddr(rawIP)
+	hash := geoIPHash(f.config.CacheSecret, addr)
+	f.cache[hash] = store.GeoIPCacheEntry{
+		IPHash: hash, Provider: "baidu", Country: "中国", Province: location, City: location,
+		CoordinateSystem: "bd09ll", Precision: "city", Status: "resolved", ExpiresAt: time.Now().Add(time.Hour).Unix(),
+	}
+}
+
+func (f *geoIPDashboardFixture) ChatAuditSettings(context.Context) (store.ChatAuditSettings, error) {
+	return store.ChatAuditSettings{}, nil
+}
+
+func (f *geoIPDashboardFixture) UpdateChatAuditSettings(context.Context, store.ChatAuditSettings) error {
+	return nil
+}
+
+func (f *geoIPDashboardFixture) MarkChatAuditCleanup(context.Context, int64) error { return nil }
+func (f *geoIPDashboardFixture) RecordChatExport(context.Context, store.ChatExportAuditEntry) error {
+	return nil
+}
+
+func (f *geoIPDashboardFixture) GeoIPRuntimeConfig(context.Context) (store.GeoIPRuntimeConfig, error) {
+	return f.config, nil
+}
+
+func (f *geoIPDashboardFixture) GeoIPSettings(context.Context, int64) (store.GeoIPSettings, error) {
+	return store.GeoIPSettings{}, nil
+}
+
+func (f *geoIPDashboardFixture) UpdateGeoIPSettings(context.Context, string, bool, int64) error {
+	return nil
+}
+
+func (f *geoIPDashboardFixture) UpdateGeoIPRuntimeStatus(context.Context, store.GeoIPRuntimeStatus) error {
+	return nil
+}
+
+func (f *geoIPDashboardFixture) GeoIPCache(_ context.Context, hash, _ string) (store.GeoIPCacheEntry, error) {
+	entry, ok := f.cache[hash]
+	if !ok {
+		return store.GeoIPCacheEntry{}, sql.ErrNoRows
+	}
+	return entry, nil
+}
+
+func (f *geoIPDashboardFixture) UpsertGeoIPCache(_ context.Context, entry store.GeoIPCacheEntry) error {
+	f.cache[entry.IPHash] = entry
+	return nil
+}
+
+func (f *geoIPDashboardFixture) GeoIPCacheCount(context.Context) (int64, error) {
+	return int64(len(f.cache)), nil
+}
+
+func (f *geoIPDashboardFixture) DeleteExpiredGeoIPCache(context.Context, int64, int64) (int64, error) {
+	return 0, nil
+}
+
+func connectionAuditRows(count int) []store.ConnectionAuditRow {
+	rows := make([]store.ConnectionAuditRow, count)
+	for index := range rows {
+		octet2 := index / (254 * 254)
+		octet3 := (index / 254) % 254
+		octet4 := index%254 + 1
+		rows[index] = store.ConnectionAuditRow{
+			SessionID: fmt.Sprintf("session-%04d", index), IPAddress: fmt.Sprintf("8.%d.%d.%d", octet2, octet3, octet4),
+			StartedAt: int64(100000 - index), PlayerName: "player", SteamID: "76561198000000000",
+		}
+	}
+	return rows
+}
+
+func TestGeoIPLocationFilterScansRawPagesAndPaginatesWithoutGaps(t *testing.T) {
+	ctx := context.Background()
+	rows := connectionAuditRows(450)
+	dashboard := newGeoIPDashboardFixture()
+	for index, row := range rows {
+		location := "北京市"
+		if index >= 220 && index < 232 {
+			location = "上海市"
+		}
+		dashboard.addLocation(row.IPAddress, location)
+	}
+	stats := &connectionAuditStatsFixture{rows: rows}
+	service := NewGeoIPService(dashboard, stats, &countingGeoIPProvider{}, zap.NewNop())
+	filter := store.ConnectionAuditFilter{Location: "上海", Limit: 5}
+	got := make([]string, 0, 12)
+	for {
+		page, err := service.Connections(ctx, filter)
+		if err != nil {
+			t.Fatal(err)
+		}
+		for _, row := range page.Items {
+			got = append(got, row.SessionID)
+		}
+		if page.NextCursorID == "" {
+			break
+		}
+		filter.CursorAt, filter.CursorID = page.NextCursorAt, page.NextCursorID
+	}
+	want := make([]string, 0, 12)
+	for _, row := range rows[220:232] {
+		want = append(want, row.SessionID)
+	}
+	if strings.Join(got, ",") != strings.Join(want, ",") {
+		t.Fatalf("filtered pagination=%v want=%v", got, want)
+	}
+	if len(stats.calls) < 4 || stats.calls[0].Limit != connectionLocationBatchSize {
+		t.Fatalf("raw scans=%d first=%+v", len(stats.calls), stats.calls[0])
+	}
+}
+
+func TestGeoIPLocationFilterReturnsRawCursorAtScanBudget(t *testing.T) {
+	ctx := context.Background()
+	rows := connectionAuditRows(connectionLocationScanLimit + 1)
+	dashboard := newGeoIPDashboardFixture()
+	for _, row := range rows {
+		dashboard.addLocation(row.IPAddress, "北京市")
+	}
+	stats := &connectionAuditStatsFixture{rows: rows}
+	service := NewGeoIPService(dashboard, stats, &countingGeoIPProvider{}, zap.NewNop())
+	page, err := service.Connections(ctx, store.ConnectionAuditFilter{Location: "上海", Limit: 10})
+	if err != nil {
+		t.Fatal(err)
+	}
+	wantCursor := rows[connectionLocationScanLimit-1]
+	if len(page.Items) != 0 || page.NextCursorID != wantCursor.SessionID || page.NextCursorAt != wantCursor.StartedAt {
+		t.Fatalf("budget page=%+v want cursor=%s/%d", page, wantCursor.SessionID, wantCursor.StartedAt)
+	}
+	if len(stats.calls) != connectionLocationScanLimit/connectionLocationBatchSize {
+		t.Fatalf("raw scan calls=%d", len(stats.calls))
+	}
+	next, err := service.Connections(ctx, store.ConnectionAuditFilter{
+		Location: "上海", Limit: 10, CursorAt: page.NextCursorAt, CursorID: page.NextCursorID,
+	})
+	if err != nil || next.NextCursorID != "" {
+		t.Fatalf("final page=%+v err=%v", next, err)
+	}
+}
+
+func TestGeoIPConnectionsWithoutLocationKeepsSinglePagePath(t *testing.T) {
+	ctx := context.Background()
+	rows := connectionAuditRows(30)
+	dashboard := newGeoIPDashboardFixture()
+	for _, row := range rows {
+		dashboard.addLocation(row.IPAddress, "上海市")
+	}
+	stats := &connectionAuditStatsFixture{rows: rows}
+	service := NewGeoIPService(dashboard, stats, &countingGeoIPProvider{}, zap.NewNop())
+	page, err := service.Connections(ctx, store.ConnectionAuditFilter{Limit: 10})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(stats.calls) != 1 || stats.calls[0].Limit != 10 || len(page.Items) != 10 || page.Items[0].GeoIP == nil || page.NextCursorID == "" {
+		t.Fatalf("fast path calls=%d page=%+v", len(stats.calls), page)
+	}
+}
+
+func TestGeoIPLocationCacheMissQueuesWithoutSynchronousProviderCall(t *testing.T) {
+	ctx := context.Background()
+	rows := connectionAuditRows(1)
+	dashboard := newGeoIPDashboardFixture()
+	stats := &connectionAuditStatsFixture{rows: rows}
+	provider := &countingGeoIPProvider{}
+	service := NewGeoIPService(dashboard, stats, provider, zap.NewNop())
+	page, err := service.Connections(ctx, store.ConnectionAuditFilter{Location: "上海", Limit: 10})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !page.LocationPending || provider.count != 0 || service.count.Load() != 1 {
+		t.Fatalf("pending=%v provider_calls=%d queued=%d", page.LocationPending, provider.count, service.count.Load())
 	}
 }

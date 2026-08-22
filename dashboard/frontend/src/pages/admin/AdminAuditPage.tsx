@@ -92,6 +92,7 @@ function ConnectionsAudit() {
       {geo.data?.last_error_code && <Alert type="warning" showIcon message={`最近错误：${geo.data.last_error_code}`} />}
     </section>
     <section className={styles.dataSection}>
+      {search.data?.location_pending && <Alert type="info" showIcon message="部分位置仍在解析，请稍后刷新" />}
       <Table<ConnectionAuditRow> columns={columns} dataSource={search.data?.items ?? []} rowKey="session_id" loading={search.isPending} pagination={false} scroll={{ x: 1050 }} />
       <AuditPager page={page} loading={search.isPending} hasNext={Boolean(search.data?.next_cursor_id)} onPrevious={previousPage} onNext={nextPage}/>
     </section>
@@ -138,7 +139,9 @@ function ChatAudit() {
   useEffect(() => { search.mutate(filter) }, []) // eslint-disable-line react-hooks/exhaustive-deps
   const confirmRetention = (plan: ChatRetentionPlan) => Modal.confirm({ title: '确认缩短聊天保留时间？', content: `将分批删除约 ${plan.delete_count.toLocaleString()} 条聊天记录。`, okButtonProps: { danger: true }, onOk: async () => {
     if (!settings.data) return
-    await api.confirmChatAuditSettings(plan.plan_id, { ...settings.data, retention_days: plan.retention_days })
+    const result = await api.confirmChatAuditSettings(plan.plan_id, { ...settings.data, retention_days: plan.retention_days })
+    if (result.cleanup_status === 'pending') void message.warning('保留策略已保存，清理尚未完成；后台将按新策略继续清理')
+    else void message.success(`聊天审计设置已保存，已清理 ${result.deleted.toLocaleString()} 条记录`)
     void client.invalidateQueries({ queryKey: ['admin-chat-settings'] }); void client.invalidateQueries({ queryKey: ['admin-chat-status'] })
   } })
   const submit = (values: ChatSearchFilter) => {

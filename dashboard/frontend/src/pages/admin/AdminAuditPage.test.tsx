@@ -74,4 +74,16 @@ describe('AdminAuditPage', () => {
     expect(await screen.findByText('第 1 页')).toBeInTheDocument()
     await waitFor(() => expect(connectionSearches).toBe(3))
   })
+
+  it('reports location results that are still resolving', async () => {
+    vi.stubGlobal('fetch', vi.fn((input: RequestInfo | URL) => {
+      const path = String(input)
+      if (path.endsWith('/geoip/settings')) return Promise.resolve(response({ provider: 'baidu', api_key_configured: true, api_key_masked: '****1234', qps_limit: 2, ipv4_status: 'working', ipv6_status: 'unknown', cache_count: 0, pending_count: 1 }))
+      if (path.endsWith('/connections/search')) return Promise.resolve(response({ items: [], location_pending: true }))
+      return Promise.resolve(response({ token: 'csrf' }))
+    }))
+    const client = new QueryClient({ defaultOptions: { queries: { retry: false }, mutations: { retry: false } } })
+    render(<QueryClientProvider client={client}><AdminAuditPage /></QueryClientProvider>)
+    expect(await screen.findByText('部分位置仍在解析，请稍后刷新')).toBeInTheDocument()
+  })
 })

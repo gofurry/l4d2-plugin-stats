@@ -23,9 +23,33 @@ import (
 func TestCreateAndRestoreSQLiteBackup(t *testing.T) {
 	ctx := context.Background()
 	source := newArchiveFixture(t, "source")
+	const chatBody = "private-chat-body"
+	const rawSessionIP = "8.8.8.8"
+	const baiduAPIKey = "private-baidu-ak"
 	insertMarker(t, source.DashboardDatabase.Path, "source-dashboard")
 	insertMarker(t, source.StatsDatabase.DSN, "source-stats")
-	insertChatOutbox(t, source.StatsDatabase.DSN, "private-chat-body")
+	insertChatOutbox(t, source.StatsDatabase.DSN, chatBody)
+	insertSessionIP(t, source.StatsDatabase.DSN, rawSessionIP)
+	dashboard, err := store.OpenDashboard(ctx, source.DashboardDatabase.Path)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err := dashboard.UpdateGeoIPSettings(ctx, baiduAPIKey, false, 2); err != nil {
+		t.Fatal(err)
+	}
+	geoConfig, err := dashboard.GeoIPRuntimeConfig(ctx)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err := dashboard.UpsertGeoIPCache(ctx, store.GeoIPCacheEntry{
+		IPHash: "private-cache-hash", Provider: "baidu", Country: "中国", City: "上海市",
+		CoordinateSystem: "bd09ll", Precision: "city", Status: "resolved", ResolvedAt: 1, ExpiresAt: 2,
+	}); err != nil {
+		t.Fatal(err)
+	}
+	if err := dashboard.Close(); err != nil {
+		t.Fatal(err)
+	}
 	wal, err := sql.Open("sqlite", "file:"+filepath.ToSlash(source.DashboardDatabase.Path)+"?_pragma=journal_mode(WAL)&_pragma=wal_autocheckpoint(0)")
 	if err != nil {
 		t.Fatal(err)
@@ -48,7 +72,7 @@ func TestCreateAndRestoreSQLiteBackup(t *testing.T) {
 		t.Fatalf("backup mode = %q", backup.StatsBackupMode)
 	}
 	assertZipModeAndManifest(t, backup.Path)
-	assertBackupChatSanitized(t, backup.Path, source.StatsDatabase.DSN)
+	assertBackupPrivacySanitized(t, backup.Path, source, chatBody, rawSessionIP, baiduAPIKey, geoConfig.CacheSecret)
 
 	current := newArchiveFixture(t, "current")
 	insertMarker(t, current.DashboardDatabase.Path, "current-dashboard")
@@ -70,6 +94,24 @@ func TestCreateAndRestoreSQLiteBackup(t *testing.T) {
 	}
 	if reloaded.DashboardDatabase.Path != current.DashboardDatabase.Path || reloaded.StatsDatabase.DSN != current.StatsDatabase.DSN {
 		t.Fatalf("restored paths changed: dashboard=%q stats=%q", reloaded.DashboardDatabase.Path, reloaded.StatsDatabase.DSN)
+	}
+	restoredDashboard, err := store.OpenDashboard(ctx, current.DashboardDatabase.Path)
+	if err != nil {
+		t.Fatal(err)
+	}
+	restoredGeo, err := restoredDashboard.GeoIPRuntimeConfig(ctx)
+	if err != nil {
+		t.Fatal(err)
+	}
+	cacheCount, err := restoredDashboard.GeoIPCacheCount(ctx)
+	if closeErr := restoredDashboard.Close(); closeErr != nil {
+		t.Fatal(closeErr)
+	}
+	if err != nil {
+		t.Fatal(err)
+	}
+	if restoredGeo.APIKey != "" || restoredGeo.CacheSecret == "" || restoredGeo.CacheSecret == geoConfig.CacheSecret || cacheCount != 0 {
+		t.Fatalf("restored GeoIP state = key:%q secret:%q cache:%d", restoredGeo.APIKey, restoredGeo.CacheSecret, cacheCount)
 	}
 	for _, path := range result.RollbackCopies {
 		if _, err := os.Stat(path); err != nil {
@@ -253,36 +295,94 @@ VALUES ('boot:chat:1','boot','server',1,7,'player',1,'map','coop','survivor','gl
 	}
 }
 
-func assertBackupChatSanitized(t *testing.T, archivePath, liveStatsPath string) {
+func insertSessionIP(t *testing.T, databasePath, ipAddress string) {
+	t.Helper()
+	db, err := sql.Open("sqlite", databasePath)
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer db.Close()
+	_, err = db.Exec(`INSERT INTO lps_sessions
+(session_id,boot_id,server_key,steam_id,player_name,ip_address,started_at,last_saved_at,status)
+VALUES ('session-private','boot','server','76561198000000000','player',?,1,1,'closed')`, ipAddress)
+	if err != nil {
+		t.Fatal(err)
+	}
+}
+
+func assertBackupPrivacySanitized(t *testing.T, archivePath string, live *config.Config, chatBody, rawIP, apiKey, cacheSecret string) {
 	t.Helper()
 	reader, err := zip.OpenReader(archivePath)
 	if err != nil {
 		t.Fatal(err)
 	}
 	defer reader.Close()
+	var statsSnapshot, dashboardSnapshot string
 	for _, member := range reader.File {
-		if member.Name != "stats/stats.db" {
-			continue
-		}
-		snapshot := filepath.Join(t.TempDir(), "stats.db")
-		if err := os.WriteFile(snapshot, readZipEntry(t, member), 0o600); err != nil {
-			t.Fatal(err)
-		}
-		for path, want := range map[string]int64{snapshot: 0, liveStatsPath: 1} {
-			db, err := sql.Open("sqlite", path)
-			if err != nil {
+		contents := readZipEntry(t, member)
+		switch member.Name {
+		case "stats/stats.db":
+			statsSnapshot = filepath.Join(t.TempDir(), "stats.db")
+			if err := os.WriteFile(statsSnapshot, contents, 0o600); err != nil {
 				t.Fatal(err)
 			}
-			var count int64
-			err = db.QueryRow(`SELECT COUNT(*) FROM lps_chat_outbox`).Scan(&count)
-			db.Close()
-			if err != nil || count != want {
-				t.Fatalf("chat outbox count for %q = %d, err=%v; want %d", path, count, err, want)
+			for _, private := range []string{chatBody, rawIP} {
+				if strings.Contains(string(contents), private) {
+					t.Fatalf("Stats backup bytes contain %q", private)
+				}
+			}
+		case "dashboard/dashboard.db":
+			dashboardSnapshot = filepath.Join(t.TempDir(), "dashboard.db")
+			if err := os.WriteFile(dashboardSnapshot, contents, 0o600); err != nil {
+				t.Fatal(err)
+			}
+			for _, private := range []string{apiKey, cacheSecret, "private-cache-hash"} {
+				if strings.Contains(string(contents), private) {
+					t.Fatalf("Dashboard backup bytes contain %q", private)
+				}
 			}
 		}
-		return
 	}
-	t.Fatal("Stats snapshot missing from backup")
+	if statsSnapshot == "" || dashboardSnapshot == "" {
+		t.Fatalf("backup snapshots missing: stats=%q dashboard=%q", statsSnapshot, dashboardSnapshot)
+	}
+	for path, want := range map[string]int64{statsSnapshot: 0, live.StatsDatabase.DSN: 1} {
+		db, err := sql.Open("sqlite", path)
+		if err != nil {
+			t.Fatal(err)
+		}
+		var outbox, rawIPs int64
+		err = db.QueryRow(`SELECT COUNT(*) FROM lps_chat_outbox`).Scan(&outbox)
+		if err == nil {
+			err = db.QueryRow(`SELECT COUNT(*) FROM lps_sessions WHERE ip_address<>''`).Scan(&rawIPs)
+		}
+		db.Close()
+		if err != nil || outbox != want || rawIPs != want {
+			t.Fatalf("Stats privacy for %q = outbox:%d raw_ips:%d err=%v; want %d", path, outbox, rawIPs, err, want)
+		}
+	}
+	for path, wantPrivate := range map[string]bool{dashboardSnapshot: false, live.DashboardDatabase.Path: true} {
+		db, err := sql.Open("sqlite", path)
+		if err != nil {
+			t.Fatal(err)
+		}
+		var key, secret string
+		var cacheRows int64
+		err = db.QueryRow(`SELECT api_key,cache_secret FROM geoip_settings WHERE singleton_id=1`).Scan(&key, &secret)
+		if err == nil {
+			err = db.QueryRow(`SELECT COUNT(*) FROM geoip_cache`).Scan(&cacheRows)
+		}
+		db.Close()
+		if err != nil {
+			t.Fatal(err)
+		}
+		if wantPrivate && (key != apiKey || secret != cacheSecret || cacheRows != 1) {
+			t.Fatalf("live Dashboard GeoIP data changed: key=%q secret=%q cache=%d", key, secret, cacheRows)
+		}
+		if !wantPrivate && (key != "" || secret != "" || cacheRows != 0) {
+			t.Fatalf("backup Dashboard GeoIP data not sanitized: key=%q secret=%q cache=%d", key, secret, cacheRows)
+		}
+	}
 }
 
 func TestRedactSensitiveCredentials(t *testing.T) {

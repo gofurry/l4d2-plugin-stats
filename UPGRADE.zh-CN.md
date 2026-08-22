@@ -20,7 +20,7 @@ Dashboard 已运行时可先执行：
 ./l4d2-stats backup create --config ./config.yaml
 ```
 
-该命令使用 SQLite 在线备份 API 同时保护 Dashboard DB 和 SQLite Stats DB，不会遗漏 WAL 数据。MySQL/PostgreSQL Stats DB 会在归档中标记为需要外部备份，必须同时使用数据库原生工具完成备份。
+该命令使用 SQLite 在线备份 API 同时保护 Dashboard DB 和 SQLite Stats DB，不会遗漏 WAL 数据。归档前只清理快照：Stats 副本删除聊天 outbox 并清空 Session IP，Dashboard 副本清空百度 AK、GeoIP cache secret 和依赖旧 secret 的缓存，live DB 不受影响；恢复后 Dashboard 会自动生成新的 cache secret。MySQL/PostgreSQL Stats DB 会在归档中标记为需要外部备份，必须同时使用数据库原生工具完成备份；原生备份可能包含 Session IP/outbox，管理员应按隐私策略排除、加密或单独到期。
 
 ## 升级采集器
 
@@ -51,6 +51,8 @@ v1.3.4 不修改任何 gameplay 数据、Stats schema 或冻结契约；Collecto
 v1.3.5 自动执行 `0007_high_value_telemetry_chat.sql`，把 Stats schema 升至 7：PvE/对抗幸存者增加保护队友、挂边、被 Tank 石块造成伤害、Hunter Skeet 和 Charger Level 五个可空字段，旧 Segment 保持 `NULL`；同一迁移增加默认 72 小时的聊天传输 outbox 与完整性状态。Dashboard schema 自动升至 23，保存默认开启/30 天保留的 Chat Audit 设置、导出审计，以及百度 GeoIP 凭据、1-3 QPS 请求策略和 HMAC 缓存；最终聊天库使用独立 Chat Audit schema 1，并在配置目录旁生成 `chat-audit.db`。Gameplay `stats_version=1` 和 Aggregate/Achievement/Incident/Relationship Contract v1 均不变，也不需要 Left4DHooks 或第三方 SourceMod 插件。
 
 升级前已有 `config.yaml` 未写 `chat_audit` 时会使用安全默认路径 `./chat-audit.db`（相对配置目录）。Chat Audit capture 默认开启；如所在地区/政策不允许采集聊天，应在加载新 Collector 前设置 `sm_lps_chat_audit_enabled 0`。百度 AK 是可选项：没有 AK 就不会发出 provider 请求，保存 AK 后默认限制为 2 QPS，可在审计后台改为 1-3 QPS；清除 AK 即停止新的解析请求。
+
+缩短 Chat Audit 保留期时，确认操作先保存新策略，再按每批 500 行执行清理。若清理中断，后台会明确提示策略已保存但清理待继续，不回滚策略；后续每小时清理会继续应用新窗口，即使聊天采集已关闭。连接审计的位置筛选最多在单次请求中扫描 2,000 条底层连接记录，游标按最后实际扫描的原始行前进；缓存未命中只进入异步队列，界面会提示部分位置仍在解析，不会为筛选同步调用百度。
 
 ## 升级 Dashboard
 

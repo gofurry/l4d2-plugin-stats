@@ -57,7 +57,7 @@ func (s *ChatAuditService) cleanupWithTimeout(parent context.Context) {
 	ctx, cancel := context.WithTimeout(parent, 2*time.Minute)
 	defer cancel()
 	settings, err := s.dashboard.ChatAuditSettings(ctx)
-	if err != nil || !settings.Enabled || settings.RetentionDays == 0 {
+	if err != nil || settings.RetentionDays == 0 {
 		return
 	}
 	if _, err := s.audit.ApplyRetention(ctx, settings.RetentionDays, time.Now().Unix()); err != nil {
@@ -207,23 +207,27 @@ func retentionShortened(oldDays, newDays int64) bool {
 	return newDays != 0 && (oldDays == 0 || newDays < oldDays)
 }
 
-func (s *ChatAuditService) ConfirmSettings(ctx context.Context, planID string, settings store.ChatAuditSettings) (int64, error) {
+func (s *ChatAuditService) ConfirmSettings(ctx context.Context, planID string, settings store.ChatAuditSettings) (store.ChatRetentionConfirmation, error) {
 	s.planMu.Lock()
 	plan, ok := s.plans[planID]
 	delete(s.plans, planID)
 	s.planMu.Unlock()
 	if !ok || plan.RetentionDays != settings.RetentionDays || plan.Cutoff <= 0 {
-		return 0, errors.New("chat retention preview is missing or stale")
-	}
-	deleted, err := s.audit.ApplyRetention(ctx, settings.RetentionDays, time.Now().Unix())
-	if err != nil {
-		return deleted, err
+		return store.ChatRetentionConfirmation{}, errors.New("chat retention preview is missing or stale")
 	}
 	if err := s.dashboard.UpdateChatAuditSettings(ctx, settings); err != nil {
-		return deleted, err
+		return store.ChatRetentionConfirmation{}, err
+	}
+	result := store.ChatRetentionConfirmation{Settings: settings, CleanupStatus: "pending"}
+	deleted, err := s.audit.ApplyRetention(ctx, settings.RetentionDays, time.Now().Unix())
+	result.Deleted = deleted
+	if err != nil {
+		s.logger.Warn("chat retention policy saved with cleanup pending", zap.String("error_code", "chat_cleanup_incomplete"))
+		return result, nil
 	}
 	_ = s.dashboard.MarkChatAuditCleanup(ctx, time.Now().Unix())
-	return deleted, nil
+	result.CleanupStatus = "complete"
+	return result, nil
 }
 
 func (s *ChatAuditService) Status(ctx context.Context) (store.ChatAuditStatus, error) {

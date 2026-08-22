@@ -45,7 +45,7 @@ monitor:
 
 首次启动会把 30 分钟有效的一次性令牌输出到 stderr。打开 `http://127.0.0.1:18848/admin/setup` 创建唯一管理员。令牌不写入应用日志或数据库，过期后重启服务即可生成新令牌。
 
-Dashboard DB 使用 Goose 按顺序自动升级，当前 schema 为 22；独立 `chat-audit.db` 使用 Chat Audit schema 1。Stats DB 仍由采集器管理，schema 为 7；升级时不应删除或手工改写迁移版本。
+Dashboard DB 使用 Goose 按顺序自动升级，当前 schema 为 23；独立 `chat-audit.db` 使用 Chat Audit schema 1。Stats DB 仍由采集器管理，schema 为 7；升级时不应删除或手工改写迁移版本。
 
 ## systemd
 
@@ -107,6 +107,6 @@ curl -fsS http://127.0.0.1:18848/api/v1/health/ready
 
 `ready` 检查 Dashboard/Stats 数据库和 Stats schema；`doctor --deep` 额外检查引用完整性、统计总计、聚合水位、新 telemetry、Chat Audit schema/摄取完整性和 GeoIP 状态，只读且不修复数据。A2S、Chat ingest 或 GeoIP 故障不影响 gameplay Stats 或 liveness。Lumberjack 按大小、份数和保留天数轮转应用日志，启动错误仍进入 journald。
 
-升级前可在服务运行时执行 `l4d2-stats backup create --config ./config.yaml`。SQLite Stats DB 会与 Dashboard DB 一起使用在线快照，并在归档副本中移除聊天 outbox；`chat-audit.db` 默认不进入常规备份。MySQL/PostgreSQL 必须另行使用原生工具备份，并应排除或单独到期瞬时 `lps_chat_outbox`。恢复前必须停止服务，然后执行 `l4d2-stats backup restore <file> --config ./config.yaml`；原文件会保留为 `.pre-restore-*` 回滚副本。
+升级前可在服务运行时执行 `l4d2-stats backup create --config ./config.yaml`。SQLite Stats DB 会与 Dashboard DB 一起使用在线快照；归档副本会移除聊天 outbox、Session IP、百度 AK、GeoIP cache secret 和依赖旧 secret 的缓存，live DB 不受影响，恢复后自动生成新 secret。`chat-audit.db` 默认不进入常规备份。MySQL/PostgreSQL 必须另行使用原生工具备份，其 native backup 可能包含 Session IP/outbox，应按隐私策略排除、加密或单独到期。恢复前必须停止服务，然后执行 `l4d2-stats backup restore <file> --config ./config.yaml`；原文件会保留为 `.pre-restore-*` 回滚副本。
 
 排查问题时可执行 `l4d2-stats diagnostics export --config ./config.yaml`。诊断包不包含原始数据库、聊天正文、原始 IP 列表、GeoIP AK 或管理员密钥，配置和最近日志会先脱敏。

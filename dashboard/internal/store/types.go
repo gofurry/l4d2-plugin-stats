@@ -895,6 +895,12 @@ type ChatRetentionPlan struct {
 	DeleteCount   int64  `json:"delete_count"`
 }
 
+type ChatRetentionConfirmation struct {
+	Deleted       int64             `json:"deleted"`
+	Settings      ChatAuditSettings `json:"settings"`
+	CleanupStatus string            `json:"cleanup_status"`
+}
+
 type ChatAuditStatus struct {
 	Database        DatabaseUsage `json:"database"`
 	MessageCount    int64         `json:"message_count"`
@@ -1004,9 +1010,10 @@ type ConnectionAuditRow struct {
 }
 
 type ConnectionAuditPage struct {
-	Items        []ConnectionAuditRow `json:"items"`
-	NextCursorAt int64                `json:"next_cursor_at,omitempty"`
-	NextCursorID string               `json:"next_cursor_id,omitempty"`
+	Items           []ConnectionAuditRow `json:"items"`
+	NextCursorAt    int64                `json:"next_cursor_at,omitempty"`
+	NextCursorID    string               `json:"next_cursor_id,omitempty"`
+	LocationPending bool                 `json:"location_pending,omitempty"`
 }
 
 type PlayerSession struct {
