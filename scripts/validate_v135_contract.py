@@ -46,13 +46,23 @@ def main() -> None:
         ('m_hGroundEntity', "Hunter airborne engine state"),
         ('g_LPSChargerChargingConfirmed', "latched Charger charge proof"),
         ('g_LPSChargerLastChargingAt', "recent Charger charge proof"),
+        ('LPS_OnSurvivorTechniqueDamagePre', "pre-damage Charger state capture"),
+        ('g_LPSChargerMeleeDamagePending', "bounded Charger melee hit candidate"),
+        ('g_LPSChargerMeleeEquipment', "hit-time Charger melee classification"),
+        ('m_customAbility', "Charger ability entity lookup"),
         ('HookEvent("player_hurt"', "pre-death lethal damage latch"),
         ('g_LPSHunterLethalCandidate', "Hunter lethal damage proof"),
         ('g_LPSChargerLethalCandidate', "Charger lethal damage proof"),
         ('m_isCharging', "Charger charge engine state"),
         ('LPS_TECHNIQUE_CONFIRM_GRACE', "bounded death-state grace"),
+        ('PrintToServer("[LPS technique]', "administrator-visible technique diagnostics"),
     ):
         require(techniques, needle, label)
+    if 'HasEntProp(client, Prop_Send, "m_isCharging")' in techniques:
+        raise AssertionError("Charger charge state must be read from m_customAbility, not the player entity")
+    require(techniques, 'HasEntProp(ability, Prop_Send, "m_isCharging")', "ability-owned Charger charge state")
+    require(damage, "LPS_OnSurvivorTechniqueDamagePre(victim, attacker, inflictor)", "SDK pre-damage technique hook")
+    require(damage, "LPS_OnSurvivorTechniqueDamagePost(victim)", "SDK post-damage candidate cleanup")
     require(config, '"sm_lps_technique_debug"', "opt-in bounded validation diagnostics")
     require(equipment, "equipment >= LPSEquipment_BaseballBat && equipment <= LPSEquipment_Tonfa", "fixed official melee range")
 

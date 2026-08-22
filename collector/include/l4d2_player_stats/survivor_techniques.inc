@@ -14,6 +14,7 @@ bool g_LPSHunterAirborneConfirmed[MAXPLAYERS + 1];
 bool g_LPSChargerChargingConfirmed[MAXPLAYERS + 1];
 bool g_LPSHunterLethalCandidate[MAXPLAYERS + 1];
 bool g_LPSChargerLethalCandidate[MAXPLAYERS + 1];
+bool g_LPSChargerMeleeDamagePending[MAXPLAYERS + 1];
 bool g_LPSSurvivorLedgeStateActive[MAXPLAYERS + 1];
 int g_LPSHunterPounceUserId[MAXPLAYERS + 1];
 int g_LPSChargerChargeUserId[MAXPLAYERS + 1];
@@ -24,6 +25,10 @@ float g_LPSChargerLastChargingAt[MAXPLAYERS + 1];
 float g_LPSTechniqueLethalCandidateAt[MAXPLAYERS + 1];
 int g_LPSTechniqueLethalAttackerUserId[MAXPLAYERS + 1];
 int g_LPSTechniqueLethalVictimUserId[MAXPLAYERS + 1];
+int g_LPSChargerMeleeAttackerUserId[MAXPLAYERS + 1];
+int g_LPSChargerMeleeVictimUserId[MAXPLAYERS + 1];
+float g_LPSChargerMeleeDamageAt[MAXPLAYERS + 1];
+LPSEquipment g_LPSChargerMeleeEquipment[MAXPLAYERS + 1];
 
 void LPS_InitializeSurvivorTechniques()
 {
@@ -75,6 +80,7 @@ void LPS_ResetSurvivorTechniqueClient(int client)
 	g_LPSChargerChargingConfirmed[client] = false;
 	g_LPSHunterLethalCandidate[client] = false;
 	g_LPSChargerLethalCandidate[client] = false;
+	g_LPSChargerMeleeDamagePending[client] = false;
 	g_LPSSurvivorLedgeStateActive[client] = false;
 	g_LPSHunterPounceUserId[client] = 0;
 	g_LPSChargerChargeUserId[client] = 0;
@@ -85,6 +91,10 @@ void LPS_ResetSurvivorTechniqueClient(int client)
 	g_LPSTechniqueLethalCandidateAt[client] = 0.0;
 	g_LPSTechniqueLethalAttackerUserId[client] = 0;
 	g_LPSTechniqueLethalVictimUserId[client] = 0;
+	g_LPSChargerMeleeAttackerUserId[client] = 0;
+	g_LPSChargerMeleeVictimUserId[client] = 0;
+	g_LPSChargerMeleeDamageAt[client] = 0.0;
+	g_LPSChargerMeleeEquipment[client] = LPSEquipment_None;
 }
 
 void LPS_OnSurvivorTechniqueGameFrame()
@@ -96,6 +106,11 @@ void LPS_OnSurvivorTechniqueGameFrame()
 			&& now - g_LPSTechniqueLethalCandidateAt[client] > 1.0)
 		{
 			LPS_ClearTechniqueLethalCandidate(client);
+		}
+		if (g_LPSChargerMeleeDamageAt[client] > 0.0
+			&& now - g_LPSChargerMeleeDamageAt[client] > 1.0)
+		{
+			LPS_ClearChargerMeleeDamageCandidate(client);
 		}
 		if (g_LPSHunterPounceActive[client])
 		{
@@ -310,6 +325,7 @@ void LPS_StartChargerChargeEpisode(int client)
 		g_LPSChargerChargingConfirmed[client] = false;
 		g_LPSChargerLastChargingAt[client] = 0.0;
 		LPS_ClearTechniqueLethalCandidate(client);
+		LPS_ClearChargerMeleeDamageCandidate(client);
 	}
 	LPS_TechniqueDebug("charger episode userid=%d", userId);
 }
@@ -365,12 +381,94 @@ void LPS_InvalidateChargerEpisode(int client)
 {
 	if (client >= 1 && client <= MaxClients)
 	{
+		if (g_LPSChargerChargeActive[client])
+		{
+			LPS_TechniqueDebug("charger invalidated userid=%d", GetClientUserId(client));
+		}
 		g_LPSChargerChargeActive[client] = false;
 		g_LPSChargerChargingConfirmed[client] = false;
 		g_LPSChargerChargeUserId[client] = 0;
 		g_LPSChargerChargeExpiresAt[client] = 0.0;
 		g_LPSChargerLastChargingAt[client] = 0.0;
 	}
+}
+
+void LPS_OnSurvivorTechniqueDamagePre(int victim, int attacker, int inflictor)
+{
+	if (victim < 1 || victim > MaxClients)
+	{
+		return;
+	}
+	LPS_ClearChargerMeleeDamageCandidate(victim);
+	if (!g_LPSChargerChargeActive[victim]
+		|| !LPS_IsTechniqueEpisodeClient(victim, 6, g_LPSChargerChargeUserId[victim])
+		|| GetGameTime() > g_LPSChargerChargeExpiresAt[victim]
+		|| !LPS_IsChargerActivelyCharging(victim))
+	{
+		return;
+	}
+
+	int humanAttacker = LPS_ResolveHumanSurvivorAttacker(attacker, inflictor);
+	if (!LPS_IsHumanSurvivorClient(humanAttacker))
+	{
+		return;
+	}
+	LPSEquipment equipment = LPS_ResolveDamageEquipment(humanAttacker, attacker, inflictor);
+	if (!LPS_IsMeleeEquipment(equipment))
+	{
+		return;
+	}
+
+	float now = GetGameTime();
+	g_LPSChargerChargingConfirmed[victim] = true;
+	g_LPSChargerLastChargingAt[victim] = now;
+	g_LPSChargerMeleeDamagePending[victim] = true;
+	g_LPSChargerMeleeAttackerUserId[victim] = GetClientUserId(humanAttacker);
+	g_LPSChargerMeleeVictimUserId[victim] = GetClientUserId(victim);
+	g_LPSChargerMeleeDamageAt[victim] = now;
+	g_LPSChargerMeleeEquipment[victim] = equipment;
+	LPS_TechniqueDebug(
+		"charger melee pre victim=%d attacker=%d equipment=%d",
+		GetClientUserId(victim),
+		GetClientUserId(humanAttacker),
+		equipment
+	);
+}
+
+void LPS_OnSurvivorTechniqueDamagePost(int victim)
+{
+	if (victim < 1 || victim > MaxClients || !g_LPSChargerMeleeDamagePending[victim])
+	{
+		return;
+	}
+	if (IsClientInGame(victim) && !IsPlayerAlive(victim))
+	{
+		LPS_TechniqueDebug(
+			"charger melee awaiting death victim=%d equipment=%d",
+			g_LPSChargerMeleeVictimUserId[victim],
+			g_LPSChargerMeleeEquipment[victim]
+		);
+		return;
+	}
+	LPS_TechniqueDebug(
+		"charger melee survived victim=%d equipment=%d",
+		g_LPSChargerMeleeVictimUserId[victim],
+		g_LPSChargerMeleeEquipment[victim]
+	);
+	LPS_ClearChargerMeleeDamageCandidate(victim);
+}
+
+void LPS_ClearChargerMeleeDamageCandidate(int client)
+{
+	if (client < 1 || client > MaxClients)
+	{
+		return;
+	}
+	g_LPSChargerMeleeDamagePending[client] = false;
+	g_LPSChargerMeleeAttackerUserId[client] = 0;
+	g_LPSChargerMeleeVictimUserId[client] = 0;
+	g_LPSChargerMeleeDamageAt[client] = 0.0;
+	g_LPSChargerMeleeEquipment[client] = LPSEquipment_None;
 }
 
 public void LPS_Event_TechniquePlayerHurt(Event event, const char[] name, bool dontBroadcast)
@@ -437,6 +535,13 @@ public void LPS_Event_TechniquePlayerDeath(Event event, const char[] name, bool 
 	}
 
 	float now = GetGameTime();
+	bool chargerMeleeDamageCandidate = g_LPSChargerMeleeDamagePending[victim]
+		&& g_LPSChargerMeleeVictimUserId[victim] == GetClientUserId(victim)
+		&& g_LPSChargerMeleeAttackerUserId[victim] == (attacker >= 1 && attacker <= MaxClients ? GetClientUserId(attacker) : 0)
+		&& now - g_LPSChargerMeleeDamageAt[victim] <= 1.0;
+	LPSEquipment chargerMeleeEquipment = chargerMeleeDamageCandidate
+		? g_LPSChargerMeleeEquipment[victim]
+		: LPSEquipment_None;
 	bool lethalCandidate = g_LPSTechniqueLethalVictimUserId[victim] == GetClientUserId(victim)
 		&& g_LPSTechniqueLethalAttackerUserId[victim] == (attacker >= 1 && attacker <= MaxClients ? GetClientUserId(attacker) : 0)
 		&& now - g_LPSTechniqueLethalCandidateAt[victim] <= 1.0;
@@ -453,19 +558,23 @@ public void LPS_Event_TechniquePlayerDeath(Event event, const char[] name, bool 
 		&& now <= g_LPSChargerChargeExpiresAt[victim]
 		&& now - g_LPSChargerLastChargingAt[victim] <= LPS_TECHNIQUE_CONFIRM_GRACE
 		&& LPS_GetZombieClass(victim) == 6)
-		|| (lethalCandidate && g_LPSChargerLethalCandidate[victim]);
+		|| (lethalCandidate && g_LPSChargerLethalCandidate[victim])
+		|| chargerMeleeDamageCandidate;
 	LPS_TechniqueDebug(
-		"death victim=%d attacker=%d class=%d hunter=%d charger=%d",
+		"death victim=%d attacker=%d class=%d hunter=%d charger=%d melee_candidate=%d equipment=%d",
 		GetClientUserId(victim),
 		attacker >= 1 && attacker <= MaxClients ? GetClientUserId(attacker) : 0,
 		LPS_GetZombieClass(victim),
 		hunterSkeet,
-		chargerLevel
+		chargerLevel,
+		chargerMeleeDamageCandidate,
+		chargerMeleeEquipment
 	);
 
 	LPS_InvalidateHunterEpisode(victim);
 	LPS_InvalidateChargerEpisode(victim);
 	LPS_ClearTechniqueLethalCandidate(victim);
+	LPS_ClearChargerMeleeDamageCandidate(victim);
 	if (!LPS_IsHumanSurvivorClient(attacker))
 	{
 		return;
@@ -477,15 +586,19 @@ public void LPS_Event_TechniquePlayerDeath(Event event, const char[] name, bool 
 	}
 	if (chargerLevel)
 	{
-		char weaponName[64];
-		event.GetString("weapon", weaponName, sizeof(weaponName));
-		LPSEquipment equipment = LPS_ResolveKillEquipment(
-			victim,
-			attacker,
-			event.GetInt("weaponid"),
-			weaponName,
-			false
-		);
+		LPSEquipment equipment = chargerMeleeEquipment;
+		if (equipment == LPSEquipment_None)
+		{
+			char weaponName[64];
+			event.GetString("weapon", weaponName, sizeof(weaponName));
+			equipment = LPS_ResolveKillEquipment(
+				victim,
+				attacker,
+				event.GetInt("weaponid"),
+				weaponName,
+				false
+			);
+		}
 		if (LPS_IsMeleeEquipment(equipment))
 		{
 			LPS_AddSurvivorTechniqueStat(attacker, LPSPvEStat_ChargerLevels, LPSVersusSurvivorStat_ChargerLevels);
@@ -508,14 +621,25 @@ void LPS_TechniqueDebug(const char[] format, any ...)
 	char message[256];
 	VFormat(message, sizeof(message), format, 2);
 	LogMessage("[technique-debug] %s", message);
+	PrintToServer("[LPS technique] %s", message);
 }
 
 bool LPS_IsChargerActivelyCharging(int client)
 {
 	// Fail closed if the accepted build no longer exposes the charge property;
 	// a missing property must not turn the episode timeout into a heuristic.
-	return HasEntProp(client, Prop_Send, "m_isCharging")
-		&& GetEntProp(client, Prop_Send, "m_isCharging") != 0;
+	if (client < 1
+		|| client > MaxClients
+		|| !IsClientInGame(client)
+		|| !HasEntProp(client, Prop_Send, "m_customAbility"))
+	{
+		return false;
+	}
+	int ability = GetEntPropEnt(client, Prop_Send, "m_customAbility");
+	return ability > MaxClients
+		&& IsValidEntity(ability)
+		&& HasEntProp(ability, Prop_Send, "m_isCharging")
+		&& GetEntProp(ability, Prop_Send, "m_isCharging") != 0;
 }
 
 public void LPS_Event_TechniquePlayerReset(Event event, const char[] name, bool dontBroadcast)

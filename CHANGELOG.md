@@ -22,7 +22,7 @@ All notable changes to this project are documented in this file.
 - Extend deep doctor and data-growth monitoring with nullable telemetry, chat capture/outbox completeness, Chat Audit database health, ingestion lag/gaps/drops, and GeoIP runtime/cache status.
 - Sanitize the transient chat outbox from SQLite Stats backup copies and exclude `chat-audit.db`, chat bodies, raw IP lists, and GeoIP credentials from normal backups and diagnostics.
 - Replace the GeoIP enable switch with explicit credential save/clear controls, move connection and chat filters into compact audit toolbars, and expose cursor-based previous/next navigation for both audit tables.
-- Harden Hunter Skeet and Charger Level detection by latching engine state before death, preserving a bounded lethal-damage candidate across event-order differences, and resolving Charger melee kills from the recorded final-damage equipment.
+- Harden Hunter Skeet and Charger Level detection by latching engine state before death; Charger charge state now comes from its ability entity, while a bounded SDK pre-damage snapshot preserves the hit-time official melee classification across charge-end, equipment-update, and death event ordering.
 
 ### Security
 
