@@ -26,12 +26,26 @@ func TestDatabaseContract(t *testing.T) {
 	if fall := achievementMetrics.Values["survivor_fall_deaths"]; !fall.Available || fall.Value != 1 {
 		t.Fatalf("new fall-death facts differ: %#v", fall)
 	}
+	for metric, want := range map[string]int64{
+		"survivor.tank_rock_hits_received": 2,
+		"survivor.hunter_skeets":           4,
+		"survivor.charger_levels":          2,
+	} {
+		if got := achievementMetrics.Values[metric]; !got.Available || got.Value != want {
+			t.Fatalf("%s PvE+Versus metric=%#v want=%d", metric, got, want)
+		}
+	}
 	historicalMetrics, err := stats.PlayerAchievementMetrics(ctx, "2")
 	if err != nil {
 		t.Fatal(err)
 	}
 	if fall := historicalMetrics.Values["survivor_fall_deaths"]; fall.Available {
 		t.Fatalf("historical NULL fall deaths became available: %#v", fall)
+	}
+	for _, metric := range []string{"survivor.tank_rock_hits_received", "survivor.hunter_skeets", "survivor.charger_levels"} {
+		if got := historicalMetrics.Values[metric]; got.Available {
+			t.Fatalf("historical NULL %s became available: %#v", metric, got)
+		}
 	}
 
 	overview, err := stats.Overview(ctx, time.Unix(contractBaseTime-1, 0))

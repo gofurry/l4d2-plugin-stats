@@ -94,7 +94,7 @@ func TestAchievementVisibilityCompletionAndShowcase(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if result.Overview.Unlocked != 0 || result.Overview.Total != 100 || result.Overview.EasterEggs != 0 {
+	if result.Overview.Unlocked != 0 || result.Overview.Total != 102 || result.Overview.EasterEggs != 0 {
 		t.Fatalf("locked overview=%#v", result.Overview)
 	}
 	mysteryKeys := make(map[string]bool)
@@ -109,7 +109,7 @@ func TestAchievementVisibilityCompletionAndShowcase(t *testing.T) {
 			mysteryKeys[card.GroupKey] = true
 		}
 	}
-	if len(mysteryKeys) != 4 {
+	if len(mysteryKeys) != 6 {
 		t.Fatalf("mystery placeholders=%v", mysteryKeys)
 	}
 
@@ -122,7 +122,7 @@ func TestAchievementVisibilityCompletionAndShowcase(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if result.Overview.Unlocked != 2 || result.Overview.EasterEggs != 1 || result.Overview.Total != 100 {
+	if result.Overview.Unlocked != 2 || result.Overview.EasterEggs != 1 || result.Overview.Total != 102 {
 		t.Fatalf("unlocked overview=%#v", result.Overview)
 	}
 	for _, badge := range result.Overview.Badges {
@@ -235,6 +235,12 @@ func TestAchievementCatalogRevisionRestartsCompletedBackfill(t *testing.T) {
 	state, err = dashboard.AchievementEngineState(ctx)
 	if err != nil || !state.BackfillComplete || state.BackfillCursor != achievementCatalogRevisionMarker {
 		t.Fatalf("revision state=%#v err=%v", state, err)
+	}
+}
+
+func TestV135AchievementCatalogRevisionMarker(t *testing.T) {
+	if achievementCatalogRevisionMarker != "catalog-v1.3.5-telemetry-achievements" {
+		t.Fatalf("catalog revision=%q", achievementCatalogRevisionMarker)
 	}
 }
 
