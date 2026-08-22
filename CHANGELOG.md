@@ -15,6 +15,8 @@ All notable changes to this project are documented in this file.
 - Add optional Dashboard-side Baidu IP geolocation with private/reserved filtering, HMAC-only cache keys, bounded background enrichment, masked credentials, short failure caching, and administrator-only connection display.
 - Add public raw rankings for teammate protections, Hunter Skeets, and Charger Levels while keeping ledge grabs, Tank-rock hits received, and every new metric out of the in-game portal and Aggregate Contract v1.
 - Add configurable Baidu GeoIP pacing (1-3 QPS, default 2) shared by background enrichment and administrator tests, plus bounded expiry cleanup for the HMAC-only location cache.
+- Add the mystery `空爆大师` and `拦截大师` achievements at 5 confirmed Hunter Skeets or Charger Levels, plus the non-completion Secret `吃饼达人` at 100 confirmed Tank-rock hits received.
+- Add three supplied 256×256 WebP artwork sources and expand both the modern WebP and In-Game PNG achievement atlases from 38 to 41 tiles.
 
 ### Changed
 
@@ -23,6 +25,8 @@ All notable changes to this project are documented in this file.
 - Sanitize the transient chat outbox from SQLite Stats backup copies and exclude `chat-audit.db`, chat bodies, raw IP lists, and GeoIP credentials from normal backups and diagnostics.
 - Replace the GeoIP enable switch with explicit credential save/clear controls, move connection and chat filters into compact audit toolbars, and expose cursor-based previous/next navigation for both audit tables.
 - Harden Hunter Skeet and Charger Level detection by latching engine state before death; Charger charge state now comes from its ability entity, while a bounded SDK pre-damage snapshot preserves the hit-time official melee classification across charge-end, equipment-update, and death event ordering.
+- Expand Achievement Contract v1 compatibly from 105 to 108 catalog items, from 100 to 102 normal-completion items, and from 5 to 6 Secret items without changing the public contract version or existing definitions.
+- Merge the three new achievement metrics across available PvE and Versus Survivor lifetime facts while preserving historical nullable telemetry and trigger a resumable full backfill through a new internal catalog revision.
 
 ### Security
 

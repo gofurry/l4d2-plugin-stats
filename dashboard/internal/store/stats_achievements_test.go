@@ -38,3 +38,20 @@ INSERT INTO lps_player_segments VALUES
 		t.Fatalf("tie-break metric=%#v", metric)
 	}
 }
+
+func TestCombineAchievementMetricsPreservesNullableAvailability(t *testing.T) {
+	values := map[string]AchievementMetricValue{
+		"pve.hunter_skeets":    {Value: 3, Available: true},
+		"versus.hunter_skeets": {Value: 99, Available: false},
+	}
+	combineAchievementMetrics(values, "survivor.hunter_skeets", "pve.hunter_skeets", "versus.hunter_skeets")
+	if got := values["survivor.hunter_skeets"]; !got.Available || got.Value != 3 {
+		t.Fatalf("single available source=%#v", got)
+	}
+
+	values = make(map[string]AchievementMetricValue)
+	combineAchievementMetrics(values, "survivor.hunter_skeets", "pve.hunter_skeets", "versus.hunter_skeets")
+	if _, ok := values["survivor.hunter_skeets"]; ok {
+		t.Fatalf("all-NULL sources produced %#v", values["survivor.hunter_skeets"])
+	}
+}
