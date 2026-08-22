@@ -1,6 +1,9 @@
 package service
 
-import "testing"
+import (
+	"strings"
+	"testing"
+)
 
 func TestDerivedRankingDefinitionsFreezeDirectionAndSampleGates(t *testing.T) {
 	tests := []struct {
@@ -23,6 +26,12 @@ func TestDerivedRankingDefinitionsFreezeDirectionAndSampleGates(t *testing.T) {
 		{name: "versus_infected:incaps_per_spawn", higher: true, belowSample: map[string]int64{"spawn_count": 19}, eligibleSample: map[string]int64{"spawn_count": 20}, expectedEligible: true},
 		{name: "versus_infected:controls_per_spawn", higher: true, belowSample: map[string]int64{"spawn_count": 19}, eligibleSample: map[string]int64{"spawn_count": 20}, expectedEligible: true},
 		{name: "versus_infected:kills_per_spawn", higher: true, belowSample: map[string]int64{"spawn_count": 19}, eligibleSample: map[string]int64{"spawn_count": 20}, expectedEligible: true},
+		{name: "pve:teammate_protections", higher: true},
+		{name: "pve:hunter_skeets", higher: true},
+		{name: "pve:charger_levels", higher: true},
+		{name: "versus_survivor:teammate_protections", higher: true},
+		{name: "versus_survivor:hunter_skeets", higher: true},
+		{name: "versus_survivor:charger_levels", higher: true},
 	}
 	for _, test := range tests {
 		t.Run(test.name, func(t *testing.T) {
@@ -35,6 +44,11 @@ func TestDerivedRankingDefinitionsFreezeDirectionAndSampleGates(t *testing.T) {
 			}
 			if definition.hardMinimumActive != test.hardActive {
 				t.Fatalf("hardMinimumActive = %d, want %d", definition.hardMinimumActive, test.hardActive)
+			}
+			if strings.Contains(test.name, "teammate_protections") || strings.Contains(test.name, "hunter_skeets") || strings.Contains(test.name, "charger_levels") {
+				if definition.rawMetric == "" {
+					t.Fatal("v1.3.5 telemetry ranking must read nullable raw core rows")
+				}
 			}
 			if test.expectedEligible {
 				if definition.minimumSample == nil || definition.minimumSample(test.belowSample) || !definition.minimumSample(test.eligibleSample) {

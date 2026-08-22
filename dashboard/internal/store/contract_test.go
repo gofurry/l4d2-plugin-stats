@@ -26,12 +26,26 @@ func TestDatabaseContract(t *testing.T) {
 	if fall := achievementMetrics.Values["survivor_fall_deaths"]; !fall.Available || fall.Value != 1 {
 		t.Fatalf("new fall-death facts differ: %#v", fall)
 	}
+	for metric, want := range map[string]int64{
+		"survivor.tank_rock_hits_received": 2,
+		"survivor.hunter_skeets":           4,
+		"survivor.charger_levels":          2,
+	} {
+		if got := achievementMetrics.Values[metric]; !got.Available || got.Value != want {
+			t.Fatalf("%s PvE+Versus metric=%#v want=%d", metric, got, want)
+		}
+	}
 	historicalMetrics, err := stats.PlayerAchievementMetrics(ctx, "2")
 	if err != nil {
 		t.Fatal(err)
 	}
 	if fall := historicalMetrics.Values["survivor_fall_deaths"]; fall.Available {
 		t.Fatalf("historical NULL fall deaths became available: %#v", fall)
+	}
+	for _, metric := range []string{"survivor.tank_rock_hits_received", "survivor.hunter_skeets", "survivor.charger_levels"} {
+		if got := historicalMetrics.Values[metric]; got.Available {
+			t.Fatalf("historical NULL %s became available: %#v", metric, got)
+		}
 	}
 
 	overview, err := stats.Overview(ctx, time.Unix(contractBaseTime-1, 0))
@@ -87,6 +101,22 @@ func TestDatabaseContract(t *testing.T) {
 	contractEqual(t, "PVE car alarm ranking", pveRanking, []RankingEntry{{Rank: 1, SteamID: "1", PlayerName: "Alice", Value: 3, ActiveSeconds: 90}}, err)
 	versusRanking, err := incidentRankings.CarAlarmRanking(ctx, RankingQuery{Mode: "versus_survivor"})
 	contractEqual(t, "Versus car alarm ranking", versusRanking, []RankingEntry{{Rank: 1, SteamID: "1", PlayerName: "Alice", Value: 2, ActiveSeconds: 70}}, err)
+	for _, test := range []struct {
+		mode   string
+		metric string
+		value  float64
+		active int64
+	}{
+		{mode: "pve", metric: "teammate_protections", value: 4, active: 90},
+		{mode: "pve", metric: "hunter_skeets", value: 3, active: 90},
+		{mode: "pve", metric: "charger_levels", value: 1, active: 90},
+		{mode: "versus_survivor", metric: "teammate_protections", value: 2, active: 70},
+		{mode: "versus_survivor", metric: "hunter_skeets", value: 1, active: 70},
+		{mode: "versus_survivor", metric: "charger_levels", value: 1, active: 70},
+	} {
+		entries, rankingErr := incidentRankings.PositiveTelemetryRanking(ctx, test.metric, RankingQuery{Mode: test.mode})
+		contractEqual(t, test.mode+" "+test.metric+" ranking", entries, []RankingEntry{{Rank: 1, SteamID: "1", PlayerName: "Alice", Value: test.value, ActiveSeconds: test.active}}, rankingErr)
+	}
 	analysisTotals, err := stats.(StatsAnalysisStore).PlayerAnalysisTotals(ctx, "1", PlayerFilter{}, "pve")
 	contractEqual(t, "PVE player analysis totals", analysisTotals, PlayerAnalysisTotals{
 		ActiveSeconds: 90, SpecialKills: 12, Rescues: 9, Incaps: 3, Deaths: 1, FriendlyFire: 15, TankKills: 2, WitchKills: 1,
@@ -164,7 +194,9 @@ func expectedContractPVE() PlayerPVE {
 		TankEncounters: 2, TankParticipations: 2, WitchEncounters: 1, WitchParticipations: 1,
 		IncendiaryPacks: 1, ExplosivePacks: 1, ObjectiveInteractions: 2, AmmoPileUses: 4,
 		IncapacitatedSeconds: 20, LedgeHangingSeconds: 10, BlackWhiteRestored: 1, CarAlarmsTriggered: 3,
-		SpecialAssists: int64Pointer(6), AssistCoverage: CollectionCoverage{CollectedSegments: 1, TotalSegments: 1, Complete: true},
+		TeammateProtections: int64Pointer(4), LedgeGrabs: int64Pointer(2), TankRockHitsReceived: int64Pointer(1), HunterSkeets: int64Pointer(3), ChargerLevels: int64Pointer(1),
+		TelemetryCoverage: CollectionCoverage{CollectedSegments: 1, TotalSegments: 1, Complete: true},
+		SpecialAssists:    int64Pointer(6), AssistCoverage: CollectionCoverage{CollectedSegments: 1, TotalSegments: 1, Complete: true},
 		Classes: []PVEInfectedClass{
 			{ClassID: 1, Kills: 4, Assists: int64Pointer(1), Damage: 500, ControlsReceived: 2, ControlledSeconds: 30, Saves: 3},
 			{ClassID: 2, Assists: int64Pointer(1)}, {ClassID: 3, Assists: int64Pointer(1)}, {ClassID: 4, Assists: int64Pointer(1)}, {ClassID: 5, Assists: int64Pointer(1)}, {ClassID: 6, Assists: int64Pointer(1)},
@@ -182,6 +214,8 @@ func expectedContractVersus() PlayerVersus {
 		SurvivorPills: 2, SurvivorAdrenaline: 1, SurvivorTemporaryHealth: 20, SurvivorWitchKills: 1, SurvivorWitchDamage: 90,
 		MolotovsThrown: 1, PipeBombsThrown: 2, VomitJarsThrown: 3, SurvivorIncendiaryPacks: 1, SurvivorExplosivePacks: 2,
 		SurvivorTongueSelfCuts: 1, SurvivorTankRocksDestroyed: 1, SurvivorWitchOneShots: 1, SurvivorWitchSoloKills: 1, SurvivorObjectiveInteractions: 5, SurvivorCarAlarmsTriggered: 2,
+		SurvivorTeammateProtections: int64Pointer(2), SurvivorLedgeGrabs: int64Pointer(1), SurvivorTankRockHitsReceived: int64Pointer(1), SurvivorHunterSkeets: int64Pointer(1), SurvivorChargerLevels: int64Pointer(1),
+		TelemetryCoverage:   CollectionCoverage{CollectedSegments: 1, TotalSegments: 1, Complete: true},
 		HumanSpecialAssists: int64Pointer(4), BotSpecialAssists: int64Pointer(2), HumanTankAssists: int64Pointer(1), BotTankAssists: int64Pointer(1),
 		SurvivorWitchEncounters: int64Pointer(2), SurvivorWitchParticipations: int64Pointer(1), SurvivorWitchAssists: int64Pointer(0), SurvivorBlackWhiteRestored: int64Pointer(1),
 		AssistCoverage: CollectionCoverage{CollectedSegments: 1, TotalSegments: 1, Complete: true},

@@ -27,7 +27,7 @@ import (
 	"go.uber.org/zap"
 )
 
-var Version = "1.3.4"
+var Version = "1.3.5"
 
 type rootOptions struct{ configPath string }
 
@@ -139,6 +139,11 @@ func serveCommand(options *rootOptions) *cobra.Command {
 		if version != store.StatsSchemaVersion {
 			return fmt.Errorf("unsupported stats schema version %d; expected %d", version, store.StatsSchemaVersion)
 		}
+		chatAuditDB, err := store.OpenChatAudit(ctx, cfg.ChatAudit.DatabasePath)
+		if err != nil {
+			return fmt.Errorf("open chat audit database: %w", err)
+		}
+		defer chatAuditDB.Close()
 		assets, err := webassets.Dist()
 		if err != nil {
 			return fmt.Errorf("open embedded frontend: %w", err)
@@ -153,10 +158,15 @@ func serveCommand(options *rootOptions) *cobra.Command {
 		dataMaintenance := service.NewDataMaintenanceService(dashboard, stats, aggregates, cfg.StatsDatabase, cfg.Logging.File, logger)
 		rankings := service.NewRankingService(dashboard, stats)
 		achievements := service.NewAchievementService(dashboard, stats, logger)
+		chatAudit := service.NewChatAuditService(dashboard, stats, chatAuditDB, logger)
+		geoIP := service.NewGeoIPService(dashboard, stats, nil, logger)
+		dataMaintenance.SetAuditSources(chatAudit, geoIP)
 		runCtx, stopBackground := context.WithCancel(context.Background())
 		defer stopBackground()
 		aggregates.Start(runCtx)
 		achievements.Start(runCtx)
+		go chatAudit.Run(runCtx)
+		go geoIP.Run(runCtx)
 		a2sClient := a2s.SteamClient{}
 		status := a2s.NewProvider(dashboard, a2sClient, stats)
 		status.Start(runCtx)
@@ -165,7 +175,7 @@ func serveCommand(options *rootOptions) *cobra.Command {
 			return err
 		}
 		ingameService := service.NewIngameService(dashboard, status, players, rankings, achievements)
-		app := server.New(cfg, server.Dependencies{Dashboard: dashboard, Profiles: dashboard, Stats: stats, Overview: overview, Status: status, Players: players, Analysis: analysis, Rankings: rankings, Achievements: achievements, Ingame: ingameService, IngameRender: ingameRenderer, Data: dataMaintenance, Auth: authService, Logger: logger, Assets: assets})
+		app := server.New(cfg, server.Dependencies{Dashboard: dashboard, Profiles: dashboard, Stats: stats, Overview: overview, Status: status, Players: players, Analysis: analysis, Rankings: rankings, Achievements: achievements, Ingame: ingameService, IngameRender: ingameRenderer, Data: dataMaintenance, ChatAudit: chatAudit, GeoIP: geoIP, Auth: authService, Logger: logger, Assets: assets})
 		logger.Info("dashboard starting", zap.String("listen", cfg.Server.Listen), zap.String("config", cfg.Path))
 		errCh := make(chan error, 1)
 		go func() { errCh <- app.Listen(cfg.Server.Listen, fiber.ListenConfig{DisableStartupMessage: true}) }()
@@ -331,7 +341,12 @@ func doctorCommand(options *rootOptions) *cobra.Command {
 		}
 		deepCtx, deepCancel := context.WithTimeout(context.Background(), 2*time.Minute)
 		defer deepCancel()
-		report := service.NewDoctorService(dashboard, stats).Deep(deepCtx)
+		chatAudit, chatErr := store.OpenChatAudit(deepCtx, cfg.ChatAudit.DatabasePath)
+		if chatErr != nil {
+			return fmt.Errorf("open chat audit database: %w", chatErr)
+		}
+		defer chatAudit.Close()
+		report := service.NewDoctorService(dashboard, stats).WithAudit(chatAudit, dashboard).Deep(deepCtx)
 		for _, check := range report.Checks {
 			fmt.Fprintf(cmd.OutOrStdout(), "[%s] %s: %s\n", check.Status, check.Name, check.Message)
 		}

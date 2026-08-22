@@ -82,6 +82,11 @@ enum struct LPSPvEStatsSnapshot
 	int jockeyAssists;
 	int chargerAssists;
 	int fallDeaths;
+	int teammateProtections;
+	int ledgeGrabs;
+	int tankRockHitsReceived;
+	int hunterSkeets;
+	int chargerLevels;
 	int revision;
 }
 
@@ -193,6 +198,11 @@ void LPS_ResetClientPvEStatsState(int client)
 	g_LPSClientPvEStats[client].jockeyAssists = 0;
 	g_LPSClientPvEStats[client].chargerAssists = 0;
 	g_LPSClientPvEStats[client].fallDeaths = 0;
+	g_LPSClientPvEStats[client].teammateProtections = 0;
+	g_LPSClientPvEStats[client].ledgeGrabs = 0;
+	g_LPSClientPvEStats[client].tankRockHitsReceived = 0;
+	g_LPSClientPvEStats[client].hunterSkeets = 0;
+	g_LPSClientPvEStats[client].chargerLevels = 0;
 	LPS_ResetClientPvEInteractionState(client);
 	g_LPSClientPvEStats[client].revision = 0;
 }

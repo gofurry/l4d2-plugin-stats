@@ -32,9 +32,12 @@
   { "key": "special.tongue_cutter", "file": "special-tongue-cutter.webp", "tiered": false },
   { "key": "special.defib_rescuer", "file": "special-defib-rescuer.webp", "tiered": false },
   { "key": "special.miracle_healer", "file": "special-miracle-healer.webp", "tiered": false },
+  { "key": "special.skeet_master", "file": "special-skeet-master.webp", "tiered": false },
+  { "key": "special.charge_interceptor", "file": "special-charge-interceptor.webp", "tiered": false },
   { "key": "secret.crashed", "file": "secret-crashed.webp", "tiered": false },
   { "key": "secret.see_u_again", "file": "secret-see-u-again.webp", "tiered": false },
   { "key": "secret.dispatch", "file": "secret-dispatch.webp", "tiered": false },
   { "key": "secret.ff_king", "file": "secret-ff-king.webp", "tiered": false },
-  { "key": "secret.submissive", "file": "secret-submissive.webp", "tiered": false }
+  { "key": "secret.submissive", "file": "secret-submissive.webp", "tiered": false },
+  { "key": "secret.rock_eater", "file": "secret-rock-eater.webp", "tiered": false }
 ]

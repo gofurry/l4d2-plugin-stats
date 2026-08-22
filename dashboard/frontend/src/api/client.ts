@@ -30,6 +30,19 @@ export async function adminWrite<T>(path: string, method: string, body?: unknown
   try { return await execute() } catch (error) { if (error instanceof APIError && error.code === 'csrf_invalid') { csrfToken = ''; return execute() } throw error }
 }
 
+export async function adminDownload(path: string, body: unknown): Promise<Blob> {
+  const execute = async () => {
+    const response = await fetch(path, { method: 'POST', credentials: 'same-origin', headers: { 'Accept': '*/*', 'Content-Type': 'application/json', 'X-Csrf-Token': await csrf() }, body: JSON.stringify(body) })
+    if (!response.ok) {
+      let payload: ErrorEnvelope = {}
+      try { payload = await response.json() as ErrorEnvelope } catch { /* non-JSON error */ }
+      throw new APIError(response.status, payload.error?.code ?? 'request_failed', payload.error?.message ?? `HTTP ${response.status}`)
+    }
+    return response.blob()
+  }
+  try { return await execute() } catch (error) { if (error instanceof APIError && error.code === 'csrf_invalid') { csrfToken = ''; return execute() } throw error }
+}
+
 export function queryString(values: Record<string, string | number | undefined>) {
   const query = new URLSearchParams()
   for (const [key, value] of Object.entries(values)) if (value !== undefined && value !== '') query.set(key, String(value))

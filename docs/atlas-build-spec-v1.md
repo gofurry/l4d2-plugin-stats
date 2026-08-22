@@ -4,7 +4,7 @@
 
 ## 1. 目标
 
-将 38 张：
+将 41 张：
 
 ```text
 256×256 WebP source artwork
@@ -20,7 +20,7 @@
 编译期坐标表
 ```
 
-线上 Achievement Badge 不产生 38 个独立图片请求。
+线上 Achievement Badge 不产生 41 个独立图片请求。
 
 ## 2. 推荐目录
 
@@ -58,7 +58,7 @@ dashboard/frontend/scripts/
 
 不能依赖文件系统遍历顺序决定 atlas 坐标。
 
-38 个 key 必须与 Achievement Catalog 一致。
+41 个 key 必须与 Achievement Catalog 一致。
 
 ## 4. Source 校验
 
@@ -96,7 +96,7 @@ dashboard/frontend/scripts/
 
 ## 6. Atlas 网格
 
-38 张采用固定规则网格：
+41 张采用固定规则网格：
 
 ```text
 6 columns × 7 rows
@@ -280,8 +280,8 @@ CI 应在 frontend build 前执行 atlas build。
 
 至少：
 
-- manifest 38 key；
-- 38 source 完整；
+- manifest 41 key；
+- 41 source 完整；
 - atlas deterministic；
 - 坐标不重叠；
 - tile 全在 atlas 边界内；
@@ -312,7 +312,7 @@ Codex 负责：
 - 页面接入；
 - CI/build 校验。
 
-Codex 不应自行“随便画 38 张素材”。
+Codex 不应自行“随便画成就素材”。
 
 如果 source artwork 尚未提供，可以先：
 

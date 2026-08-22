@@ -263,12 +263,18 @@ func (s *RankingService) load(ctx context.Context, query store.RankingQuery) (st
 	if !ok {
 		return store.RankingPage{}, fmt.Errorf("unsupported ranking metric")
 	}
-	if definition.rawIncident {
+	if definition.rawMetric != "" {
 		incidentStore, ok := s.stats.(store.StatsIncidentRankingStore)
 		if !ok {
 			return store.RankingPage{}, fmt.Errorf("incident rankings are unavailable")
 		}
-		entries, err := incidentStore.CarAlarmRanking(ctx, query)
+		var entries []store.RankingEntry
+		var err error
+		if definition.rawMetric == "car_alarms_triggered" {
+			entries, err = incidentStore.CarAlarmRanking(ctx, query)
+		} else {
+			entries, err = incidentStore.PositiveTelemetryRanking(ctx, definition.rawMetric, query)
+		}
 		if err != nil {
 			return store.RankingPage{}, err
 		}
@@ -402,7 +408,7 @@ type rankingDefinition struct {
 	defaultMinimum    int64
 	hardMinimumActive int64
 	perHour           bool
-	rawIncident       bool
+	rawMetric         string
 	higherIsBetter    bool
 	denominator       func(map[string]int64) float64
 	minimumSample     func(map[string]int64) bool
@@ -442,8 +448,8 @@ func definition(kinds []string, minimum int64, perHour bool, accept func(store.A
 	return rankingDefinition{kinds: kinds, defaultMinimum: minimum, perHour: perHour, higherIsBetter: true, accept: accept, value: sumMetrics(metrics...)}
 }
 
-func incidentDefinition() rankingDefinition {
-	return rankingDefinition{rawIncident: true, higherIsBetter: true}
+func rawDefinition(metric string) rankingDefinition {
+	return rankingDefinition{rawMetric: metric, higherIsBetter: true}
 }
 
 func derivedDefinition(kinds []string, minimum int64, higher bool, accept func(store.AggregateRow) bool, numerator []string, denominator string, sample int64) rankingDefinition {
@@ -485,7 +491,10 @@ var rankingDefinitions = func() map[string]rankingDefinition {
 		"pve:campaign_completions":                definition([]string{"mode_activity", "pve_combat"}, 0, false, pve, "campaign_completions"),
 		"pve:tongue_self_cuts":                    definition([]string{"mode_activity", "pve_detail"}, 0, false, pve, "melee_tongue_self_cuts"),
 		"pve:rocks_destroyed":                     definition([]string{"mode_activity", "pve_detail"}, 0, false, pve, "tank_rocks_destroyed"),
-		"pve:car_alarms_triggered":                incidentDefinition(),
+		"pve:car_alarms_triggered":                rawDefinition("car_alarms_triggered"),
+		"pve:teammate_protections":                rawDefinition("teammate_protections"),
+		"pve:hunter_skeets":                       rawDefinition("hunter_skeets"),
+		"pve:charger_levels":                      rawDefinition("charger_levels"),
 		"pve:common_kills_per_hour":               definition([]string{"mode_activity", "pve_combat"}, 5*3600, true, pve, "common_kills"),
 		"pve:special_kills_per_hour":              definition([]string{"mode_activity", "pve_combat"}, 5*3600, true, pve, "special_kills"),
 		"pve:rescues_per_hour":                    higherPerHour([]string{"mode_activity", "pve_combat"}, pve, "incap_revives", "ledge_rescues", "defib_revives"),
@@ -497,7 +506,10 @@ var rankingDefinitions = func() map[string]rankingDefinition {
 		"versus_survivor:human_si_kills":          definition([]string{"mode_activity", "versus_survivor"}, 0, false, vs, "human_special_kills", "human_tank_kills"),
 		"versus_survivor:damage":                  definition([]string{"mode_activity", "versus_survivor"}, 0, false, vs, "damage_to_human_special", "damage_to_human_tank"),
 		"versus_survivor:rescues":                 definition([]string{"mode_activity", "versus_survivor"}, 0, false, vs, "incap_revives", "ledge_rescues", "defib_revives"),
-		"versus_survivor:car_alarms_triggered":    incidentDefinition(),
+		"versus_survivor:car_alarms_triggered":    rawDefinition("car_alarms_triggered"),
+		"versus_survivor:teammate_protections":    rawDefinition("teammate_protections"),
+		"versus_survivor:hunter_skeets":           rawDefinition("hunter_skeets"),
+		"versus_survivor:charger_levels":          rawDefinition("charger_levels"),
 		"versus_survivor:human_si_kills_per_hour": definition([]string{"mode_activity", "versus_survivor"}, 3*3600, true, vs, "human_special_kills", "human_tank_kills"),
 		"versus_survivor:rescues_per_hour":        higherPerHour([]string{"mode_activity", "versus_survivor"}, vs, "incap_revives", "ledge_rescues", "defib_revives"),
 		"versus_survivor:incaps_per_hour":         lowerPerHour([]string{"mode_activity", "versus_survivor"}, vs, "incapacitations"),

@@ -11,8 +11,8 @@ import (
 
 func TestAchievementCatalogV1Frozen(t *testing.T) {
 	catalog := AchievementCatalog()
-	if len(catalog) != 105 {
-		t.Fatalf("catalog has %d achievements, want 105", len(catalog))
+	if len(catalog) != 108 {
+		t.Fatalf("catalog has %d achievements, want 108", len(catalog))
 	}
 	keys := make(map[string]bool, len(catalog))
 	artwork := make(map[string]bool)
@@ -33,7 +33,7 @@ func TestAchievementCatalogV1Frozen(t *testing.T) {
 			}
 		}
 	}
-	if completion != 100 || secrets != 5 || len(artwork) != 38 {
+	if completion != 102 || secrets != 6 || len(artwork) != 41 {
 		t.Fatalf("completion=%d secrets=%d artwork=%d", completion, secrets, len(artwork))
 	}
 	assertThresholds := func(group string, want []int64) {
@@ -63,8 +63,11 @@ func TestAchievementCatalogV1Frozen(t *testing.T) {
 	assertThresholds("weapon.heavy_primary", []int64{1000, 5000, 20000, 50000})
 	assertThresholds("weapon.grenade_launcher", []int64{500, 2500, 10000})
 	assertThresholds("weapon.melee", []int64{1000, 5000, 20000, 50000})
+	assertThresholds("special.skeet_master", []int64{5})
+	assertThresholds("special.charge_interceptor", []int64{5})
 	assertThresholds("secret.crashed", []int64{5})
 	assertThresholds("secret.see_u_again", []int64{100})
+	assertThresholds("secret.rock_eater", []int64{100})
 
 	titles := make([]string, 0, 26)
 	for _, item := range catalog {
@@ -121,11 +124,14 @@ func TestAchievementCatalogV1NamesThresholdsAndVisibility(t *testing.T) {
 		{"special.tongue_cutter", "砍舌达人", "mystery", true, []int64{5}},
 		{"special.defib_rescuer", "起死回生", "public", true, []int64{100}},
 		{"special.miracle_healer", "妙手回春", "public", true, []int64{100}},
+		{"special.skeet_master", "空爆大师", "mystery", true, []int64{5}},
+		{"special.charge_interceptor", "拦截大师", "mystery", true, []int64{5}},
 		{"secret.crashed", "已坠机", "secret", false, []int64{5}},
 		{"secret.see_u_again", "See u Again", "secret", false, []int64{100}},
 		{"secret.dispatch", "出警", "secret", false, []int64{100}},
 		{"secret.ff_king", "黑枪王", "secret", false, []int64{10000}},
 		{"secret.submissive", "已老实", "secret", false, []int64{1000}},
+		{"secret.rock_eater", "吃饼达人", "secret", false, []int64{100}},
 	}
 	catalog := AchievementCatalog()
 	for _, want := range expected {
@@ -213,6 +219,76 @@ func TestV133AchievementThresholdBoundaries(t *testing.T) {
 				}
 			}
 		})
+	}
+}
+
+func TestV135TelemetryAchievementThresholdBoundaries(t *testing.T) {
+	tests := []struct {
+		metric string
+		key    string
+		value  int64
+	}{
+		{"survivor.hunter_skeets", "special.skeet_master", 5},
+		{"survivor.charger_levels", "special.charge_interceptor", 5},
+		{"survivor.tank_rock_hits_received", "secret.rock_eater", 100},
+	}
+	for _, test := range tests {
+		t.Run(test.key, func(t *testing.T) {
+			metrics := store.PlayerAchievementMetrics{SteamID: "765", Values: map[string]store.AchievementMetricValue{
+				test.metric: {Available: true, Value: test.value - 1},
+			}}
+			if got := achievementUnlockCandidates("765", "live", 1, metrics, nil); len(got) != 0 {
+				t.Fatalf("threshold - 1 unlocked %#v", got)
+			}
+			for _, value := range []int64{test.value, test.value + 1} {
+				metrics.Values[test.metric] = store.AchievementMetricValue{Available: true, Value: value}
+				got := achievementUnlockCandidates("765", "live", 1, metrics, nil)
+				if len(got) != 1 || got[0].AchievementKey != test.key || got[0].ValueAtUnlock != value {
+					t.Fatalf("value %d unlocked %#v", value, got)
+				}
+			}
+		})
+	}
+	unavailable := store.PlayerAchievementMetrics{SteamID: "765", Values: map[string]store.AchievementMetricValue{
+		"survivor.hunter_skeets":           {Available: false, Value: 5},
+		"survivor.charger_levels":          {Available: false, Value: 5},
+		"survivor.tank_rock_hits_received": {Available: false, Value: 100},
+	}}
+	if got := achievementUnlockCandidates("765", "backfill", 1, unavailable, nil); len(got) != 0 {
+		t.Fatalf("unavailable telemetry unlocked %#v", got)
+	}
+}
+
+func TestV135TelemetryAchievementDefinitions(t *testing.T) {
+	want := map[string]AchievementDefinition{
+		"special.skeet_master": {
+			Title: "空爆大师", Category: "special", MetricID: "survivor.hunter_skeets",
+			Threshold: 5, Visibility: "mystery", CountsTowardCompletion: true, ArtworkKey: "special.skeet_master",
+		},
+		"special.charge_interceptor": {
+			Title: "拦截大师", Category: "special", MetricID: "survivor.charger_levels",
+			Threshold: 5, Visibility: "mystery", CountsTowardCompletion: true, ArtworkKey: "special.charge_interceptor",
+		},
+		"secret.rock_eater": {
+			Title: "吃饼达人", Category: "special", MetricID: "survivor.tank_rock_hits_received",
+			Threshold: 100, Visibility: "secret", CountsTowardCompletion: false, ArtworkKey: "secret.rock_eater",
+		},
+	}
+	seen := make(map[string]bool, len(want))
+	for _, item := range AchievementCatalog() {
+		expected, ok := want[item.AchievementKey]
+		if !ok {
+			continue
+		}
+		seen[item.AchievementKey] = true
+		if item.GroupKey != item.AchievementKey || item.Title != expected.Title || item.Category != expected.Category ||
+			item.MetricID != expected.MetricID || item.Threshold != expected.Threshold || item.Visibility != expected.Visibility ||
+			item.CountsTowardCompletion != expected.CountsTowardCompletion || item.ArtworkKey != expected.ArtworkKey {
+			t.Fatalf("%s definition=%#v want=%#v", item.AchievementKey, item, expected)
+		}
+	}
+	if len(seen) != len(want) {
+		t.Fatalf("saw %d v1.3.5 achievements, want %d", len(seen), len(want))
 	}
 }
 

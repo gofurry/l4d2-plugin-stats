@@ -40,6 +40,7 @@ export interface PlayerPVEOverview {
   chapter_participations: number; chapter_completions: number; chapter_completions_alive: number; chapter_completions_dead: number; campaign_completions: number
   melee_tongue_self_cuts: number; tank_rocks_destroyed: number; witch_oneshots: number; witch_solo_kills: number; tank_encounters: number; tank_kill_participations: number; witch_encounters: number; witch_kill_participations: number
   incendiary_packs_deployed: number; explosive_packs_deployed: number; objective_interactions: number; ammo_pile_uses: number; incapacitated_seconds: number; ledge_hanging_seconds: number; black_white_teammates_restored: number; car_alarms_triggered: number
+  teammate_protections: number | null; ledge_grabs: number | null; tank_rock_hits_received: number | null; hunter_skeets: number | null; charger_levels: number | null; telemetry_coverage: CollectionCoverage
   special_assists: number | null; tank_assists: number; witch_assists: number; assist_coverage: CollectionCoverage
 }
 export interface PlayerPVEDetails { infected_classes: PVEInfectedClass[]; equipment: PVEEquipment[] }
@@ -49,6 +50,7 @@ export interface PlayerVersusSurvivor {
   survivor_common_kills: number; human_special_kills: number; bot_special_kills: number; human_tank_kills: number; bot_tank_kills: number; survivor_damage: number; survivor_damage_taken: number; survivor_friendly_fire: number; survivor_friendly_fire_taken: number; survivor_incapacitations: number; survivor_deaths: number; survivor_revives: number; survivor_incap_revives: number; survivor_ledge_rescues: number; survivor_defib_revives: number; survivor_rescues_received: number
   survivor_medkits_self: number; survivor_medkits_others: number; survivor_healing_self: number; survivor_healing_others: number; survivor_pills: number; survivor_adrenaline: number; survivor_temporary_health: number; survivor_witch_kills: number; survivor_witch_damage: number
   molotovs_thrown: number; pipe_bombs_thrown: number; vomit_jars_thrown: number; survivor_incendiary_packs: number; survivor_explosive_packs: number; survivor_tongue_self_cuts: number; survivor_tank_rocks_destroyed: number; survivor_witch_oneshots: number; survivor_witch_solo_kills: number; survivor_objective_interactions: number; survivor_car_alarms_triggered: number
+  survivor_teammate_protections: number | null; survivor_ledge_grabs: number | null; survivor_tank_rock_hits_received: number | null; survivor_hunter_skeets: number | null; survivor_charger_levels: number | null; telemetry_coverage: CollectionCoverage
   human_special_assists: number | null; bot_special_assists: number | null; human_tank_assists: number | null; bot_tank_assists: number | null; survivor_witch_encounters: number | null; survivor_witch_kill_participations: number | null; survivor_witch_assists: number | null; survivor_black_white_teammates_restored: number | null; assist_coverage: CollectionCoverage
 }
 export interface PlayerVersusSurvivorDetails { survivor_classes: VersusSurvivorClass[] }

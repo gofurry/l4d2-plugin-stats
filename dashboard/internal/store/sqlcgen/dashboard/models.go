@@ -109,6 +109,24 @@ type Announcement struct {
 	UpdatedAt       int64  `json:"updated_at"`
 }
 
+type ChatAuditSetting struct {
+	SingletonID   int64 `json:"singleton_id"`
+	Enabled       int64 `json:"enabled"`
+	RetentionDays int64 `json:"retention_days"`
+	LastCleanupAt int64 `json:"last_cleanup_at"`
+	UpdatedAt     int64 `json:"updated_at"`
+}
+
+type ChatExportAudit struct {
+	ExportID      string      `json:"export_id"`
+	ExportedAt    int64       `json:"exported_at"`
+	AdminIdentity string      `json:"admin_identity"`
+	OutputFormat  string      `json:"output_format"`
+	FilterSummary string      `json:"filter_summary"`
+	RowCount      interface{} `json:"row_count"`
+	Completed     int64       `json:"completed"`
+}
+
 type DashboardMetadatum struct {
 	Key   string `json:"key"`
 	Value string `json:"value"`
@@ -141,6 +159,39 @@ type GameServer struct {
 	SortOrder   int64  `json:"sort_order"`
 	CreatedAt   int64  `json:"created_at"`
 	UpdatedAt   int64  `json:"updated_at"`
+}
+
+type GeoipCache struct {
+	IpHash           string      `json:"ip_hash"`
+	Provider         string      `json:"provider"`
+	Country          string      `json:"country"`
+	CountryCode      string      `json:"country_code"`
+	Province         string      `json:"province"`
+	City             string      `json:"city"`
+	District         string      `json:"district"`
+	Adcode           string      `json:"adcode"`
+	Longitude        interface{} `json:"longitude"`
+	Latitude         interface{} `json:"latitude"`
+	CoordinateSystem string      `json:"coordinate_system"`
+	Precision        string      `json:"precision"`
+	Status           string      `json:"status"`
+	ErrorCode        string      `json:"error_code"`
+	ResolvedAt       int64       `json:"resolved_at"`
+	ExpiresAt        int64       `json:"expires_at"`
+}
+
+type GeoipSetting struct {
+	SingletonID   int64  `json:"singleton_id"`
+	Provider      string `json:"provider"`
+	ApiKey        string `json:"api_key"`
+	QpsLimit      int64  `json:"qps_limit"`
+	CacheSecret   string `json:"cache_secret"`
+	LastSuccessAt int64  `json:"last_success_at"`
+	LastErrorAt   int64  `json:"last_error_at"`
+	LastErrorCode string `json:"last_error_code"`
+	Ipv4Status    string `json:"ipv4_status"`
+	Ipv6Status    string `json:"ipv6_status"`
+	UpdatedAt     int64  `json:"updated_at"`
 }
 
 type IncidentRetentionRun struct {

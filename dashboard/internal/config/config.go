@@ -31,6 +31,7 @@ type Config struct {
 	Server            ServerConfig            `yaml:"server"`
 	DashboardDatabase DashboardDatabaseConfig `yaml:"dashboard_database"`
 	StatsDatabase     StatsDatabaseConfig     `yaml:"stats_database"`
+	ChatAudit         ChatAuditConfig         `yaml:"chat_audit"`
 	Logging           LoggingConfig           `yaml:"logging"`
 	Monitor           MonitorConfig           `yaml:"monitor"`
 }
@@ -53,6 +54,10 @@ type StatsDatabaseConfig struct {
 	MaxOpenConns    int      `yaml:"max_open_conns"`
 	MaxIdleConns    int      `yaml:"max_idle_conns"`
 	ConnMaxLifetime Duration `yaml:"conn_max_lifetime"`
+}
+
+type ChatAuditConfig struct {
+	DatabasePath string `yaml:"database_path"`
 }
 
 type LoggingConfig struct {
@@ -88,6 +93,7 @@ func Default() Config {
 			MaxIdleConns:    5,
 			ConnMaxLifetime: Duration(30 * time.Minute),
 		},
+		ChatAudit: ChatAuditConfig{DatabasePath: "./chat-audit.db"},
 		Logging: LoggingConfig{
 			Level:      "info",
 			Format:     "json",
@@ -124,6 +130,7 @@ func Load(path string) (*Config, error) {
 	cfg.Path = absPath
 	cfg.Directory = filepath.Dir(absPath)
 	cfg.DashboardDatabase.Path = resolvePath(cfg.Directory, cfg.DashboardDatabase.Path)
+	cfg.ChatAudit.DatabasePath = resolvePath(cfg.Directory, cfg.ChatAudit.DatabasePath)
 	cfg.Logging.File = resolvePath(cfg.Directory, cfg.Logging.File)
 	for i, path := range cfg.Monitor.DiskPaths {
 		cfg.Monitor.DiskPaths[i] = resolvePath(cfg.Directory, path)
@@ -151,6 +158,9 @@ func (c *Config) Validate() error {
 	}
 	if c.DashboardDatabase.Path == "" {
 		problems = append(problems, errors.New("dashboard_database.path is required"))
+	}
+	if c.ChatAudit.DatabasePath == "" {
+		problems = append(problems, errors.New("chat_audit.database_path is required"))
 	}
 	switch c.StatsDatabase.Driver {
 	case "sqlite", "mysql", "pgsql", "postgres", "postgresql":

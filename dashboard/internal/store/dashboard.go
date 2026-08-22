@@ -63,6 +63,10 @@ func OpenDashboard(ctx context.Context, path string) (DashboardDatabase, error) 
 		return nil, fmt.Errorf("migrate dashboard database: %w", err)
 	}
 	store := &dashboardStore{db: db, q: dashsql.New(db), path: path}
+	if err := store.ensureGeoIPCacheSecret(ctx); err != nil {
+		db.Close()
+		return nil, fmt.Errorf("initialize GeoIP cache secret: %w", err)
+	}
 	if err := store.ensureAggregateRollups(ctx); err != nil {
 		db.Close()
 		return nil, fmt.Errorf("initialize aggregate rollups: %w", err)

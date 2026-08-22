@@ -67,6 +67,7 @@ public Action LPS_OnTakeDamageAlivePre(
 	g_LPSDamageHealthBefore[victim] = health;
 	g_LPSDamageVictimWasIncapacitated[victim] = LPS_IsSurvivorIncapacitated(victim);
 	g_LPSDamageHealthCaptured[victim] = true;
+	LPS_OnSurvivorTechniqueDamagePre(victim, attacker, inflictor);
 	return Plugin_Continue;
 }
 
@@ -78,6 +79,7 @@ public void LPS_OnTakeDamageAlivePost(
 	int damageType
 )
 {
+	LPS_OnSurvivorTechniqueDamagePost(victim);
 	if (victim < 1
 		|| victim > LPS_MAX_ENTITY_INDEX
 		|| !g_LPSDamageHealthCaptured[victim])
@@ -121,6 +123,8 @@ public void LPS_OnTakeDamageAlivePost(
 	{
 		return;
 	}
+
+	LPS_RecordTankRockHitReceived(victim, attacker, inflictor, actualDamage);
 
 	if (g_LPSModeFamily == LPSModeFamily_PvE)
 	{

@@ -42,11 +42,19 @@ type doctorStats interface {
 type DoctorService struct {
 	dashboard doctorDashboard
 	stats     doctorStats
+	chatAudit store.ChatAuditStore
+	audit     store.DashboardAuditStore
 	now       func() time.Time
 }
 
 func NewDoctorService(dashboard doctorDashboard, stats doctorStats) *DoctorService {
 	return &DoctorService{dashboard: dashboard, stats: stats, now: time.Now}
+}
+
+func (s *DoctorService) WithAudit(chatAudit store.ChatAuditStore, dashboard store.DashboardAuditStore) *DoctorService {
+	s.chatAudit = chatAudit
+	s.audit = dashboard
+	return s
 }
 
 func (s *DoctorService) Deep(ctx context.Context) DoctorReport {
@@ -73,8 +81,39 @@ func (s *DoctorService) Deep(ctx context.Context) DoctorReport {
 			findingCheck("pve_assist_contract", quality.PVEAssistContract, "error"),
 			findingCheck("versus_assist_contract", quality.VersusAssistContract, "error"),
 			findingCheck("fall_death_contract", quality.FallDeathContract, "error"),
+			findingCheck("telemetry_contract", quality.TelemetryContract, "error"),
+			findingCheck("chat_capture_contract", quality.ChatCaptureContract, "error"),
 			findingCheck("active_boot_heartbeat", quality.StaleActiveBoots, "warning"),
 		)
+	}
+	if s.chatAudit != nil {
+		version, err := s.chatAudit.SchemaVersion(ctx)
+		report.Checks = append(report.Checks, versionCheck("chat_audit_schema", version, store.ChatAuditSchemaVersion, err))
+		if err == nil {
+			settings, settingsErr := s.audit.ChatAuditSettings(ctx)
+			if settingsErr != nil {
+				report.Checks = append(report.Checks, DoctorCheck{Status: "error", Name: "chat_audit_health", Message: settingsErr.Error()})
+			} else {
+				status, statusErr := s.chatAudit.Status(ctx, settings, 0, 0)
+				if statusErr != nil {
+					report.Checks = append(report.Checks, DoctorCheck{Status: "error", Name: "chat_audit_health", Message: statusErr.Error()})
+				} else {
+					report.Checks = append(report.Checks, DoctorCheck{Status: "ok", Name: "chat_audit_health", Message: fmt.Sprintf("%d messages; %d known gaps", status.MessageCount, status.KnownGapCount)})
+				}
+			}
+		}
+	}
+	if s.audit != nil {
+		config, err := s.audit.GeoIPRuntimeConfig(ctx)
+		if err != nil {
+			report.Checks = append(report.Checks, DoctorCheck{Status: "warning", Name: "geoip_health", Message: err.Error()})
+		} else if config.APIKey == "" {
+			report.Checks = append(report.Checks, DoctorCheck{Status: "ok", Name: "geoip_health", Message: "disabled"})
+		} else if config.LastErrorAt > config.LastSuccessAt {
+			report.Checks = append(report.Checks, DoctorCheck{Status: "warning", Name: "geoip_health", Message: "provider status: " + config.LastErrorCode})
+		} else {
+			report.Checks = append(report.Checks, DoctorCheck{Status: "ok", Name: "geoip_health", Message: fmt.Sprintf("IPv4=%s IPv6=%s QPS=%d", config.IPv4Status, config.IPv6Status, config.QPSLimit)})
+		}
 	}
 
 	status, statusErr := s.dashboard.AggregateStatus(ctx)

@@ -30,6 +30,8 @@ func (s *statsStore) DeepDataQuality(ctx context.Context, staleBootBefore int64)
 		{"PvE assist contract", pveAssistContractQuery(), &result.PVEAssistContract},
 		{"Versus assist contract", versusAssistContractQuery(), &result.VersusAssistContract},
 		{"fall death contract", fallDeathContractQuery(), &result.FallDeathContract},
+		{"v1.3.5 telemetry contract", telemetryContractQuery(), &result.TelemetryContract},
+		{"chat capture contract", chatCaptureContractQuery(), &result.ChatCaptureContract},
 	}
 	for _, check := range checks {
 		*check.target, err = s.dataQualityFinding(ctx, check.query)
@@ -38,6 +40,41 @@ func (s *statsStore) DeepDataQuality(ctx context.Context, staleBootBefore int64)
 		}
 	}
 	return result, nil
+}
+
+func telemetryContractQuery() string {
+	return `SELECT 'pve_telemetry' AS source_name, segment_id AS internal_id FROM lps_pve_segment_stats
+WHERE (CASE WHEN teammate_protections IS NULL THEN 1 ELSE 0 END
+ + CASE WHEN ledge_grabs IS NULL THEN 1 ELSE 0 END
+ + CASE WHEN tank_rock_hits_received IS NULL THEN 1 ELSE 0 END
+ + CASE WHEN hunter_skeets IS NULL THEN 1 ELSE 0 END
+ + CASE WHEN charger_levels IS NULL THEN 1 ELSE 0 END) NOT IN (0,5)
+OR (teammate_protections IS NOT NULL AND (teammate_protections<0 OR ledge_grabs<0 OR tank_rock_hits_received<0 OR hunter_skeets<0 OR charger_levels<0))
+UNION ALL SELECT 'versus_telemetry',segment_id FROM lps_versus_survivor_stats
+WHERE (CASE WHEN teammate_protections IS NULL THEN 1 ELSE 0 END
+ + CASE WHEN ledge_grabs IS NULL THEN 1 ELSE 0 END
+ + CASE WHEN tank_rock_hits_received IS NULL THEN 1 ELSE 0 END
+ + CASE WHEN hunter_skeets IS NULL THEN 1 ELSE 0 END
+ + CASE WHEN charger_levels IS NULL THEN 1 ELSE 0 END) NOT IN (0,5)
+OR (teammate_protections IS NOT NULL AND (teammate_protections<0 OR ledge_grabs<0 OR tank_rock_hits_received<0 OR hunter_skeets<0 OR charger_levels<0))`
+}
+
+func chatCaptureContractQuery() string {
+	return `SELECT 'chat_state' AS source_name,c.boot_id AS internal_id
+FROM lps_chat_capture_state c
+LEFT JOIN lps_server_boots b ON b.boot_id=c.boot_id
+LEFT JOIN lps_servers s ON s.server_key=c.server_key
+WHERE c.capture_version<>1 OR c.capture_enabled NOT IN (0,1)
+OR c.observed_count<0 OR c.persisted_count<0 OR c.dropped_count<0
+OR c.last_chat_seq<0 OR c.oldest_retained_seq<0 OR c.revision<0
+OR c.persisted_count>c.observed_count OR c.dropped_count>c.observed_count
+OR c.persisted_count+c.dropped_count>c.observed_count
+OR c.last_chat_seq<>c.observed_count
+OR c.oldest_retained_seq>c.last_chat_seq+1
+OR b.boot_id IS NULL OR s.server_key IS NULL OR b.server_key<>c.server_key
+UNION ALL SELECT 'chat_outbox',o.message_id FROM lps_chat_outbox o
+LEFT JOIN lps_chat_capture_state c ON c.boot_id=o.boot_id
+WHERE o.chat_seq<=0 OR c.boot_id IS NULL OR o.server_key<>c.server_key OR o.chat_seq>c.last_chat_seq`
 }
 
 func fallDeathContractQuery() string {

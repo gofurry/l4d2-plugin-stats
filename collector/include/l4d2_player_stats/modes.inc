@@ -54,6 +54,7 @@ void LPS_RefreshGameMode(bool notifySessions)
 	{
 		return;
 	}
+	LPS_ResetAllSurvivorTechniqueState();
 
 	bool previouslySupported = g_LPSModeFamily != LPSModeFamily_Unsupported;
 	bool nowSupported = nextFamily != LPSModeFamily_Unsupported;

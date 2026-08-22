@@ -25,7 +25,7 @@ func AchievementCatalog() []AchievementDefinition {
 }
 
 func buildAchievementCatalog() []AchievementDefinition {
-	result := make([]AchievementDefinition, 0, 105)
+	result := make([]AchievementDefinition, 0, 108)
 	addTiered := func(group, title, description, category, metric, artwork string, thresholds ...int64) {
 		for index, threshold := range thresholds {
 			result = append(result, AchievementDefinition{
@@ -78,12 +78,15 @@ func buildAchievementCatalog() []AchievementDefinition {
 	addSingle("special.tongue_cutter", "砍舌达人", "累计用近战武器自行斩断 Smoker 舌头。", "special", "melee_tongue_self_cuts", "mystery", 5, true)
 	addSingle("special.defib_rescuer", "起死回生", "累计使用电击器救活队友。", "special", "defib_revives", "public", 100, true)
 	addSingle("special.miracle_healer", "妙手回春", "累计将黑白状态队友恢复为非黑白状态。", "special", "black_white_restores", "public", 100, true)
+	addSingle("special.skeet_master", "空爆大师", "累计击杀仍处于有效空中扑击且尚未控制幸存者的 Hunter。", "special", "survivor.hunter_skeets", "mystery", 5, true)
+	addSingle("special.charge_interceptor", "拦截大师", "累计使用官方近战武器击杀仍处于有效冲锋且尚未控制幸存者的 Charger。", "special", "survivor.charger_levels", "mystery", 5, true)
 
 	addSingle("secret.crashed", "已坠机", "累计因坠落死亡。", "special", "survivor_fall_deaths", "secret", 5, false)
 	addSingle("secret.see_u_again", "See u Again", "累计因坠落死亡。", "special", "survivor_fall_deaths", "secret", 100, false)
 	addSingle("secret.dispatch", "出警", "累计触发警报车。", "special", "survivor_car_alarms", "secret", 100, false)
 	addSingle("secret.ff_king", "黑枪王", "累计对真人队友造成友军伤害。", "special", "survivor_friendly_fire_to_humans", "secret", 10000, false)
 	addSingle("secret.submissive", "已老实", "累计倒地。", "special", "survivor_incapacitations", "secret", 1000, false)
+	addSingle("secret.rock_eater", "吃饼达人", "累计被 Tank 投掷的石块造成有效生命伤害。", "special", "survivor.tank_rock_hits_received", "secret", 100, false)
 	return result
 }
 

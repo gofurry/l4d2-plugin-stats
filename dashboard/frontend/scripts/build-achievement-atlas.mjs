@@ -13,8 +13,8 @@ const expectedArtworkKeys = [
   'weapon.single_shotgun', 'weapon.chainsaw', 'weapon.machine_gun', 'weapon.smg',
   'weapon.bolt_sniper', 'weapon.heavy_primary', 'weapon.grenade_launcher', 'weapon.melee',
   'special.rock_breaker', 'special.one_shot', 'special.witch_nemesis', 'special.tongue_cutter',
-  'special.defib_rescuer', 'special.miracle_healer',
-  'secret.crashed', 'secret.see_u_again', 'secret.dispatch', 'secret.ff_king', 'secret.submissive',
+  'special.defib_rescuer', 'special.miracle_healer', 'special.skeet_master', 'special.charge_interceptor',
+  'secret.crashed', 'secret.see_u_again', 'secret.dispatch', 'secret.ff_king', 'secret.submissive', 'secret.rock_eater',
 ]
 const root = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..')
 const assetRoot = path.join(root, 'src', 'assets', 'achievements')

@@ -14,7 +14,7 @@ import (
 const (
 	achievementBatchSize             = int32(100)
 	achievementInterval              = 10 * time.Minute
-	achievementCatalogRevisionMarker = "catalog-v1.3.3"
+	achievementCatalogRevisionMarker = "catalog-v1.3.5-telemetry-achievements"
 )
 
 type achievementDashboard interface {

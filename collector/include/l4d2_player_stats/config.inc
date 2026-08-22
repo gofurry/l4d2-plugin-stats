@@ -18,6 +18,8 @@ ConVar g_LPSVersusStatsEnabled;
 ConVar g_LPSIncidentsEnabled;
 ConVar g_LPSIncidentQueueLimit;
 ConVar g_LPSRulesetName;
+ConVar g_LPSChatAuditEnabled;
+ConVar g_LPSTechniqueDebug;
 
 void LPS_CreateConfig()
 {
@@ -165,6 +167,28 @@ void LPS_CreateConfig()
 		"sm_lps_ruleset_name",
 		"",
 		"Optional operator label stored in Round Context v1 (maximum 64 characters)."
+	);
+
+	g_LPSChatAuditEnabled = CreateConVar(
+		"sm_lps_chat_audit_enabled",
+		"1",
+		"Capture real-human say/say_team messages into the bounded transient chat outbox.",
+		FCVAR_NONE,
+		true,
+		0.0,
+		true,
+		1.0
+	);
+
+	g_LPSTechniqueDebug = CreateConVar(
+		"sm_lps_technique_debug",
+		"0",
+		"Log bounded Hunter Skeet and Charger Level detector transitions for temporary validation.",
+		FCVAR_NONE,
+		true,
+		0.0,
+		true,
+		1.0
 	);
 }
 

@@ -16,6 +16,7 @@ $migrationValidator = Join-Path $PSScriptRoot "validate-migrations.ps1"
 $versusContractValidator = Join-Path $PSScriptRoot "validate_versus_contract.py"
 $analysisContractValidator = Join-Path $PSScriptRoot "validate_analysis_contract.py"
 $achievementContractValidator = Join-Path $PSScriptRoot "validate_achievement_contract.py"
+$v135ContractValidator = Join-Path $PSScriptRoot "validate_v135_contract.py"
 
 foreach ($requiredPath in @($CompilerPath, $SourceModInclude, $sourceFile)) {
     if (-not (Test-Path -LiteralPath $requiredPath)) {
@@ -53,6 +54,10 @@ if ($LASTEXITCODE -ne 0) {
 python $achievementContractValidator
 if ($LASTEXITCODE -ne 0) {
     throw "Achievement contract validation failed. Exit code: $LASTEXITCODE"
+}
+python $v135ContractValidator
+if ($LASTEXITCODE -ne 0) {
+    throw "v1.3.5 collector contract validation failed. Exit code: $LASTEXITCODE"
 }
 
 Write-Host "Building L4D2 Player Stats..."

@@ -1,6 +1,6 @@
 # Achievement Contract v1
 
-状态：自 Dashboard v1.3.2 起冻结；v1.3.3 按本契约兼容扩充 Catalog。
+状态：自 Dashboard v1.3.2 起冻结；v1.3.3 与 v1.3.5 按本契约兼容扩充 Catalog。
 
 ## 1. 定位
 
@@ -181,3 +181,17 @@ Catalog 从 63 个底层 Achievement 扩充为 105 个：100 个计入完成度�
 | `weapon.melee` | `weapon.melee_kills` | 1000 / 5000 / 20000 / 50000 | weapon |
 
 以上 42 个 Tier 全部为 `public` 且 `counts_toward_completion=true`。投掷、机关、药物与弹药包指标合并 PvE 与 Versus Survivor 生涯事实；投掷物的 PvE 部分使用终身装备 actions。
+
+## 13. v1.3.5 Catalog 兼容扩充
+
+Catalog 从 105 个底层 Achievement 扩充为 108 个：102 个计入完成度，6 个 Secret 不计入完成度，共享 41 个 artwork key。Achievement Contract version 保持 1。
+
+| achievement_key | 名称 | metric_id | threshold | visibility | counts_toward_completion | Category |
+| --- | --- | --- | ---: | --- | --- | --- |
+| `special.skeet_master` | 空爆大师 | `survivor.hunter_skeets` | 5 | mystery | true | special |
+| `special.charge_interceptor` | 拦截大师 | `survivor.charger_levels` | 5 | mystery | true | special |
+| `secret.rock_eater` | 吃饼达人 | `survivor.tank_rock_hits_received` | 100 | secret | false | special |
+
+三个 `survivor.*` resolver 均只合并实际 available 的 PvE 与 Versus Survivor 生涯累计。任一来源的历史 `NULL` 表示未采集；两侧均不可用时目标指标保持不可用，只有一侧可用时只采用该侧的已确认累计值。
+
+本次兼容加法通过新的内部 Catalog revision 触发可恢复全量 Backfill；不修改已有 key、阈值、可见性、完成度或已解锁记录。

@@ -144,6 +144,8 @@
 .dataSettingsGrid { display: grid; grid-template-columns: repeat(5, minmax(0, 1fr)); gap: 14px; }
 .dataSettingsGrid :global(.ant-input-number) { width: 100%; }
 .cleanupAudit { margin-left: 14px; }
+.auditControlRow { display: flex; align-items: center; justify-content: space-between; gap: 16px; flex-wrap: wrap; }
+.auditPager { display: flex; align-items: center; justify-content: flex-end; gap: 12px; margin-top: 14px; }
 
 @media (max-width: 1100px) {
   .threePairRows, .dataSettingsGrid { grid-template-columns: repeat(4, minmax(0, 1fr)); }

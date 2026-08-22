@@ -9,8 +9,9 @@ import (
 var ErrServerNotFound = errors.New("game server not found")
 
 const (
-	DashboardSchemaVersion int64 = 21
-	StatsSchemaVersion     int64 = 6
+	DashboardSchemaVersion int64 = 23
+	StatsSchemaVersion     int64 = 7
+	ChatAuditSchemaVersion int64 = 1
 )
 
 type PlayerProfileSection string
@@ -252,6 +253,12 @@ type PlayerPVE struct {
 	LedgeHangingSeconds   int64              `json:"ledge_hanging_seconds"`
 	BlackWhiteRestored    int64              `json:"black_white_teammates_restored"`
 	CarAlarmsTriggered    int64              `json:"car_alarms_triggered"`
+	TeammateProtections   *int64             `json:"teammate_protections"`
+	LedgeGrabs            *int64             `json:"ledge_grabs"`
+	TankRockHitsReceived  *int64             `json:"tank_rock_hits_received"`
+	HunterSkeets          *int64             `json:"hunter_skeets"`
+	ChargerLevels         *int64             `json:"charger_levels"`
+	TelemetryCoverage     CollectionCoverage `json:"telemetry_coverage"`
 	SpecialAssists        *int64             `json:"special_assists"`
 	TankAssists           int64              `json:"tank_assists"`
 	WitchAssists          int64              `json:"witch_assists"`
@@ -332,6 +339,12 @@ type PlayerVersus struct {
 	SurvivorWitchSoloKills        int64                 `json:"survivor_witch_solo_kills"`
 	SurvivorObjectiveInteractions int64                 `json:"survivor_objective_interactions"`
 	SurvivorCarAlarmsTriggered    int64                 `json:"survivor_car_alarms_triggered"`
+	SurvivorTeammateProtections   *int64                `json:"survivor_teammate_protections"`
+	SurvivorLedgeGrabs            *int64                `json:"survivor_ledge_grabs"`
+	SurvivorTankRockHitsReceived  *int64                `json:"survivor_tank_rock_hits_received"`
+	SurvivorHunterSkeets          *int64                `json:"survivor_hunter_skeets"`
+	SurvivorChargerLevels         *int64                `json:"survivor_charger_levels"`
+	TelemetryCoverage             CollectionCoverage    `json:"telemetry_coverage"`
 	HumanSpecialAssists           *int64                `json:"human_special_assists"`
 	BotSpecialAssists             *int64                `json:"bot_special_assists"`
 	HumanTankAssists              *int64                `json:"human_tank_assists"`
@@ -795,6 +808,205 @@ type StatsDataQuality struct {
 	PVEAssistContract    DataQualityFinding
 	VersusAssistContract DataQualityFinding
 	FallDeathContract    DataQualityFinding
+	TelemetryContract    DataQualityFinding
+	ChatCaptureContract  DataQualityFinding
+}
+
+type ChatMessage struct {
+	MessageID    string `json:"message_id"`
+	ServerKey    string `json:"server_key"`
+	BootID       string `json:"boot_id"`
+	ChatSeq      int64  `json:"chat_seq"`
+	SessionID    string `json:"session_id,omitempty"`
+	SteamID      string `json:"steam_id,omitempty"`
+	SourceUserID int64  `json:"source_user_id"`
+	PlayerName   string `json:"player_name"`
+	OccurredAt   int64  `json:"occurred_at"`
+	MapName      string `json:"map_name"`
+	GameMode     string `json:"game_mode"`
+	Team         string `json:"team"`
+	Channel      string `json:"channel"`
+	Alive        bool   `json:"alive"`
+	CommandLike  bool   `json:"command_like"`
+	Content      string `json:"content"`
+}
+
+type ChatCaptureState struct {
+	BootID            string `json:"boot_id"`
+	ServerKey         string `json:"server_key"`
+	CaptureVersion    int64  `json:"capture_version"`
+	CaptureEnabled    bool   `json:"capture_enabled"`
+	StartedAt         int64  `json:"started_at"`
+	EndedAt           *int64 `json:"ended_at,omitempty"`
+	LastSavedAt       int64  `json:"last_saved_at"`
+	ObservedCount     int64  `json:"observed_count"`
+	PersistedCount    int64  `json:"persisted_count"`
+	DroppedCount      int64  `json:"dropped_count"`
+	LastChatSeq       int64  `json:"last_chat_seq"`
+	OldestRetainedSeq int64  `json:"oldest_retained_seq"`
+	Revision          int64  `json:"revision"`
+}
+
+type ChatIngestCursor struct {
+	BootID      string `json:"boot_id"`
+	ServerKey   string `json:"server_key"`
+	LastChatSeq int64  `json:"last_chat_seq"`
+	GapCount    int64  `json:"gap_count"`
+	LastGapFrom int64  `json:"last_gap_from"`
+	LastGapTo   int64  `json:"last_gap_to"`
+	UpdatedAt   int64  `json:"updated_at"`
+}
+
+type ChatSearchFilter struct {
+	From        int64  `json:"from"`
+	To          int64  `json:"to"`
+	ServerKey   string `json:"server_key"`
+	SteamID     string `json:"steam_id"`
+	Nickname    string `json:"nickname"`
+	MapName     string `json:"map_name"`
+	GameMode    string `json:"game_mode"`
+	Team        string `json:"team"`
+	Channel     string `json:"channel"`
+	MessageKind string `json:"message_kind"`
+	Keyword     string `json:"keyword"`
+	BootID      string `json:"boot_id"`
+	CursorAt    int64  `json:"cursor_at"`
+	CursorID    string `json:"cursor_id"`
+	Limit       int    `json:"limit"`
+}
+
+type ChatSearchPage struct {
+	Items        []ChatMessage `json:"items"`
+	NextCursorAt int64         `json:"next_cursor_at,omitempty"`
+	NextCursorID string        `json:"next_cursor_id,omitempty"`
+}
+
+type ChatAuditSettings struct {
+	Enabled       bool  `json:"enabled"`
+	RetentionDays int64 `json:"retention_days"`
+	LastCleanupAt int64 `json:"last_cleanup_at"`
+	UpdatedAt     int64 `json:"updated_at"`
+}
+
+type ChatRetentionPlan struct {
+	PlanID        string `json:"plan_id"`
+	RetentionDays int64  `json:"retention_days"`
+	Cutoff        int64  `json:"cutoff"`
+	DeleteCount   int64  `json:"delete_count"`
+}
+
+type ChatAuditStatus struct {
+	Database        DatabaseUsage `json:"database"`
+	MessageCount    int64         `json:"message_count"`
+	OldestMessageAt int64         `json:"oldest_message_at"`
+	NewestMessageAt int64         `json:"newest_message_at"`
+	RetentionDays   int64         `json:"retention_days"`
+	LastCleanupAt   int64         `json:"last_cleanup_at"`
+	IngestionLag    int64         `json:"ingestion_lag"`
+	DroppedCount    int64         `json:"dropped_count"`
+	KnownGapCount   int64         `json:"known_gap_count"`
+	LastIngestAt    int64         `json:"last_ingest_at"`
+}
+
+type GeoIPSettings struct {
+	Provider      string `json:"provider"`
+	APIKeySet     bool   `json:"api_key_configured"`
+	APIKeyMasked  string `json:"api_key_masked,omitempty"`
+	QPSLimit      int64  `json:"qps_limit"`
+	LastSuccessAt int64  `json:"last_success_at"`
+	LastErrorAt   int64  `json:"last_error_at"`
+	LastErrorCode string `json:"last_error_code,omitempty"`
+	IPv4Status    string `json:"ipv4_status"`
+	IPv6Status    string `json:"ipv6_status"`
+	CacheCount    int64  `json:"cache_count"`
+	PendingCount  int64  `json:"pending_count"`
+	UpdatedAt     int64  `json:"updated_at"`
+}
+
+// GeoIPRuntimeConfig contains private provider credentials used only by the
+// server-side resolver. It must never be serialized into an HTTP response or
+// diagnostics bundle.
+type GeoIPRuntimeConfig struct {
+	Provider      string
+	APIKey        string
+	QPSLimit      int64
+	CacheSecret   string
+	LastSuccessAt int64
+	LastErrorAt   int64
+	LastErrorCode string
+	IPv4Status    string
+	IPv6Status    string
+	UpdatedAt     int64
+}
+
+type GeoIPRuntimeStatus struct {
+	LastSuccessAt int64
+	LastErrorAt   int64
+	LastErrorCode string
+	IPv4Status    string
+	IPv6Status    string
+}
+
+type ChatExportAuditEntry struct {
+	ExportID      string
+	ExportedAt    int64
+	AdminIdentity string
+	OutputFormat  string
+	FilterSummary string
+	RowCount      *int64
+	Completed     bool
+}
+
+type GeoIPCacheEntry struct {
+	IPHash           string   `json:"-"`
+	Provider         string   `json:"provider"`
+	Country          string   `json:"country"`
+	CountryCode      string   `json:"country_code"`
+	Province         string   `json:"province"`
+	City             string   `json:"city"`
+	District         string   `json:"district"`
+	Adcode           string   `json:"adcode"`
+	Longitude        *float64 `json:"longitude,omitempty"`
+	Latitude         *float64 `json:"latitude,omitempty"`
+	CoordinateSystem string   `json:"coordinate_system"`
+	Precision        string   `json:"precision"`
+	Status           string   `json:"status"`
+	ErrorCode        string   `json:"error_code,omitempty"`
+	ResolvedAt       int64    `json:"resolved_at"`
+	ExpiresAt        int64    `json:"expires_at"`
+}
+
+type ConnectionAuditFilter struct {
+	From      int64  `json:"from"`
+	To        int64  `json:"to"`
+	ServerKey string `json:"server_key"`
+	SteamID   string `json:"steam_id"`
+	Nickname  string `json:"nickname"`
+	IPAddress string `json:"ip_address"`
+	Location  string `json:"location"`
+	CursorAt  int64  `json:"cursor_at"`
+	CursorID  string `json:"cursor_id"`
+	Limit     int    `json:"limit"`
+}
+
+type ConnectionAuditRow struct {
+	SessionID        string           `json:"session_id"`
+	ServerKey        string           `json:"server_key"`
+	SteamID          string           `json:"steam_id"`
+	PlayerName       string           `json:"player_name"`
+	IPAddress        string           `json:"ip_address"`
+	StartedAt        int64            `json:"started_at"`
+	EndedAt          *int64           `json:"ended_at,omitempty"`
+	ConnectedSeconds int64            `json:"connected_seconds"`
+	Status           string           `json:"status"`
+	DisconnectReason string           `json:"disconnect_reason"`
+	GeoIP            *GeoIPCacheEntry `json:"geoip,omitempty"`
+}
+
+type ConnectionAuditPage struct {
+	Items        []ConnectionAuditRow `json:"items"`
+	NextCursorAt int64                `json:"next_cursor_at,omitempty"`
+	NextCursorID string               `json:"next_cursor_id,omitempty"`
 }
 
 type PlayerSession struct {
@@ -944,12 +1156,28 @@ type DashboardAggregateStore interface {
 	IncidentRetentionRunCount(context.Context) (int64, error)
 }
 
+type DashboardAuditStore interface {
+	ChatAuditSettings(context.Context) (ChatAuditSettings, error)
+	UpdateChatAuditSettings(context.Context, ChatAuditSettings) error
+	MarkChatAuditCleanup(context.Context, int64) error
+	RecordChatExport(context.Context, ChatExportAuditEntry) error
+	GeoIPRuntimeConfig(context.Context) (GeoIPRuntimeConfig, error)
+	GeoIPSettings(context.Context, int64) (GeoIPSettings, error)
+	UpdateGeoIPSettings(context.Context, string, bool, int64) error
+	UpdateGeoIPRuntimeStatus(context.Context, GeoIPRuntimeStatus) error
+	GeoIPCache(context.Context, string, string) (GeoIPCacheEntry, error)
+	UpsertGeoIPCache(context.Context, GeoIPCacheEntry) error
+	GeoIPCacheCount(context.Context) (int64, error)
+	DeleteExpiredGeoIPCache(context.Context, int64, int64) (int64, error)
+}
+
 type DashboardDatabase interface {
 	DashboardStore
 	DashboardIngameStore
 	DashboardProfileStore
 	DashboardAggregateStore
 	DashboardAchievementStore
+	DashboardAuditStore
 	ServerStatusSnapshotStore
 }
 
@@ -1035,6 +1263,27 @@ type StatsPresenceStore interface {
 
 type StatsIncidentRankingStore interface {
 	CarAlarmRanking(context.Context, RankingQuery) ([]RankingEntry, error)
+	PositiveTelemetryRanking(context.Context, string, RankingQuery) ([]RankingEntry, error)
+}
+
+type StatsChatAuditStore interface {
+	ListChatCaptureStates(context.Context) ([]ChatCaptureState, error)
+	ListChatOutbox(context.Context, string, int64, int) ([]ChatMessage, error)
+	OldestChatOutboxSeq(context.Context, string) (int64, error)
+	ConnectionAudit(context.Context, ConnectionAuditFilter) (ConnectionAuditPage, error)
+}
+
+type ChatAuditStore interface {
+	Ping(context.Context) error
+	SchemaVersion(context.Context) (int64, error)
+	Cursor(context.Context, string) (ChatIngestCursor, error)
+	Ingest(context.Context, ChatCaptureState, []ChatMessage, int64, int64) error
+	Search(context.Context, ChatSearchFilter) (ChatSearchPage, error)
+	Status(context.Context, ChatAuditSettings, int64, int64) (ChatAuditStatus, error)
+	RetentionPlan(context.Context, int64, int64) (ChatRetentionPlan, error)
+	ApplyRetention(context.Context, int64, int64) (int64, error)
+	DatabaseUsage(context.Context) (DatabaseUsage, error)
+	Close() error
 }
 
 type StatsAnalysisStore interface {
@@ -1058,6 +1307,7 @@ type StatsDatabase interface {
 	StatsPresenceStore
 	StatsDoctorStore
 	StatsAchievementStore
+	StatsChatAuditStore
 }
 
 type ServerStatusProvider interface {

@@ -4,6 +4,45 @@
 
 package statssqlite
 
+import (
+	"database/sql"
+)
+
+type LpsChatCaptureState struct {
+	BootID            string
+	ServerKey         string
+	CaptureVersion    int64
+	CaptureEnabled    int64
+	StartedAt         int64
+	EndedAt           interface{}
+	LastSavedAt       int64
+	ObservedCount     int64
+	PersistedCount    int64
+	DroppedCount      int64
+	LastChatSeq       int64
+	OldestRetainedSeq int64
+	Revision          int64
+}
+
+type LpsChatOutbox struct {
+	MessageID    string
+	BootID       string
+	ServerKey    string
+	ChatSeq      int64
+	SessionID    sql.NullString
+	SteamID      sql.NullString
+	SourceUserID int64
+	PlayerName   string
+	OccurredAt   int64
+	MapName      string
+	GameMode     string
+	Team         string
+	Channel      string
+	Alive        int64
+	CommandLike  int64
+	Content      string
+}
+
 type LpsIncident struct {
 	RoundID            string
 	IncidentSeq        int64
@@ -172,6 +211,11 @@ type LpsPveSegmentStat struct {
 	JockeyAssists               interface{}
 	ChargerAssists              interface{}
 	FallDeaths                  interface{}
+	TeammateProtections         interface{}
+	LedgeGrabs                  interface{}
+	TankRockHitsReceived        interface{}
+	HunterSkeets                interface{}
+	ChargerLevels               interface{}
 }
 
 type LpsRound struct {
@@ -402,4 +446,9 @@ type LpsVersusSurvivorStat struct {
 	WitchKillParticipations     interface{}
 	BlackWhiteTeammatesRestored interface{}
 	FallDeaths                  interface{}
+	TeammateProtections         interface{}
+	LedgeGrabs                  interface{}
+	TankRockHitsReceived        interface{}
+	HunterSkeets                interface{}
+	ChargerLevels               interface{}
 }

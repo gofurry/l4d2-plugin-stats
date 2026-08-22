@@ -4,6 +4,9 @@ server:
 dashboard_database:
   path: "./dashboard.db"
 
+chat_audit:
+  database_path: "./chat-audit.db"
+
 stats_database:
   driver: "mysql"
   dsn: "l4d2_dashboard:replace-me@tcp(127.0.0.1:3306)/l4d2_stats?parseTime=true"

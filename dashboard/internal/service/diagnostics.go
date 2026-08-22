@@ -78,10 +78,15 @@ func (s *ArchiveService) ExportDiagnostics(ctx context.Context, outputDirectory 
 	if statsErr == nil {
 		defer stats.Close()
 	}
+	chatAudit, chatAuditErr := store.OpenChatAudit(ctx, s.cfg.ChatAudit.DatabasePath)
+	if chatAuditErr == nil {
+		defer chatAudit.Close()
+	}
 	quick := map[string]diagnosticValue{
-		"config":             {Value: "ok"},
-		"dashboard_database": diagnosticErrorValue(dashboardErr),
-		"stats_database":     diagnosticErrorValue(statsErr),
+		"config":              {Value: "ok"},
+		"dashboard_database":  diagnosticErrorValue(dashboardErr),
+		"stats_database":      diagnosticErrorValue(statsErr),
+		"chat_audit_database": diagnosticErrorValue(chatAuditErr),
 	}
 	if dashboardErr == nil {
 		version, err := dashboard.MigrationVersion(ctx)
@@ -100,7 +105,11 @@ func (s *ArchiveService) ExportDiagnostics(ctx context.Context, outputDirectory 
 	}
 	deep := DoctorReport{Checks: []DoctorCheck{{Status: "error", Name: "deep_doctor", Message: "database connection unavailable"}}}
 	if dashboardErr == nil && statsErr == nil {
-		deep = NewDoctorService(dashboard, stats).Deep(ctx)
+		doctor := NewDoctorService(dashboard, stats)
+		if chatAuditErr == nil {
+			doctor.WithAudit(chatAudit, dashboard)
+		}
+		deep = doctor.Deep(ctx)
 	}
 	if err := addJSON("doctor/deep.json", deep); err != nil {
 		return ArchiveResult{}, err
@@ -126,6 +135,18 @@ func (s *ArchiveService) ExportDiagnostics(ctx context.Context, outputDirectory 
 	} else {
 		usage, err := stats.DatabaseUsage(ctx)
 		databaseUsage["stats"] = diagnosticResult(usage, err)
+	}
+	if chatAuditErr != nil {
+		databaseUsage["chat_audit"] = diagnosticErrorValue(chatAuditErr)
+	} else {
+		usage, err := chatAudit.DatabaseUsage(ctx)
+		databaseUsage["chat_audit"] = diagnosticResult(usage, err)
+	}
+	if dashboardErr == nil {
+		geoIP, err := dashboard.GeoIPSettings(ctx, 0)
+		if err := addJSON("geoip-status.json", diagnosticResult(geoIP, err)); err != nil {
+			return ArchiveResult{}, err
+		}
 	}
 	if err := addJSON("aggregate-status.json", aggregate); err != nil {
 		return ArchiveResult{}, err

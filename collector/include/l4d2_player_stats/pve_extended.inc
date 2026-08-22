@@ -12,6 +12,8 @@ bool g_LPSChargerPummeling[MAXPLAYERS + 1];
 
 int g_LPSBossContributorUserId[LPS_MAX_ENTITY_INDEX + 1][MAXPLAYERS + 1];
 bool g_LPSTankRockDestroyed[LPS_MAX_ENTITY_INDEX + 1];
+int g_LPSTankRockVictimMaskLow[LPS_MAX_ENTITY_INDEX + 1];
+int g_LPSTankRockVictimMaskHigh[LPS_MAX_ENTITY_INDEX + 1];
 
 // 0 = none, 1 = incendiary, 2 = explosive.
 int g_LPSPendingUpgradePackType[MAXPLAYERS + 1];
@@ -44,6 +46,8 @@ void LPS_InitializeExtendedPvEStats()
 	{
 		LPS_ResetBossTracking(entity);
 		g_LPSTankRockDestroyed[entity] = false;
+		g_LPSTankRockVictimMaskLow[entity] = 0;
+		g_LPSTankRockVictimMaskHigh[entity] = 0;
 	}
 
 	int entity = -1;
@@ -63,6 +67,8 @@ void LPS_OnExtendedEntityCreated(int entity, const char[] classname)
 	if (StrEqual(classname, "tank_rock", true))
 	{
 		g_LPSTankRockDestroyed[entity] = false;
+		g_LPSTankRockVictimMaskLow[entity] = 0;
+		g_LPSTankRockVictimMaskHigh[entity] = 0;
 		LPS_HookTankRock(entity);
 	}
 	else if (StrEqual(classname, "witch", true) || StrEqual(classname, "witch_bride", true))
@@ -80,6 +86,63 @@ void LPS_OnExtendedEntityDestroyed(int entity)
 
 	LPS_ResetBossTracking(entity);
 	g_LPSTankRockDestroyed[entity] = false;
+	g_LPSTankRockVictimMaskLow[entity] = 0;
+	g_LPSTankRockVictimMaskHigh[entity] = 0;
+}
+
+void LPS_RecordTankRockHitReceived(int victim, int attacker, int inflictor, int actualDamage)
+{
+	if (actualDamage <= 0 || !LPS_IsHumanSurvivorClient(victim))
+	{
+		return;
+	}
+
+	int rock = LPS_IsTankRockEntity(inflictor) ? inflictor : (LPS_IsTankRockEntity(attacker) ? attacker : 0);
+	if (rock <= MaxClients || rock > LPS_MAX_ENTITY_INDEX || !LPS_MarkTankRockVictim(rock, victim))
+	{
+		return;
+	}
+
+	if (LPS_CanRecordPvEEvents())
+	{
+		LPS_AddPvEStat(victim, LPSPvEStat_TankRockHitsReceived, 1);
+	}
+	else if (LPS_CanRecordVersusEvents())
+	{
+		LPS_AddVersusSurvivorStat(victim, LPSVersusSurvivorStat_TankRockHitsReceived, 1);
+	}
+}
+
+bool LPS_IsTankRockEntity(int entity)
+{
+	if (entity <= MaxClients || entity > LPS_MAX_ENTITY_INDEX || !IsValidEntity(entity))
+	{
+		return false;
+	}
+	char classname[32];
+	GetEntityClassname(entity, classname, sizeof(classname));
+	return StrEqual(classname, "tank_rock", true);
+}
+
+bool LPS_MarkTankRockVictim(int rock, int victim)
+{
+	int index = victim - 1;
+	int bit = 1 << (index % 32);
+	if (index < 32)
+	{
+		if ((g_LPSTankRockVictimMaskLow[rock] & bit) != 0)
+		{
+			return false;
+		}
+		g_LPSTankRockVictimMaskLow[rock] |= bit;
+		return true;
+	}
+	if ((g_LPSTankRockVictimMaskHigh[rock] & bit) != 0)
+	{
+		return false;
+	}
+	g_LPSTankRockVictimMaskHigh[rock] |= bit;
+	return true;
 }
 
 void LPS_HookTankRock(int entity)

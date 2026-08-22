@@ -206,32 +206,50 @@ export const achievementAtlas = {
       "w": 128,
       "h": 128
     },
-    "secret.crashed": {
+    "special.skeet_master": {
       "x": 384,
       "y": 640,
       "w": 128,
       "h": 128
     },
-    "secret.see_u_again": {
+    "special.charge_interceptor": {
       "x": 512,
       "y": 640,
       "w": 128,
       "h": 128
     },
-    "secret.dispatch": {
+    "secret.crashed": {
       "x": 640,
       "y": 640,
       "w": 128,
       "h": 128
     },
-    "secret.ff_king": {
+    "secret.see_u_again": {
       "x": 0,
       "y": 768,
       "w": 128,
       "h": 128
     },
-    "secret.submissive": {
+    "secret.dispatch": {
       "x": 128,
+      "y": 768,
+      "w": 128,
+      "h": 128
+    },
+    "secret.ff_king": {
+      "x": 256,
+      "y": 768,
+      "w": 128,
+      "h": 128
+    },
+    "secret.submissive": {
+      "x": 384,
+      "y": 768,
+      "w": 128,
+      "h": 128
+    },
+    "secret.rock_eater": {
+      "x": 512,
       "y": 768,
       "w": 128,
       "h": 128

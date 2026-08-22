@@ -12,6 +12,7 @@ OBJECTIVE_MIGRATION = MIGRATION_ROOT / "0003_versus_objective_interactions.sql"
 ANALYSIS_MIGRATION = MIGRATION_ROOT / "0004_analysis_foundation.sql"
 RELATIONSHIP_MIGRATION = MIGRATION_ROOT / "0005_relationships_and_assists.sql"
 FALL_DEATHS_MIGRATION = MIGRATION_ROOT / "0006_fall_deaths.sql"
+TELEMETRY_CHAT_MIGRATION = MIGRATION_ROOT / "0007_high_value_telemetry_chat.sql"
 VERSUS_CONTRACT_CHECKS = (
     PROJECT_ROOT / "database" / "queries" / "versus_contract_checks.sql"
 )
@@ -232,6 +233,28 @@ def main() -> None:
                 if row[1] == "fall_deaths"
             )
             assert column[3] == 0, column
+
+        for statement in (
+            statement.strip()
+            for statement in TELEMETRY_CHAT_MIGRATION.read_text(
+                encoding="utf-8"
+            ).split("-- statement-breakpoint")
+            if statement.strip()
+        ):
+            database.execute(statement)
+        database.execute(
+            "INSERT INTO lps_schema_migrations "
+            "(version, name, applied_at) VALUES "
+            "(7, 'high_value_telemetry_chat', 7)"
+        )
+        telemetry_columns = (
+            "teammate_protections", "ledge_grabs", "tank_rock_hits_received",
+            "hunter_skeets", "charger_levels",
+        )
+        for table in ("lps_pve_segment_stats", "lps_versus_survivor_stats"):
+            info = {row[1]: row for row in database.execute(f"PRAGMA table_info({table})")}
+            for name in telemetry_columns:
+                assert info[name][3] == 0, (table, name, info[name])
 
         database.execute(
             "INSERT INTO lps_schema_migrations "
@@ -778,17 +801,22 @@ def main() -> None:
             )
         }
 
-        assert len(tables) == 19, tables
-        assert len(indexes) == 38, indexes
+        assert len(tables) == 21, tables
+        assert len(indexes) == 41, indexes
         schema_version = database.execute(
             "SELECT MAX(version) FROM lps_schema_migrations"
         ).fetchone()
-        assert schema_version == (6,), schema_version
+        assert schema_version == (7,), schema_version
         for table in ("lps_pve_segment_stats", "lps_versus_survivor_stats"):
             historical = database.execute(
                 f"SELECT COUNT(*) FROM {table} WHERE fall_deaths IS NULL"
             ).fetchone()
             assert historical[0] > 0, (table, historical)
+            for column in telemetry_columns:
+                historical = database.execute(
+                    f"SELECT COUNT(*) FROM {table} WHERE {column} IS NULL"
+                ).fetchone()
+                assert historical[0] > 0, (table, column, historical)
         database.execute(
             "UPDATE lps_pve_segment_stats SET fall_deaths = 1 "
             "WHERE segment_id = ?",

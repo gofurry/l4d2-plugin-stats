@@ -2,6 +2,7 @@ package service
 
 import (
 	"context"
+	"database/sql"
 	"fmt"
 	"os"
 	"path/filepath"
@@ -56,6 +57,9 @@ func (s *ArchiveService) CreateBackup(ctx context.Context, outputDirectory strin
 		if err := sqliteOnlineBackup(ctx, s.cfg.StatsDatabase.DSN, statsSnapshot); err != nil {
 			return ArchiveResult{}, fmt.Errorf("backup Stats database: %w", err)
 		}
+		if err := sanitizeStatsSnapshot(ctx, statsSnapshot); err != nil {
+			return ArchiveResult{}, fmt.Errorf("sanitize Stats chat transport: %w", err)
+		}
 		if err := os.Chmod(statsSnapshot, 0o600); err != nil && !os.IsPermission(err) {
 			return ArchiveResult{}, err
 		}
@@ -105,4 +109,22 @@ func (s *ArchiveService) CreateBackup(ctx context.Context, outputDirectory strin
 		message = "Dashboard database is included; the external Stats database requires a separate native backup"
 	}
 	return ArchiveResult{Path: outputPath, StatsBackupMode: mode, Message: message}, nil
+}
+
+func sanitizeStatsSnapshot(ctx context.Context, path string) error {
+	db, err := sql.Open("sqlite", "file:"+filepath.ToSlash(path))
+	if err != nil {
+		return err
+	}
+	defer db.Close()
+	if _, err := db.ExecContext(ctx, "PRAGMA secure_delete=ON"); err != nil {
+		return err
+	}
+	if _, err := db.ExecContext(ctx, "DELETE FROM lps_chat_outbox"); err != nil {
+		return err
+	}
+	if _, err := db.ExecContext(ctx, "VACUUM"); err != nil {
+		return err
+	}
+	return nil
 }

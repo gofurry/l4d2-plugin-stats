@@ -2,7 +2,7 @@
 
 状态：已确认；Versus v1 自 collector v0.6.6 起冻结
 
-本文定义SQLite、MySQL和PostgreSQL必须共同表达的数据模型。具体DDL由`database/migrations/<driver>/`实现。Stats schema 当前为 6。
+本文定义SQLite、MySQL和PostgreSQL必须共同表达的数据模型。具体DDL由`database/migrations/<driver>/`实现。Stats schema 当前为 7。
 
 ## 1. 总体规则
 
@@ -15,6 +15,7 @@
 - 所有动态字符串必须通过当前数据库驱动转义。
 - 所有玩法写入必须异步执行。
 - 数据永久保留；第一阶段不提供自动删除Session、Segment或IP的任务。
+- `lps_chat_outbox` 仅是默认 72 小时的敏感传输缓冲，不属于永久 gameplay 历史；最终聊天审计由 Dashboard 的独立 SQLite 管理。
 
 ## 2. 通用字段类型
 
@@ -667,6 +668,24 @@ jitter = 0～60秒
 - 未来引入清理时必须先完成可验证聚合，再按时间范围分批删除明细。
 - IP只能用于服务器管理用途；未来公开API和前端默认不得返回IP。
 - 数据库账号应遵循最小权限。未来Go服务使用只读账号，SourceMod采集器使用写入账号。
+- Stats schema 7 的五个新增幸存者字段永久保留且可空；历史 `NULL` 不得回填为 0。
+- `lps_chat_outbox` 由 Collector 有界分批删除，默认保留 72 小时；聊天正文不得写入 SourceMod 日志。`lps_chat_capture_state` 是小型完整性状态，可长期保留。
+
+## 10.1 Stats schema 7
+
+`0007_high_value_telemetry_chat.sql` 在 PvE 与 Versus Survivor 总表分别新增：
+
+| 字段 | 语义 |
+|---|---|
+| `teammate_protections` | 引擎 award 67 判定的保护队友次数 |
+| `ledge_grabs` | 实际进入挂边状态的转换次数 |
+| `tank_rock_hits_received` | Tank 石块造成正有效生命伤害且按石块/受害者去重的次数 |
+| `hunter_skeets` | 有效扑击中、开始控制前由真人幸存者完成最终击杀 |
+| `charger_levels` | 有效冲锋中、成功撞/带人前由官方近战完成最终击杀 |
+
+字段均为可空 `BIGINT`：旧 Segment 保持 `NULL`，v1.3.5 新快照写入 0 或正整数。`stats_version` 继续为 1。
+
+同一迁移增加 `lps_chat_outbox`：`message_id` 主键，`(boot_id, chat_seq)` 唯一，正文和来源字段有界；以及每 boot 一行的 `lps_chat_capture_state`，保存 capture version、开关、序列、observed/persisted/dropped、最老保留序列和 revision。三种方言必须保持字段宽度、空值、键和索引语义等价。
 
 ## 11. 迁移所有权
 

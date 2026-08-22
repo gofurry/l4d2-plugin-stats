@@ -13,6 +13,7 @@
 - 只统计通过 Steam 验证的真人玩家，不为 Bot 创建玩家档案；
 - 合作与写实共用 PvE 统计口径，对抗模式使用独立的幸存者、感染者、半场和比赛模型；
 - 记录连接时间、实际操作时间、章节与战役成绩、击杀、助攻、伤害、生存、救援、治疗、装备和技巧数据；
+- 采集保护队友、挂边、Tank 石块命中、Hunter 空中击杀与 Charger 近战截停等可空高价值幸存者指标；
 - 永久保存真人幸存者之间的扶起、解救、治疗和友伤定向事实，个人页可按时间、服务器和模式查看玩家关系；
 - 按冻结的 Achievement Contract v1 自动确认生涯成就，支持公开/隐藏/彩蛋可见性、三枚展示徽章和历史自动补判，无需领取或手动刷新；
 - 保存每个 Round 的规则环境，并以可验证、低频的 Incident 分析控制、倒地、死亡、救援、警报车、Witch 惊扰、医疗包、目标互动和 Boss 生命周期；
@@ -24,6 +25,7 @@
 - 提供地图/战役、规则环境、标准化时间线、Boss 生存时间和玩家效率分析；
 - 提供日、月度和终身聚合、数据库增长监控及管理员确认后的分批清理；
 - 应用日志自动轮转，公开 API 不返回玩家 IP，管理写操作使用 JWT、CSRF 和请求限流保护。
+- 默认审计真人聊天到独立的 `chat-audit.db`，并提供仅管理员可用的聊天检索、导出、连接审计和可选百度 GeoIP 城市级近似位置。
 
 ## 界面预览
 
@@ -55,7 +57,7 @@
 | 玩家身份 | SteamID64 真人玩家 |
 | 服务器形态 | 独立服务器、用于开发测试的本地服务器 |
 
-其他游戏模式不会创建身份、会话或统计记录。PvE 与对抗数据严格分开，详细统计语义见[统计口径](contracts/statistics.md)和[对抗契约](contracts/versus-v1.md)。
+其他游戏模式不会创建 gameplay 身份、会话或统计记录；启用默认的 Chat Audit 后，真人 `say`/`say_team` 仍会进入独立审计链路。PvE 与对抗数据严格分开，详细统计语义见[统计口径](contracts/statistics.md)和[对抗契约](contracts/versus-v1.md)。
 
 ## Release 包结构
 
@@ -127,7 +129,7 @@ sm plugins reload l4d2_player_stats
 sm_lps_status
 ```
 
-正常状态应显示数据库驱动、`schema=6/6` 和 `state=ready`。完整步骤见[中文部署手册](INSTALL.zh-CN.md)。
+正常状态应显示数据库驱动、`schema=7/7` 和 `state=ready`。完整步骤见[中文部署手册](INSTALL.zh-CN.md)。
 
 ### 2. 启动 Dashboard
 
@@ -139,6 +141,9 @@ server:
 
 dashboard_database:
   path: "./dashboard.db"
+
+chat_audit:
+  database_path: "./chat-audit.db"
 
 stats_database:
   driver: "sqlite"
@@ -189,7 +194,7 @@ Loading...
 </html>
 ```
 
-`server` 参数来自已持久化的 A2S `sm_lps_server_key` 规则，代表整个服务器组而非单个端口；玩家打开页面时不会触发即时 A2S 查询。游戏内页面使用独立的 10–1800 秒安全缓存预设，和“站点设置 → 服务”中的 A2S 刷新周期不是同一个配置。Background、Banner 与完整网站链接只接受不含账号密码的绝对 HTTP/HTTPS 地址，Dashboard 不下载、代理或探测这些外部资源；换图时应使用新 URL 或 `?v=2` 一类查询版本。游戏内 Markdown 外链和“完整网站”按钮都通过 Steam 外部浏览器入口打开普通浏览器。游戏内个人资料始终按匿名访客的公开可见性渲染，不会因 Steam 或管理员 Cookie 获得额外权限。内嵌 CSS 与成就 Atlas 使用内容指纹 URL 和 immutable cache，资源内容变化后会自动换址，避免 L4D2 WebView 长期命中旧样式。
+`server` 参数来自已持久化的 A2S `sm_lps_server_key` 规则，代表整个服务器组而非单个端口；玩家打开页面时不会触发即时 A2S 查询。游戏内页面使用独立的 10–1800 秒安全缓存预设，和“站点设置 → 服务”中的 A2S 刷新周期不是同一个配置。Background、Banner 与完整网站链接只接受不含账号密码的绝对 HTTP/HTTPS 地址，Dashboard 不下载、代理或探测这些外部资源；换图时应使用新 URL 或 `?v=2` 一类查询版本。游戏内 Markdown 外链、“完整网站”、快速链接和加入游戏入口只打开零 JavaScript 的操作提示卡，显示需要在普通浏览器访问的 URL 或控制台 `connect` 命令，不声称 MOTD 能可靠跳出外部浏览器。游戏内个人资料始终按匿名访客的公开可见性渲染，不会因 Steam 或管理员 Cookie 获得额外权限。内嵌 CSS 与成就 Atlas 使用内容指纹 URL 和 immutable cache，资源内容变化后会自动换址，避免 L4D2 WebView 长期命中旧样式。
 
 ## 管理命令
 
@@ -220,10 +225,13 @@ l4d2-stats uninstall
 ## 数据与隐私
 
 - Stats DB 是游戏采集事实来源，Dashboard DB 保存网页配置、管理员和可重建的聚合数据；
+- Chat Audit 最终历史保存在独立 `chat-audit.db`：采集默认开启，Stats outbox 只保留 72 小时传输缓冲，最终默认保留 30 天；
 - 采集器保存服务器观察到的玩家 IP，用于会话审计，但公开 API 和网页不会查询或展示该字段；
+- GeoIP 在未配置百度 AK 时不会请求 provider；配置后仅后台异步解析公网 IP，请求速率可在后台设置为 1-3 QPS（默认 2），管理测试与后台队列共用同一限速器；Dashboard 缓存只保存 HMAC 键和城市级近似结果，不复制原始 IP；
 - 常规 Dashboard 查询只读 Stats DB；执行原始数据清理时才使用具备 `DELETE` 权限的维护连接；
 - 过期装备/职业明细、已关闭 Session 和比赛结果只有在聚合覆盖校验通过并由管理员确认后才会分批删除；Incident 使用独立的默认 180 天保留策略；
 - 数据库密码只应保存在服务器本地配置中，不应提交到仓库。
+- 常规备份不包含 `chat-audit.db`，SQLite Stats 备份副本会移除瞬时聊天 outbox；诊断包不包含聊天正文、原始 IP 列表或 GeoIP AK。
 
 详细规则见[数据生命周期](docs/dashboard-data-lifecycle.md)。
 

@@ -3,8 +3,8 @@
 #endif
 #define _l4d2_player_stats_definitions_included
 
-#define LPS_VERSION "1.3.4"
-#define LPS_SCHEMA_VERSION 6
+#define LPS_VERSION "1.3.5"
+#define LPS_SCHEMA_VERSION 7
 #define LPS_MIGRATION_NAME "initial_schema"
 #define LPS_STATS_VERSION 1
 
@@ -37,6 +37,12 @@
 #define LPS_INCIDENT_VERSION 1
 #define LPS_CONTEXT_VERSION 1
 #define LPS_ANALYSIS_FLUSH_INCIDENT_LIMIT 256
+#define LPS_CHAT_CAPTURE_VERSION 1
+#define LPS_CHAT_QUEUE_LIMIT 1024
+#define LPS_CHAT_FLUSH_BATCH_LIMIT 64
+#define LPS_CHAT_TRANSPORT_RETENTION_SECONDS 259200
+#define LPS_MAX_CHAT_MESSAGE_ID 192
+#define LPS_MAX_CHAT_CONTENT 512
 
 #define LPS_TEAM_SPECTATOR 1
 #define LPS_TEAM_SURVIVOR 2
@@ -154,7 +160,12 @@ enum LPSPvEStat
 	LPSPvEStat_SpitterAssists,
 	LPSPvEStat_JockeyAssists,
 	LPSPvEStat_ChargerAssists,
-	LPSPvEStat_FallDeaths
+	LPSPvEStat_FallDeaths,
+	LPSPvEStat_TeammateProtections,
+	LPSPvEStat_LedgeGrabs,
+	LPSPvEStat_TankRockHitsReceived,
+	LPSPvEStat_HunterSkeets,
+	LPSPvEStat_ChargerLevels
 };
 
 // Stable IDs persisted by lps_pve_segment_equipment_stats. Never reuse an ID
@@ -320,7 +331,12 @@ enum LPSVersusSurvivorStat
 	LPSVersusSurvivorStat_WitchEncounters,
 	LPSVersusSurvivorStat_WitchKillParticipations,
 	LPSVersusSurvivorStat_BlackWhiteTeammatesRestored,
-	LPSVersusSurvivorStat_FallDeaths
+	LPSVersusSurvivorStat_FallDeaths,
+	LPSVersusSurvivorStat_TeammateProtections,
+	LPSVersusSurvivorStat_LedgeGrabs,
+	LPSVersusSurvivorStat_TankRockHitsReceived,
+	LPSVersusSurvivorStat_HunterSkeets,
+	LPSVersusSurvivorStat_ChargerLevels
 };
 
 // Fixed per-class combat metrics for a human survivor attacking the seven

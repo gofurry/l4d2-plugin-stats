@@ -95,6 +95,17 @@ func (q *Queries) CountGameServers(ctx context.Context) (int64, error) {
 	return count, err
 }
 
+const countGeoIPCache = `-- name: CountGeoIPCache :one
+SELECT COUNT(*) FROM geoip_cache
+`
+
+func (q *Queries) CountGeoIPCache(ctx context.Context) (int64, error) {
+	row := q.db.QueryRowContext(ctx, countGeoIPCache)
+	var count int64
+	err := row.Scan(&count)
+	return count, err
+}
+
 const countIncidentRetentionRuns = `-- name: CountIncidentRetentionRuns :one
 SELECT COUNT(*) FROM incident_retention_runs
 `
@@ -171,6 +182,34 @@ func (q *Queries) CreateAnnouncement(ctx context.Context, arg CreateAnnouncement
 		arg.Title,
 		arg.ContentMarkdown,
 		arg.CreatedAt,
+	)
+	return err
+}
+
+const createChatExportAudit = `-- name: CreateChatExportAudit :exec
+INSERT INTO chat_export_audit (export_id, exported_at, admin_identity, output_format, filter_summary, row_count, completed)
+VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7)
+`
+
+type CreateChatExportAuditParams struct {
+	ExportID      string      `json:"export_id"`
+	ExportedAt    int64       `json:"exported_at"`
+	AdminIdentity string      `json:"admin_identity"`
+	OutputFormat  string      `json:"output_format"`
+	FilterSummary string      `json:"filter_summary"`
+	RowCount      interface{} `json:"row_count"`
+	Completed     int64       `json:"completed"`
+}
+
+func (q *Queries) CreateChatExportAudit(ctx context.Context, arg CreateChatExportAuditParams) error {
+	_, err := q.db.ExecContext(ctx, createChatExportAudit,
+		arg.ExportID,
+		arg.ExportedAt,
+		arg.AdminIdentity,
+		arg.OutputFormat,
+		arg.FilterSummary,
+		arg.RowCount,
+		arg.Completed,
 	)
 	return err
 }
@@ -317,6 +356,29 @@ DELETE FROM announcements WHERE id = ?1
 
 func (q *Queries) DeleteAnnouncement(ctx context.Context, id string) (int64, error) {
 	result, err := q.db.ExecContext(ctx, deleteAnnouncement, id)
+	if err != nil {
+		return 0, err
+	}
+	return result.RowsAffected()
+}
+
+const deleteExpiredGeoIPCache = `-- name: DeleteExpiredGeoIPCache :execrows
+DELETE FROM geoip_cache
+WHERE rowid IN (
+  SELECT expired.rowid FROM geoip_cache AS expired
+  WHERE expired.expires_at <= ?1
+  ORDER BY expired.expires_at, expired.ip_hash
+  LIMIT ?2
+)
+`
+
+type DeleteExpiredGeoIPCacheParams struct {
+	ExpiresAt int64 `json:"expires_at"`
+	Limit     int64 `json:"limit"`
+}
+
+func (q *Queries) DeleteExpiredGeoIPCache(ctx context.Context, arg DeleteExpiredGeoIPCacheParams) (int64, error) {
+	result, err := q.db.ExecContext(ctx, deleteExpiredGeoIPCache, arg.ExpiresAt, arg.Limit)
 	if err != nil {
 		return 0, err
 	}
@@ -480,6 +542,30 @@ func (q *Queries) GetAnnouncement(ctx context.Context, id string) (Announcement,
 	return i, err
 }
 
+const getChatAuditSettings = `-- name: GetChatAuditSettings :one
+SELECT enabled, retention_days, last_cleanup_at, updated_at
+FROM chat_audit_settings WHERE singleton_id = 1
+`
+
+type GetChatAuditSettingsRow struct {
+	Enabled       int64 `json:"enabled"`
+	RetentionDays int64 `json:"retention_days"`
+	LastCleanupAt int64 `json:"last_cleanup_at"`
+	UpdatedAt     int64 `json:"updated_at"`
+}
+
+func (q *Queries) GetChatAuditSettings(ctx context.Context) (GetChatAuditSettingsRow, error) {
+	row := q.db.QueryRowContext(ctx, getChatAuditSettings)
+	var i GetChatAuditSettingsRow
+	err := row.Scan(
+		&i.Enabled,
+		&i.RetentionDays,
+		&i.LastCleanupAt,
+		&i.UpdatedAt,
+	)
+	return i, err
+}
+
 const getDataMaintenanceSettings = `-- name: GetDataMaintenanceSettings :one
 SELECT aggregate_interval_minutes, detail_retention_days,
        session_retention_days, result_retention_days, incident_retention_days, updated_at
@@ -533,6 +619,79 @@ func (q *Queries) GetGameServer(ctx context.Context, id string) (GetGameServerRo
 		&i.Address,
 		&i.Enabled,
 		&i.SortOrder,
+	)
+	return i, err
+}
+
+const getGeoIPCache = `-- name: GetGeoIPCache :one
+SELECT ip_hash, provider, country, country_code, province, city, district,
+       adcode, longitude, latitude, coordinate_system, precision, status,
+       error_code, resolved_at, expires_at
+FROM geoip_cache WHERE ip_hash = ?1 AND provider = ?2
+`
+
+type GetGeoIPCacheParams struct {
+	IpHash   string `json:"ip_hash"`
+	Provider string `json:"provider"`
+}
+
+func (q *Queries) GetGeoIPCache(ctx context.Context, arg GetGeoIPCacheParams) (GeoipCache, error) {
+	row := q.db.QueryRowContext(ctx, getGeoIPCache, arg.IpHash, arg.Provider)
+	var i GeoipCache
+	err := row.Scan(
+		&i.IpHash,
+		&i.Provider,
+		&i.Country,
+		&i.CountryCode,
+		&i.Province,
+		&i.City,
+		&i.District,
+		&i.Adcode,
+		&i.Longitude,
+		&i.Latitude,
+		&i.CoordinateSystem,
+		&i.Precision,
+		&i.Status,
+		&i.ErrorCode,
+		&i.ResolvedAt,
+		&i.ExpiresAt,
+	)
+	return i, err
+}
+
+const getGeoIPSettings = `-- name: GetGeoIPSettings :one
+SELECT provider, api_key, qps_limit, cache_secret, last_success_at, last_error_at,
+       last_error_code, ipv4_status, ipv6_status, updated_at
+FROM geoip_settings WHERE singleton_id = 1
+`
+
+type GetGeoIPSettingsRow struct {
+	Provider      string `json:"provider"`
+	ApiKey        string `json:"api_key"`
+	QpsLimit      int64  `json:"qps_limit"`
+	CacheSecret   string `json:"cache_secret"`
+	LastSuccessAt int64  `json:"last_success_at"`
+	LastErrorAt   int64  `json:"last_error_at"`
+	LastErrorCode string `json:"last_error_code"`
+	Ipv4Status    string `json:"ipv4_status"`
+	Ipv6Status    string `json:"ipv6_status"`
+	UpdatedAt     int64  `json:"updated_at"`
+}
+
+func (q *Queries) GetGeoIPSettings(ctx context.Context) (GetGeoIPSettingsRow, error) {
+	row := q.db.QueryRowContext(ctx, getGeoIPSettings)
+	var i GetGeoIPSettingsRow
+	err := row.Scan(
+		&i.Provider,
+		&i.ApiKey,
+		&i.QpsLimit,
+		&i.CacheSecret,
+		&i.LastSuccessAt,
+		&i.LastErrorAt,
+		&i.LastErrorCode,
+		&i.Ipv4Status,
+		&i.Ipv6Status,
+		&i.UpdatedAt,
 	)
 	return i, err
 }
@@ -1302,6 +1461,15 @@ func (q *Queries) MarkAggregateStarted(ctx context.Context, lastStartedAt int64)
 	return err
 }
 
+const markChatAuditCleanup = `-- name: MarkChatAuditCleanup :exec
+UPDATE chat_audit_settings SET last_cleanup_at = ?1 WHERE singleton_id = 1
+`
+
+func (q *Queries) MarkChatAuditCleanup(ctx context.Context, lastCleanupAt int64) error {
+	_, err := q.db.ExecContext(ctx, markChatAuditCleanup, lastCleanupAt)
+	return err
+}
+
 const nextGameServerSortOrder = `-- name: NextGameServerSortOrder :one
 SELECT COALESCE(MAX(sort_order), -1) + 1 FROM game_servers
 `
@@ -1410,6 +1578,22 @@ func (q *Queries) UpdateAnnouncement(ctx context.Context, arg UpdateAnnouncement
 	return result.RowsAffected()
 }
 
+const updateChatAuditSettings = `-- name: UpdateChatAuditSettings :exec
+UPDATE chat_audit_settings SET enabled = ?1, retention_days = ?2, updated_at = ?3
+WHERE singleton_id = 1
+`
+
+type UpdateChatAuditSettingsParams struct {
+	Enabled       int64 `json:"enabled"`
+	RetentionDays int64 `json:"retention_days"`
+	UpdatedAt     int64 `json:"updated_at"`
+}
+
+func (q *Queries) UpdateChatAuditSettings(ctx context.Context, arg UpdateChatAuditSettingsParams) error {
+	_, err := q.db.ExecContext(ctx, updateChatAuditSettings, arg.Enabled, arg.RetentionDays, arg.UpdatedAt)
+	return err
+}
+
 const updateDataMaintenanceSettings = `-- name: UpdateDataMaintenanceSettings :exec
 UPDATE data_maintenance_settings SET
   aggregate_interval_minutes = ?1,
@@ -1470,6 +1654,55 @@ func (q *Queries) UpdateGameServer(ctx context.Context, arg UpdateGameServerPara
 	return result.RowsAffected()
 }
 
+const updateGeoIPRuntimeStatus = `-- name: UpdateGeoIPRuntimeStatus :exec
+UPDATE geoip_settings SET last_success_at = ?1, last_error_at = ?2,
+  last_error_code = ?3, ipv4_status = ?4, ipv6_status = ?5
+WHERE singleton_id = 1
+`
+
+type UpdateGeoIPRuntimeStatusParams struct {
+	LastSuccessAt int64  `json:"last_success_at"`
+	LastErrorAt   int64  `json:"last_error_at"`
+	LastErrorCode string `json:"last_error_code"`
+	Ipv4Status    string `json:"ipv4_status"`
+	Ipv6Status    string `json:"ipv6_status"`
+}
+
+func (q *Queries) UpdateGeoIPRuntimeStatus(ctx context.Context, arg UpdateGeoIPRuntimeStatusParams) error {
+	_, err := q.db.ExecContext(ctx, updateGeoIPRuntimeStatus,
+		arg.LastSuccessAt,
+		arg.LastErrorAt,
+		arg.LastErrorCode,
+		arg.Ipv4Status,
+		arg.Ipv6Status,
+	)
+	return err
+}
+
+const updateGeoIPSettings = `-- name: UpdateGeoIPSettings :exec
+UPDATE geoip_settings SET provider = ?1, api_key = ?2, qps_limit = ?3,
+  cache_secret = ?4, updated_at = ?5 WHERE singleton_id = 1
+`
+
+type UpdateGeoIPSettingsParams struct {
+	Provider    string `json:"provider"`
+	ApiKey      string `json:"api_key"`
+	QpsLimit    int64  `json:"qps_limit"`
+	CacheSecret string `json:"cache_secret"`
+	UpdatedAt   int64  `json:"updated_at"`
+}
+
+func (q *Queries) UpdateGeoIPSettings(ctx context.Context, arg UpdateGeoIPSettingsParams) error {
+	_, err := q.db.ExecContext(ctx, updateGeoIPSettings,
+		arg.Provider,
+		arg.ApiKey,
+		arg.QpsLimit,
+		arg.CacheSecret,
+		arg.UpdatedAt,
+	)
+	return err
+}
+
 const updateSiteDocument = `-- name: UpdateSiteDocument :execrows
 UPDATE site_documents SET enabled = ?2, content_markdown = ?3, updated_at = ?4
 WHERE key = ?1
@@ -1517,6 +1750,61 @@ func (q *Queries) UpsertA2SStatusSnapshot(ctx context.Context, arg UpsertA2SStat
 		arg.StatusJson,
 		arg.CheckedAt,
 		arg.UpdatedAt,
+	)
+	return err
+}
+
+const upsertGeoIPCache = `-- name: UpsertGeoIPCache :exec
+INSERT INTO geoip_cache (ip_hash, provider, country, country_code, province,
+  city, district, adcode, longitude, latitude, coordinate_system, precision,
+  status, error_code, resolved_at, expires_at)
+VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9, ?10, ?11, ?12, ?13, ?14, ?15, ?16)
+ON CONFLICT(ip_hash, provider) DO UPDATE SET country=excluded.country,
+  country_code=excluded.country_code, province=excluded.province,
+  city=excluded.city, district=excluded.district, adcode=excluded.adcode,
+  longitude=excluded.longitude, latitude=excluded.latitude,
+  coordinate_system=excluded.coordinate_system, precision=excluded.precision,
+  status=excluded.status, error_code=excluded.error_code,
+  resolved_at=excluded.resolved_at, expires_at=excluded.expires_at
+`
+
+type UpsertGeoIPCacheParams struct {
+	IpHash           string      `json:"ip_hash"`
+	Provider         string      `json:"provider"`
+	Country          string      `json:"country"`
+	CountryCode      string      `json:"country_code"`
+	Province         string      `json:"province"`
+	City             string      `json:"city"`
+	District         string      `json:"district"`
+	Adcode           string      `json:"adcode"`
+	Longitude        interface{} `json:"longitude"`
+	Latitude         interface{} `json:"latitude"`
+	CoordinateSystem string      `json:"coordinate_system"`
+	Precision        string      `json:"precision"`
+	Status           string      `json:"status"`
+	ErrorCode        string      `json:"error_code"`
+	ResolvedAt       int64       `json:"resolved_at"`
+	ExpiresAt        int64       `json:"expires_at"`
+}
+
+func (q *Queries) UpsertGeoIPCache(ctx context.Context, arg UpsertGeoIPCacheParams) error {
+	_, err := q.db.ExecContext(ctx, upsertGeoIPCache,
+		arg.IpHash,
+		arg.Provider,
+		arg.Country,
+		arg.CountryCode,
+		arg.Province,
+		arg.City,
+		arg.District,
+		arg.Adcode,
+		arg.Longitude,
+		arg.Latitude,
+		arg.CoordinateSystem,
+		arg.Precision,
+		arg.Status,
+		arg.ErrorCode,
+		arg.ResolvedAt,
+		arg.ExpiresAt,
 	)
 	return err
 }

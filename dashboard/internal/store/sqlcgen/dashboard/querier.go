@@ -14,11 +14,13 @@ type Querier interface {
 	CountAggregateRows(ctx context.Context) (int64, error)
 	CountAnnouncements(ctx context.Context, arg CountAnnouncementsParams) (int64, error)
 	CountGameServers(ctx context.Context) (int64, error)
+	CountGeoIPCache(ctx context.Context) (int64, error)
 	CountIncidentRetentionRuns(ctx context.Context) (int64, error)
 	CountRetentionRuns(ctx context.Context) (int64, error)
 	CountSiteSettings(ctx context.Context) (int64, error)
 	CreateAdminAccount(ctx context.Context, arg CreateAdminAccountParams) error
 	CreateAnnouncement(ctx context.Context, arg CreateAnnouncementParams) error
+	CreateChatExportAudit(ctx context.Context, arg CreateChatExportAuditParams) error
 	CreateFooterLink(ctx context.Context, arg CreateFooterLinkParams) error
 	CreateGameServer(ctx context.Context, arg CreateGameServerParams) error
 	CreateIncidentRetentionRun(ctx context.Context, arg CreateIncidentRetentionRunParams) error
@@ -26,6 +28,7 @@ type Querier interface {
 	DeleteAggregateRows(ctx context.Context) error
 	DeleteAggregateRowsForDay(ctx context.Context, day int64) error
 	DeleteAnnouncement(ctx context.Context, id string) (int64, error)
+	DeleteExpiredGeoIPCache(ctx context.Context, arg DeleteExpiredGeoIPCacheParams) (int64, error)
 	DeleteFooterLinks(ctx context.Context) error
 	DeleteGameServer(ctx context.Context, id string) (int64, error)
 	DeleteGameServers(ctx context.Context) error
@@ -36,8 +39,11 @@ type Querier interface {
 	GetAdminAccount(ctx context.Context) (GetAdminAccountRow, error)
 	GetAggregateStatus(ctx context.Context) (GetAggregateStatusRow, error)
 	GetAnnouncement(ctx context.Context, id string) (Announcement, error)
+	GetChatAuditSettings(ctx context.Context) (GetChatAuditSettingsRow, error)
 	GetDataMaintenanceSettings(ctx context.Context) (GetDataMaintenanceSettingsRow, error)
 	GetGameServer(ctx context.Context, id string) (GetGameServerRow, error)
+	GetGeoIPCache(ctx context.Context, arg GetGeoIPCacheParams) (GeoipCache, error)
+	GetGeoIPSettings(ctx context.Context) (GetGeoIPSettingsRow, error)
 	GetIngameServerSettings(ctx context.Context, serverKey string) (IngameServerSetting, error)
 	GetIngameSettings(ctx context.Context) (GetIngameSettingsRow, error)
 	GetMetadata(ctx context.Context, key string) (string, error)
@@ -63,16 +69,21 @@ type Querier interface {
 	ListSiteDocuments(ctx context.Context) ([]SiteDocument, error)
 	MarkAggregateFailed(ctx context.Context, lastError string) error
 	MarkAggregateStarted(ctx context.Context, lastStartedAt int64) error
+	MarkChatAuditCleanup(ctx context.Context, lastCleanupAt int64) error
 	NextGameServerSortOrder(ctx context.Context) (int64, error)
 	SetGameServerEnabled(ctx context.Context, arg SetGameServerEnabledParams) (int64, error)
 	SetGameServerSortOrder(ctx context.Context, arg SetGameServerSortOrderParams) (int64, error)
 	UpdateAdminPassword(ctx context.Context, arg UpdateAdminPasswordParams) error
 	UpdateAdminUsername(ctx context.Context, arg UpdateAdminUsernameParams) error
 	UpdateAnnouncement(ctx context.Context, arg UpdateAnnouncementParams) (int64, error)
+	UpdateChatAuditSettings(ctx context.Context, arg UpdateChatAuditSettingsParams) error
 	UpdateDataMaintenanceSettings(ctx context.Context, arg UpdateDataMaintenanceSettingsParams) error
 	UpdateGameServer(ctx context.Context, arg UpdateGameServerParams) (int64, error)
+	UpdateGeoIPRuntimeStatus(ctx context.Context, arg UpdateGeoIPRuntimeStatusParams) error
+	UpdateGeoIPSettings(ctx context.Context, arg UpdateGeoIPSettingsParams) error
 	UpdateSiteDocument(ctx context.Context, arg UpdateSiteDocumentParams) (int64, error)
 	UpsertA2SStatusSnapshot(ctx context.Context, arg UpsertA2SStatusSnapshotParams) error
+	UpsertGeoIPCache(ctx context.Context, arg UpsertGeoIPCacheParams) error
 	UpsertIngameServerSettings(ctx context.Context, arg UpsertIngameServerSettingsParams) error
 	UpsertIngameSettings(ctx context.Context, arg UpsertIngameSettingsParams) error
 	UpsertMetadata(ctx context.Context, arg UpsertMetadataParams) error
