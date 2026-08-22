@@ -48,9 +48,9 @@ v1.3.3 不修改 Stats schema，采集器继续使用 schema 6 和 `stats_versio
 
 v1.3.4 不修改任何 gameplay 数据、Stats schema 或冻结契约；Collector 只统一版本号。Dashboard schema 从 16 升至 17 时新增独立的游戏内页面表，再升至 18，把覆盖设置和服务器文档迁移为 `server_key` 服务器组范围并新增介绍/状态模块开关；schema 19 增加服务器组快速链接，schema 20 增加全局自定义地图名称，schema 21 移除试用阶段放弃的服务器组短描述字段。同组旧记录按更新时间和 server ID 确定性折叠，无法从持久化 A2S 快照映射的记录不会被任意归组。升级后默认启用轻量 `/ingame` 路由，但仍需管理员配置 `public_origin`、确认 A2S 已识别 `sm_lps_server_key`，并手工部署 `motd.txt`。迁移不会修改现有站点、服务器、公告、玩家可见性或统计数据。
 
-v1.3.5 自动执行 `0007_high_value_telemetry_chat.sql`，把 Stats schema 升至 7：PvE/对抗幸存者增加保护队友、挂边、被 Tank 石块造成伤害、Hunter Skeet 和 Charger Level 五个可空字段，旧 Segment 保持 `NULL`；同一迁移增加默认 72 小时的聊天传输 outbox 与完整性状态。Dashboard schema 自动升至 22，保存默认开启/30 天保留的 Chat Audit 设置、导出审计，以及默认关闭的百度 GeoIP 设置和 HMAC 缓存；最终聊天库使用独立 Chat Audit schema 1，并在配置目录旁生成 `chat-audit.db`。Gameplay `stats_version=1` 和 Aggregate/Achievement/Incident/Relationship Contract v1 均不变，也不需要 Left4DHooks 或第三方 SourceMod 插件。
+v1.3.5 自动执行 `0007_high_value_telemetry_chat.sql`，把 Stats schema 升至 7：PvE/对抗幸存者增加保护队友、挂边、被 Tank 石块造成伤害、Hunter Skeet 和 Charger Level 五个可空字段，旧 Segment 保持 `NULL`；同一迁移增加默认 72 小时的聊天传输 outbox 与完整性状态。Dashboard schema 自动升至 23，保存默认开启/30 天保留的 Chat Audit 设置、导出审计，以及百度 GeoIP 凭据、1-3 QPS 请求策略和 HMAC 缓存；最终聊天库使用独立 Chat Audit schema 1，并在配置目录旁生成 `chat-audit.db`。Gameplay `stats_version=1` 和 Aggregate/Achievement/Incident/Relationship Contract v1 均不变，也不需要 Left4DHooks 或第三方 SourceMod 插件。
 
-升级前已有 `config.yaml` 未写 `chat_audit` 时会使用安全默认路径 `./chat-audit.db`（相对配置目录）。Chat Audit capture 默认开启；如所在地区/政策不允许采集聊天，应在加载新 Collector 前设置 `sm_lps_chat_audit_enabled 0`。百度 AK 是可选项，GeoIP 在管理员填写并启用前不会发出 provider 请求。
+升级前已有 `config.yaml` 未写 `chat_audit` 时会使用安全默认路径 `./chat-audit.db`（相对配置目录）。Chat Audit capture 默认开启；如所在地区/政策不允许采集聊天，应在加载新 Collector 前设置 `sm_lps_chat_audit_enabled 0`。百度 AK 是可选项：没有 AK 就不会发出 provider 请求，保存 AK 后默认限制为 2 QPS，可在审计后台改为 1-3 QPS；清除 AK 即停止新的解析请求。
 
 ## 升级 Dashboard
 
@@ -89,7 +89,7 @@ Dashboard 启动时会自动迁移自己的 `dashboard.db`。不要使用发布�
 /api/v1/health/ready
 ```
 
-进入至少一个真人参与的完整 Round 后，还应检查 `/analysis`、个人页的 PvE、对抗、“玩家关系”和“成就”标签，以及管理后台数据运维页。`sm_lps_status` 应为 `version=1.3.5`、`schema=7/7`；深度检查不应报告 Context、Incident、Relationship、Assist、新 telemetry 或聊天完整性契约错误。后台“审计”应只对管理员开放，聊天默认最近 24 小时，GeoIP 默认关闭。首次启动会继续自动执行可恢复的历史成就补判，无需人工领取或刷新。
+进入至少一个真人参与的完整 Round 后，还应检查 `/analysis`、个人页的 PvE、对抗、“玩家关系”和“成就”标签，以及管理后台数据运维页。`sm_lps_status` 应为 `version=1.3.5`、`schema=7/7`；深度检查不应报告 Context、Incident、Relationship、Assist、新 telemetry 或聊天完整性契约错误。后台“审计”应只对管理员开放，聊天默认最近 24 小时，未配置 GeoIP AK 时不得请求 provider。首次启动会继续自动执行可恢复的历史成就补判，无需人工领取或刷新。
 
 Skeet/Level 的自动化与 SourcePawn 编译不能替代真实引擎顺序验证。发布到正式服前按 [`docs/v1.3.5-technique-validation.md`](docs/v1.3.5-technique-validation.md) 在 L4D2 build 10097 执行全部正反例；完成前不要宣称两个判定器已实机验证。
 
@@ -105,7 +105,7 @@ cp ./l4d2-stats.previous ./l4d2-stats
 sudo systemctl start l4d2-stats
 ```
 
-如果新版本已经升级 Stats DB 或 `dashboard.db` 结构，旧二进制未必兼容新 schema。从 v1.3.5 回滚必须恢复升级前 Stats schema 6、Dashboard schema 21 的完整备份，并单独处理/保留 `chat-audit.db`；不能只替换旧二进制，也不要手工删除 schema 7/22 的结构。更早版本同样必须按对应发布的 Stats/Dashboard schema 一起恢复。此时应停止 Dashboard 服务，并恢复升级前数据库备份：
+如果新版本已经升级 Stats DB 或 `dashboard.db` 结构，旧二进制未必兼容新 schema。从 v1.3.5 回滚必须恢复升级前 Stats schema 6、Dashboard schema 21 的完整备份，并单独处理/保留 `chat-audit.db`；不能只替换旧二进制，也不要手工删除 schema 7/23 的结构。更早版本同样必须按对应发布的 Stats/Dashboard schema 一起恢复。此时应停止 Dashboard 服务，并恢复升级前数据库备份：
 
 ```sh
 sudo systemctl stop l4d2-stats

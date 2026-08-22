@@ -19,9 +19,12 @@ Versus survivor snapshots: engine-awarded teammate protections, ledge-entry
 transitions, damaging Tank-rock impacts received, Hunter Skeets, and Charger
 Levels. Historical `NULL` means the Segment predates collection; v1.3.5
 snapshots always write zero or a positive value. The Skeet/Level detectors are
-bounded repository-owned episode state machines, reuse engine state and the
-existing official-melee classifier, and require real build-10097 validation as
-documented in `docs/v1.3.5-technique-validation.md`.
+bounded repository-owned episode state machines: they latch engine state before
+death, bridge event-order differences with a short lethal-damage candidate, and
+reuse the existing official-melee classifier. They still require real
+build-10097 validation as documented in
+`docs/v1.3.5-technique-validation.md`; temporary transition diagnostics are
+available through the default-off `sm_lps_technique_debug` cvar.
 
 Chat Audit is a separate default-on data domain controlled by
 `sm_lps_chat_audit_enabled 1`. Real-human `say` and `say_team` are admitted to a

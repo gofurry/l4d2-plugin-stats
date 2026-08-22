@@ -14,12 +14,15 @@ All notable changes to this project are documented in this file.
 - Add an administrator-only Audit Center for connection records, bounded chat search, keyset pagination, CSV/JSONL streaming exports, retention preview/confirmation, and completeness monitoring.
 - Add optional Dashboard-side Baidu IP geolocation with private/reserved filtering, HMAC-only cache keys, bounded background enrichment, masked credentials, short failure caching, and administrator-only connection display.
 - Add public raw rankings for teammate protections, Hunter Skeets, and Charger Levels while keeping ledge grabs, Tank-rock hits received, and every new metric out of the in-game portal and Aggregate Contract v1.
+- Add configurable Baidu GeoIP pacing (1-3 QPS, default 2) shared by background enrichment and administrator tests, plus bounded expiry cleanup for the HMAC-only location cache.
 
 ### Changed
 
-- Upgrade Collector and Dashboard to `1.3.5`, Stats schema to 7, Dashboard schema to 22, and introduce Chat Audit schema 1; gameplay `stats_version=1` and all frozen v1 contracts remain unchanged.
+- Upgrade Collector and Dashboard to `1.3.5`, Stats schema to 7, Dashboard schema to 23, and introduce Chat Audit schema 1; gameplay `stats_version=1` and all frozen v1 contracts remain unchanged.
 - Extend deep doctor and data-growth monitoring with nullable telemetry, chat capture/outbox completeness, Chat Audit database health, ingestion lag/gaps/drops, and GeoIP runtime/cache status.
 - Sanitize the transient chat outbox from SQLite Stats backup copies and exclude `chat-audit.db`, chat bodies, raw IP lists, and GeoIP credentials from normal backups and diagnostics.
+- Replace the GeoIP enable switch with explicit credential save/clear controls, move connection and chat filters into compact audit toolbars, and expose cursor-based previous/next navigation for both audit tables.
+- Harden Hunter Skeet and Charger Level detection by latching engine state before death, preserving a bounded lethal-damage candidate across event-order differences, and resolving Charger melee kills from the recorded final-damage equipment.
 
 ### Security
 
@@ -28,7 +31,7 @@ All notable changes to this project are documented in this file.
 
 ### Validation note
 
-- SourcePawn 1.12 compilation and static detector contracts pass, but Hunter Skeet and Charger Level engine-event ordering still require the documented real-game validation matrix on L4D2 build 10097 before their semantics are declared production-verified.
+- SourcePawn 1.12 compilation and static detector contracts pass, including the bounded pre-death state latch, but Hunter Skeet and Charger Level engine-event ordering still require the documented real-game validation matrix on L4D2 build 10097 before their semantics are declared production-verified.
 
 ## 1.3.4 - 2026-08-18
 
