@@ -153,6 +153,8 @@ type GeoIPService struct {
 	queue     chan geoIPJob
 	pending   sync.Map
 	count     atomic.Int64
+	rateMu    sync.Mutex
+	nextCall  time.Time
 }
 
 func NewGeoIPService(dashboard store.DashboardAuditStore, stats store.StatsChatAuditStore, provider GeoIPProvider, logger *zap.Logger) *GeoIPService {
@@ -165,21 +167,26 @@ func NewGeoIPService(dashboard store.DashboardAuditStore, stats store.StatsChatA
 func (s *GeoIPService) Run(ctx context.Context) {
 	go s.worker(ctx)
 	ticker := time.NewTicker(5 * time.Minute)
+	cleanupTicker := time.NewTicker(6 * time.Hour)
 	defer ticker.Stop()
+	defer cleanupTicker.Stop()
 	s.enqueueRecent(ctx)
+	s.deleteExpiredCache(ctx)
 	for {
 		select {
 		case <-ctx.Done():
 			return
 		case <-ticker.C:
 			s.enqueueRecent(ctx)
+		case <-cleanupTicker.C:
+			s.deleteExpiredCache(ctx)
 		}
 	}
 }
 
 func (s *GeoIPService) enqueueRecent(ctx context.Context) {
 	config, err := s.dashboard.GeoIPRuntimeConfig(ctx)
-	if err != nil || !config.Enabled || config.APIKey == "" {
+	if err != nil || config.APIKey == "" {
 		return
 	}
 	page, err := s.stats.ConnectionAudit(ctx, store.ConnectionAuditFilter{From: time.Now().Add(-24 * time.Hour).Unix(), Limit: 100})
@@ -192,18 +199,11 @@ func (s *GeoIPService) enqueueRecent(ctx context.Context) {
 }
 
 func (s *GeoIPService) worker(ctx context.Context) {
-	ticker := time.NewTicker(500 * time.Millisecond)
-	defer ticker.Stop()
 	for {
 		select {
 		case <-ctx.Done():
 			return
 		case job := <-s.queue:
-			select {
-			case <-ctx.Done():
-				return
-			case <-ticker.C:
-			}
 			s.resolveJob(ctx, job)
 			s.pending.Delete(job.Hash)
 			s.count.Add(-1)
@@ -213,12 +213,12 @@ func (s *GeoIPService) worker(ctx context.Context) {
 
 func (s *GeoIPService) resolveJob(ctx context.Context, job geoIPJob) {
 	config, err := s.dashboard.GeoIPRuntimeConfig(ctx)
-	if err != nil || !config.Enabled || config.APIKey == "" {
+	if err != nil || config.APIKey == "" {
 		return
 	}
 	lookupCtx, cancel := context.WithTimeout(ctx, 6*time.Second)
 	defer cancel()
-	entry, err := s.provider.Lookup(lookupCtx, job.IP, config.APIKey)
+	entry, err := s.lookup(lookupCtx, job.IP, config)
 	now := time.Now().Unix()
 	if err != nil {
 		code := providerErrorCode(err)
@@ -255,6 +255,48 @@ func (s *GeoIPService) resolveJob(ctx context.Context, job geoIPJob) {
 	_ = s.dashboard.UpdateGeoIPRuntimeStatus(ctx, status)
 }
 
+func (s *GeoIPService) lookup(ctx context.Context, addr netip.Addr, config store.GeoIPRuntimeConfig) (store.GeoIPCacheEntry, error) {
+	if err := s.waitForProvider(ctx, config.QPSLimit); err != nil {
+		return store.GeoIPCacheEntry{}, err
+	}
+	return s.provider.Lookup(ctx, addr, config.APIKey)
+}
+
+func (s *GeoIPService) waitForProvider(ctx context.Context, qpsLimit int64) error {
+	if qpsLimit < 1 || qpsLimit > 3 {
+		qpsLimit = 2
+	}
+	interval := time.Second / time.Duration(qpsLimit)
+	now := time.Now()
+	s.rateMu.Lock()
+	permitAt := now
+	if s.nextCall.After(now) {
+		permitAt = s.nextCall
+	}
+	s.nextCall = permitAt.Add(interval)
+	s.rateMu.Unlock()
+	if wait := time.Until(permitAt); wait > 0 {
+		timer := time.NewTimer(wait)
+		defer timer.Stop()
+		select {
+		case <-ctx.Done():
+			return ctx.Err()
+		case <-timer.C:
+		}
+	}
+	return nil
+}
+
+func (s *GeoIPService) deleteExpiredCache(ctx context.Context) {
+	const batchSize int64 = 500
+	for batch := 0; batch < 8; batch++ {
+		deleted, err := s.dashboard.DeleteExpiredGeoIPCache(ctx, time.Now().Unix(), batchSize)
+		if err != nil || deleted < batchSize {
+			return
+		}
+	}
+}
+
 func providerErrorCode(err error) string {
 	var providerErr *GeoIPProviderError
 	if errors.As(err, &providerErr) {
@@ -268,7 +310,7 @@ func providerErrorCode(err error) string {
 
 func (s *GeoIPService) Enqueue(ctx context.Context, rawIP string) {
 	config, err := s.dashboard.GeoIPRuntimeConfig(ctx)
-	if err != nil || !config.Enabled || config.APIKey == "" {
+	if err != nil || config.APIKey == "" {
 		return
 	}
 	addr, ok := normalizePublicIP(rawIP)
@@ -294,7 +336,7 @@ func (s *GeoIPService) Enqueue(ctx context.Context, rawIP string) {
 
 func (s *GeoIPService) Cached(ctx context.Context, rawIP string) (*store.GeoIPCacheEntry, error) {
 	config, err := s.dashboard.GeoIPRuntimeConfig(ctx)
-	if err != nil || !config.Enabled {
+	if err != nil {
 		return nil, err
 	}
 	addr, ok := normalizePublicIP(rawIP)
@@ -317,8 +359,8 @@ func (s *GeoIPService) Settings(ctx context.Context) (store.GeoIPSettings, error
 	return s.dashboard.GeoIPSettings(ctx, s.count.Load())
 }
 
-func (s *GeoIPService) UpdateSettings(ctx context.Context, enabled bool, newKey string, clearKey bool) error {
-	return s.dashboard.UpdateGeoIPSettings(ctx, enabled, newKey, clearKey)
+func (s *GeoIPService) UpdateSettings(ctx context.Context, newKey string, clearKey bool, qpsLimit int64) error {
+	return s.dashboard.UpdateGeoIPSettings(ctx, newKey, clearKey, qpsLimit)
 }
 
 func (s *GeoIPService) Test(ctx context.Context, rawIP string) (store.GeoIPCacheEntry, error) {
@@ -335,7 +377,7 @@ func (s *GeoIPService) Test(ctx context.Context, rawIP string) (store.GeoIPCache
 	}
 	lookupCtx, cancel := context.WithTimeout(ctx, 6*time.Second)
 	defer cancel()
-	return s.provider.Lookup(lookupCtx, addr, config.APIKey)
+	return s.lookup(lookupCtx, addr, config)
 }
 
 func (s *GeoIPService) Connections(ctx context.Context, filter store.ConnectionAuditFilter) (store.ConnectionAuditPage, error) {

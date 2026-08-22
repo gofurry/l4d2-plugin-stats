@@ -7,7 +7,9 @@ import (
 	"net/http/httptest"
 	"net/netip"
 	"path/filepath"
+	"sort"
 	"strings"
+	"sync"
 	"testing"
 	"time"
 
@@ -54,6 +56,18 @@ type countingGeoIPProvider struct {
 	err   error
 }
 
+type pacedGeoIPProvider struct {
+	mu    sync.Mutex
+	calls []time.Time
+}
+
+func (p *pacedGeoIPProvider) Lookup(context.Context, netip.Addr, string) (store.GeoIPCacheEntry, error) {
+	p.mu.Lock()
+	p.calls = append(p.calls, time.Now())
+	p.mu.Unlock()
+	return store.GeoIPCacheEntry{Country: "China", City: "Shanghai", CoordinateSystem: "bd09ll", Precision: "city", Status: "resolved"}, nil
+}
+
 func (p *countingGeoIPProvider) Lookup(context.Context, netip.Addr, string) (store.GeoIPCacheEntry, error) {
 	p.count++
 	if p.err != nil {
@@ -69,7 +83,7 @@ func TestGeoIPCacheHitExpiryAndTransientFailureTTL(t *testing.T) {
 		t.Fatal(err)
 	}
 	defer dashboard.Close()
-	if err := dashboard.UpdateGeoIPSettings(ctx, true, "test-key", false); err != nil {
+	if err := dashboard.UpdateGeoIPSettings(ctx, "test-key", false, 2); err != nil {
 		t.Fatal(err)
 	}
 	config, err := dashboard.GeoIPRuntimeConfig(ctx)
@@ -114,6 +128,51 @@ func TestGeoIPCacheHitExpiryAndTransientFailureTTL(t *testing.T) {
 func TestProviderErrorCodeDoesNotExposeDetails(t *testing.T) {
 	if got := providerErrorCode(errors.New("https://api.map.baidu.com/location/ip?ak=secret&ip=8.8.8.8")); got != "provider_error" {
 		t.Fatalf("provider error leaked details: %q", got)
+	}
+}
+
+func TestGeoIPTestRequestsShareConfiguredPacing(t *testing.T) {
+	ctx, cancel := context.WithTimeout(context.Background(), 4*time.Second)
+	defer cancel()
+	dashboard, err := store.OpenDashboard(ctx, filepath.Join(t.TempDir(), "dashboard.db"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer dashboard.Close()
+	if err := dashboard.UpdateGeoIPSettings(ctx, "test-key", false, 2); err != nil {
+		t.Fatal(err)
+	}
+	provider := &pacedGeoIPProvider{}
+	service := NewGeoIPService(dashboard, nil, provider, zap.NewNop())
+	addresses := []string{"8.8.8.8", "1.1.1.1", "9.9.9.9"}
+	errCh := make(chan error, len(addresses))
+	var wg sync.WaitGroup
+	for _, address := range addresses {
+		wg.Add(1)
+		go func() {
+			defer wg.Done()
+			_, lookupErr := service.Test(ctx, address)
+			errCh <- lookupErr
+		}()
+	}
+	wg.Wait()
+	close(errCh)
+	for lookupErr := range errCh {
+		if lookupErr != nil {
+			t.Fatal(lookupErr)
+		}
+	}
+	provider.mu.Lock()
+	calls := append([]time.Time(nil), provider.calls...)
+	provider.mu.Unlock()
+	sort.Slice(calls, func(i, j int) bool { return calls[i].Before(calls[j]) })
+	if len(calls) != len(addresses) {
+		t.Fatalf("provider calls=%d want=%d", len(calls), len(addresses))
+	}
+	for index := 1; index < len(calls); index++ {
+		if spacing := calls[index].Sub(calls[index-1]); spacing < 450*time.Millisecond {
+			t.Fatalf("provider calls were not limited to 2 QPS: spacing=%s", spacing)
+		}
 	}
 }
 

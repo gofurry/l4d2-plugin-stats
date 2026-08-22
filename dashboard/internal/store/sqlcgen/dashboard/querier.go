@@ -28,6 +28,7 @@ type Querier interface {
 	DeleteAggregateRows(ctx context.Context) error
 	DeleteAggregateRowsForDay(ctx context.Context, day int64) error
 	DeleteAnnouncement(ctx context.Context, id string) (int64, error)
+	DeleteExpiredGeoIPCache(ctx context.Context, arg DeleteExpiredGeoIPCacheParams) (int64, error)
 	DeleteFooterLinks(ctx context.Context) error
 	DeleteGameServer(ctx context.Context, id string) (int64, error)
 	DeleteGameServers(ctx context.Context) error

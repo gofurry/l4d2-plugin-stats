@@ -182,9 +182,9 @@ type GeoipCache struct {
 
 type GeoipSetting struct {
 	SingletonID   int64  `json:"singleton_id"`
-	Enabled       int64  `json:"enabled"`
 	Provider      string `json:"provider"`
 	ApiKey        string `json:"api_key"`
+	QpsLimit      int64  `json:"qps_limit"`
 	CacheSecret   string `json:"cache_secret"`
 	LastSuccessAt int64  `json:"last_success_at"`
 	LastErrorAt   int64  `json:"last_error_at"`

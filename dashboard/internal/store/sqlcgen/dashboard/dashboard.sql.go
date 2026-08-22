@@ -362,6 +362,29 @@ func (q *Queries) DeleteAnnouncement(ctx context.Context, id string) (int64, err
 	return result.RowsAffected()
 }
 
+const deleteExpiredGeoIPCache = `-- name: DeleteExpiredGeoIPCache :execrows
+DELETE FROM geoip_cache
+WHERE rowid IN (
+  SELECT expired.rowid FROM geoip_cache AS expired
+  WHERE expired.expires_at <= ?1
+  ORDER BY expired.expires_at, expired.ip_hash
+  LIMIT ?2
+)
+`
+
+type DeleteExpiredGeoIPCacheParams struct {
+	ExpiresAt int64 `json:"expires_at"`
+	Limit     int64 `json:"limit"`
+}
+
+func (q *Queries) DeleteExpiredGeoIPCache(ctx context.Context, arg DeleteExpiredGeoIPCacheParams) (int64, error) {
+	result, err := q.db.ExecContext(ctx, deleteExpiredGeoIPCache, arg.ExpiresAt, arg.Limit)
+	if err != nil {
+		return 0, err
+	}
+	return result.RowsAffected()
+}
+
 const deleteFooterLinks = `-- name: DeleteFooterLinks :exec
 DELETE FROM footer_links
 `
@@ -637,15 +660,15 @@ func (q *Queries) GetGeoIPCache(ctx context.Context, arg GetGeoIPCacheParams) (G
 }
 
 const getGeoIPSettings = `-- name: GetGeoIPSettings :one
-SELECT enabled, provider, api_key, cache_secret, last_success_at, last_error_at,
+SELECT provider, api_key, qps_limit, cache_secret, last_success_at, last_error_at,
        last_error_code, ipv4_status, ipv6_status, updated_at
 FROM geoip_settings WHERE singleton_id = 1
 `
 
 type GetGeoIPSettingsRow struct {
-	Enabled       int64  `json:"enabled"`
 	Provider      string `json:"provider"`
 	ApiKey        string `json:"api_key"`
+	QpsLimit      int64  `json:"qps_limit"`
 	CacheSecret   string `json:"cache_secret"`
 	LastSuccessAt int64  `json:"last_success_at"`
 	LastErrorAt   int64  `json:"last_error_at"`
@@ -659,9 +682,9 @@ func (q *Queries) GetGeoIPSettings(ctx context.Context) (GetGeoIPSettingsRow, er
 	row := q.db.QueryRowContext(ctx, getGeoIPSettings)
 	var i GetGeoIPSettingsRow
 	err := row.Scan(
-		&i.Enabled,
 		&i.Provider,
 		&i.ApiKey,
+		&i.QpsLimit,
 		&i.CacheSecret,
 		&i.LastSuccessAt,
 		&i.LastErrorAt,
@@ -1657,23 +1680,23 @@ func (q *Queries) UpdateGeoIPRuntimeStatus(ctx context.Context, arg UpdateGeoIPR
 }
 
 const updateGeoIPSettings = `-- name: UpdateGeoIPSettings :exec
-UPDATE geoip_settings SET enabled = ?1, provider = ?2, api_key = ?3,
+UPDATE geoip_settings SET provider = ?1, api_key = ?2, qps_limit = ?3,
   cache_secret = ?4, updated_at = ?5 WHERE singleton_id = 1
 `
 
 type UpdateGeoIPSettingsParams struct {
-	Enabled     int64  `json:"enabled"`
 	Provider    string `json:"provider"`
 	ApiKey      string `json:"api_key"`
+	QpsLimit    int64  `json:"qps_limit"`
 	CacheSecret string `json:"cache_secret"`
 	UpdatedAt   int64  `json:"updated_at"`
 }
 
 func (q *Queries) UpdateGeoIPSettings(ctx context.Context, arg UpdateGeoIPSettingsParams) error {
 	_, err := q.db.ExecContext(ctx, updateGeoIPSettings,
-		arg.Enabled,
 		arg.Provider,
 		arg.ApiKey,
+		arg.QpsLimit,
 		arg.CacheSecret,
 		arg.UpdatedAt,
 	)

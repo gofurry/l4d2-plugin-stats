@@ -66,7 +66,7 @@ func (s *dashboardStore) GeoIPRuntimeConfig(ctx context.Context) (GeoIPRuntimeCo
 		return GeoIPRuntimeConfig{}, fmt.Errorf("get GeoIP settings: %w", err)
 	}
 	return GeoIPRuntimeConfig{
-		Enabled: row.Enabled != 0, Provider: row.Provider, APIKey: row.ApiKey,
+		Provider: row.Provider, APIKey: row.ApiKey, QPSLimit: row.QpsLimit,
 		CacheSecret: row.CacheSecret, LastSuccessAt: row.LastSuccessAt,
 		LastErrorAt: row.LastErrorAt, LastErrorCode: row.LastErrorCode,
 		IPv4Status: row.Ipv4Status, IPv6Status: row.Ipv6Status, UpdatedAt: row.UpdatedAt,
@@ -88,7 +88,7 @@ func (s *dashboardStore) ensureGeoIPCacheSecret(ctx context.Context) error {
 		return fmt.Errorf("generate GeoIP cache secret: %w", err)
 	}
 	if err := s.q.UpdateGeoIPSettings(ctx, dashsql.UpdateGeoIPSettingsParams{
-		Enabled: row.Enabled, Provider: row.Provider, ApiKey: row.ApiKey,
+		Provider: row.Provider, ApiKey: row.ApiKey, QpsLimit: row.QpsLimit,
 		CacheSecret: secret, UpdatedAt: time.Now().Unix(),
 	}); err != nil {
 		return fmt.Errorf("save GeoIP cache secret: %w", err)
@@ -106,8 +106,8 @@ func (s *dashboardStore) GeoIPSettings(ctx context.Context, pending int64) (GeoI
 		return GeoIPSettings{}, fmt.Errorf("count GeoIP cache: %w", err)
 	}
 	return GeoIPSettings{
-		Enabled: config.Enabled, Provider: config.Provider,
-		APIKeySet: config.APIKey != "", APIKeyMasked: maskSecret(config.APIKey),
+		Provider: config.Provider, APIKeySet: config.APIKey != "",
+		APIKeyMasked: maskSecret(config.APIKey), QPSLimit: config.QPSLimit,
 		LastSuccessAt: config.LastSuccessAt, LastErrorAt: config.LastErrorAt,
 		LastErrorCode: config.LastErrorCode, IPv4Status: config.IPv4Status,
 		IPv6Status: config.IPv6Status, CacheCount: count, PendingCount: pending,
@@ -117,10 +117,13 @@ func (s *dashboardStore) GeoIPSettings(ctx context.Context, pending int64) (GeoI
 
 // UpdateGeoIPSettings preserves the existing key when apiKey is empty. A key
 // can only be removed through the explicit clearKey flag.
-func (s *dashboardStore) UpdateGeoIPSettings(ctx context.Context, enabled bool, apiKey string, clearKey bool) error {
+func (s *dashboardStore) UpdateGeoIPSettings(ctx context.Context, apiKey string, clearKey bool, qpsLimit int64) error {
 	current, err := s.GeoIPRuntimeConfig(ctx)
 	if err != nil {
 		return err
+	}
+	if qpsLimit < 1 || qpsLimit > 3 {
+		return errors.New("GeoIP QPS limit must be between 1 and 3")
 	}
 	apiKey = strings.TrimSpace(apiKey)
 	key := current.APIKey
@@ -132,11 +135,8 @@ func (s *dashboardStore) UpdateGeoIPSettings(ctx context.Context, enabled bool, 
 		}
 		key = apiKey
 	}
-	if enabled && key == "" {
-		return errors.New("GeoIP cannot be enabled without a Baidu API key")
-	}
 	return s.q.UpdateGeoIPSettings(ctx, dashsql.UpdateGeoIPSettingsParams{
-		Enabled: boolInt64(enabled), Provider: "baidu", ApiKey: key,
+		Provider: "baidu", ApiKey: key, QpsLimit: qpsLimit,
 		CacheSecret: current.CacheSecret, UpdatedAt: time.Now().Unix(),
 	})
 }
@@ -175,6 +175,16 @@ func (s *dashboardStore) UpsertGeoIPCache(ctx context.Context, entry GeoIPCacheE
 
 func (s *dashboardStore) GeoIPCacheCount(ctx context.Context) (int64, error) {
 	return s.q.CountGeoIPCache(ctx)
+}
+
+func (s *dashboardStore) DeleteExpiredGeoIPCache(ctx context.Context, expiresAt, limit int64) (int64, error) {
+	if limit < 1 || limit > 1000 {
+		limit = 500
+	}
+	return s.q.DeleteExpiredGeoIPCache(ctx, dashsql.DeleteExpiredGeoIPCacheParams{
+		ExpiresAt: expiresAt,
+		Limit:     limit,
+	})
 }
 
 func randomSecret(size int) (string, error) {

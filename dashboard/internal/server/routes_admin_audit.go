@@ -209,14 +209,14 @@ func (r *adminRoutes) geoIPSettings(c fiber.Ctx) error {
 
 func (r *adminRoutes) updateGeoIPSettings(c fiber.Ctx) error {
 	var body struct {
-		Enabled  bool   `json:"enabled"`
 		APIKey   string `json:"api_key"`
 		ClearKey bool   `json:"clear_api_key"`
+		QPSLimit int64  `json:"qps_limit"`
 	}
 	if err := c.Bind().Body(&body); err != nil {
 		return sendError(c, 400, "invalid_body", "request body is invalid")
 	}
-	if err := r.geoIP.UpdateSettings(c.Context(), body.Enabled, body.APIKey, body.ClearKey); err != nil {
+	if err := r.geoIP.UpdateSettings(c.Context(), body.APIKey, body.ClearKey, body.QPSLimit); err != nil {
 		return sendError(c, 400, "invalid_geoip_settings", err.Error())
 	}
 	settings, _ := r.geoIP.Settings(c.Context())

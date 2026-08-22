@@ -428,12 +428,12 @@ INSERT INTO chat_export_audit (export_id, exported_at, admin_identity, output_fo
 VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7);
 
 -- name: GetGeoIPSettings :one
-SELECT enabled, provider, api_key, cache_secret, last_success_at, last_error_at,
+SELECT provider, api_key, qps_limit, cache_secret, last_success_at, last_error_at,
        last_error_code, ipv4_status, ipv6_status, updated_at
 FROM geoip_settings WHERE singleton_id = 1;
 
 -- name: UpdateGeoIPSettings :exec
-UPDATE geoip_settings SET enabled = ?1, provider = ?2, api_key = ?3,
+UPDATE geoip_settings SET provider = ?1, api_key = ?2, qps_limit = ?3,
   cache_secret = ?4, updated_at = ?5 WHERE singleton_id = 1;
 
 -- name: UpdateGeoIPRuntimeStatus :exec
@@ -462,3 +462,12 @@ ON CONFLICT(ip_hash, provider) DO UPDATE SET country=excluded.country,
 
 -- name: CountGeoIPCache :one
 SELECT COUNT(*) FROM geoip_cache;
+
+-- name: DeleteExpiredGeoIPCache :execrows
+DELETE FROM geoip_cache
+WHERE rowid IN (
+  SELECT expired.rowid FROM geoip_cache AS expired
+  WHERE expired.expires_at <= ?1
+  ORDER BY expired.expires_at, expired.ip_hash
+  LIMIT ?2
+);

@@ -107,14 +107,12 @@ func (s *DoctorService) Deep(ctx context.Context) DoctorReport {
 		config, err := s.audit.GeoIPRuntimeConfig(ctx)
 		if err != nil {
 			report.Checks = append(report.Checks, DoctorCheck{Status: "warning", Name: "geoip_health", Message: err.Error()})
-		} else if !config.Enabled {
-			report.Checks = append(report.Checks, DoctorCheck{Status: "ok", Name: "geoip_health", Message: "disabled"})
 		} else if config.APIKey == "" {
-			report.Checks = append(report.Checks, DoctorCheck{Status: "warning", Name: "geoip_health", Message: "enabled but API key is missing"})
+			report.Checks = append(report.Checks, DoctorCheck{Status: "ok", Name: "geoip_health", Message: "disabled"})
 		} else if config.LastErrorAt > config.LastSuccessAt {
 			report.Checks = append(report.Checks, DoctorCheck{Status: "warning", Name: "geoip_health", Message: "provider status: " + config.LastErrorCode})
 		} else {
-			report.Checks = append(report.Checks, DoctorCheck{Status: "ok", Name: "geoip_health", Message: fmt.Sprintf("IPv4=%s IPv6=%s", config.IPv4Status, config.IPv6Status)})
+			report.Checks = append(report.Checks, DoctorCheck{Status: "ok", Name: "geoip_health", Message: fmt.Sprintf("IPv4=%s IPv6=%s QPS=%d", config.IPv4Status, config.IPv6Status, config.QPSLimit)})
 		}
 	}
 

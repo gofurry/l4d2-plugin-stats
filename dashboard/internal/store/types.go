@@ -9,7 +9,7 @@ import (
 var ErrServerNotFound = errors.New("game server not found")
 
 const (
-	DashboardSchemaVersion int64 = 22
+	DashboardSchemaVersion int64 = 23
 	StatsSchemaVersion     int64 = 7
 	ChatAuditSchemaVersion int64 = 1
 )
@@ -909,10 +909,10 @@ type ChatAuditStatus struct {
 }
 
 type GeoIPSettings struct {
-	Enabled       bool   `json:"enabled"`
 	Provider      string `json:"provider"`
 	APIKeySet     bool   `json:"api_key_configured"`
 	APIKeyMasked  string `json:"api_key_masked,omitempty"`
+	QPSLimit      int64  `json:"qps_limit"`
 	LastSuccessAt int64  `json:"last_success_at"`
 	LastErrorAt   int64  `json:"last_error_at"`
 	LastErrorCode string `json:"last_error_code,omitempty"`
@@ -927,9 +927,9 @@ type GeoIPSettings struct {
 // server-side resolver. It must never be serialized into an HTTP response or
 // diagnostics bundle.
 type GeoIPRuntimeConfig struct {
-	Enabled       bool
 	Provider      string
 	APIKey        string
+	QPSLimit      int64
 	CacheSecret   string
 	LastSuccessAt int64
 	LastErrorAt   int64
@@ -1163,11 +1163,12 @@ type DashboardAuditStore interface {
 	RecordChatExport(context.Context, ChatExportAuditEntry) error
 	GeoIPRuntimeConfig(context.Context) (GeoIPRuntimeConfig, error)
 	GeoIPSettings(context.Context, int64) (GeoIPSettings, error)
-	UpdateGeoIPSettings(context.Context, bool, string, bool) error
+	UpdateGeoIPSettings(context.Context, string, bool, int64) error
 	UpdateGeoIPRuntimeStatus(context.Context, GeoIPRuntimeStatus) error
 	GeoIPCache(context.Context, string, string) (GeoIPCacheEntry, error)
 	UpsertGeoIPCache(context.Context, GeoIPCacheEntry) error
 	GeoIPCacheCount(context.Context) (int64, error)
+	DeleteExpiredGeoIPCache(context.Context, int64, int64) (int64, error)
 }
 
 type DashboardDatabase interface {

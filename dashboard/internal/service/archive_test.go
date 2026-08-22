@@ -201,7 +201,7 @@ func TestDiagnosticsAreRedactedAndExcludeDatabases(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if err := dashboard.UpdateGeoIPSettings(context.Background(), true, geoSecret, false); err != nil {
+	if err := dashboard.UpdateGeoIPSettings(context.Background(), geoSecret, false, 2); err != nil {
 		t.Fatal(err)
 	}
 	if err := dashboard.Close(); err != nil {
