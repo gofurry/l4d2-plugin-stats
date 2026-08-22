@@ -19,7 +19,7 @@ export interface ChatSearchFilter { from?: number; to?: number; server_key?: str
 export interface ChatMessage { message_id: string; server_key: string; boot_id: string; chat_seq: number; session_id?: string; steam_id?: string; source_user_id: number; player_name: string; occurred_at: number; map_name: string; game_mode: string; team: string; channel: string; alive: boolean; command_like: boolean; content: string }
 export interface ChatSearchPage { items: ChatMessage[]; next_cursor_at?: number; next_cursor_id?: string }
 export interface GeoIPEntry { provider: string; country: string; country_code: string; province: string; city: string; district: string; adcode: string; longitude?: number; latitude?: number; coordinate_system: string; precision: string; status: string; error_code?: string; resolved_at: number; expires_at: number }
-export interface GeoIPSettings { enabled: boolean; provider: string; api_key_configured: boolean; api_key_masked?: string; last_success_at: number; last_error_at: number; last_error_code?: string; ipv4_status: string; ipv6_status: string; cache_count: number; pending_count: number; updated_at: number }
+export interface GeoIPSettings { provider: string; api_key_configured: boolean; api_key_masked?: string; qps_limit: number; last_success_at: number; last_error_at: number; last_error_code?: string; ipv4_status: string; ipv6_status: string; cache_count: number; pending_count: number; updated_at: number }
 export interface ConnectionAuditFilter { from?: number; to?: number; server_key?: string; steam_id?: string; nickname?: string; ip_address?: string; location?: string; cursor_at?: number; cursor_id?: string; limit?: number }
 export interface ConnectionAuditRow { session_id: string; server_key: string; steam_id: string; player_name: string; ip_address: string; started_at: number; ended_at?: number; connected_seconds: number; status: string; disconnect_reason: string; geoip?: GeoIPEntry }
 export interface ConnectionAuditPage { items: ConnectionAuditRow[]; next_cursor_at?: number; next_cursor_id?: string }
@@ -51,7 +51,7 @@ export const adminAPI = {
   searchChatAudit: (filter: ChatSearchFilter) => adminWrite<ChatSearchPage>('/api/v1/admin/audit/chat/search', 'POST', filter),
   exportChatAudit: (format: 'csv' | 'jsonl', filter: ChatSearchFilter) => adminDownload('/api/v1/admin/audit/chat/export', { format, filter }),
   geoIPSettings: () => request<GeoIPSettings>('/api/v1/admin/audit/geoip/settings'),
-  saveGeoIPSettings: (body: { enabled: boolean; api_key?: string; clear_api_key?: boolean }) => adminWrite<GeoIPSettings>('/api/v1/admin/audit/geoip/settings', 'PUT', body),
+  saveGeoIPSettings: (body: { api_key?: string; clear_api_key?: boolean; qps_limit: number }) => adminWrite<GeoIPSettings>('/api/v1/admin/audit/geoip/settings', 'PUT', body),
   testGeoIP: (ip: string) => adminWrite<GeoIPEntry>('/api/v1/admin/audit/geoip/test', 'POST', { ip }),
   searchConnections: (filter: ConnectionAuditFilter) => adminWrite<ConnectionAuditPage>('/api/v1/admin/audit/connections/search', 'POST', filter),
 }
