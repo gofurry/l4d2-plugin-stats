@@ -87,6 +87,11 @@ public void OnConfigsExecuted()
 	LPS_ApplyConfiguration();
 }
 
+public void OnGameFrame()
+{
+	LPS_OnSurvivorTechniqueGameFrame();
+}
+
 public void OnPluginEnd()
 {
 	LPS_ShutdownLifecycles();

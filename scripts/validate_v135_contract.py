@@ -11,6 +11,7 @@ def require(text: str, needle: str, label: str) -> None:
 
 def main() -> None:
     definitions = (ROOT / "collector/include/l4d2_player_stats/definitions.inc").read_text(encoding="utf-8")
+    config = (ROOT / "collector/include/l4d2_player_stats/config.inc").read_text(encoding="utf-8")
     techniques = (ROOT / "collector/include/l4d2_player_stats/survivor_techniques.inc").read_text(encoding="utf-8")
     chat = (ROOT / "collector/include/l4d2_player_stats/chat_audit.inc").read_text(encoding="utf-8")
     extended = (ROOT / "collector/include/l4d2_player_stats/pve_extended.inc").read_text(encoding="utf-8")
@@ -35,16 +36,24 @@ def main() -> None:
         ('event.GetInt("award") != 67', "engine protection award 67"),
         ('g_LPSLedgeTimerActive[client]', "PvE ledge transition reuse"),
         ('HookEvent("charger_impact"', "Charger impact invalidation"),
-        ('LPS_GetEquipmentFromWeaponEvent(', "shared equipment classification"),
+        ('LPS_ResolveKillEquipment(', "last-damage-aware equipment classification"),
         ('LPS_IsMeleeEquipment(equipment)', "official melee gate"),
         ('LPS_InvalidateHunterEpisode', "Hunter episode invalidation"),
         ('LPS_InvalidateChargerEpisode', "Charger episode invalidation"),
-        ('LPS_IsHunterInAirbornePounce', "airborne Hunter death proof"),
-        ('m_isAttemptingToPounce', "Hunter pounce engine state"),
-        ('LPS_IsChargerActivelyCharging', "active Charger death proof"),
+        ('LPS_OnSurvivorTechniqueGameFrame', "bounded pre-death technique sampling"),
+        ('g_LPSHunterAirborneConfirmed', "latched Hunter airborne proof"),
+        ('g_LPSHunterLastAirborneAt', "recent Hunter airborne proof"),
+        ('m_hGroundEntity', "Hunter airborne engine state"),
+        ('g_LPSChargerChargingConfirmed', "latched Charger charge proof"),
+        ('g_LPSChargerLastChargingAt', "recent Charger charge proof"),
+        ('HookEvent("player_hurt"', "pre-death lethal damage latch"),
+        ('g_LPSHunterLethalCandidate', "Hunter lethal damage proof"),
+        ('g_LPSChargerLethalCandidate', "Charger lethal damage proof"),
         ('m_isCharging', "Charger charge engine state"),
+        ('LPS_TECHNIQUE_CONFIRM_GRACE', "bounded death-state grace"),
     ):
         require(techniques, needle, label)
+    require(config, '"sm_lps_technique_debug"', "opt-in bounded validation diagnostics")
     require(equipment, "equipment >= LPSEquipment_BaseballBat && equipment <= LPSEquipment_Tonfa", "fixed official melee range")
 
     for needle, label in (
